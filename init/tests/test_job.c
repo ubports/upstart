@@ -86,7 +86,7 @@ test_new (void)
 	 * list of the class and have sensible defaults.
 	 */
 	TEST_FEATURE ("with no name");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->stop_on = event_operator_new (class, EVENT_MATCH, "baz", NULL);
 
 	TEST_ALLOC_FAIL {
@@ -284,7 +284,7 @@ test_register (void)
 	 * using its path, and have a InstanceAdded signal emitted.
 	 */
 	TEST_FEATURE ("with signal emission");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "fred");
 
 	assert (dbus_connection_get_object_path_data (conn, job->path,
@@ -324,7 +324,7 @@ test_register (void)
 	 * is still registered.
 	 */
 	TEST_FEATURE ("without signal emission");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "fred");
 
 	assert (dbus_connection_get_object_path_data (conn, job->path,
@@ -359,7 +359,6 @@ test_register (void)
 
 	nih_free (class);
 
-
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
@@ -386,7 +385,7 @@ test_change_goal (void)
 
 	program_name = "test";
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 	class->process[PROCESS_PRE_START] = process_new (class);
@@ -691,7 +690,7 @@ test_change_state (void)
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0700);
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 		class->process[PROCESS_MAIN], "touch %s/run", dirname);
@@ -3736,7 +3735,7 @@ test_change_state (void)
 		TEST_ALLOC_SAFE {
 			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 			file = conf_file_new (source, "/tmp/test");
-			file->job = job_class_new (NULL, "test");
+			file->job = job_class_new (NULL, "test", NULL);
 			replacement = file->job;
 
 			job = job_new (class, "");
@@ -3805,7 +3804,7 @@ test_change_state (void)
 		TEST_ALLOC_SAFE {
 			source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 			file = conf_file_new (source, "/tmp/test");
-			file->job = job_class_new (NULL, "test");
+			file->job = job_class_new (NULL, "test", NULL);
 			replacement = file->job;
 
 			job = job_new (class, "");
@@ -3882,7 +3881,7 @@ test_change_state (void)
 	TEST_FEATURE ("post-stop to waiting for deleted job");
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 	file = conf_file_new (source, "/tmp/test");
-	file->job = job_class_new (NULL, "test");
+	file->job = job_class_new (NULL, "test", NULL);
 	replacement = file->job;
 
 	class->deleted = TRUE;
@@ -3951,11 +3950,11 @@ test_change_state (void)
 void
 test_next_state (void)
 {
-	JobClass *class;
+	JobClass  *class;
 	Job       *job;
 
 	TEST_FUNCTION ("job_next_state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 
@@ -4210,7 +4209,7 @@ test_failed (void)
 	 * as failed before freeing the blocking list.
 	 */
 	TEST_FEATURE ("with no current failure");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	event1 = event_new (NULL, "foo", NULL);
@@ -4251,7 +4250,7 @@ test_failed (void)
 	 * since these were added after the first failure.
 	 */
 	TEST_FEATURE ("with previous failure");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 	job->failed = TRUE;
 	job->failed_process = PROCESS_PRE_START;
@@ -4289,7 +4288,6 @@ test_failed (void)
 
 	nih_free (class);
 
-
 	event_poll ();
 }
 
@@ -4307,7 +4305,7 @@ test_finished (void)
 	 * is unblocked and the list itself is then freed.
 	 */
 	TEST_FEATURE ("with blocked events");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	event1 = event_new (NULL, "foo", NULL);
@@ -4343,7 +4341,7 @@ test_finished (void)
 	 * unblocked and marked as failed.
 	 */
 	TEST_FEATURE ("with blocked events and failure");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	event1 = event_new (NULL, "foo", NULL);
@@ -4379,7 +4377,7 @@ test_finished (void)
 	 * still works (and just does nothing).
 	 */
 	TEST_FEATURE ("without blocked events");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job_finished (job, TRUE);
@@ -4387,7 +4385,6 @@ test_finished (void)
 	TEST_LIST_EMPTY (&job->blocking);
 
 	nih_free (class);
-
 
 	event_poll ();
 }
@@ -4407,7 +4404,7 @@ test_emit_event (void)
 	 * event event emitted with the job name set.
 	 */
 	TEST_FEATURE ("with singleton in starting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_START;
@@ -4446,7 +4443,7 @@ test_emit_event (void)
 	 * instance name set.
 	 */
 	TEST_FEATURE ("with instance in starting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4486,7 +4483,7 @@ test_emit_event (void)
 	 * event emitted with the job name set.
 	 */
 	TEST_FEATURE ("with singleton in running state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_START;
@@ -4516,7 +4513,7 @@ test_emit_event (void)
 	 * instance name set.
 	 */
 	TEST_FEATURE ("with instance in running state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4548,7 +4545,7 @@ test_emit_event (void)
 	 * result as "ok"
 	 */
 	TEST_FEATURE ("with non-failed singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -4588,7 +4585,7 @@ test_emit_event (void)
 	 * also has the instance name set before the result information.
 	 */
 	TEST_FEATURE ("with non-failed instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4631,7 +4628,7 @@ test_emit_event (void)
 	 * exit status members set.
 	 */
 	TEST_FEATURE ("with failed singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -4677,7 +4674,7 @@ test_emit_event (void)
 	 * set before the result information.
 	 */
 	TEST_FEATURE ("with failed instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4725,7 +4722,7 @@ test_emit_event (void)
 	 * members set.
 	 */
 	TEST_FEATURE ("with killed singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -4771,7 +4768,7 @@ test_emit_event (void)
 	 * result information.
 	 */
 	TEST_FEATURE ("with killed instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4819,7 +4816,7 @@ test_emit_event (void)
 	 * signal members set.
 	 */
 	TEST_FEATURE ("with unknown killed singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -4865,7 +4862,7 @@ test_emit_event (void)
 	 * the result information.
 	 */
 	TEST_FEATURE ("with unknown killed instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -4912,7 +4909,7 @@ test_emit_event (void)
 	 * the job name set, the result as failed, and just the process set.
 	 */
 	TEST_FEATURE ("with unstarted singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -4957,7 +4954,7 @@ test_emit_event (void)
 	 * the result information.
 	 */
 	TEST_FEATURE ("with unstarted instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5003,7 +5000,7 @@ test_emit_event (void)
 	 * the result as failed and the process set to respawn.
 	 */
 	TEST_FEATURE ("with failed respawn singleton in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5048,7 +5045,7 @@ test_emit_event (void)
 	 * information.
 	 */
 	TEST_FEATURE ("with failed respawn instance in stopping state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5094,7 +5091,7 @@ test_emit_event (void)
 	 * result as "ok"
 	 */
 	TEST_FEATURE ("with non-failed singleton in stopped state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5125,7 +5122,7 @@ test_emit_event (void)
 	 * also has the instance name set before the result information.
 	 */
 	TEST_FEATURE ("with non-failed instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5159,7 +5156,7 @@ test_emit_event (void)
 	 * exit status members set.
 	 */
 	TEST_FEATURE ("with failed singleton in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5196,7 +5193,7 @@ test_emit_event (void)
 	 * set before the result information.
 	 */
 	TEST_FEATURE ("with failed instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5235,7 +5232,7 @@ test_emit_event (void)
 	 * members set.
 	 */
 	TEST_FEATURE ("with killed singleton in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5272,7 +5269,7 @@ test_emit_event (void)
 	 * result information.
 	 */
 	TEST_FEATURE ("with killed instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5311,7 +5308,7 @@ test_emit_event (void)
 	 * signal members set.
 	 */
 	TEST_FEATURE ("with unknown killed singleton in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5348,7 +5345,7 @@ test_emit_event (void)
 	 * the result information.
 	 */
 	TEST_FEATURE ("with unknown killed instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5386,7 +5383,7 @@ test_emit_event (void)
 	 * the job name set, the result as failed, and just the process set.
 	 */
 	TEST_FEATURE ("with unstarted singleton in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5422,7 +5419,7 @@ test_emit_event (void)
 	 * the result information.
 	 */
 	TEST_FEATURE ("with unstarted instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5459,7 +5456,7 @@ test_emit_event (void)
 	 * the result as failed and the process set to respawn.
 	 */
 	TEST_FEATURE ("with failed respawn singleton in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 
 	job = job_new (class, "");
 	job->goal = JOB_STOP;
@@ -5495,7 +5492,7 @@ test_emit_event (void)
 	 * information.
 	 */
 	TEST_FEATURE ("with failed respawn instance in waiting state");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 
 	job = job_new (class, "foo");
@@ -5540,7 +5537,7 @@ test_name (void)
 
 	/* Check that the name of a non-instance job is returned. */
 	TEST_FEATURE ("with non-instance job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	TEST_ALLOC_FAIL {
@@ -5554,7 +5551,7 @@ test_name (void)
 
 	/* Check that the name of an instance job is returned. */
 	TEST_FEATURE ("with instance job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	class->instance = "$FOO";
 	job = job_new (class, "foo");
 
@@ -5571,7 +5568,7 @@ test_name (void)
 	 * value.
 	 */
 	TEST_FEATURE ("with multiple calls");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	ret = job_name (job);
@@ -5842,7 +5839,6 @@ test_start (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_start");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -5858,8 +5854,9 @@ test_start (void)
 	 * the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
 
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
@@ -5944,7 +5941,7 @@ test_start (void)
 	 * and no blocking entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -6014,7 +6011,7 @@ test_start (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with starting job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -6062,7 +6059,6 @@ test_start (void)
 
 	nih_free (class);
 
-
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
@@ -6087,7 +6083,6 @@ test_stop (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_stop");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -6103,7 +6098,7 @@ test_stop (void)
 	 * the reply will be sent to the sender and the instance deleted.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -6182,7 +6177,7 @@ test_stop (void)
 	 * no blocking entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -6248,7 +6243,7 @@ test_stop (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -6296,7 +6291,6 @@ test_stop (void)
 
 	nih_free (class);
 
-
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
@@ -6321,7 +6315,6 @@ test_restart (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_restart");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -6337,7 +6330,7 @@ test_restart (void)
 	 * it back through to running, the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -6426,7 +6419,7 @@ test_restart (void)
 	 * and no blocking entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -6499,7 +6492,7 @@ test_restart (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -6547,7 +6540,6 @@ test_restart (void)
 
 	nih_free (class);
 
-
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
@@ -6578,7 +6570,7 @@ test_get_name (void)
 	TEST_FEATURE ("with instance name");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "instance name");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -6618,7 +6610,7 @@ test_get_name (void)
 	TEST_FEATURE ("with no instance name");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -6671,7 +6663,7 @@ test_get_goal (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "");
 			job->goal = JOB_START;
 
@@ -6725,7 +6717,7 @@ test_get_state (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_RUNNING;
@@ -6783,7 +6775,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with no processes");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_STARTING;
@@ -6827,7 +6819,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with pre-start process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "echo";
 
@@ -6882,7 +6874,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with post-start process and no main process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_POST_START] = process_new (class);
 			class->process[PROCESS_POST_START]->command = "echo";
 
@@ -6936,7 +6928,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with main process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -6991,7 +6983,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with main process and post-start process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_POST_START] = process_new (class);
 			class->process[PROCESS_POST_START]->command = "echo";
 			class->process[PROCESS_MAIN] = process_new (class);
@@ -7055,7 +7047,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with main process and pre-stop process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "echo";
 			class->process[PROCESS_PRE_STOP] = process_new (class);
@@ -7119,7 +7111,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with pre-stop process and no main process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_PRE_STOP] = process_new (class);
 			class->process[PROCESS_PRE_STOP]->command = "echo";
 
@@ -7173,7 +7165,7 @@ test_get_processes (void)
 	TEST_FEATURE ("with post-stop process");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = "echo";
 
@@ -7226,6 +7218,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 	test_register ();
 	test_change_goal ();

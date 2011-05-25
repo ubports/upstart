@@ -1,4 +1,465 @@
+2011-04-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* control_get_job_by_name: Fix to relax session rigidity for user
+	  sessions (allow user sessions to see into the global
+	  namespace for backwards compatability) (LP: #767053).
+
+2011-04-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_source_reload_file(): Added missing error return if override
+	    doesn't parse (code path currently unused).
+	  - Documentation updates.
+	* init/job.c: job_new(): Fix for nasty OOM scenario when an attempt is made
+	  to start a chroot job with same name as running single-instance non-chroot
+	  job. Previously, the path for a chrooted Job was set from the (nul) instance
+	  name of its parent JobClass. However, since that job instance name already
+	  existed outside the chroot and was already D-Bus registered,
+	  nih_dbus_object_new() (which allocates storage and is called by
+	  job_register()) returned NULL and kept doing so due to being called
+	  within NIH_MUST(). This resulted in OOM due to an as-yet unidentified
+	  D-Bus bug (possibly a leak in find_subtree_recurse()).
+	* init/session.h: Documentation updates.
+	* util/test_initctl.c: Cleaned up variable names
+	  in RUN_COMMAND macro.
+	* init/parse_job.c: Documentation updates.
+
+2011-04-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c: conf_select_job(): Added Session parameter.
+	* init/control.c: control_get_job_by_name(): Handle multiple jobs with same
+	  name (but different session) in job_classes hash.
+	* init/job_class.c:
+	  - job_class_remove(): Added Session parameter.
+	  - job_class_consider(): Handle multiple jobs with same name
+	    (but different session) in job_classes hash.
+	  - job_class_reconsider(): Handle multiple jobs with same name
+	    (but different session) in job_classes hash.
+	  - job_class_remove(): Handle incorrect session.
+	* init/job_process.c: job_process_spawn(): Updated for sessions and
+	  chroots.
+	* init/job_process.h: New enums for: 
+	  - JOB_PROCESS_ERROR_SETUID
+	  - JOB_PROCESS_ERROR_SETGID
+	* init/session.c:
+	  - session_from_dbus(): Added ability to disable sessions.
+	  - Added disable_sessions variable, set via main().
+	* init/session.h: Added tabular comment summarising Session object
+	  contents for different environments.
+	* init/Makefile.am: Reverted special-casing for session.c.
+	* init/main.c: Addition of new command-line option "--no-sessions" to
+	  disable chroot+user sessions (providing a "traditional" Upstart
+	  environment. The primary use for this option is the test suite.
+	* init/man/init.8: Updates for "--no-sessions".
+	* init/tests/test_*.c: Replaced explicit Sessions with NULL
+	  session since tests are not yet session-aware (with the exception of
+	  test_job_process.c, all main() functions now set the
+	  UPSTART_NO_SESSIONS variable to disable sessions).
+	* util/tests/test_initctl.c:
+	  - START_UPSTART now specifies "--no-sessions"
+	  - test_check_config(): Added test for "--warn".
+	* scripts/init-checkconf.sh: Script now also checks any script
+	  sections found unless the new "--noscript" option is specified.
+	  Added required "--no-sessions" option to upstart_cmd to ensure Upstart
+	  treats clients requests in traditional manner.
+	* scripts/man/init-checkconf.8: Update for "--noscript".
+	* util/initctl.c: Added "--warn" option for check-config command to
+	  warn if any events or jobs are not known.
+
+2011-03-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_control.c: Added comment.
+	* scripts/initctl2dot.py: Fixes to handle 'emits' glob syntax:
+	  - header(): Change default node to be an event to simplify handling
+	    globs in 'emits' stanzas.
+	  - footer(): Updated for glob event nodes.
+	  - sanitize(): Protect against glob syntax.
+	  - show_event(): Update for glob event nodes.
+	  - show_job(): Explicit specification of record node.
+	  - show_edges(): Handle 'emits' glob syntax.
+
+2011-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Bump version to 0.9.3.
+	* NEWS: Entry for version 0.9.3.
+	* conf/rc-sysinit.conf: Added emits stanza for runlevel event.
+	* extra/conf/upstart-socket-bridge.conf: Added emits stanza for socket
+	  event.
+	* extra/conf/upstart-udev-bridge.conf: Added emits stanza for udev class
+	  of events (using globs).
+	* init/man/init.5: Updated emits stanza section to explain use of
+	  wildcard characters.
+	* util/initctl.c:
+	  - New functions:
+	    - allow_job(): Determine if specified job is erroneous or not.
+	      Handles variables (such as instance variables).
+	    - allow_event(): Determine if specified event is erroneous or not.
+	      Handles globbing.
+	  - eval_expr_tree():
+	    - Added calls to allow_job() and allow_event().
+	    - Slight simplification of operand-handling code.
+	* util/tests/test_initctl.c: Simplification of dbus_configured().
+
+2011-03-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Install improvements for
+	  "make distcheck". Added uninstall for scripts.
+
+2011-03-10  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/conf/upstart-socket-bridge.conf: Start as soon as networking is
+	  available.
+	* extra/man/socket-event.7: Minor typo fixes and troff quoting for
+	  dashes.
+	* extra/man/upstart-socket-bridge.8: Removed reference to socket(8) and
+	  replaced with socket-event(7).
+	* extra/man/upstart-udev-bridge.8: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* init/control.c: Typo.
+	* init/main.c: Corrected indentation.
+	* init/man/init.5: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* init/man/init.8: Typo.
+	* scripts/init-checkconf.sh: Fixed to ensure safety and portability:
+	    - Quoted all variables.
+	    - Removed non-portable syntax.
+	    - Changed to using getopt(1) rather than getopts(1), and added
+	      long-options.
+	* scripts/initctl2dot.py:
+	    - Changed from os.popen() to (safer)
+	      subprocess.Popen()
+	    - Formatting and typos.
+	* util/initctl.c: Typo.
+	* util/man/initctl.8: Minor typo fixes, troff quoting for
+	  dashes, and replaced literal quotes with troff quotes.
+	* util/tests/test_initctl.c:
+	  - START_UPSTART: improved comments and minor tidyup.
+	  - test_show_config(): Placed tests for expected number of lines of
+	    output *after* checking expected line values. This ensures that if
+	    problems are encountered (for example D-Bus issues), the person
+	    viewing the log has a hope of working out what went wrong :-)
+	  - test_check_config(): As test_show_config().
+	  - dbus_configured(): New function that performs a highly rudimentary
+	    check to see if D-Bus appears to be configured for the environment
+	    the tests run in.
+	  - main(): Improved test for running tests within a chroot: we do now
+	    run all tests assuming that D-Bus is found to be working within a
+	    chroot environment.
+
+2011-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8: Added examples.
+	* extra/Makefile.am: Create links to upstart-udev-bridge
+          man page for well-known Upstart udev events.
+	* util/initctl.h: Improved comments for CheckConfigData.
+	* scripts/init-checkconf.sh:
+	  - cleanup(): Make use of $upstart_pid.
+	  - main(): disown $upstart_pid to stop newer bash versions
+	    displaying changed child process status.
+	* scripts/init2dot.py:
+	  - Removed erroneous check option.
+	  - Improved exaplanation of '-r' option.
+	* scripts/Makefile.am: Added manual pages.
+	* scripts/man/init-checkconf.8: New manual page.
+	* scripts/man/initctl2dot.8: New manual page.
+
+2011-03-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/Makefile.am: Fixed paths and names for scripts.
+	* extra/Makefile.am: Update for upstart-socket-bridge.
+	* util/tests/test_initctl.c:
+	    - in_chroot(): New function to detect if in chroot environment.
+	    - main(): Call in_chroot() to work around bug lp:728988.
+	    - START_UPSTART(): Only try to connect 10 times. Don't use
+	      upstart_open() since this uses the system bus whereas we care
+	      about the session bus. Removed "--debug" as this confuses the
+	      log output.
+	* Moved scripts from "contrib/utils/" to "scripts/" and ensured they
+	  now install on "make install".
+	* Makefile.am: Added scripts directory.
+	* configure.ac: Added scripts/Makefile.   
+	* Packaging changes for socket bridge.
+
+2011-03-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/socket-event.7: Man page for new socket event.
+	* extra/man/upstart-socket-bridge.8: Man page for socket bridge.
+	* upstart-socket-bridge.conf: configuration file for socket
+	  bridge.
+	* contrib/bash_completion/upstart: Updated for new initctl commands
+	 "show-config" and "check-config".
+	* contrib/utils/init-check.sh: Script to determine if the
+	  specified job configuration file (located outside of /etc/init/)
+	  is valid or not.
+	* contrib/utils/initctl2dot.py: Simply Python script to convert new initctl
+	  output to GraphViz dot format. Example usage:
+	    initctl2dot.py -o - | dot -Tpng -o upstart.png
+	* init/control.h: New define for USE_SESSION_BUS_ENV.
+	* init/control.c:
+	  - control_handle_bus_type(): New function to allow selection of
+	    session bus via env var "UPSTART_USE_SESSION_BUS" (for testing).
+	  - control_bus_open(): Connect to either D-Bus system bus or session bus.
+	* init/man/init.8: Updated for --confdir, --session, --no-startup-event
+	  and --startup-event.
+	* init/main.c:
+	  - Added new options '--startup-event' and '--no-startup-event'.
+	  - Addition of --session and --confdir command-line option (required for
+	    test framework to test changes to initctl).
+	  - handle_confdir(): New function to select alternate confdir using env
+	    var "UPSTART_CONFDIR" (for testing).
+	* init/paths.h:
+	  - Renamed CONDIR to DEFAULT_CONFDIR to make its use clearer now it can be changed.
+	  - Renamed CONFILE to DEFAULT_CONFFILE for parity with DEFAULT_CONFDIR.
+	  - Added define for CONFDIR_ENV.
+	* util/initctl.c:
+	  - Addition of --session command-line option (required for test framework to test
+	    visualisation changes to initctl).
+	  - Changed 'system_bus' variable to 'use_dbus' since now we can use either D-Bus bus type.
+	  - Added 'dbus_bus_type' which encodes D-Bus bus type to use.
+	  - Added 'verbose_detail' and 'enumerate_events' variables to 
+	  - Created new functions:
+	    - show_config_action(): New function to handle 'show-config' command.
+	    - job_class_condition_handler(): Handler function to retrieve job conditions.
+	    - job_class_condition_err_handler(): Handler error function for
+	      job_class_condition_handler().
+	    - job_class_parse_events(): Convert RPN "start on" and "stop on" conditions to
+	      human-readable format.
+	    - job_class_show_emits(): Display events which job emits.
+	    - job_class_show_conditions(): Make D-Bus calls to retrieve "start on" and
+	      "stop on" conditions.
+	    - dbus_bus_type_setter(): Used by option parser to distinguish system/session
+	      D-Bus bus type.
+	    - New functions for check-config command;
+	      - check_config_action: Handler for new check-config command-line
+	        option.
+	      - ignored_events_setter(): handler for '--ignore-events' command-line
+	        option for check-config command.
+	      - eval_expr_tree(): Evaluate expression tree.
+	      - check_condition(): High-level function to handle checking start
+	        on/stop on conditions.
+	      - tree_filter(): Used for filtering expression tree nodes.
+	      - display_check_errors():
+	  - Updated upstart_open() to handle multiple D-Bus bus types.
+	  - status_action() and list_action() modified to call:
+	    - job_class_show_emits()
+	    - job_class_show_conditions()
+	* util/initctl.h: New file providing:
+	  - stack-handling functionality for RPN parsing
+	  - New macros:
+	    - GET_JOB_NAME(): Determine if specified token refers to a job and
+	      return it if true.
+	    - IS_INIT_EVEN(): Determine if specified event is an internally
+	      generated event.
+	    - MAKE_EXPR_NODE(): Create an ExprNode object.
+	    - MAKE_JOB_CONDITION(): Create a JobCondition object.
+	  - New types required for check-config command:
+	    - CheckConfigData
+	    - JobCondition
+	    - ConditionHandlerData
+	    - ExprNode
+	* util/man/initctl.8:
+	  - Updated for show-config section showing new "--enumerate" format output.
+	  - Added section for check-config command.
+	* util/tests/test_initctl.c:
+	  - added test_show_config() and test_check_config().
+	  - new macros START_UPSTART, STOP_UPSTART, RUN_COMMAND, CREATE_FILE
+	    and DELETE_FILE. These are required since due to the changes in initctl.c, we
+	    actually need to run the initctl binary directly (as that is where all
+	    the emits/start on/stop on parsing occurs). The test stategy adopted is to run
+	    (a second instance of! :-) Upstart as a non-privileged user
+	    connected to the session bus and using an alternate config
+	    directory. Then, by invoking initctl, again connecting to the session
+	    bus, we test the parsing functionality directly.
+
+2011-02-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* Fixes to allow "make check" to pass with Session support.
+
+2011-01-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* Override file support.
+
+2011-03-03  James Hunt <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Updated for new initctl show-config
+	  command. 
+	* contrib/utils/init-checkconf.sh: Added '-i' option to specify path to
+	  init daemon (for test builds). Ensure conf file exists.
+	* contrib/utils/initctl2dot.py: Updated for changed initctl show-config
+	  output.
+	* util/Makefile.am: Added missing initctl.h to initctl_SOURCES.
+	* util/initctl.c:
+	  - New functions to handle new check-config command.
+	    - check_config_action: Handler for new check-config command-line
+	      option.
+	    - ignored_events_setter(): handler for '--ignore-events' command-line
+	      option for check-config command.
+	    - eval_expr_tree(): Evaluate expression tree.
+	    - check_condition(): High-level function to handle checking start
+	      on/stop on conditions.
+	    - tree_filter(): Used for filtering expression tree nodes.
+	    - display_check_errors():
+	  - Removed ENSURE_ROOT() macros since this would conflict with user
+	    sessions.
+	* util/initctl.h:
+	  - New macros:
+	    - GET_JOB_NAME(): Determine if specified token refers to a job and
+	      return it if true.
+	    - IS_INIT_EVEN(): Determine if specified event is an internally
+	      generated event.
+	    - MAKE_EXPR_NODE(): Create an ExprNode object.
+	    - MAKE_JOB_CONDITION(): Create a JobCondition object.
+	  - New types required for check-config command:
+	    - CheckConfigData
+	    - JobCondition
+	    - ConditionHandlerData
+	    - ExprNode
+	* util/man/initctl.8:
+	  - Updated for show-config section showing new "--enumerate" format output.
+	  - Added section for check-config command.
+	* util/tests/test_initctl.c:
+	  - START_UPSTART(): Improved test to ensure Upstart has actually
+	    started.
+	  - STOP_UPSTART(): Improved test to ensure Upstart has actually
+	    stopped.
+	  - test_show_config(): Updated for new show-config --enumerate syntax.
+	  - test_check_config(): New function to test check-config command.
+
+2011-02-17  James Hunt <james.hunt@ubuntu.com>
+
+	* contrib/utils/init-check.sh renamed to init-checkconf.sh.
+	* contrib/utils/initct2dot.py:
+	  - updated to call "initctl show-config" 
+	  - Added options to allow specification of all colo(u)rs.
+	  - Added a '--restrict-to-jobs' option to allow a sub-set of all jobs
+	    to be viewed (along with their associated jobs and events).
+	  - Code refactored.
+	* init/main.c:
+	  - Added new options '--startup-event' and '--no-startup-event'.
+	* init/man/init.8: Updated for "initctl show-status".
+	* util/initctl.c:
+	  - Reworked code so that rather than utilizing existing 'list' and
+	    'status' commands, we now have a new command: 'show-status'. This is
+	    more logical since it is obvious what it is doing and it also
+	    doesn't pollute the dynamic data returned by 'status' and 'list' with
+	    purely static info.
+	  - upstart_open(): Improved dbus_bus_type usage (now only default to
+	    system bus).
+	  - show_config_action(): New function to handle 'show-config' command.
+	  - job_class_parse_events(): Fixed uninitialized variable issue and
+	    removed IS_JOB() macro in favour of the ultimately reliable
+	    IS_JOB_EVENT() macro.
+	* util/initctl.h: Only enable stack debugging if DEBUG_STACK defined.
+	  This ensures that "make check" doesn't fail due to stack DEBUG output.
+	* util/man/initctl.8: Updated for new 'show-config' command.
+	* util/tests/test_initctl.c:
+	  - Improved START_UPSTART() and STOP_UPSTART() macros.
+	  - Renamed test_status_and_list_action_detail() to
+	    test_show_config_action() to reflect the new command under test.
+	  - test_show_config_action(): Removed all (now-redundant) tests calling
+	    "initctl status" and "initctl list" and updated for new 'show-config'
+	    command.
+
+2011-02-15  James Hunt <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Update for job visualisation.
+	* contrib/utils/init-check.sh: Script to determine if the
+	  specified job configuration file (located outside of /etc/init/)
+	  is valid or not.
+	* contrib/utils/initctl2dot.py: Simple Python script to convert new initctl
+	  output to GraphViz dot format. Example usage:
+	    initctl2dot.py > upstart.dot && dot -Tpng -o upstart.png upstart.dot
+	* dbus/upstart.h: Whitespace fix.
+	* init/control.c:
+	  - control_handle_bus_type(): New function to allow selection of
+	    session bus via env var "UPSTART_USE_SESSION_BUS" (for testing).
+	  - control_bus_open(): Connect to either D-Bus system bus or session bus.
+	* init/control.h: New define for USE_SESSION_BUS_ENV.
+	* init/man/init.8: Update for --confdir and --session.
+	* init/main.c:
+	  - Addition of --session and --confdir command-line option (required for
+	    test framework to test changes to initctl).
+	  - handle_confdir(): New function to select alternate confdir using env
+	    var "UPSTART_CONFDIR" (for testing).
+	* init/paths.h:
+	  - Renamed CONDIR to DEFAULT_CONFDIR to make its use clearer now it can be changed.
+	  - Renamed CONFILE to DEFAULT_CONFFILE for parity with DEFAULT_CONFDIR.
+	  - Added define for CONFDIR_ENV.
+	* util/initctl.c:
+	  - Addition of --session command-line option (required for test framework to test
+	    visualisation changes to initctl).
+	  - Changed 'system_bus' variable to 'use_dbus' since now we can use either D-Bus
+	    bus type.
+	  - Added 'dbus_bus_type' which encodes D-Bus bus type to use.
+	  - Added 'verbose_detail' and 'enumerate_events' variables to 
+	  - Created new functions:
+	    - job_class_condition_handler(): Handler function to retrieve job conditions.
+	    - job_class_condition_err_handler(): Handler error function for
+	      job_class_condition_handler().
+	    - job_class_parse_events(): Convert RPN "start on" and "stop on" conditions to
+	      human-readable format.
+	    - job_class_show_emits(): Display events which job emits.
+	    - job_class_show_conditions(): Make D-Bus calls to retrieve "start on" and
+	      "stop on" conditions.
+	    - dbus_bus_type_setter(): Used by option parser to distinguish system/session
+	      D-Bus bus type.
+	  - Updated upstart_open() to handle multiple D-Bus bus types.
+	  - Changed following functions to error with message if initctl run as
+	    non-root user (without this, you get a very cryptic D-Bus error):
+	    - start_action()
+	    - stop_action()
+	    - restart_action()
+	    - reload_configuration_action()
+	    - log_priority_action()
+	  - status_action() and list_action() modified to call:
+	    - job_class_show_emits()
+	    - job_class_show_conditions()
+	* util/initctl.h: New file providing stack-handling functionality for RPN parsing.
+	* util/initctl.8: Updated for --session, and --detail/-d and
+	  --enumerate/-e options to status and list commands.
+	* util/tests/test_initctl.c:
+	  - new macros START_UPSTART, STOP_UPSTART, RUN_COMMAND, CREATE_FILE and DELETE_FILE.
+	    These are required since due to the changes in initctl.c, we
+	    actually need to run the initctl binary directly (as that is where all
+	    the emits/start on/stop on parsing occurs). The test stategy adopted is to run
+	    (a second instance of! :-) Upstart as a non-privileged user
+	    connected to the session bus and using an alternate config
+	    directory. Then, by invoking initctl, again connecting to the session
+	    bus, we test the parsing functionality directly.
+	  - test_status_and_list_action_detail(): New function to test '-d' and
+	    '-e' options for status and list commands.
+	  - updated all remaining functions to use 'use_dbus' rather than 'system_bus'.
+
+2011-01-06  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_termianted): Don't rewind the
+	utmp file between updates.
+	* init/tests/test_job_process.c (test_utmp): Add test case for
+	newer mingetty behaviour.
+
+2010-12-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Add bash completion script.
+	* contrib/Makefile.am (EXTRA_DIST): Include in tarball.
+	* NEWS: Update.
+
+2010-12-20  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: update.
+
+2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_terminated): On termination of
+	a job, update the utmp file replacing any existing entry for that
+	pid with a DEAD_PROCESS entry; likewise append an entry to wtmp.
+	* init/tests/test_job_process.c (test_utmp): Test utmp handling.
+
+	* util/shutdown.c: Exit non-zero if unable to shutdown the system.
+
 2010-12-14  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.6.8
+	* NEWS: Begin new release
 
 	* NEWS: Release 0.6.7
 
@@ -26,6 +487,14 @@
 	* init/main.c: Display PID+PPID for debug builds.
 	* init/parse_job.c: Added new function stanza_debug.
 	* init/tests/test_job_process.c (test_spawn): Added test for debug stanza.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Socket bridge and udev bridge support.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* Session support (chroots, sessions and user-session).
 
 2010-12-10  Scott James Remnant  <scott@netsplit.com>
 

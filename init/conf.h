@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include <nih/list.h>
 #include <nih/watch.h>
 
+#include "session.h"
 #include "job_class.h"
 
 
@@ -47,6 +48,7 @@ typedef enum conf_source_type {
 /**
  * ConfSource:
  * @entry: list header,
+ * @session: attached session,
  * @path: path to source,
  * @type: type of source,
  * @watch: NihWatch structure for automatic change notification,
@@ -64,6 +66,7 @@ typedef enum conf_source_type {
  **/
 typedef struct conf_source {
 	NihList             entry;
+	Session *           session;
 	char               *path;
 	ConfSourceType      type;
 
@@ -122,7 +125,47 @@ int         conf_source_reload (ConfSource *source)
 
 int         conf_file_destroy  (ConfFile *file);
 
-JobClass *  conf_select_job    (const char *name);
+JobClass *  conf_select_job    (const char *name, const Session *session);
+
+char *toggle_conf_name         (const void *parent, const char *path)
+	__attribute__ ((warn_unused_result, malloc));
+
+#ifdef DEBUG
+
+/* used for debugging only */
+
+size_t
+debug_count_hash_entries       (const NihHash *hash);
+
+size_t
+debug_count_list_entries       (const NihList *list)
+	__attribute__ ((unused));
+
+void
+debug_show_job_class           (const JobClass *job)
+	__attribute__ ((unused));
+
+void
+debug_show_job_classes         (void)
+	__attribute__ ((unused));
+
+void
+debug_show_event               (const Event *event)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_file(const ConfFile *file)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_source(const ConfSource *source)
+	__attribute__ ((unused));
+
+void
+debug_show_conf_sources(void)
+	__attribute__ ((unused));
+
+#endif
 
 NIH_END_EXTERN
 

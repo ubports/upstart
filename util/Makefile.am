@@ -29,7 +29,7 @@ sbin_PROGRAMS = \
 	telinit
 
 initctl_SOURCES = \
-	initctl.c
+	initctl.c initctl.h
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \

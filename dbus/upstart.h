@@ -31,7 +31,7 @@
 #  define DBUS_SERVICE_UPSTART "com.ubuntu.TestUpstart"
 # else
 #  define DBUS_SERVICE_UPSTART "com.ubuntu.Upstart"
-#endif
+# endif
 #endif
 
 
