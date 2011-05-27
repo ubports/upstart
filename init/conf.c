@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009, 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -516,13 +516,10 @@ conf_source_reload_file (ConfSource *source)
 	nih_debug ("Updating configuration for %s from %s",
 		  source->path, override_path);
 	if (conf_reload_path (source, source->path, override_path) < 0) {
-		NihError *err;
+		if (err)
+			nih_free (err);
 
-		err = nih_error_get ();
-		nih_error ("%s: %s: %s", override_path,
-				_("Error while reloading configuration file"),
-				err->message);
-		nih_free (err);
+		return -1;
 	}
 
 	return 0;
@@ -934,7 +931,7 @@ conf_file_visitor (ConfSource  *source,
  * conf_reload_path:
  * @source: configuration source,
  * @path: path of conf file to be reloaded.
- * @override_path: if TRUE and @path refers to a path associated with @source,
+ * @override_path: if not NULL and @path refers to a path associated with @source,
  * overlay the contents of @path into the existing @source entry for
  * @path. If FALSE, discard any existing knowledge of @path.
  *
@@ -945,7 +942,8 @@ conf_file_visitor (ConfSource  *source,
  *
  * If the file has been parsed before, then the existing item is deleted and
  * freed if the file fails to load, or after the new item has been parsed.
- * Items are not reused between reloads.
+ * Items are only reused between reloads if @override_path is
+ * non-NULL.
  *
  * Physical errors are returned, parse errors are not.
  *
@@ -967,12 +965,16 @@ conf_reload_path (ConfSource *source,
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
 
-	path_to_load = ( override_path ? override_path : path);
+	path_to_load = (override_path ? override_path : path);
 
 	/* If there is no corresponding override file, look up the old
 	 * conf file in memory, and then free it.  In cases of failure,
 	 * we discard it anyway, so there's no particular reason
 	 * to keep it around anymore.
+	 *
+	 * Note: if @override_path has been specified, do not
+	 * free the file if found, since we want to _update_ the
+	 * existing entry.
 	 */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
 	if (! override_path && file)
@@ -986,7 +988,7 @@ conf_reload_path (ConfSource *source,
 	if (! buf)
 		return -1;
 
-	/* Create a new ConfFile structure (if no override_path was specified) */
+	/* Create a new ConfFile structure (if no @override_path specified) */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
 	if (! file)
 		file = NIH_MUST (conf_file_new (source, path));
