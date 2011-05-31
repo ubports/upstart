@@ -2,7 +2,6 @@
  *
  * test_job_class.c - test suite for init/job_class.c
  *
- * Copyright © 2011 Google Inc.
  * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *

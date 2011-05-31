@@ -1,3 +1,7 @@
+2011-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* Corrected copyright notices.
+
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
 	* init/job_class.h (JobClass): Add kill signal member
