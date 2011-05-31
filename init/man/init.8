@@ -69,8 +69,20 @@ Read job configuration files from a directory other than
 \fI/etc/init\fP.
 .\"
 .TP
+.B \-\-no\-startup\-event
+Suppress emission of the initial startup event. This option should only
+be used for testing since it will stop the 
+.BR init (8)
+daemon from starting \fBany\fP jobs automatically.
+.\"
+.TP
 .B \-\-session
 Connect to the D\-Bus session bus. This should only be used for testing.
+.\"
+.TP
+.B \-\-startup-event \fIevent\fP
+Specify a different initial startup event from the standard
+.BR startup (7) .
 .\"
 .TP
 .B --verbose
