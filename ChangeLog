@@ -22,6 +22,7 @@
 	  - handle_confdir(): New function to select alternate confdir using env
 	    var "UPSTART_CONFDIR" or command-line option (for testing).
 	* init/paths.h: Added define for CONFDIR_ENV.
+	* init/man/init.8: Update for new "--confdir" command-line option.
 
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
