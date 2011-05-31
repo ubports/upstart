@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -67,10 +67,24 @@
 /**
  * CONFDIR:
  *
- * Top-level directory of the system configuration files.
+ * Default top-level directory of the system configuration files.
  **/
 #ifndef CONFDIR
 #define CONFDIR "/etc/init"
+#endif
+
+
+/**
+ * CONFDIR_ENV:
+ *
+ * If this environment variable is set, read configuration files
+ * from the location specified, rather than CONFDIR.
+ *
+ * Value is expected to be the full path to an alternative job
+ * configuration directory.
+ **/
+#ifndef CONFDIR_ENV
+#define CONFDIR_ENV "UPSTART_CONFDIR"
 #endif
 
 

@@ -70,6 +70,8 @@ static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
+static void handle_confdir  (void);
+
 
 /**
  * argv0:
@@ -87,6 +89,15 @@ static const char *argv0 = NULL;
  **/
 static int restart = FALSE;
 
+
+/**
+ * conf_dir:
+ *
+ * Full path to job configuration file directory.
+ *
+ **/
+static char *conf_dir = NULL;
+
 extern int use_session_bus;
 
 /**
@@ -95,6 +106,9 @@ extern int use_session_bus;
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
+		NULL, "DIR", &conf_dir, NULL },
+
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
@@ -127,6 +141,7 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	handle_confdir ();
 	control_handle_bus_type ();
 
 #ifndef DEBUG
@@ -296,7 +311,7 @@ main (int   argc,
 
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
-	NIH_MUST (conf_source_new (NULL, CONFDIR, CONF_JOB_DIR));
+	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	conf_reload ();
 
@@ -594,3 +609,31 @@ usr1_handler (void      *data,
 	}
 }
 #endif /* DEBUG */
+
+/**
+ * handle_confdir:
+ *
+ * Determine where system configuration files should be loaded from.
+ **/
+static void
+handle_confdir (void)
+{
+	char *dir;
+
+	/* user has already specified directory on command-line */
+	if (conf_dir)
+		goto out;
+
+	conf_dir = CONFDIR;
+
+	dir = getenv (CONFDIR_ENV);
+	if (! dir)
+		return;
+
+	conf_dir = dir;
+
+out:
+	nih_debug ("Using alternate configuration directory %s",
+			conf_dir);
+}
+
