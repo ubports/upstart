@@ -12,6 +12,7 @@
 	* init/control.h: New define for USE_SESSION_BUS_ENV.
 	* init/main.c: Addition of "--session" command-line option.
 	* init/man/init.8: Update for new "--session" command-line option.
+	* Corrected copyright notices.
 
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
