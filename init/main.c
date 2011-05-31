@@ -98,6 +98,20 @@ static int restart = FALSE;
  **/
 static char *conf_dir = NULL;
 
+/**
+ * initial_event:
+ *
+ * Alternate event to emit at startup (rather than STARTUP_EVENT).
+ **/
+static char *initial_event = NULL;
+
+/**
+ * disable_startup_event:
+ *
+ * If TRUE, do not emit a startup event.
+ **/
+static int disable_startup_event = FALSE;
+
 extern int use_session_bus;
 
 /**
@@ -109,10 +123,16 @@ static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", &conf_dir, NULL },
 
+	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
+		NULL, NULL, &disable_startup_event, NULL },
+
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },
+
+	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
+		NULL, "NAME", &initial_event, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -362,8 +382,17 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! restart) {
-		NIH_MUST (event_new (NULL, STARTUP_EVENT, NULL));
+	if (! restart ) {
+		if (disable_startup_event) {
+			nih_debug ("Startup event disabled");
+		} else {
+			NIH_MUST (event_new (NULL,
+				initial_event
+				? initial_event
+				: STARTUP_EVENT,
+				NULL));
+		}
+
 	} else {
 		sigset_t mask;
 

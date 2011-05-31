@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-05-31 16:18+0100\n"
+"POT-Creation-Date: 2011-05-31 17:01+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -55,7 +55,7 @@ msgstr ""
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:367 init/main.c:582
+#: init/control.c:367 init/main.c:611
 msgid "Reloading configuration"
 msgstr ""
 
@@ -409,64 +409,72 @@ msgstr ""
 msgid "%s %s process (%d) executable changed"
 msgstr ""
 
-#: init/main.c:109
+#: init/main.c:123
 msgid "specify alternative directory to load configuration files from"
 msgstr ""
 
-#: init/main.c:114
+#: init/main.c:126
+msgid "do not emit any startup event (for testing)"
+msgstr ""
+
+#: init/main.c:131
 msgid "use D-Bus session bus rather than system bus (for testing)"
 msgstr ""
 
 #: init/main.c:134
+msgid "specify an alternative initial event (for testing)"
+msgstr ""
+
+#: init/main.c:154
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:136
+#: init/main.c:156
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:152 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:172 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:161
+#: init/main.c:181
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:209 init/main.c:492
+#: init/main.c:229 init/main.c:521
 msgid "Unable to set root directory"
 msgstr ""
 
-#: init/main.c:220
+#: init/main.c:240
 msgid "Unable to mount /proc filesystem"
 msgstr ""
 
-#: init/main.c:229
+#: init/main.c:249
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:325
+#: init/main.c:345
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:509
+#: init/main.c:538
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:513
+#: init/main.c:542
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:599
+#: init/main.c:628
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:605
+#: init/main.c:634
 msgid "Unable to connect to the system bus"
 msgstr ""
 

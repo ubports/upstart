@@ -24,6 +24,14 @@
 	* init/paths.h: Added define for CONFDIR_ENV.
 	* init/man/init.8: Update for new "--confdir" command-line option.
 
+	Add ability to suppress initial event and/or change its name.
+	
+	* init/main.c: New command-line options: "--no-startup-event" and
+	  "--startup-event". If "--no-startup-event" specified, log message as a
+	  debug aid.
+	* init/man/init.8: Documentation for new command-line options:
+	  "--no-startup-event" and "--startup-event".
+
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
 	* init/job_class.h (JobClass): Add kill signal member
