@@ -1,4 +1,4 @@
-.TH init 8 2010-02-04 "Upstart"
+.TH init 8 2011-05-31 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -64,6 +64,10 @@ Options are passed to
 by placing them on the kernel command-line.
 .\"
 .TP
+.B \-\-session
+Connect to the D\-Bus session bus. This should only be used for testing.
+.\"
+.TP
 .B --verbose
 Outputs verbose messages about job state changes and event emissions to the
 system console or log, useful for debugging boot.
@@ -90,7 +94,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010 Canonical Ltd.
+Copyright \(co 2009-2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

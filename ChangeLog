@@ -1,5 +1,17 @@
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
+	Add command-line option to use D-Bus session bus (for testing).
+	
+	* init/control.c:
+	  - Added new boolean use_session_bus.
+	  - Updated comments.
+	  - control_handle_bus_type(): New function to allow selection of
+	    session bus via env var "UPSTART_USE_SESSION_BUS".
+	    Also logs use of session bus if use_session_bus set.
+	  - control_bus_open(): Now connects to either D-Bus system bus or session bus.
+	* init/control.h: New define for USE_SESSION_BUS_ENV.
+	* init/main.c: Addition of "--session" command-line option.
+	* init/man/init.8: Update for new "--session" command-line option.
 	* Corrected copyright notices.
 
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
