@@ -78,6 +78,15 @@
 	* conf/rc-sysinit.conf: Added "emits" stanza, required by
 	"check-config".
 
+	Addition of initctl2dot script for visualisation.
+	
+	* Makefile.am: Added scripts directory.
+	* configure.ac: Updated AC_CONFIG_FILES for scripts/Makefile.
+	* scripts/Makefile.am: Makefile for scripts.
+	* scripts/initctl2dot.py: Python script to produce dot(1) graphs of
+	  "initctl show-config" output.
+	* scripts/man/initctl2dot.8: Man page for initctl2dot.py script.
+
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	Add command-line option to use D-Bus session bus (for testing).
