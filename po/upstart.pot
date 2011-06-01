@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-06-01 10:43+0100\n"
+"POT-Creation-Date: 2011-06-01 12:06+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -482,84 +482,90 @@ msgstr ""
 msgid "main"
 msgstr ""
 
-#: util/initctl.c:185
+#: util/initctl.c:217
 msgid "Unable to connect to system bus"
 msgstr ""
 
-#: util/initctl.c:186
+#: util/initctl.c:218
 msgid "Unable to connect to session bus"
 msgstr ""
 
-#: util/initctl.c:195
+#: util/initctl.c:227
 #, c-format
 msgid "%s: --dest given without --system\n"
 msgstr ""
 
-#: util/initctl.c:203
+#: util/initctl.c:235
 msgid "Unable to connect to Upstart"
 msgstr ""
 
-#: util/initctl.c:389 util/initctl.c:524 util/initctl.c:652 util/initctl.c:786
-#: util/initctl.c:891
+#: util/initctl.c:421 util/initctl.c:556 util/initctl.c:684 util/initctl.c:819
+#: util/initctl.c:924
 #, c-format
 msgid "%s: missing job name\n"
 msgstr ""
 
-#: util/initctl.c:837
+#: util/initctl.c:870
 msgid "Not running"
 msgstr ""
 
-#: util/initctl.c:1106
+#: util/initctl.c:1210
 #, c-format
 msgid "%s: missing event name\n"
 msgstr ""
 
-#: util/initctl.c:1302
+#: util/initctl.c:1668
 msgid "use D-Bus session bus to connect to init daemon (for testing)"
 msgstr ""
 
-#: util/initctl.c:1304
+#: util/initctl.c:1670
 msgid "use D-Bus system bus to connect to init daemon"
 msgstr ""
 
-#: util/initctl.c:1306
+#: util/initctl.c:1672
 msgid "destination well-known name on D-Bus bus"
 msgstr ""
 
-#: util/initctl.c:1319
+#: util/initctl.c:1685
 msgid "do not wait for job to start before exiting"
 msgstr ""
 
-#: util/initctl.c:1331
+#: util/initctl.c:1697
 msgid "do not wait for job to stop before exiting"
 msgstr ""
 
-#: util/initctl.c:1343
+#: util/initctl.c:1709
 msgid "do not wait for job to restart before exiting"
 msgstr ""
 
-#: util/initctl.c:1382
+#: util/initctl.c:1748
 msgid "do not wait for event to finish before exiting"
 msgstr ""
 
-#: util/initctl.c:1421
+#: util/initctl.c:1789
+msgid ""
+"enumerate list of events and jobs causing job created from job config to "
+"start/stop"
+msgstr ""
+
+#: util/initctl.c:1801
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:1428
+#: util/initctl.c:1808
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:1436 util/initctl.c:1448 util/initctl.c:1459
-#: util/initctl.c:1470 util/initctl.c:1477
+#: util/initctl.c:1816 util/initctl.c:1828 util/initctl.c:1839
+#: util/initctl.c:1850 util/initctl.c:1857
 msgid "JOB [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:1437
+#: util/initctl.c:1817
 msgid "Start job."
 msgstr ""
 
-#: util/initctl.c:1438
+#: util/initctl.c:1818
 msgid ""
 "JOB is the name of the job that is to be started, this may be followed by "
 "zero or more environment variables to be defined in the new job.\n"
@@ -569,11 +575,11 @@ msgid ""
 "an existing instance is already running."
 msgstr ""
 
-#: util/initctl.c:1449
+#: util/initctl.c:1829
 msgid "Stop job."
 msgstr ""
 
-#: util/initctl.c:1450
+#: util/initctl.c:1830
 msgid ""
 "JOB is the name of the job that is to be stopped, this may be followed by "
 "zero or more environment variables to be passed to the job's pre-stop and "
@@ -583,11 +589,11 @@ msgid ""
 "decide which of multiple instances will be stopped."
 msgstr ""
 
-#: util/initctl.c:1460
+#: util/initctl.c:1840
 msgid "Restart job."
 msgstr ""
 
-#: util/initctl.c:1461
+#: util/initctl.c:1841
 msgid ""
 "JOB is the name of the job that is to be restarted, this may be followed by "
 "zero or more environment variables to be defined in the job after "
@@ -597,66 +603,66 @@ msgid ""
 "decide which of multiple instances will be restarted."
 msgstr ""
 
-#: util/initctl.c:1471
+#: util/initctl.c:1851
 msgid "Send HUP signal to job."
 msgstr ""
 
-#: util/initctl.c:1472
+#: util/initctl.c:1852
 msgid ""
 "JOB is the name of the job that is to be sent the signal, this may be "
 "followed by zero or more environment variables to distinguish between job "
 "instances.\n"
 msgstr ""
 
-#: util/initctl.c:1478
+#: util/initctl.c:1858
 msgid "Query status of job."
 msgstr ""
 
-#: util/initctl.c:1479
+#: util/initctl.c:1859
 msgid ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
 msgstr ""
 
-#: util/initctl.c:1485
+#: util/initctl.c:1865
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:1486
+#: util/initctl.c:1866
 msgid "The known jobs and their current status will be output."
 msgstr ""
 
-#: util/initctl.c:1489
+#: util/initctl.c:1869
 msgid "EVENT [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:1490
+#: util/initctl.c:1870
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:1491
+#: util/initctl.c:1871
 msgid ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
 msgstr ""
 
-#: util/initctl.c:1497
+#: util/initctl.c:1877
 msgid "Reload the configuration of the init daemon."
 msgstr ""
 
-#: util/initctl.c:1501
+#: util/initctl.c:1881
 msgid "Request the version of the init daemon."
 msgstr ""
 
-#: util/initctl.c:1504
+#: util/initctl.c:1884
 msgid "[PRIORITY]"
 msgstr ""
 
-#: util/initctl.c:1505
+#: util/initctl.c:1885
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr ""
 
-#: util/initctl.c:1507
+#: util/initctl.c:1887
 msgid ""
 "PRIORITY may be one of:\n"
 "  `debug' (messages useful for debugging upstart are logged, equivalent to --"
@@ -671,6 +677,20 @@ msgid ""
 "  `fatal' (only fatal errors are logged).\n"
 "\n"
 "Without arguments, this outputs the current log priority."
+msgstr ""
+
+#: util/initctl.c:1904
+msgid "[CONF]"
+msgstr ""
+
+#: util/initctl.c:1905
+msgid "Show emits, start on and stop on details for job configurations."
+msgstr ""
+
+#: util/initctl.c:1906
+msgid ""
+"If CONF specified, show configuration details for single job configuration, "
+"else show details for all jobs configurations.\n"
 msgstr ""
 
 #: util/reboot.c:113
