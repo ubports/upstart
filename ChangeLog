@@ -75,6 +75,8 @@
 	    a non-chroot environment and a working D-Bus system.
 	* util/man/initctl.8: Updated for "check-config" command and associated
 	  options.
+	* conf/rc-sysinit.conf: Added "emits" stanza, required by
+	"check-config".
 
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
