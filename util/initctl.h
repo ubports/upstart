@@ -314,6 +314,57 @@
 	(((NihListEntry *)(stack)->next)->str)
 
 /**
+ * JobCondition:
+ *
+ * @list: list that @list lives on,
+ * @job_class: name of job class,
+ * @start_on: start on conditions,
+ * @stop_on: stop on conditions.
+ *
+ * Structure used to represent a job classes start on and stop on
+ * conditions.
+ *
+ * Note that @start_on and @stop_on are lists of NihListEntry
+ * objects containing string data.
+ *
+ *
+ **/
+typedef struct condition {
+	NihList      list;
+
+	const char  *job_class;
+	NihList     *start_on;
+	NihList     *stop_on;
+} JobCondition;
+
+/**
+ * CheckConfigData:
+ *
+ * @job_class_hash: Job classes (.conf files)
+ *   currently installed,
+ * @event_hash: Events that are documented
+ *   as being emitted,
+ * @ignored_events_hash: Rvents we wish to ignore.
+ *
+ * Notes:
+ *
+ * Keys for @job_class_hash are job class names and values
+ * are of type JobCondition.
+ *
+ * Keys of @event_hash are event names and values are of type
+ * NihListEntry holding the event name as a string.
+ *
+ * Keys of @ignored_events_hash are event names and values are of type
+ * NihListEntry holding the event name as a string.
+ **/
+typedef struct check_config_data {
+	NihHash *job_class_hash;
+	NihHash *event_hash;
+	NihHash *ignored_events_hash;
+} CheckConfigData;
+
+
+/**
  * ConditionHandlerData:
  *
  * @condition_name: "start on" or "stop on",
@@ -327,4 +378,81 @@ typedef struct condition_handler_data {
 	const char *condition_name;
 	const char *job_class_name;
 } ConditionHandlerData;
+
+
+/**
+ * ExprNode:
+ *
+ * @node: tree which node lives in,
+ * @expr: string representing the expression,
+ * @job_in_error: if not NULL, points to the appropriate portion of
+ *   @expr where the erroneous job is,
+ * @event_in_error: if not NULL, points to the appropriate portion of
+ *   @expr where the erroneous event is,
+ * @value: Truth value of this node (and its children, if any).
+ *
+ * Node representing an expression.
+ *
+ * Notes:
+ *
+ * @expr can be one of:
+ *
+ * - operator:
+ *   - IS_OP_AND()
+ *   - IS_OP_OR()
+ * - operand:
+ *   - "<event>"
+ *   - "<event> <job>"
+ *
+ * @value can be:
+ *
+ *  -  0 denoting node (and its children) are in error.
+ *  -  1 denoting no errors in this node or its children.
+ *  - -1 denoting an uninitialized value.
+ */
+typedef struct expression_node {
+	NihTree       node;
+
+	char         *expr;
+	const char   *job_in_error;
+	const char   *event_in_error;
+	int           value;
+} ExprNode;
+
+
+/**
+ * MAKE_EXPR_NODE:
+ *
+ * @parent: parent object,
+ * @entry: pointer to ExprNode to initialize,
+ * @str: string expression which will be copied into @entry.
+ *
+ * Allocate storage for an ExprNode pointer and initialize.
+ **/
+#define MAKE_EXPR_NODE(parent, entry, str)                                 \
+	entry = NIH_MUST (nih_new (parent, ExprNode));                     \
+	nih_tree_init (&(entry)->node);                                    \
+	(entry)->expr  = (str)                                             \
+		? NIH_MUST (nih_strdup (entry, (str)))                     \
+		: NULL;                                                    \
+	(entry)->job_in_error   = NULL;                                    \
+	(entry)->event_in_error = NULL;                                    \
+	(entry)->value          = -1
+
+/**
+ * MAKE_JOB_CONDITION:
+ *
+ * @parent: parent object,
+ * @entry: pointer to JobCondition to initialize,
+ * @str: string expression which will be copied into @entry.
+ *
+ * Allocate storage for an JobCondition pointer and initialize.
+ **/
+#define MAKE_JOB_CONDITION(parent, entry, str)                             \
+	entry = NIH_MUST (nih_new (parent, JobCondition));                 \
+	nih_list_init (&(entry)->list);                                    \
+	(entry)->job_class  = NIH_MUST (nih_strdup (entry, str));          \
+	(entry)->start_on   = NIH_MUST (nih_list_new (entry));             \
+	(entry)->stop_on    = NIH_MUST (nih_list_new (entry))
+
 #endif /* INITCTL_H */
