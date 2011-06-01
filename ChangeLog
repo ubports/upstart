@@ -13,6 +13,39 @@
 	* util/tests/test_initctl.c: Updated to make use of use_dbus and
 	  dbus_bus_type rather than system_bus.
 
+	Add "show-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - job_class_condition_handler(): Handler function to retrieve job conditions.
+	    - job_class_condition_err_handler(): Handler error function for
+	      job_class_condition_handler().
+	    - job_class_parse_events(): Convert RPN "start on" and "stop on" conditions to
+	      human-readable format.
+	    - job_class_show_emits(): Display events which job emits.
+	    - job_class_show_conditions(): Make D-Bus calls to retrieve "start on" and
+	      "stop on" conditions.
+	    - show_config_action: Handle "show-config" command..
+	* util/initctl.h: New file providing stack-handling functionality for
+	  RPN parsing for "show-config" command.
+	* util/Makefile.am: Added initctl.h to initctl_SOURCES.
+	* util/man/initctl.8: Updated for "show-config" command and associated
+	  options.
+	* util/tests/test_initctl.c:
+	  - New macros START_UPSTART, STOP_UPSTART, RUN_COMMAND, CREATE_FILE and DELETE_FILE.
+	    These are required since due to the introduction of the
+	    "show-config" initctl command, initctl is no longer solely a proxy
+	    to Upstart: it now has some intelligence (it parses the 
+	    "emits", "start on" and "stop on" conditions) and thus must be
+	    tested directly.
+	  - test_show_config(): New function to test "initctl show-config".
+	  - in_chroot(): New function to detect if tests are being run from
+	    within a chroot environment.
+	  - dbus_configured(): New function which performs a basic check to
+	    establish if D-Bus is configured correctly.
+	  - main(): Added call to test_show_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	Add command-line option to use D-Bus session bus (for testing).
