@@ -345,6 +345,81 @@ priority that the
 .BR init (8)
 daemon will log and ouputs to standard output.
 .\"
+.TP
+.B show-config
+.RI [ OPTIONS "] [" CONF "]"
+
+Display emits, start on and stop on job configuration details (in that
+order) for specified job configuration, \fICONF\fP. If \fICONF\fP is not
+specified, list information for all valid job configurations.
+
+Note that a job configuration is the name of a job configuration file,
+without the extension. Note too that this information is static: it
+does not refer to any running job.
+
+For each event emitted, a separate line is displayed beginning with two
+space characters followed by, \'emits \fIevent\fP\' where \'\fIevent\fP\'
+denotes a single emitted event.
+
+The \fBstart on\fP and \fBstop on\fP conditions
+are listed on separate lines beginning with two space characters and
+followed by \'start on\' and \'stop on\' respectively and ending with
+the appropriate condition.
+
+If a job configuration has no emits, start on, or stop on conditions,
+the name of the job configuration will be displayed with no further
+details.
+
+Note that the \fBstart on\fP and \fBstop on\fP conditions will be fully
+bracketed, regardless of whether they appear like this in the job
+configuration file. This is useful to see how the
+.BR init (8)
+daemon perceives the condition.
+
+Example output:
+
+.nf
+foo
+  emits boing
+  emits blip
+  start on (starting A and (B or C var=2)) 
+  stop on (bar HELLO=world testing=123 or stopping wibble)
+.fi
+
+.B OPTIONS
+.RS
+.IP "\fB\-e\fP, \fB\-\-enumerate\fP"
+
+If specified, rather than listing the precise \fBstart on\fP and \fBstop
+on\fP conditions, outputs the emits lines along with one line for each
+event or job the \fICONF\fP in question \fImay\fP be started or stopped
+by if it were to become a job. If the start on condition specifies a
+non-job event, this will be listed verbatim, whereas for a job event,
+the name of the \fIjob\fP as opposed to the event the job emits will be
+listed.
+
+The type of entity, its triggering event (if appropriate) and its full
+environment is displayed in brackets following its name for clarity.
+
+This option is useful for tools which generate graphs of relationships
+between jobs and events. It is also instructive since it shows how the
+.BR init (8)
+daemon has parsed the job configuration file.
+
+Example output (an analog of the default output format above):
+
+.nf
+foo
+  emits boing
+  emits blip
+  start on starting (job: A, env:)
+  start on B (job:, env:)
+  start on C (job:, env: var=2)
+  stop on bar (job:, env: HELLO=world testing=123)
+  stop on stopping (job: wibble, event: stopping, env:)
+.fi
+.RE
+.\"
 .SH AUTHOR
 Written by Scott James Remnant
 .RB < scott@netsplit.com >

@@ -38,6 +38,8 @@
 #include <nih/command.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih/hash.h>
+#include <nih/tree.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_proxy.h>
@@ -48,6 +50,9 @@
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
+
+#include "../init/events.h"
+#include "initctl.h"
 
 
 /* Prototypes for local functions */
@@ -62,6 +67,22 @@ static void   start_reply_handler (char **job_path, NihDBusMessage *message,
 				   const char *instance);
 static void   reply_handler       (int *ret, NihDBusMessage *message);
 static void   error_handler       (void *data, NihDBusMessage *message);
+
+static void   job_class_condition_handler (void *data,
+		NihDBusMessage *message,
+		char ** const *value);
+
+static void   job_class_condition_err_handler (void *data,
+		NihDBusMessage *message);
+
+static void   job_class_parse_events (const ConditionHandlerData *data,
+		char ** const *variant_array);
+
+static void   job_class_show_emits (const void *parent,
+		NihDBusProxy *job_class_proxy, const char *job_class_name);
+
+static void   job_class_show_conditions (NihDBusProxy *job_class_proxy,
+		const char *job_class_name);
 
 #ifndef TEST
 
@@ -80,6 +101,7 @@ int emit_action                 (NihCommand *command, char * const *args);
 int reload_configuration_action (NihCommand *command, char * const *args);
 int version_action              (NihCommand *command, char * const *args);
 int log_priority_action         (NihCommand *command, char * const *args);
+int show_config_action          (NihCommand *command, char * const *args);
 
 
 /**
@@ -120,6 +142,16 @@ const char *dest_address = DBUS_ADDRESS_UPSTART;
  * Whether to wait for a job or event to be finished before existing or not.
  **/
 int no_wait = FALSE;
+
+/**
+ * enumerate_events:
+ *
+ * If TRUE, list out all events/jobs that a particular job *may require* to
+ * be run: essentially any event/job mentioned in a job configuration files
+ * "start on" / "stop on" condition. Used for showing dependencies
+ * between jobs and events.
+ **/
+int enumerate_events = FALSE;
 
 /**
  * NihOption setter function to handle selection of appropriate D-Bus
@@ -250,7 +282,7 @@ upstart_open (const void *parent)
  * of the returned string are freed, the returned string will also be
  * freed.
  *
- * Returns: newly allocated string or NULL on raised error..
+ * Returns: newly allocated string or NULL on raised error.
  **/
 char *
 job_status (const void *  parent,
@@ -704,6 +736,7 @@ restart_action (NihCommand *  command,
 						  (JobClassRestartReply)start_reply_handler,
 						  error_handler, &job_path,
 						  NIH_DBUS_TIMEOUT_NEVER);
+
 		if (! pending_call)
 			goto error;
 	}
@@ -1080,6 +1113,77 @@ error:
 	return 1;
 }
 
+/**
+ * show_config_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "show-config" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+show_config_action (NihCommand *  command,
+	     char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	nih_local char         **job_class_paths = NULL;
+	const char              *upstart_job_class = NULL;
+	NihError                *err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (args[0]) {
+		/* Single job specified */
+		upstart_job_class = args[0];
+		job_class_paths = NIH_MUST (nih_alloc (NULL, 2*sizeof (char *)));
+		job_class_paths[1] = NULL;
+
+		if (upstart_get_job_by_name_sync (NULL, upstart, upstart_job_class,
+					job_class_paths) < 0)
+			goto error;
+	} else {
+		/* Obtain a list of jobs */
+		if (upstart_get_all_jobs_sync (NULL, upstart, &job_class_paths) < 0)
+			goto error;
+	}
+
+	for (char **job_class_path = job_class_paths;
+	     job_class_path && *job_class_path; job_class_path++) {
+		nih_local NihDBusProxy *job_class      = NULL;
+		nih_local char         *job_class_name = NULL;
+
+		job_class = nih_dbus_proxy_new (NULL, upstart->connection,
+						upstart->name, *job_class_path,
+						NULL, NULL);
+		if (! job_class)
+			goto error;
+
+		job_class->auto_start = FALSE;
+
+		if (job_class_get_name_sync (NULL, job_class, &job_class_name) < 0)
+			goto error;
+
+		nih_message ("%s", job_class_name);
+
+		job_class_show_emits (NULL, job_class, job_class_name);
+		job_class_show_conditions (job_class, job_class_name);
+	}
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
 
 /**
  * emit_action:
@@ -1291,6 +1395,268 @@ error_handler (void *          data,
 	nih_free (err);
 }
 
+/**
+ * job_class_parse_events:
+ * @condition_data: type of condition we are parsing (used as an indicator to
+ * user) and name of job,
+ * @variant_array: pointer to array of variants.
+ *
+ * The array of variants encodes the event operator tree in 
+ * Reverse Polish Notation (RPN).
+ *
+ * Each variant is itself an array. There are two types:
+ *
+ * - An "Operator" (array length == 1).
+ *
+ *   Operators are: "/AND" and "/OR".
+ *
+ * - An "Event" (array length >= 1).
+ *
+ *   Each Event comprises a name (array element zero), followed by zero or
+ *   more "Event Matches". If the first Event Match is of the form "JOB=name",
+ *   or is a single token "name" (crucially not containining "="), then
+ *   'name' refers to the job which emitted the event.
+ **/
+void
+job_class_parse_events (const ConditionHandlerData *data, char ** const *variant_array)
+{
+	char          ** const *variant;
+	char                  **arg;
+	char                   *token;
+	nih_local NihList      *rpn_stack = NULL;
+	char                   *name = NULL;
+	const char             *stanza_name;
+	const char             *job_class_name;
+
+	nih_assert (data);
+
+	stanza_name    = ((ConditionHandlerData *)data)->condition_name;
+	job_class_name = ((ConditionHandlerData *)data)->job_class_name;
+
+	if (! variant_array || ! *variant_array || ! **variant_array)
+		return;
+
+	STACK_CREATE (rpn_stack);
+	STACK_SHOW (rpn_stack);
+
+	for (variant = variant_array; variant && *variant && **variant; variant++, name = NULL) {
+
+		/* token is either the first token beyond the stanza name (ie the event name),
+		 * or an operator.
+		 */
+		token = **variant;
+
+		if (IS_OPERATOR (token)) {
+			/* Used to hold result of combining top two stack elements. */
+			nih_local char *new_token = NULL;
+
+			nih_local NihList *first  = NULL;
+			nih_local NihList *second = NULL;
+
+			if (enumerate_events) {
+				/* We only care about operands in this mode. */
+				continue;
+			}
+
+			first  = NIH_MUST (nih_list_new (NULL));
+			second = NIH_MUST (nih_list_new (NULL));
+
+			/* Found an operator, so pop 2 values off stack,
+			 * combine them and push back onto stack.
+			 */
+			STACK_POP (rpn_stack, first);
+			STACK_POP (rpn_stack, second);
+
+			new_token = NIH_MUST (nih_strdup (NULL, ""));
+			new_token = NIH_MUST (nih_strcat_sprintf (&new_token,
+					NULL,
+					"(%s %s %s)",
+					((NihListEntry *)second)->str,
+					IS_OP_AND (token) ? "and" : "or",
+					((NihListEntry *)first)->str));
+
+			STACK_PUSH_NEW_ELEM (rpn_stack, new_token);
+		} else {
+			/* Save operand token (event or job), add
+			 * arguments (job names and env vars) and push
+			 * onto stack. If we are enumerating_events,
+			 * this records the environment only.
+			 */
+			nih_local char *element = NULL;
+			int i;
+
+			element = NIH_MUST (nih_strdup (NULL,
+						enumerate_events ? "" : token));
+
+			/* Handle arguments (job names and env vars). */
+			arg = (*variant)+1;
+
+			for (i=0; arg[i] && *arg[i]; i++) {
+				if (enumerate_events && IS_JOB_EVENT (token)) {
+					if (!name) {
+						GET_JOB_NAME (name, i, arg[i]);
+						if (name)
+							continue;
+					}
+				}
+
+				element = NIH_MUST (nih_strcat (&element, NULL, " "));
+				element = NIH_MUST (nih_strcat (&element, NULL, arg[i]));
+			}
+
+			if (enumerate_events) {
+				nih_message ("  %s %s (job:%s%s, env:%s)",
+						stanza_name,
+						token,
+						name ? " " : "",
+						name ? name : "",
+						element);
+			} else {
+				STACK_PUSH_NEW_ELEM (rpn_stack, element);
+			}
+
+		}
+	}
+
+	if (enumerate_events)
+		return;
+
+	/* Handle case where a single event was specified (there
+	 * was no operator to pop the entry off the stack).
+	 */
+	if (! STACK_EMPTY (rpn_stack)) {
+		if (! enumerate_events) {
+			/* Our job is done: show the user what we found. */
+			nih_message ("  %s %s", stanza_name,
+					STACK_PEEK (rpn_stack));
+		}
+	}
+}
+
+/**
+ * job_class_show_conditions:
+ * @job_class_proxy: D-Bus proxy for job class.
+ * @job_class_name: Name of config whose conditions we wish to display.
+ *
+ * Register D-Bus call-backs to display job classes start on and stop on
+ * conditions.
+ **/
+void
+job_class_show_conditions (NihDBusProxy *job_class_proxy, const char *job_class_name)
+{
+	DBusPendingCall  *pending_call;
+	NihError         *err;
+	ConditionHandlerData start_data, stop_data;
+
+	nih_assert (job_class_proxy);
+	nih_assert (job_class_name);
+	
+	start_data.condition_name = "start on";
+	start_data.job_class_name = job_class_name;
+
+	stop_data.condition_name  = "stop on";
+	stop_data.job_class_name  = job_class_name;
+
+	pending_call = job_class_get_start_on (job_class_proxy,
+			job_class_condition_handler,
+			job_class_condition_err_handler, 
+			&start_data,
+			NIH_DBUS_TIMEOUT_NEVER);
+
+	if (!pending_call)
+		goto error;
+
+	/* wait for completion */
+	dbus_pending_call_block (pending_call);
+	dbus_pending_call_unref (pending_call);
+
+	pending_call = job_class_get_stop_on (job_class_proxy,
+			job_class_condition_handler,
+			job_class_condition_err_handler, 
+			&stop_data,
+			NIH_DBUS_TIMEOUT_NEVER);
+
+	if (!pending_call)
+		goto error;
+
+	/* wait for completion */
+	dbus_pending_call_block (pending_call);
+	dbus_pending_call_unref (pending_call);
+
+	return;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+}
+
+/**
+ * job_class_show_emits:
+ * @parent: parent object,
+ * @job_class_proxy: D-Bus proxy for job class,
+ * @job_class_name: Name of job class that emits an event.
+ *
+ * Display events job class emits to user.
+ **/
+void
+job_class_show_emits (const void *parent, NihDBusProxy *job_class_proxy, const char *job_class_name)
+{
+	NihError         *err;
+	nih_local char **job_emits = NULL;
+
+	nih_assert (job_class_proxy);
+
+	if (job_class_get_emits_sync (parent, job_class_proxy, &job_emits) < 0) {
+		goto error;
+	}
+
+	if (job_emits && *job_emits) {
+		char **p = job_emits;
+		while (*p) {
+			nih_message ("  emits %s", *p);
+			p++;
+		}
+	}
+
+	return;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+}
+
+/**
+ * job_class_condition_handler:
+ * @data: data passed via job_class_get_start_on() or job_class_get_stop_on(),
+ * @message: D-Bus message received,
+ * @value: array of variants generated by D-Bus call we are registering
+ * with. 
+ *
+ * Handler for D-Bus message encoding a job classes "start on" or
+ * "stop on" condtions.
+ **/
+void
+job_class_condition_handler (void *data, NihDBusMessage *message, char ** const *value)
+{
+	job_class_parse_events ((const ConditionHandlerData *)data, value);
+}
+
+/**
+ * job_class_condition_err_handler:
+ *
+ * @data data passed via job_class_get_start_on() or job_class_get_stop_on(),
+ * @message: D-Bus message received.
+ *
+ * Error handler for D-Bus message encoding a job classes "start on" or
+ * "stop on" conditions.
+ **/
+void
+job_class_condition_err_handler (void *data, NihDBusMessage *message)
+{
+	/* no remedial action possible */
+}
 
 #ifndef TEST
 /**
@@ -1414,6 +1780,20 @@ NihOption log_priority_options[] = {
 
 
 /**
+ * show_config_options:
+ *
+ * Command-line options accepted for the show-config command.
+ **/
+NihOption show_config_options[] = {
+	{ 'e', "enumerate",
+		N_("enumerate list of events and jobs causing job "
+		   "created from job config to start/stop"),
+	  NULL, NULL, &enumerate_events, NULL },
+
+	NIH_OPTION_LAST
+};
+
+/**
  * job_group:
  *
  * Group of commands related to jobs.
@@ -1520,6 +1900,12 @@ static NihCommand commands[] = {
 	     "\n"
 	     "Without arguments, this outputs the current log priority."),
 	  NULL, log_priority_options, log_priority_action },
+
+	{ "show-config", N_("[CONF]"),
+	  N_("Show emits, start on and stop on details for job configurations."),
+	  N_("If CONF specified, show configuration details for single job "
+	     "configuration, else show details for all jobs configurations.\n"),
+	  NULL, show_config_options, show_config_action },
 
 	NIH_COMMAND_LAST
 };
