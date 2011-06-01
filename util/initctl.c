@@ -63,6 +63,11 @@ static void   start_reply_handler (char **job_path, NihDBusMessage *message,
 static void   reply_handler       (int *ret, NihDBusMessage *message);
 static void   error_handler       (void *data, NihDBusMessage *message);
 
+#ifndef TEST
+
+static int    dbus_bus_type_setter  (NihOption *option, const char *arg);
+
+#endif
 
 /* Prototypes for option and command functions */
 int start_action                (NihCommand *command, char * const *args);
@@ -78,12 +83,21 @@ int log_priority_action         (NihCommand *command, char * const *args);
 
 
 /**
- * system_bus:
+ * use_dbus:
  *
- * Whether to connect to the init daemon on the D-Bus system bus or
- * privately.
- **/
-int system_bus = -1;
+ * If  1, connect using a D-Bus bus.
+ * If  0, connect using private connection.
+ * If -1, determine appropriate connection based on UID.
+ */
+int use_dbus = -1;
+
+/**
+ * dbus_bus_type:
+ *
+ * D-Bus bus to connect to (DBUS_BUS_SYSTEM or DBUS_BUS_SESSION), or -1
+ * to have an appropriate bus selected.
+ */
+int dbus_bus_type = -1;
 
 /**
  * dest_name:
@@ -107,6 +121,28 @@ const char *dest_address = DBUS_ADDRESS_UPSTART;
  **/
 int no_wait = FALSE;
 
+/**
+ * NihOption setter function to handle selection of appropriate D-Bus
+ * bus.
+ *
+ * Always returns 1 denoting success.
+ **/
+int
+dbus_bus_type_setter (NihOption *option, const char *arg)
+{
+	nih_assert (option);
+
+	if (! strcmp (option->long_option, "system")) {
+		use_dbus      = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
+	}
+	else if (! strcmp (option->long_option, "session")) {
+		use_dbus      = TRUE;
+		dbus_bus_type = DBUS_BUS_SESSION;
+	}
+
+	return 1;
+}
 
 /**
  * upstart_open:
@@ -132,17 +168,22 @@ upstart_open (const void *parent)
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
 
-	if (system_bus < 0)
-		system_bus = getuid () ? TRUE : FALSE;
+	if (use_dbus < 0)
+		use_dbus = getuid () ? TRUE : FALSE;
+	if (use_dbus >= 0 && dbus_bus_type < 0)
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 
 	dbus_error_init (&dbus_error);
-	if (system_bus) {
+	if (use_dbus) {
 		if (! dest_name)
 			dest_name = DBUS_SERVICE_UPSTART;
 
-		connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
+		connection = dbus_bus_get (dbus_bus_type, &dbus_error);
 		if (! connection) {
-			nih_error ("%s: %s", _("Unable to connect to system bus"),
+			nih_error ("%s: %s",
+				dbus_bus_type == DBUS_BUS_SYSTEM
+				? _("Unable to connect to system bus")
+				: _("Unable to connect to session bus"),
 				   dbus_error.message);
 			dbus_error_free (&dbus_error);
 			return NULL;
@@ -1258,9 +1299,11 @@ error_handler (void *          data,
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
+	{ 0, "session", N_("use D-Bus session bus to connect to init daemon (for testing)"),
+	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "system", N_("use D-Bus system bus to connect to init daemon"),
-	  NULL, NULL, &system_bus, NULL },
-	{ 0, "dest", N_("destination well-known name on system bus"),
+	  NULL, NULL, NULL, dbus_bus_type_setter },
+	{ 0, "dest", N_("destination well-known name on D-Bus bus"),
 	  NULL, "NAME", &dest_name, NULL },
 
 	NIH_OPTION_LAST
