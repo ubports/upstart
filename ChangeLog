@@ -87,6 +87,14 @@
 	  "initctl show-config" output.
 	* scripts/man/initctl2dot.8: Man page for initctl2dot.py script.
 
+	Addition of init-checkconf script.
+	
+	* scripts/init-checkconf.sh: Script to determine if specified job
+	  config file is valid or not.
+	* scripts/man/init-checkconf.8: Man page for init-checkconf.sh.
+	* scripts/Makefile.am: Added init-checkconf script and man
+	  page.
+
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	Add command-line option to use D-Bus session bus (for testing).
