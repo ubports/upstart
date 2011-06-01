@@ -44,7 +44,8 @@
 #include "dbus/upstart.h"
 
 
-extern int system_bus;
+extern int use_dbus;
+extern int dbus_bus_type;
 extern char *dest_name;
 extern const char *dest_address;
 extern int no_wait;
@@ -103,7 +104,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with private connection");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = NULL;
 		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
 
@@ -179,7 +180,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with system bus connection");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = NULL;
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -240,7 +242,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with system bus connection and different name");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = "com.ubuntu.UpstartTest";
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -302,7 +305,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with non-listening private connection");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = NULL;
 		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
 
@@ -328,7 +331,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with non-listening system bus");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = NULL;
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -360,7 +364,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with --dest but without --system");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = "com.ubuntu.Upstart";
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -3229,7 +3233,8 @@ test_start_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -4999,7 +5004,8 @@ test_stop_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -6584,7 +6590,8 @@ test_restart_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -8357,7 +8364,8 @@ test_reload_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -9239,7 +9247,8 @@ test_status_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -10769,7 +10778,7 @@ test_list_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12060,7 +12069,7 @@ test_emit_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12494,7 +12503,7 @@ test_reload_configuration_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12684,7 +12693,7 @@ test_version_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12904,7 +12913,7 @@ test_log_priority_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 

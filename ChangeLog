@@ -1,3 +1,18 @@
+2011-06-01  James Hunt  <james.hunt@ubuntu.com>
+
+	Add D-Bus session support to initctl.
+	
+	* util/initctl.c:
+	  - Added "--session" command-line option.
+	  - dbus_bus_type_setter(): New function used by option parser to
+	    distinguish system/session D-Bus bus type.
+	  - system_bus variable now replaced by two others: use_dbus (boolean)
+	    and dbus_bus_type.
+	  - upstart_open(): Updated to handle multiple D-Bus bus types.
+	* util/man/initctl.8: Update for "--session" option.
+	* util/tests/test_initctl.c: Updated to make use of use_dbus and
+	  dbus_bus_type rather than system_bus.
+
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	Add command-line option to use D-Bus session bus (for testing).
