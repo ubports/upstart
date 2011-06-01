@@ -1,0 +1,87 @@
+.TH initctl2dot 8 2011-03-07 "Upstart"
+.\"
+.SH NAME
+initctl2dot \- manual page for initctl2dot
+.\"
+.SH SYNOPSIS
+.B initctl2dot
+.RI [ OPTIONS ]
+.\"
+.SH DESCRIPTION
+Convert
+.BR initctl (8)
+output to GraphViz
+.BR dot (1)
+format.
+
+With no options,
+.BR initctl (8)
+will be invoked automatically and the output written to file
+\fIupstart.dot\fP.
+.\"
+.SH OPTIONS
+.TP
+.B -h
+Display usage statement.
+.TP
+\fB-f\fP \fIINFILE\fP , \fP--infile\fP=\fIINFILE\fP
+File to read
+.BR initctl (8)
+output from ("initctl show-config -e"). If not specified,
+.BR initctl (8)
+will be run automatically.
+.TP
+\fB-w\fP \fIOUTFILE\fP , \fP--outfile\fP=\fIOUTFILE\fP
+File to write output to.
+.TP
+\fB-r\fP \fIRESTRICTIONS\fP , \fP--restrict-to-jobs\fP=\fIRESTRICTIONS\fP
+Limit display of
+.B start on
+and
+.B stop on
+conditions to comma-separated list of jobs.
+.TP
+\fB--color-emits\fP=\fICOLOR_EMITS\fP
+Specify color for 'emits' lines.
+.TP
+\fB--color-start-on\fP=\fICOLOR_START_ON\fP
+Specify color for 'start on' lines.
+.TP
+\fB--color-stop-on\fP=\fICOLOR_STOP_ON\fP
+Specify color for 'stop on' lines.
+.TP
+\fB--color-event\fP=\fICOLOR_EVENT\fP
+Specify color for event boxes.
+.TP
+\fB--color-text\fP=\fICOLOR_TEXT\fP
+Specify color for summary text.
+.TP
+\fB--color-bg\fP=\fICOLOR_BG\fP
+Specify background color for diagram.
+.TP
+\fB--color-event-text\fP=\fICOLOR_EVENT_TEXT\fP
+Specify color for text in event boxes.
+.TP
+\fB--color-job-text\fP=\fICOLOR_JOB_TEXT\fP
+Specify color for text in job boxes.
+.TP
+\fB--color-job\fP=\fICOLOR_JOB\fP
+Specify color for job boxes.
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@ubuntu.com >
+.\"
+.SH REPORTING BUGS
+Report bugs at
+.RB < https://launchpad.net/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2011 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR init (8)
+.BR initctl (8)
