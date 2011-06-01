@@ -46,6 +46,36 @@
 	  - main(): Added call to test_show_config(), conditional on
 	    a non-chroot environment and a working D-Bus system.
 
+	Add "check-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - allow_event(): Determine if specified event is erroneous or not.
+	      Handles globbing.
+	    - allow_job(): Determine if specified job is erroneous or not.
+	      Handles variables (such as instance variables).
+	    - check_condition(): High-level function to handle checking start
+	      on/stop on conditions.
+	    - check_config_action: Handler for "check-config" command.
+	    - display_check_errors(): Display errors from expression tree nodes
+	      that are in error.
+	    - eval_expr_tree(): Evaluate expression tree.
+	    - ignored_events_setter(): handler for '--ignore-events' command-line
+	      option for "check-config" command.
+	    - tree_filter(): Used for filtering expression tree nodes.
+	  - show_config_action(): Update for check-config mode.
+	  - job_class_parse_events(): Update for check-config mode.
+	  - job_class_show_emits(): Update for check-config mode.
+	* util/initctl.h:
+	  - Added structs for JobCondition, CheckConfigData and ExprNode.
+	  - New macros: MAKE_EXPR_NODE() and MAKE_JOB_CONDITION().
+	* util/tests/test_initctl.c:
+	  - test_check_config(): New function to test "initctl check-config".
+	  - main(): Added call to test_check_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+	* util/man/initctl.8: Updated for "check-config" command and associated
+	  options.
+
 2011-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	Add command-line option to use D-Bus session bus (for testing).
