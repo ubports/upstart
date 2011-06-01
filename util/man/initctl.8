@@ -420,6 +420,86 @@ foo
 .fi
 .RE
 .\"
+.TP
+.B check-config
+.RI [ OPTIONS "] [" CONF "]"
+
+Considers all job configurations looking for jobs that cannot be started
+or stopped, given the currently available job configurations. This is
+achieved by considering the start on, stop on and emits stanzas for each
+job configuration and identifying unreachable scenarios.
+
+This option is useful for determining the impact of adding or removing
+job configuration files.
+
+Note that to use this command, it is necessary to ensure that all job
+configuration files advertise the events they emit correctly.
+
+If errors are identified, the name of the job configuration will be
+displayed. Subsequent lines will show the failed conditions for the job
+configuration, one per line. Condition lines begin with two spaces and
+are followed with either "start on: " or "stop on: ", the word
+"unknown", the type of entity that is not known and finally its name.
+
+Note that only job configurations that are logically in error (those
+with unsatisfiable conditions) will be displayed. Note too that job
+configurations that are syntactically invalid may trigger an error if
+they would cause a condition to be in error.
+
+Assuming job configuration file \fI/etc/init/foo.conf\fP contains the
+following:
+
+.nf
+  start on starting grape
+  stop on peach
+.fi
+
+The check-config command might display:
+
+.nf
+  foo
+    start on: unknown job grape
+    stop on: unknown event peach
+.fi
+
+If any errors are detected, the exit code will be 1 (one). If all checks pass,
+the exit code will be 0 (zero).
+
+Note that for complex start on and stop on conditions, this command may
+give what appears to be misleading output when an error condition is
+found since all expressions in the failing condition that are in error
+will generate error output. For example, if job configuration
+\fI/etc/init/bar.conf\fP contains the following:
+
+.nf
+  start on (A and (started B or (starting C or D)))
+.fi
+
+And only event A can be satisfied, the output will be:
+
+.nf
+  bar
+    start on: unknown job B
+    start on: unknown job C
+    start on: unknown event D
+.fi
+
+.B OPTIONS
+.RS
+.IP "\fB-i\fP \fI[EVENTS]\fP, \fB\-\-ignore\-events\fP \fI[EVENTS]\fP"
+
+If specified, the argument should be a list of comma-separated events to
+ignore when checking the job configuration files.
+
+This option may be useful to ignore errors if a particular job
+configuration file does not advertise it emits an event.
+
+Note that internal events (such as \fBstartup\fP(7) and
+\fBstarting\fP(7)) are automatically ignored.
+.IP "\fB-w\fP, \fB\-\-warn\fP"
+If specified, treat \fIany\fP unknown jobs and events as errors.
+
+.\"
 .SH AUTHOR
 Written by Scott James Remnant
 .RB < scott@netsplit.com >

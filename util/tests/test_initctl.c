@@ -3,7 +3,8 @@
  * test_initctl.c - test suite for util/initctl.c
  *
  * Copyright © 2010 Canonical Ltd.
- * Author: Scott James Remnant <scott@netsplit.com>.
+ * Authors: Scott James Remnant <scott@netsplit.com>,
+ *          James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -11381,6 +11382,459 @@ test_show_config (void)
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 }
 
+void
+test_check_config (void)
+{
+	char             dirname[PATH_MAX];
+	nih_local char  *cmd;
+	pid_t            upstart_pid;
+	char           **output;
+	size_t           lines;
+
+	TEST_GROUP ("check_config");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
+
+	START_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by job or event)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by job)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by event)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable event");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "foo");
+	TEST_EQ_STR (output[1], "  start on: unknown event wibble");
+	TEST_EQ (lines, 2);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable job");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "foo");
+	TEST_EQ_STR (output[1], "  start on: unknown job bar");
+	TEST_EQ (lines, 2);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable event with forced ignore");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wibble 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable events with forced ignores");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (fred and wilma)");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wilma,foo,fred 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on");
+
+	/* Yes folks, it's the classic */
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex start on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  start on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex stop on");
+
+	/* Yes folks, it's the classic */
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  stop on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  stop on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  stop on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex stop on, satisfiable complex start on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"start on (stopping portmap\n"
+			"         or (runlevel [06] or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf", "exec true");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  stop on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  stop on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  stop on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "beano.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on, unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "gdm.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config >&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job beano");
+	TEST_EQ_STR (output[2], "  stop on: unknown event wibble");
+	TEST_EQ (lines, 3);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex start on, unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  start on: unknown job gdm");
+	TEST_EQ_STR (output[5], "  start on: unknown event hello");
+	TEST_EQ_STR (output[6], "  stop on: unknown job beano");
+	TEST_EQ_STR (output[7], "  stop on: unknown event wibble");
+	TEST_EQ (lines, 8);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on, satisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or (stopped kdm\n"
+			"              or (stopped xdm\n"
+                   	"              or stopped lxdm)))))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true\n");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "lxdm.conf", "exec true");
+	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "lxdm.conf");
+	DELETE_FILE (dirname, "beano.conf");
+	DELETE_FILE (dirname, "wibble.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE (
+		"satisfiable complex start on, satisfiable complex stop on with warnings");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or (stopped kdm\n"
+			"              or (stopped xdm\n"
+                   	"              or stopped lxdm)))))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true\n");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "lxdm.conf", "exec true");
+	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --warn 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job gdm");
+	TEST_EQ (lines, 4);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "lxdm.conf");
+	DELETE_FILE (dirname, "beano.conf");
+	DELETE_FILE (dirname, "wibble.conf");
+
+	/*******************************************************************/
+
+	STOP_UPSTART (upstart_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+}
+
 
 void
 test_list_action (void)
@@ -14013,6 +14467,7 @@ main (int   argc,
 				"\n\n");
 	} else {
 		test_show_config ();
+		test_check_config ();
 	}
 
 	return 0;
