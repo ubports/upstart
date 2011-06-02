@@ -1,3 +1,14 @@
+2011-06-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart:
+	  - Made function names more meaningful:
+	  - _upstart_jobs: Now returns a unique list
+	  - _upstart_events (nee _upstart_named_events ) now considers all
+	    "emits" tokens.
+	  - Updates for "check-config" and "show-config".
+	  - Added "--session" option.
+	  - Added "--no-wait" for emit, reload and restart.
+
 2011-06-01  James Hunt  <james.hunt@ubuntu.com>
 
 	Add D-Bus session support to initctl.
