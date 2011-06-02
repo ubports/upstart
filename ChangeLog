@@ -9,6 +9,23 @@
 	  - Added "--session" option.
 	  - Added "--no-wait" for emit, reload and restart.
 
+	Man page updates.
+	
+	* init/man/init.5:
+	  - Quoted dashes.
+	  - Explain handling of duplicated stanzas.
+	  - "respawn": Document default count and interval.
+	  - "emits": Reference "initctl check-config".
+	  - Added BUGS section.
+	  - Added copyright.
+	* init/man/init.8:
+	  - Quoted dashes.
+	  - See Also: Added control-alt-delete(7).
+	* util/man/initctl.8:
+	  - Quoted dashes.
+	  - "restart": Clarified meaning.
+	  - "list": Explained "stop/waiting" jobs.
+
 2011-06-01  James Hunt  <james.hunt@ubuntu.com>
 
 	Add D-Bus session support to initctl.

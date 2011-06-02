@@ -1,4 +1,4 @@
-.TH initctl 8 2011-06-01 "Upstart"
+.TH initctl 8 2011-06-02 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -18,14 +18,14 @@ daemon.
 
 When run as
 .BR initctl ,
-the first non-option argument is the
+the first non\-option argument is the
 .IR COMMAND .
 Global options may be specified before or after the command.
 
 You may also create symbolic or hard links to
 .B initctl
 named after commands.  When invoked through these links the tool will
-behave only as that command, with global and command-specific options
+behave only as that command, with global and command\-specific options
 intermixed.  The default installation supplies such links
 for the
 .BR start ", " stop ", " restart ", " reload " and " status
@@ -33,45 +33,45 @@ commands.
 .\"
 .SH OPTIONS
 .TP
-.B --session
+.B \-\-session
 Connect to
 .BR init (8)
-daemon using the D-Bus session bus (for testing purposes only).
+daemon using the D\-Bus session bus (for testing purposes only).
 .\"
 .TP
-.B --system
+.B \-\-system
 Communication with the
 .BR init (8)
 daemon is normally performed over a private socket connection.  This has
 the advantage of speed and robustness, when issuing commands to start or
 stop services or even reboot the system you do not want to be affected by
-changes to the D-Bus system bus daemon.
+changes to the D\-Bus system bus daemon.
 
 The disadvantage to using the private socket however is security,
 .BR init (8)
 only permits the root user to communicate over this socket which means
-that read-only commands such as
+that read\-only commands such as
 .BR status " and " list
 cannot be made by other users.
 
 The
-.B --system
+.B \-\-system
 option instructs
 .BR initctl
-to communicate via the D-Bus system bus rather than over the private
+to communicate via the D\-Bus system bus rather than over the private
 socket.
 
 This is only possible if the system bus daemon is running and if
 .BR init (8)
 is connected to it.  The advantage is that the default security configuration
-allows non-root users to use read-only commands.
+allows non\-root users to use read\-only commands.
 .\"
 .TP
-.B --dest
-Specifies the well-known name of the
+.B \-\-dest
+Specifies the well\-known name of the
 .BR init (8)
 daemon when using
-.BR --system .
+.BR \-\-system .
 
 There is normally no need to use this option since the
 .BR init (8)
@@ -80,7 +80,7 @@ daemon uses the default
 name.  However it may be useful for debugging.
 .\"
 .TP
-.B --no-wait
+.B \-\-no\-wait
 Applies to the
 .BR start ", " stop ", " restart " and " emit
 commands.
@@ -103,7 +103,7 @@ This option instead causes these commands to only wait for the goal
 change or event to be queued.
 .\"
 .TP
-.B --quiet
+.B \-\-quiet
 Reduces output of all commands to errors only.
 .\"
 .SH COMMANDS
@@ -125,7 +125,7 @@ The optional
 .I KEY=VALUE
 arguments specify environment variables to be passed to the starting job,
 and placed in its environment.  They also serve to specify which instance
-of multi-instance jobs should be started.
+of multi\-instance jobs should be started.
 
 Most jobs only permit a single instance; those that use the
 .B instance
@@ -163,8 +163,8 @@ for a discussion on instances.
 
 Requests that an instance of the named
 .I JOB
-be restarted, outputting the status of the job to standard output when the
-command completes.
+be restarted (stopped and then started), outputting the status of the
+job to standard output when the command completes.
 
 See
 .B status
@@ -204,7 +204,7 @@ See
 .B start
 for a discusson on instances.
 
-For a single-instance job a line like the following is output:
+For a single\-instance job a line like the following is output:
 
 .nf
   job start/running, process 1234
@@ -214,34 +214,34 @@ The job name is given first followed by the current goal and state of
 the selected instance.  The goal is either
 .IR start " or " stop ,
 the status may be one of
-.IR waiting ", " starting ", " pre-start ", " spawned ", " post-start ", "
-.IR running ", " pre-stop ", " stopping ", " killed " or " post-stop .
+.IR waiting ", " starting ", " pre\-start ", " spawned ", " post\-start ", "
+.IR running ", " pre\-stop ", " stopping ", " killed " or " post\-stop .
 
 If the job has an active process, the process id will follow on the same
 line.  If the state is
-.IR pre-start " or " post-stop
+.IR pre\-start " or " post\-stop
 this will be the process id of the equivalent process, otherwise it will
 be the process id of the main process.
 
 .nf
-  job start/pre-start, process 902
+  job start/pre\-start, process 902
 .fi
 
 The
-.IR post-start " and " pre-stop
+.IR post\-start " and " pre\-stop
 states may have multiple processes attached, the extra processes will follow
 on consecutive lines indented by a tab:
 
 .nf
-  job start/post-start, process 1234
-          post-start process 1357
+  job start/post\-start, process 1234
+          post\-start process 1357
 .fi
 
 If there is no main process, they may follow on the same line but will be
 prefixed to indicate that it is not the main process id being given:
 
 .nf
-  job start/post-start, (post-start) process 1357
+  job start/post\-start, (post\-start) process 1357
 .fi
 
 Jobs that permit multiple instances have names for each instance, the
@@ -249,8 +249,8 @@ output is otherwise identical to the above except that the instance
 name follows the job name in parentheses:
 
 .nf
-  job (tty1) start/post-start, process 1234
-          post-start process 1357
+  job (tty1) start/post\-start, process 1234
+          post\-start process 1357
 .fi
 .\"
 .TP
@@ -258,6 +258,11 @@ name follows the job name in parentheses:
 
 Requests a list of the known jobs and instances, outputs the status of
 each to standard output.
+
+Note that this command includes in the enumeration as\-yet\-to\-run jobs (in other words
+configuration files for which no job instances have yet been created) in
+the output with status "stop/waiting". In effect such entries denote
+configuration files which represent potential future jobs.
 
 See
 .B status
@@ -267,7 +272,7 @@ for a discussion on instances.
 
 No particular order is used for the output, and there is no difference in
 the output (other than the instance name appearing in parentheses) between
-single-instance and multiple-instance jobs.
+single\-instance and multiple\-instance jobs.
 .\"
 .TP
 .B emit
@@ -287,7 +292,7 @@ arguments specify environment variables to be included with the event and
 thus exported into the environment of any jobs started and stopped by
 the event.
 
-The environment may also serve to specify which instance of multi-instance
+The environment may also serve to specify which instance of multi\-instance
 jobs should be started or stopped.  See
 .B start
 for a discussion on instances.
@@ -296,7 +301,7 @@ There is no limitation on the event names that may be emitted with this
 command, you are free to invent new events and use them in your job
 configurations.
 
-The most well known event used by the default Upstart configuration is
+The most well\-known event used by the default Upstart configuration is
 the
 .BR runlevel (7)
 event.  This is normally emitted by the
@@ -306,7 +311,7 @@ and
 tools.
 .\"
 .TP
-.B reload-configuration
+.B reload\-configuration
 
 Requests that the
 .BR init (8)
@@ -326,7 +331,7 @@ No jobs will be started by this command.
 Requests and outputs the version of the running init daemon.
 .\"
 .TP
-.B log-priority
+.B log\-priority
 .RI [ PRIORITY ]
 
 When called with a
@@ -346,7 +351,7 @@ priority that the
 daemon will log and ouputs to standard output.
 .\"
 .TP
-.B show-config
+.B show\-config
 .RI [ OPTIONS "] [" CONF "]"
 
 Display emits, start on and stop on job configuration details (in that
@@ -358,13 +363,13 @@ without the extension. Note too that this information is static: it
 does not refer to any running job.
 
 For each event emitted, a separate line is displayed beginning with two
-space characters followed by, \'emits \fIevent\fP\' where \'\fIevent\fP\'
-denotes a single emitted event.
+space characters followed by, \(aqemits \fIevent\fP\(aq where
+\(aq\fIevent\fP\(aq denotes a single emitted event.
 
 The \fBstart on\fP and \fBstop on\fP conditions
 are listed on separate lines beginning with two space characters and
-followed by \'start on\' and \'stop on\' respectively and ending with
-the appropriate condition.
+followed by \(aqstart on\(aq and \(aqstop on\(aq respectively and ending
+with the appropriate condition.
 
 If a job configuration has no emits, start on, or stop on conditions,
 the name of the job configuration will be displayed with no further
@@ -394,7 +399,7 @@ If specified, rather than listing the precise \fBstart on\fP and \fBstop
 on\fP conditions, outputs the emits lines along with one line for each
 event or job the \fICONF\fP in question \fImay\fP be started or stopped
 by if it were to become a job. If the start on condition specifies a
-non-job event, this will be listed verbatim, whereas for a job event,
+non\-job event, this will be listed verbatim, whereas for a job event,
 the name of the \fIjob\fP as opposed to the event the job emits will be
 listed.
 
@@ -421,7 +426,7 @@ foo
 .RE
 .\"
 .TP
-.B check-config
+.B check\-config
 .RI [ OPTIONS "] [" CONF "]"
 
 Considers all job configurations looking for jobs that cannot be started
@@ -454,7 +459,7 @@ following:
   stop on peach
 .fi
 
-The check-config command might display:
+The check\-config command might display:
 
 .nf
   foo
@@ -488,7 +493,7 @@ And only event A can be satisfied, the output will be:
 .RS
 .IP "\fB-i\fP \fI[EVENTS]\fP, \fB\-\-ignore\-events\fP \fI[EVENTS]\fP"
 
-If specified, the argument should be a list of comma-separated events to
+If specified, the argument should be a list of comma\-separated events to
 ignore when checking the job configuration files.
 
 This option may be useful to ignore errors if a particular job
@@ -509,7 +514,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010-2011 Canonical Ltd.
+Copyright \(co 2009\-2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
