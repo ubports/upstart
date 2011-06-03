@@ -3,7 +3,8 @@
  * test_initctl.c - test suite for util/initctl.c
  *
  * Copyright © 2010 Canonical Ltd.
- * Author: Scott James Remnant <scott@netsplit.com>.
+ * Authors: Scott James Remnant <scott@netsplit.com>,
+ *          James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -27,6 +28,8 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/types.h>        
+#include <sys/stat.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
@@ -40,11 +43,192 @@
 #include <nih/main.h>
 #include <nih/command.h>
 #include <nih/error.h>
+#include <nih/string.h>
 
 #include "dbus/upstart.h"
 
+/* remember we run from the 'util' directory */
+#define UPSTART_BINARY "../init/init"
+#define INITCTL_BINARY "./initctl --session"
 
-extern int system_bus;
+#define BUFFER_SIZE 1024
+
+/**
+ * START_UPSTART:
+ *
+ * @pid: pid_t that will contain pid of running instance on success.
+ *
+ * Start an instance of Upstart. Fork errors are fatal, but after
+ * a successful fork, waits for up to a somewhat arbitrary (but
+ * more than adequate!) amount of time for Upstart to initialize.
+ **/
+#define START_UPSTART(pid)                                           \
+{                                                                    \
+	nih_local NihDBusProxy *upstart = NULL;                      \
+	DBusConnection         *connection;                          \
+	DBusError               dbus_error;                          \
+	                                                             \
+	/* XXX: arbitrary value */                                   \
+	int                     attempts = 10;                       \
+	                                                             \
+	                                                             \
+	TEST_NE (pid = fork (), -1);                                 \
+	                                                             \
+	if (pid == 0)                                                \
+		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
+				"--session",                         \
+				"--no-startup-event", NULL);         \
+	                                                             \
+	while (attempts) {                                           \
+		attempts--;                                          \
+		sleep (1);                                           \
+	        dbus_error_init (&dbus_error);                       \
+		connection = dbus_bus_get (DBUS_BUS_SESSION,         \
+				&dbus_error);                        \
+                                                                     \
+		if (! connection) {                                  \
+			dbus_error_free (&dbus_error);               \
+			continue;                                    \
+		}                                                    \
+		dbus_error_free (&dbus_error);                       \
+		                                                     \
+		upstart = nih_dbus_proxy_new (NULL, connection,      \
+				      DBUS_SERVICE_UPSTART,          \
+				      DBUS_PATH_UPSTART,             \
+				      NULL, NULL);                   \
+		                                                     \
+		if (! upstart) {                                     \
+			NihError *err;                               \
+			err = nih_error_get ();                      \
+			nih_free (err);                              \
+			dbus_connection_unref (connection);          \
+		}                                                    \
+		else {                                               \
+			break;                                       \
+		}                                                    \
+	}                                                            \
+}
+
+/**
+ * STOP_UPSTART:
+ *
+ * @pid: pid of upstart to kill.
+ *
+ * Stop upstart process @pid.
+ **/
+#define STOP_UPSTART(pid)                                            \
+{                                                                    \
+	assert (pid);                                                \
+	                                                             \
+	if (kill (pid, 0) == 0) {                                    \
+		kill (pid, SIGTERM);                                 \
+		sleep (1);                                           \
+	}                                                            \
+	                                                             \
+	if (kill (pid, 0) == 0) {                                    \
+		kill (pid, SIGKILL);                                 \
+	}                                                            \
+}
+
+/**
+ * RUN_COMMAND:
+ *
+ * @parent: pointer to parent object,
+ * @cmd: string representing command to run,
+ * @result: "char ***" pointer which will contain an array of string
+ * values corresponding to lines of standard output generated by @cmd,
+ * @len: size_t pointer which will be set to length of @result.
+ *
+ * Run a command and return its standard output. It is the callers
+ * responsibility to free @result. Errors from running @cmd are fatal.
+ **/
+#define RUN_COMMAND(parent, cmd, result, len)                        \
+{                                                                    \
+	FILE    *f;                                                  \
+	char     buffer[BUFFER_SIZE];                                \
+	char   **ret;                                                \
+	                                                             \
+	assert (cmd[0]);                                             \
+	                                                             \
+	*(result) = nih_str_array_new (parent);                      \
+	TEST_NE_P (*result, NULL);                                   \
+	*(len) = 0;                                                  \
+	                                                             \
+	f = popen (cmd, "r");                                        \
+	TEST_NE_P (f, NULL);                                         \
+	                                                             \
+	while (fgets (buffer, BUFFER_SIZE, f)) {                     \
+		size_t l = strlen (buffer)-1;                        \
+	                                                             \
+		if ( buffer[l] == '\n')                              \
+			buffer[l] = '\0';                            \
+		ret = nih_str_array_add (result, parent, len,        \
+			buffer);                                     \
+		TEST_NE_P (ret, NULL);                               \
+	}                                                            \
+	                                                             \
+	TEST_NE ( pclose (f), -1);                                   \
+}
+
+/**
+ * CREATE_FILE:
+ *
+ * @dirname: directory name (assumed to already exist),
+ * @name: name of file to create (no leading slash),
+ * @contents: string contents of @name.
+ *
+ * Create a file in the specified directory with the specified
+ * contents.
+ *
+ * Notes: A newline character is added in the case where @contents does
+ * not end with one.
+ **/
+#define CREATE_FILE(dirname, name, contents)                         \
+{                                                                    \
+	FILE    *f;                                                  \
+	char     filename[PATH_MAX];                                 \
+                                                                     \
+	assert (dirname[0]);                                         \
+	assert (name[0]);                                            \
+                                                                     \
+        strcpy (filename, dirname);                                  \
+	if ( name[0] != '/' )                                        \
+	  strcat (filename, "/");                                    \
+        strcat (filename, name);                                     \
+        f = fopen (filename, "w");                                   \
+        TEST_NE_P (f, NULL);                                         \
+        fprintf (f, contents);                                       \
+	if ( contents[strlen(contents)-1] != '\n')                   \
+          fprintf (f, "\n");                                         \
+        fclose (f);                                                  \
+}
+
+/**
+ * DELETE_FILE:
+ *
+ * @dirname: directory in which file to delete exists,
+ * @name: name of file in @dirname to delete.
+ *
+ * Delete specified file.
+ *
+ **/
+#define DELETE_FILE(dirname, name)                                   \
+{                                                                    \
+	char     filename[PATH_MAX];                                 \
+                                                                     \
+	assert (dirname[0]);                                         \
+	assert (name[0]);                                            \
+                                                                     \
+        strcpy (filename, dirname);                                  \
+	if ( name[0] != '/' )                                        \
+	  strcat (filename, "/");                                    \
+        strcat (filename, name);                                     \
+                                                                     \
+	TEST_EQ (unlink (filename), 0);                              \
+}
+
+extern int use_dbus;
+extern int dbus_bus_type;
 extern char *dest_name;
 extern const char *dest_address;
 extern int no_wait;
@@ -103,7 +287,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with private connection");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = NULL;
 		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
 
@@ -179,7 +363,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with system bus connection");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = NULL;
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -240,7 +425,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with system bus connection and different name");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = "com.ubuntu.UpstartTest";
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -302,7 +488,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with non-listening private connection");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = NULL;
 		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
 
@@ -328,7 +514,8 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with non-listening system bus");
 	TEST_ALLOC_FAIL {
-		system_bus = TRUE;
+		use_dbus = TRUE;
+		dbus_bus_type = DBUS_BUS_SYSTEM;
 		dest_name = NULL;
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -360,7 +547,7 @@ test_upstart_open (void)
 	 */
 	TEST_FEATURE ("with --dest but without --system");
 	TEST_ALLOC_FAIL {
-		system_bus = FALSE;
+		use_dbus = FALSE;
 		dest_name = "com.ubuntu.Upstart";
 		dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -3229,7 +3416,8 @@ test_start_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -4999,7 +5187,8 @@ test_stop_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -6584,7 +6773,8 @@ test_restart_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -8357,7 +8547,8 @@ test_reload_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -9239,7 +9430,8 @@ test_status_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	use_dbus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -10730,6 +10922,919 @@ test_status_action (void)
 	dbus_shutdown ();
 }
 
+void
+test_show_config (void)
+{
+	char             dirname[PATH_MAX];
+	nih_local char  *cmd;
+	pid_t            upstart_pid;
+	char           **output;
+	size_t           lines;
+	char             expected_output[] = "foo";
+
+	TEST_GROUP ("show_config");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
+
+	START_UPSTART (upstart_pid);
+
+	TEST_FEATURE ("no emits, no start on, no stop on");
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ (lines, 1);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ (lines, 1);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("1 emits, no start on, no stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"emits \"thing\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits thing");
+	TEST_EQ (lines, 2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits thing");
+	TEST_EQ (lines, 2);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("2 emits, no start on, no stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"emits \"thing\"\n"
+			"emits \"thong\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits thing");
+	TEST_EQ_STR (output[2], "  emits thong");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits thing");
+	TEST_EQ_STR (output[2], "  emits thong");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no emits, start on, no stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"start on (A and B)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  start on (A and B)");
+	TEST_EQ (lines, 2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  start on A (job:, env:)");
+	TEST_EQ_STR (output[2], "  start on B (job:, env:)");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("1 emits, start on, no stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"emits \"bong\"\n"
+			"start on (A and B)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  start on (A and B)");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  start on A (job:, env:)");
+	TEST_EQ_STR (output[3], "  start on B (job:, env:)");
+	TEST_EQ (lines, 4);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("2 emits, start on, no stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"author \"foo\"\n"
+			"start on (A and B)\n"
+			"emits \"stime\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on (A and B)");
+	TEST_EQ (lines, 4);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on A (job:, env:)");
+	TEST_EQ_STR (output[4], "  start on B (job:, env:)");
+	TEST_EQ (lines, 5);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no emits, no start on, stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"stop on (A or B)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  stop on (A or B)");
+	TEST_EQ (lines, 2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  stop on A (job:, env:)");
+	TEST_EQ_STR (output[2], "  stop on B (job:, env:)");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("1 emits, no start on, stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"emits \"bong\"\n"
+			"stop on (A or B)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  stop on (A or B)");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  stop on A (job:, env:)");
+	TEST_EQ_STR (output[3], "  stop on B (job:, env:)");
+	TEST_EQ (lines, 4);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("2 emits, no start on, stop on");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"author \"foo\"\n"
+			"stop on (A or B)\n"
+			"emits \"stime\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  stop on (A or B)");
+	TEST_EQ (lines, 4);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  stop on A (job:, env:)");
+	TEST_EQ_STR (output[4], "  stop on B (job:, env:)");
+	TEST_EQ (lines, 5);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("2 emits, start on with only initial JOB, stop on with JOB at end of env");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"author \"foo\"\n"
+			"stop on (A or stopping c=d e=f g=h JOB=\"bang\")\n"
+			"emits \"stime\"\n"
+			"start on (starting JOB=\"boo\" or B x=y)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on (starting JOB=boo or B x=y)");
+	TEST_EQ_STR (output[4], "  stop on (A or stopping c=d e=f g=h JOB=bang)");
+	TEST_EQ (lines, 5);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on starting (job: boo, env:)");
+	TEST_EQ_STR (output[4], "  start on B (job:, env: x=y)");
+	TEST_EQ_STR (output[5], "  stop on A (job:, env:)");
+	TEST_EQ_STR (output[6], "  stop on stopping (job: bang, env: c=d e=f g=h)");
+	TEST_EQ (lines, 7);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("2 emits, start on with initial JOB+env, stop on with JOB at end of env");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"author \"foo\"\n"
+			"stop on (A or stopping c=d e=f g=h JOB=\"bang\")\n"
+			"emits \"stime\"\n"
+			"start on (starting JOB=\"boo\" P=Q c=sea or B x=y)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on (starting JOB=boo P=Q c=sea or B x=y)");
+	TEST_EQ_STR (output[4], "  stop on (A or stopping c=d e=f g=h JOB=bang)");
+	TEST_EQ (lines, 5);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits stime");
+	TEST_EQ_STR (output[3], "  start on starting (job: boo, env: P=Q c=sea)");
+	TEST_EQ_STR (output[4], "  start on B (job:, env: x=y)");
+	TEST_EQ_STR (output[5], "  stop on A (job:, env:)");
+	TEST_EQ_STR (output[6], "  stop on stopping (job: bang, env: c=d e=f g=h)");
+	TEST_EQ (lines, 7);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("3 emits, start on (with env), stop on (with env)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"stop on starting D and (stopping E or F hello=world)\n"
+			"author \"foo\"\n"
+			"emits \"bar\"\n"
+			"emits \"stime\"\n"
+			"start on A and (B FOO=BAR or starting C x=y)\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits bar");
+	TEST_EQ_STR (output[3], "  emits stime");
+	/* note the extra brackets! */
+	TEST_EQ_STR (output[4], "  start on (A and (B FOO=BAR or starting C x=y))");
+	/* note the extra brackets! */
+	TEST_EQ_STR (output[5], "  stop on (starting D and (stopping E or F hello=world))");
+	TEST_EQ (lines, 6);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits bar");
+	TEST_EQ_STR (output[3], "  emits stime");
+	TEST_EQ_STR (output[4], "  start on A (job:, env:)");
+	TEST_EQ_STR (output[5], "  start on B (job:, env: FOO=BAR)");
+	TEST_EQ_STR (output[6], "  start on starting (job: C, env: x=y)");
+	TEST_EQ_STR (output[7], "  stop on starting (job: D, env:)");
+	TEST_EQ_STR (output[8], "  stop on stopping (job: E, env:)");
+	TEST_EQ_STR (output[9], "  stop on F (job:, env: hello=world)");
+	TEST_EQ (lines, 10);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("3 emits, complex start on (with env), complex stop on (with env)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"emits \"bong\"\n"
+			"stop on runlevel [!2345] colour=blue or starting rocket\n"
+			"author \"foo\"\n"
+			"emits \"bar\"\n"
+			"emits \"stime\"\n"
+			"start on (starting mountall or (runlevel [016] and "
+			"(stopped gdm or stopped kdm or stopped xdm A=B or stopping lxdm)))\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ_STR (output[1], "  emits bong");
+	TEST_EQ_STR (output[2], "  emits bar");
+	TEST_EQ_STR (output[3], "  emits stime");
+	/* note the extra brackets! */
+	TEST_EQ_STR (output[4], "  start on (starting mountall or (runlevel [016] and "
+			"(((stopped gdm or stopped kdm) or stopped xdm A=B) or stopping lxdm)))");
+	/* note the extra brackets! */
+	TEST_EQ_STR (output[5], "  stop on (runlevel [!2345] colour=blue or starting rocket)");
+	TEST_EQ (lines, 6);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config -e foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0],  expected_output);
+	TEST_EQ_STR (output[1],  "  emits bong");
+	TEST_EQ_STR (output[2],  "  emits bar");
+	TEST_EQ_STR (output[3],  "  emits stime");
+	TEST_EQ_STR (output[4],  "  start on starting (job: mountall, env:)");
+	TEST_EQ_STR (output[5],  "  start on runlevel (job:, env: [016])");
+	TEST_EQ_STR (output[6],  "  start on stopped (job: gdm, env:)");
+	TEST_EQ_STR (output[7],  "  start on stopped (job: kdm, env:)");
+	TEST_EQ_STR (output[8],  "  start on stopped (job: xdm, env: A=B)");
+	TEST_EQ_STR (output[9],  "  start on stopping (job: lxdm, env:)");
+	TEST_EQ_STR (output[10], "  stop on runlevel (job:, env: [!2345] colour=blue)");
+	TEST_EQ_STR (output[11], "  stop on starting (job: rocket, env:)");
+	TEST_EQ (lines, 12);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	STOP_UPSTART (upstart_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+}
+
+void
+test_check_config (void)
+{
+	char             dirname[PATH_MAX];
+	nih_local char  *cmd;
+	pid_t            upstart_pid;
+	char           **output;
+	size_t           lines;
+
+	TEST_GROUP ("check_config");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
+
+	START_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by job or event)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by job)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("no unreachable jobs/events (satisfied by event)");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar or wibble)");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable event");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "foo");
+	TEST_EQ_STR (output[1], "  start on: unknown event wibble");
+	TEST_EQ (lines, 2);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable job");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "baz.conf",
+			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "foo");
+	TEST_EQ_STR (output[1], "  start on: unknown job bar");
+	TEST_EQ (lines, 2);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable event with forced ignore");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (starting bar and wibble)");
+
+	CREATE_FILE (dirname, "bar.conf",
+			"task\n"
+			"exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wibble 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "bar.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unreachable events with forced ignores");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"start on (fred and wilma)");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wilma,foo,fred 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on");
+
+	/* Yes folks, it's the classic */
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex start on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  start on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex stop on");
+
+	/* Yes folks, it's the classic */
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  stop on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  stop on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  stop on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex stop on, satisfiable complex start on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"stop on (starting mountall\n"
+			"      or (runlevel [016]\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"start on (stopping portmap\n"
+			"         or (runlevel [06] or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf", "exec true");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  stop on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  stop on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  stop on: unknown job gdm");
+	TEST_EQ (lines, 5);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "beano.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on, unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "gdm.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config >&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  stop on: unknown job beano");
+	TEST_EQ_STR (output[2], "  stop on: unknown event wibble");
+	TEST_EQ (lines, 3);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "gdm.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("unsatisfiable complex start on, unsatisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or stopped kdm\n"
+			"              or stopped xdm\n"
+                   	"              or stopped lxdm)))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true");
+	CREATE_FILE (dirname, "portmap.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job lxdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[4], "  start on: unknown job gdm");
+	TEST_EQ_STR (output[5], "  start on: unknown event hello");
+	TEST_EQ_STR (output[6], "  stop on: unknown job beano");
+	TEST_EQ_STR (output[7], "  stop on: unknown event wibble");
+	TEST_EQ (lines, 8);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("satisfiable complex start on, satisfiable complex stop on");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or (stopped kdm\n"
+			"              or (stopped xdm\n"
+                   	"              or stopped lxdm)))))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true\n");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "lxdm.conf", "exec true");
+	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ (lines, 0);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "lxdm.conf");
+	DELETE_FILE (dirname, "beano.conf");
+	DELETE_FILE (dirname, "wibble.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE (
+		"satisfiable complex start on, satisfiable complex stop on with warnings");
+
+	CREATE_FILE (dirname, "plymouth.conf",
+			"start on (starting mountall\n"
+			"      or (hello\n"
+              		"          and (stopped gdm\n"
+                   	"              or (stopped kdm\n"
+			"              or (stopped xdm\n"
+                   	"              or stopped lxdm)))))\n"
+                   	"stop on (stopping portmap\n"
+			"         or (wibble or starting beano))\n");
+
+	CREATE_FILE (dirname, "mountall.conf", "exec true\n");
+	CREATE_FILE (dirname, "portmap.conf",
+			"exec true\n"
+			"emits hello");
+	CREATE_FILE (dirname, "lxdm.conf", "exec true");
+	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
+	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s check-config --warn 2>&1",
+			INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	TEST_EQ_STR (output[0], "plymouth");
+	TEST_EQ_STR (output[1], "  start on: unknown job xdm");
+	TEST_EQ_STR (output[2], "  start on: unknown job kdm");
+	TEST_EQ_STR (output[3], "  start on: unknown job gdm");
+	TEST_EQ (lines, 4);
+
+	DELETE_FILE (dirname, "plymouth.conf");
+	DELETE_FILE (dirname, "mountall.conf");
+	DELETE_FILE (dirname, "portmap.conf");
+	DELETE_FILE (dirname, "lxdm.conf");
+	DELETE_FILE (dirname, "beano.conf");
+	DELETE_FILE (dirname, "wibble.conf");
+
+	/*******************************************************************/
+
+	STOP_UPSTART (upstart_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+}
+
 
 void
 test_list_action (void)
@@ -10769,7 +11874,7 @@ test_list_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12060,7 +13165,7 @@ test_emit_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12494,7 +13599,7 @@ test_reload_configuration_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12684,7 +13789,7 @@ test_version_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -12904,7 +14009,7 @@ test_log_priority_action (void)
 					"NameAcquired"));
 	dbus_message_unref (method_call);
 
-	system_bus = TRUE;
+	dbus_bus_type = DBUS_BUS_SYSTEM;
 	dest_name = DBUS_SERVICE_UPSTART;
 	dest_address = DBUS_ADDRESS_UPSTART;
 
@@ -13283,6 +14388,52 @@ test_log_priority_action (void)
 }
 
 
+/**
+ * in_chroot:
+ *
+ * Determine if running inside a chroot environment.
+ *
+ * Failures are fatal.
+ *
+ * Returns TRUE if within a chroot, else FALSE.
+ **/
+int
+in_chroot (void)
+{
+	struct stat st;
+	int i;
+	char dir[] = "/";
+
+	i = stat(dir, &st);
+	    
+	if ( i != 0 ) { 
+		fprintf (stderr, "ERROR: cannot stat '%s'\n", dir);
+		exit (EXIT_FAILURE);
+	}
+
+	if ( st.st_ino == 2 )
+		return FALSE;
+
+	return TRUE;
+}
+
+/**
+ * dbus_configured
+ *
+ * Determine if D-Bus has been configured (with dbus-uuidgen).
+ *
+ * Returns TRUE if D-Bus appears to have been configured,
+ * else FALSE.
+ **/
+int
+dbus_configured (void)
+{
+	struct stat st;
+	char path[] = "/var/lib/dbus/machine-id";
+
+	return !stat (path, &st);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -13307,6 +14458,17 @@ main (int   argc,
 	test_reload_configuration_action ();
 	test_version_action ();
 	test_log_priority_action ();
+
+	if (in_chroot () && !dbus_configured ()) {
+		fprintf(stderr, "\n\n"
+				"WARNING: not running show-config "
+				"and check-config tests within chroot "
+				"as no D-Bus, or D-Bus not configured (lp:#728988)"
+				"\n\n");
+	} else {
+		test_show_config ();
+		test_check_config ();
+	}
 
 	return 0;
 }

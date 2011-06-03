@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2010,2011 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,12 +55,19 @@
 
 #include "com.ubuntu.Upstart.h"
 
-
 /* Prototypes for static functions */
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
 
+/**
+ * use_session_bus:
+ *
+ * If TRUE, connect to the D-Bus sessio bus rather than the system bus.
+ *
+ * Used for testing.
+ **/
+int use_session_bus = FALSE;
 
 /**
  * control_server_address:
@@ -79,7 +86,7 @@ DBusServer *control_server = NULL;
 /**
  * control_bus:
  *
- * Open connection to D-Bus system bus.  The connection may be opened with
+ * Open connection to a D-Bus bus.  The connection may be opened with
  * control_bus_open() and if lost will become NULL.
  **/
 DBusConnection *control_bus = NULL;
@@ -87,7 +94,7 @@ DBusConnection *control_bus = NULL;
 /**
  * control_conns:
  *
- * Open control connections, including the connection to the D-Bus system
+ * Open control connections, including the connection to a D-Bus
  * bus and any private client connections.
  **/
 NihList *control_conns = NULL;
@@ -191,8 +198,9 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
- * Open a connection to the D-Bus system bus and store it in the control_bus
- * global.  The connection is handled automatically in the main loop.
+ * Open a connection to the appropriate D-Bus bus and store it in the
+ * control_bus global. The connection is handled automatically
+ * in the main loop.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -208,10 +216,13 @@ control_bus_open (void)
 
 	control_init ();
 
+	control_handle_bus_type ();
+
 	/* Connect to the D-Bus System Bus and hook everything up into
 	 * our own main loop automatically.
 	 */
-	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_disconnected);
+	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+			     control_disconnected);
 	if (! conn)
 		return -1;
 
@@ -705,4 +716,19 @@ control_set_log_priority (void *          data,
 	}
 
 	return 0;
+}
+
+/**
+ * control_handle_bus_type:
+ *
+ * Determine D-Bus bus type to connect to.
+ **/
+void
+control_handle_bus_type (void)
+{
+	if (getenv (USE_SESSION_BUS_ENV))
+		use_session_bus = TRUE;
+
+	if (use_session_bus)
+		nih_debug ("Using session bus");
 }

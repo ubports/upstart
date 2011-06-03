@@ -1,3 +1,162 @@
+2011-06-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart:
+	  - Made function names more meaningful:
+	  - _upstart_jobs: Now returns a unique list
+	  - _upstart_events (nee _upstart_named_events ) now considers all
+	    "emits" tokens.
+	  - Updates for "check-config" and "show-config".
+	  - Added "--session" option.
+	  - Added "--no-wait" for emit, reload and restart.
+
+	Man page updates.
+	
+	* init/man/init.5:
+	  - Quoted dashes.
+	  - Explain handling of duplicated stanzas.
+	  - "respawn": Document default count and interval.
+	  - "emits": Reference "initctl check-config".
+	  - Added BUGS section.
+	  - Added copyright.
+	* init/man/init.8:
+	  - Quoted dashes.
+	  - See Also: Added control-alt-delete(7).
+	* util/man/initctl.8:
+	  - Quoted dashes.
+	  - "restart": Clarified meaning.
+	  - "list": Explained "stop/waiting" jobs.
+
+2011-06-01  James Hunt  <james.hunt@ubuntu.com>
+
+	Add D-Bus session support to initctl.
+	
+	* util/initctl.c:
+	  - Added "--session" command-line option.
+	  - dbus_bus_type_setter(): New function used by option parser to
+	    distinguish system/session D-Bus bus type.
+	  - system_bus variable now replaced by two others: use_dbus (boolean)
+	    and dbus_bus_type.
+	  - upstart_open(): Updated to handle multiple D-Bus bus types.
+	* util/man/initctl.8: Update for "--session" option.
+	* util/tests/test_initctl.c: Updated to make use of use_dbus and
+	  dbus_bus_type rather than system_bus.
+
+	Add "show-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - job_class_condition_handler(): Handler function to retrieve job conditions.
+	    - job_class_condition_err_handler(): Handler error function for
+	      job_class_condition_handler().
+	    - job_class_parse_events(): Convert RPN "start on" and "stop on" conditions to
+	      human-readable format.
+	    - job_class_show_emits(): Display events which job emits.
+	    - job_class_show_conditions(): Make D-Bus calls to retrieve "start on" and
+	      "stop on" conditions.
+	    - show_config_action: Handle "show-config" command..
+	* util/initctl.h: New file providing stack-handling functionality for
+	  RPN parsing for "show-config" command.
+	* util/Makefile.am: Added initctl.h to initctl_SOURCES.
+	* util/man/initctl.8: Updated for "show-config" command and associated
+	  options.
+	* util/tests/test_initctl.c:
+	  - New macros START_UPSTART, STOP_UPSTART, RUN_COMMAND, CREATE_FILE and DELETE_FILE.
+	    These are required since due to the introduction of the
+	    "show-config" initctl command, initctl is no longer solely a proxy
+	    to Upstart: it now has some intelligence (it parses the 
+	    "emits", "start on" and "stop on" conditions) and thus must be
+	    tested directly.
+	  - test_show_config(): New function to test "initctl show-config".
+	  - in_chroot(): New function to detect if tests are being run from
+	    within a chroot environment.
+	  - dbus_configured(): New function which performs a basic check to
+	    establish if D-Bus is configured correctly.
+	  - main(): Added call to test_show_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+
+	Add "check-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - allow_event(): Determine if specified event is erroneous or not.
+	      Handles globbing.
+	    - allow_job(): Determine if specified job is erroneous or not.
+	      Handles variables (such as instance variables).
+	    - check_condition(): High-level function to handle checking start
+	      on/stop on conditions.
+	    - check_config_action: Handler for "check-config" command.
+	    - display_check_errors(): Display errors from expression tree nodes
+	      that are in error.
+	    - eval_expr_tree(): Evaluate expression tree.
+	    - ignored_events_setter(): handler for '--ignore-events' command-line
+	      option for "check-config" command.
+	    - tree_filter(): Used for filtering expression tree nodes.
+	  - show_config_action(): Update for check-config mode.
+	  - job_class_parse_events(): Update for check-config mode.
+	  - job_class_show_emits(): Update for check-config mode.
+	* util/initctl.h:
+	  - Added structs for JobCondition, CheckConfigData and ExprNode.
+	  - New macros: MAKE_EXPR_NODE() and MAKE_JOB_CONDITION().
+	* util/tests/test_initctl.c:
+	  - test_check_config(): New function to test "initctl check-config".
+	  - main(): Added call to test_check_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+	* util/man/initctl.8: Updated for "check-config" command and associated
+	  options.
+	* conf/rc-sysinit.conf: Added "emits" stanza, required by
+	"check-config".
+
+	Addition of initctl2dot script for visualisation.
+	
+	* Makefile.am: Added scripts directory.
+	* configure.ac: Updated AC_CONFIG_FILES for scripts/Makefile.
+	* scripts/Makefile.am: Makefile for scripts.
+	* scripts/initctl2dot.py: Python script to produce dot(1) graphs of
+	  "initctl show-config" output.
+	* scripts/man/initctl2dot.8: Man page for initctl2dot.py script.
+
+	Addition of init-checkconf script.
+	
+	* scripts/init-checkconf.sh: Script to determine if specified job
+	  config file is valid or not.
+	* scripts/man/init-checkconf.8: Man page for init-checkconf.sh.
+	* scripts/Makefile.am: Added init-checkconf script and man
+	  page.
+
+2011-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	Add command-line option to use D-Bus session bus (for testing).
+	
+	* init/control.c:
+	  - Added new boolean use_session_bus.
+	  - Updated comments.
+	  - control_handle_bus_type(): New function to allow selection of
+	    session bus via env var "UPSTART_USE_SESSION_BUS".
+	    Also logs use of session bus if use_session_bus set.
+	  - control_bus_open(): Now connects to either D-Bus system bus or session bus.
+	* init/control.h: New define for USE_SESSION_BUS_ENV.
+	* init/main.c: Addition of "--session" command-line option.
+	* init/man/init.8: Update for new "--session" command-line option.
+
+	* Corrected copyright notices.
+
+	Add option to allow alternate location for job config files.
+	
+	* init/main.c:
+	  - Added "--confdir <dir>" command-line option.
+	  - handle_confdir(): New function to select alternate confdir using env
+	    var "UPSTART_CONFDIR" or command-line option (for testing).
+	* init/paths.h: Added define for CONFDIR_ENV.
+	* init/man/init.8: Update for new "--confdir" command-line option.
+
+	Add ability to suppress initial event and/or change its name.
+	
+	* init/main.c: New command-line options: "--no-startup-event" and
+	  "--startup-event". If "--no-startup-event" specified, log message as a
+	  debug aid.
+	* init/man/init.8: Documentation for new command-line options:
+	  "--no-startup-event" and "--startup-event".
+
 2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
 
 	* init/job_class.h (JobClass): Add kill signal member

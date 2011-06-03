@@ -1,0 +1,73 @@
+.TH init\-checkconf 8 2011-04-06 "Upstart"
+.\"
+.SH NAME
+init\-checkconf \- manual page for init-checkconf
+.\"
+.SH SYNOPSIS
+.B init\-checkconf
+.RI [ OPTIONS ] " file "
+
+.B init\-checkconf
+.RI [ OPTIONS ] " " "\-f" " file "
+.\"
+.SH DESCRIPTION
+Determine if specified Upstart
+.BR init (8)
+job configuration file is valid.
+.P
+By default, two checks are performed:
+.IP \(bu 4
+Ensure Upstart can parse overall file successfully
+.IP \(bu 4
+Ensure all script sections are parseable by shell
+.P
+.\"
+.SH OPTIONS
+.TP
+.BR \-d " , " \-\-debug
+Show some debug output.
+.TP
+.BR \-f " \fIfile\fP" " , " \-\-file=\fIfile\fP
+Specify job configuration file to check.
+.TP
+.BR \-i " \fIpath\fP" " , " \-\-initctl\-path=\fIpath\fP
+Specify path to
+.BR initctl (8)
+binary.
+.TP
+.BR \-s " , " \-\-noscript
+Do not check script sections.
+.TP
+.BR \-x " \fIpath\fP" " , " \-\-upstart\-path=\fIpath\fP
+Specify path to
+.BR init (8)
+binary.
+.TP
+.BR \-h " , " \-\-help
+Display usage statement.
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@ubuntu.com >
+.\"
+.SH LIMITATIONS
+.IP \(bu 4
+This program will not run as the root user.
+.IP \(bu 4
+It is not possible for a user to run multiple simultaneous
+instances of this program.
+.\"
+.SH REPORTING BUGS
+Report bugs at
+.RB < https://launchpad.net/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2011 Canonical Ltd.
+.br
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.SH SEE ALSO
+.BR sh (1)
+.BR init (5)
+.BR init (8)
