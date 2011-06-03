@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <utmp.h>
 #include <utmpx.h>
+#include <pwd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -538,6 +539,16 @@ job_process_spawn (JobClass     *class,
 		}
 	}
 
+	/* Handle changing a chroot session job prior to dealing with
+	 * the 'chroot' stanza.
+	 */
+	if (class->session && class->session->chroot) {
+		if (chroot (class->session->chroot) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHROOT, 0);
+		}
+	}
+
 	/* Change the root directory, confining path resolution within it;
 	 * we do this before the working directory call so that is always
 	 * relative to the new root.
@@ -592,6 +603,54 @@ job_process_spawn (JobClass     *class,
 						 JOB_PROCESS_ERROR_PTRACE, 0);
 		}
 	}
+
+	/* Handle unprivileged user job by dropping privileges to
+	 * their level.
+	 */
+	if (class->session && class->session->user) {
+		uid_t uid = class->session->user;
+		struct passwd *pw = NULL;
+
+		/* D-Bus does not expose a public API call to allow
+		 * us to query a users primary group.
+		 * _dbus_user_info_fill_uid () seems to exist for this
+		 * purpose, but is a "secret" API. It is unclear why
+		 * D-Bus neglects the gid when it allows the uid
+		 * to be queried directly.
+		 *
+		 * Our only recourse is to disallow user sessions in a
+		 * chroot and assume that all other user sessions
+		 * originate from the local system. In this way, we can
+		 * bypass D-Bus and use getpwuid ().
+		 */
+
+		if (class->session->chroot) {
+			/* We cannot determine the group id of the user
+			 * session in the chroot via D-Bus, so disallow
+			 * all jobs in such an environment.
+			 */
+			_nih_error_raise (__FILE__, __LINE__, __FUNCTION__,
+					EPERM, strerror (EPERM));
+		}
+
+		pw = getpwuid (uid);
+
+		if (!pw)
+			nih_return_system_error (-1);
+
+		nih_assert (pw->pw_uid == uid);
+
+		if (uid && setuid (uid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+		}
+
+		if (pw->pw_gid && setgid (pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
+		}
+	}
+
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {

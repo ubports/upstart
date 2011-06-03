@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -146,6 +146,7 @@ conf_source_new (const void     *parent,
 
 	source->type = type;
 	source->watch = NULL;
+	source->session = NULL;
 
 	source->flag = FALSE;
 	source->files = nih_hash_string_new (source, 0);
@@ -744,7 +745,8 @@ conf_reload_path (ConfSource *source,
 		 * the job definition.
 		 */
 		nih_debug ("Loading %s from %s", name, path);
-		file->job = parse_job (NULL, name, buf, len, &pos, &lineno);
+		file->job = parse_job (NULL, source->session,
+				       name, buf, len, &pos, &lineno);
 		if (file->job) {
 			job_class_consider (file->job);
 		} else {
@@ -848,7 +850,8 @@ conf_file_destroy (ConfFile *file)
 
 /**
  * conf_select_job:
- * @name: name of job class to locate.
+ * @name: name of job class to locate,
+ * @session: session class name belongs to.
  *
  * Select the best available class of a job named @name from the registered
  * configuration sources.
@@ -856,7 +859,7 @@ conf_file_destroy (ConfFile *file)
  * Returns: Best available job class or NULL if none available.
  **/
 JobClass *
-conf_select_job (const char *name)
+conf_select_job (const char *name, const Session *session)
 {
 	nih_assert (name != NULL);
 
@@ -866,6 +869,9 @@ conf_select_job (const char *name)
 		ConfSource *source = (ConfSource *)iter;
 
 		if (source->type != CONF_JOB_DIR)
+			continue;
+
+		if (source->session != session)
 			continue;
 
 		NIH_HASH_FOREACH (source->files, file_iter) {

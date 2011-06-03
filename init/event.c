@@ -123,6 +123,8 @@ event_new (const void  *parent,
 
 	nih_list_init (&event->entry);
 
+	event->session = NULL;
+
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 
@@ -292,6 +294,13 @@ event_pending_handle_jobs (Event *event)
 
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
+
+		/* Only affect jobs within the same session as the event
+		 * unless the event has no session, in which case do them
+		 * all.
+		 */
+		if (event->session && (class->session != event->session))
+			continue;
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
@@ -470,6 +479,7 @@ event_finished (Event *event)
 			failed = NIH_MUST (nih_sprintf (NULL, "%s/failed",
 							event->name));
 			new_event = NIH_MUST (event_new (NULL, failed, NULL));
+			new_event->session = event->session;
 
 			if (event->env)
 				new_event->env = NIH_MUST (nih_str_array_copy (

@@ -2,7 +2,7 @@
  *
  * job.c - core state machine of tasks and services
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,7 @@
 #include "events.h"
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "job_process.h"
@@ -99,8 +100,14 @@ job_new (JobClass   *class,
 
 	job->class = class;
 
-	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
-				   class->name, job->name, NULL);
+	if (job->class->session && job->class->session->chroot) {
+		/* JobClass already contains a valid D-Bus path prefix for the job */
+		job->path = nih_dbus_path (job, class->path, job->name, NULL);
+	} else {
+		job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
+				class->name, job->name, NULL);
+	}
+
 	if (! job->path)
 		goto error;
 
@@ -906,6 +913,7 @@ job_emit_event (Job *job)
 	}
 
 	event = NIH_MUST (event_new (NULL, name, env));
+	event->session = job->class->session;
 
 	if (block) {
 		Blocked *blocked;
@@ -1102,10 +1110,21 @@ job_start (Job             *job,
 	   NihDBusMessage  *message,
 	   int              wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
@@ -1166,10 +1185,21 @@ job_stop (Job            *job,
 	  NihDBusMessage *message,
 	  int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
@@ -1231,10 +1261,21 @@ job_restart (Job            *job,
 	     NihDBusMessage *message,
 	     int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (

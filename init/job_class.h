@@ -35,6 +35,7 @@
 
 #include "process.h"
 #include "event_operator.h"
+#include "session.h"
 
 
 /**
@@ -71,6 +72,7 @@ typedef enum console_type {
  * @entry: list header,
  * @name: unique name,
  * @path: path of D-Bus object,
+ * @session: attached session,
  * @instance: pattern to uniquely identify multiple instances,
  * @instances: hash table of active instances,
  * @description: description; intended for humans,
@@ -110,6 +112,7 @@ typedef struct job_class {
 
 	char           *name;
 	char           *path;
+	Session *       session;
 
 	char           *instance;
 	NihHash        *instances;
@@ -161,7 +164,8 @@ extern NihHash *job_classes;
 void        job_class_init                 (void);
 
 JobClass  * job_class_new                  (const void *parent,
-					    const char *name)
+					    const char *name,
+					    Session *session)
 	__attribute__ ((warn_unused_result, malloc));
 
 int         job_class_consider             (JobClass *class);

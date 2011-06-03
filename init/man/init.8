@@ -1,4 +1,4 @@
-.TH init 8 2011-05-31 "Upstart"
+.TH init 8 2011-04-06 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -67,6 +67,10 @@ by placing them on the kernel command-line.
 .B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than
 \fI/etc/init\fP.
+.\"
+.TP
+.B \-\-no\-sessions
+Disable user and chroot sessions.
 .\"
 .TP
 .B \-\-no\-startup\-event

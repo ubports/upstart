@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -45,6 +45,7 @@
 
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "event_operator.h"
@@ -100,7 +101,7 @@
 
 /* Prototypes for static functions */
 static void job_class_add    (JobClass *class);
-static int  job_class_remove (JobClass *class);
+static int  job_class_remove (JobClass *class, const Session *session);
 
 
 /**
@@ -128,13 +129,15 @@ job_class_init (void)
 
 /**
  * job_class_new:
- * @parent: parent for new job class,
- * @name: name of new job class.
  *
- * Allocates and returns a new JobClass structure with the @name given.
- * It will not be automatically added to the job classes table, it is up
- * to the caller to ensure this is done using job_class_register() once
- * the class has been set up.
+ * @parent: parent for new job class,
+ * @name: name of new job class,
+ * @session: session.
+ *
+ * Allocates and returns a new JobClass structure with the given @name
+ * and @session. It will not be automatically added to the job classes
+ * table, it is up to the caller to ensure this is done using
+ * job_class_register() once the class has been set up.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned job class.  When all parents
@@ -145,7 +148,8 @@ job_class_init (void)
  **/
 JobClass *
 job_class_new (const void *parent,
-	       const char *name)
+	       const char *name,
+	       Session *   session)
 {
 	JobClass *class;
 	int       i;
@@ -165,8 +169,41 @@ job_class_new (const void *parent,
 	if (! class->name)
 		goto error;
 
-	class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-				     class->name, NULL);
+	class->session = session;
+	if (class->session
+	    && class->session->chroot
+	    && class->session->user) {
+		nih_local char *uid = NULL;
+
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session->chroot, uid,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->chroot) {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session->chroot,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->user) {
+		nih_local char *uid = NULL;
+
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     uid, class->name, NULL);
+
+	} else {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     class->name, NULL);
+	}
 	if (! class->path)
 		goto error;
 
@@ -245,19 +282,27 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 	nih_assert (best != NULL);
+	nih_assert (best->session == class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered != best) {
 		if (registered)
-			if (! job_class_remove (registered))
+			if (! job_class_remove (registered, class->session))
 				return FALSE;
 
 		job_class_add (best);
@@ -282,18 +327,25 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered == class) {
 		if (class != best) {
-			if (! job_class_remove (class))
+			if (! job_class_remove (class, class->session))
 				return FALSE;
 
 			job_class_add (best);
@@ -334,18 +386,23 @@ job_class_add (JobClass *class)
 
 /**
  * job_class_remove:
- * @class: class to remove.
+ * @class: class to remove,
+ * @session: Session of @class.
  *
  * Removes @class from the hash table and unregisters it from all current
  * D-Bus connections.
  *
  * Returns: TRUE if class could be unregistered, FALSE if there are
- * active instances that prevent unregistration.
+ * active instances that prevent unregistration, or if @session
+ * does not match the session associated with @class.
  **/
 static int
-job_class_remove (JobClass *class)
+job_class_remove (JobClass *class, const Session *session)
 {
 	nih_assert (class != NULL);
+
+	if (class->session != session)
+		return FALSE;
 
 	control_init ();
 
@@ -696,6 +753,7 @@ job_class_start (JobClass        *class,
 		 char * const    *env,
 		 int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **start_env = NULL;
@@ -705,6 +763,16 @@ job_class_start (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -815,6 +883,7 @@ job_class_stop (JobClass       *class,
 		char * const   *env,
 		int             wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **stop_env = NULL;
@@ -824,6 +893,16 @@ job_class_stop (JobClass       *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -939,6 +1018,7 @@ job_class_restart (JobClass        *class,
 		   char * const    *env,
 		   int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **restart_env = NULL;
@@ -948,6 +1028,16 @@ job_class_restart (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {

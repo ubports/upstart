@@ -1,3 +1,63 @@
+2011-06-03  James Hunt  <james.hunt@ubuntu.com>
+
+	Add session support. Note that there are no automatically runnable and
+	explicit tests yet. However, see TESTING.sessions.
+	
+	* TESTING.sessions: ASCII (reStructuredText) document explaining
+	  how to run manual tests for session support (for chroots).
+	* dbus/Upstart.conf: Simplified to support allowing users to invoke
+	  all methods (since Upstart now isolates commands by user).
+	* init/Makefile.am: Added session.[ch] files.
+	* init/session.c: New file. Note that session_from_dbus() will disable sessions
+	  (by returning the NULL session) if environment variable "UPSTART_NO_SESSIONS"
+	  is set to any value (used by tests).
+	* init/session.h: New file.
+	* init/parse_job.h: parse_job(): Add session pointer to prototype.
+	* init/parse_job.c:
+	  - parse_job(): Add session parameter.
+	  - Update calls to job_class_new() to pass session pointer.
+	* init/job.c: job_new(): Crucial change to ensure chroot sessions have
+	  a unique D-Bus name (LP:#728531).
+	* init/job_class.c: 
+	  - job_class_new(): Add session parameter and session support.
+	  - job_class_remove(): Add session parameter to prototype.
+	  - job_class_consider(): Only consider jobs from the appropriate session.
+	  - job_class_reconsider(): Only consider jobs from the appropriate session.
+	  - job_class_start(): Disallow out-of-session modification.
+	  - job_class_stop(): Disallow out-of-session modification.
+	  - job_class_restart(): Disallow out-of-session modification.
+	* init/main.c: Add "--no-sessions" command-line option to disable
+	  sessions and revert to traditional behaviour.
+	* init/job_class.h: 
+	  - job_class_new(): Add session pointer to prototype.
+	  - JobClass: Add session member.
+	* init/job_process.c: job_process_spawn():
+	  - Call chroot(2) for chroot sessions.
+	  - Call setuid(2) for user session jobs.
+	* init/job.c:
+	  - job_emit_event(): Set session for event.
+	  - job_start(): Disallow out-of-session modification.
+	  - job_stop(): Disallow out-of-session modification.
+	  - job_restart(): Disallow out-of-session modification.
+	* init/event.h: Event: Add session member.
+	* init/event.c:
+	  - event_new(): initialize session to NULL.
+	  - event_pending_handle_jobs(): Add session handling.
+	  - event_finished(): Set session for failure event.
+	* init/control.c:
+	  - control_get_job_by_name(): Add session handling.
+	  - control_get_all_jobs(): Add session handling.
+	  - control_emit_event(): Add session handling.
+	* init/conf.c:
+	  - conf_source_new(): Initialise session to NULL.
+	  - conf_reload_path(): Pass session to parse_job().
+	  - conf_select_job(): Add session parameter.
+	* init/conf.h:
+	  - ConfSource: Add session member.
+	  - conf_select_job(): Add session parameter to prototype.
+	* All tests updated to set "UPSTART_NO_SESSIONS" (to disable
+	  sessions).
+
 2011-06-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* contrib/bash_completion/upstart:

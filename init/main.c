@@ -90,6 +90,8 @@ static const char *argv0 = NULL;
 static int restart = FALSE;
 
 
+extern int disable_sessions;
+
 /**
  * conf_dir:
  *
@@ -122,6 +124,9 @@ extern int use_session_bus;
 static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", &conf_dir, NULL },
+
+	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
