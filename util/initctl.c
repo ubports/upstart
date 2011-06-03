@@ -1533,7 +1533,7 @@ check_config_action (NihCommand *command,
 
 	nih_free (check_config_data.job_class_hash);
 	nih_free (check_config_data.event_hash);
-	if (! check_config_data.ignored_events_hash)
+	if (check_config_data.ignored_events_hash)
 		nih_free (check_config_data.ignored_events_hash);
 
 	return ret ? 1 : 0;
