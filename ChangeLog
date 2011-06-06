@@ -3,8 +3,6 @@
 	Add override file support.
 
 	* init/conf.c:
-	  - conf_reload(): Removed ENOENT check to ensure error thrown if
-	    conf files/dirs do not exist.
 	  - conf_reload_path(): Now takes an extra override_path parameter.
 	  - is_conf_file() / is_conf_file_std() / is_conf_file_override(): New
 	    functions to determine type of given file path.
