@@ -288,7 +288,7 @@ In addition, the
 and
 .B post-stop
 scripts are run with the environment of the events or commands that
-stopped the job.  THe
+stopped the job.  The
 .B UPSTART_STOP_EVENTS
 environment variable contains the list of events that stopped the job,
 it will not be present if the job was stopped manually.
@@ -461,6 +461,20 @@ daemon.
 
 This stanza allows a job to document in its job configuration what events
 it emits itself, and may be useful for graphing possible transitions.
+
+The
+.BR initctl "(8) " check\-config
+command attempts to use this stanza to resolve events.
+
+.I EVENT
+can be either a literal string or a string including shell
+wildcard meta-characters (asterisk (\(aq*\(aq), question mark
+(\(aq?\(aq), and square brackets (\(aq[\(aq and \(aq]\(aq)).
+Meta-characters are useful to allow
+.BR initctl "(8) " check\-config
+to resolve a class of events, such as those emitted by
+.BR upstart-udev-bridge (8) "" .
+
 .\"
 .SS Process environment
 Many common adjustments to the process environment, such as resource
@@ -621,4 +635,5 @@ stopped as soon as they fork on startup.
 .\"
 .SH SEE ALSO
 .BR init (8)
+.BR initctl (8)
 .BR sh (1)
