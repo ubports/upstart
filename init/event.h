@@ -67,6 +67,7 @@ typedef struct event {
 	Session *        session;
  	char            *name;
 	char           **env;
+	int              fd;
 
 	EventProgress    progress;
 	int              failed;

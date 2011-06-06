@@ -1,0 +1,57 @@
+.TH upstart\-udev\-bridge 8 2011-03-08 upstart
+.\"
+.SH NAME
+upstart\-udev\-bridge \- Bridge between Upstart and udev
+.\"
+.SH SYNOPSIS
+.B upstart\-udev\-bridge
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart\-udev\-bridge
+receives information about kernel uevents that
+.BR udev (8)
+has completed and creates
+.BR init (8)
+events for them.
+
+It emits events which match the pattern "\fIS\fP\-device\-\fIA\fP" where
+\(aqS\(aq is the udev \fIsubsystem\fP and \(aqA\(aq is the udev \fIaction\fP.
+See \fBudev\fP(7) and for further details.
+
+Assuming \fI/sys\fP is mounted, possible values for \fIsubsystem\fP for
+your system are viewable via \fI/sys/class/\fP.
+
+.\"
+.SH EXAMPLES
+
+.IP net\-device\-added
+Event emitted when a network device is added.
+.IP net\-device\-removed
+Event emitted when a network device is removed.
+.IP graphics\-card\-added
+Event emitted when a graphics device is available to the system.
+.\"
+.SH NOTES
+This is a temporary tool until
+.BR init (8)
+itself gains the functionality to read them directly; you should not
+rely on its behaviour.
+.\"
+.SH AUTHOR
+Written by Scott James Remnant
+.RB < scott@netsplit.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2009,2010,2011 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR init (5)
+.BR init (8)
+.BR udev (7)

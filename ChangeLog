@@ -33,6 +33,35 @@
 	    parameter to parse_job().
 	* util/man/initctl.8: Clarified what it means to restart a job.
 
+	Add udev and socket bridges.
+	
+	* Makefile.am: Added extra directory.
+	* New files:
+	  - extra/Makefile.am
+	  - extra/conf/upstart-socket-bridge.conf
+	  - extra/conf/upstart-udev-bridge.conf
+	  - extra/man/socket-event.7
+	  - extra/man/upstart-socket-bridge.8
+	  - extra/man/upstart-udev-bridge.8
+	  - extra/upstart-socket-bridge.c
+	  - extra/upstart-udev-bridge.c
+	* configure.ac:
+	  - Check for udev (for upstart-udev-bridge).
+	  - Add extra/Makefile to AC_CONFIG_FILES.
+	* dbus/com.ubuntu.Upstart.xml: Add EmitEventWithFile method.
+	* init/control.c:
+	  - control_emit_event(): Now a wrapper for control_emit_event_with_file.
+	  - control_emit_event_with_file(): New function that operates on an fd.
+	* init/control.h: Prototype for control_emit_event_with_file().
+	* init/event.c:
+	  - event_new(): Initialize event fd.
+	  - event_pending_handle_jobs(): Now calls event_operator_fds().
+	* init/event.c: Add fd to Event struct.
+	* init/event_operator.c: event_operator_fds(): New function.
+	* init/event_operator.h: Prototype for event_operator_fds().
+	* init/job.c: job_new(): Initialize fd members.
+	* init/job.h: Add fds and num_fds to Job struct.
+
 2011-06-03  James Hunt  <james.hunt@ubuntu.com>
 
 	Add session support. Note that there are no automatically runnable and
