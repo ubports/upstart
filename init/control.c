@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@
 #include "dbus/upstart.h"
 
 #include "environ.h"
+#include "session.h"
 #include "job_class.h"
 #include "blocked.h"
 #include "conf.h"
@@ -54,12 +55,19 @@
 
 #include "com.ubuntu.Upstart.h"
 
-
 /* Prototypes for static functions */
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
 
+/**
+ * use_session_bus:
+ *
+ * If TRUE, connect to the D-Bus sessio bus rather than the system bus.
+ *
+ * Used for testing.
+ **/
+int use_session_bus = FALSE;
 
 /**
  * control_server_address:
@@ -78,7 +86,7 @@ DBusServer *control_server = NULL;
 /**
  * control_bus:
  *
- * Open connection to D-Bus system bus.  The connection may be opened with
+ * Open connection to a D-Bus bus.  The connection may be opened with
  * control_bus_open() and if lost will become NULL.
  **/
 DBusConnection *control_bus = NULL;
@@ -86,7 +94,7 @@ DBusConnection *control_bus = NULL;
 /**
  * control_conns:
  *
- * Open control connections, including the connection to the D-Bus system
+ * Open control connections, including the connection to a D-Bus
  * bus and any private client connections.
  **/
 NihList *control_conns = NULL;
@@ -190,8 +198,9 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
- * Open a connection to the D-Bus system bus and store it in the control_bus
- * global.  The connection is handled automatically in the main loop.
+ * Open a connection to the appropriate D-Bus bus and store it in the
+ * control_bus global. The connection is handled automatically
+ * in the main loop.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -207,10 +216,13 @@ control_bus_open (void)
 
 	control_init ();
 
+	control_handle_bus_type ();
+
 	/* Connect to the D-Bus System Bus and hook everything up into
 	 * our own main loop automatically.
 	 */
-	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_disconnected);
+	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+			     control_disconnected);
 	if (! conn)
 		return -1;
 
@@ -382,7 +394,9 @@ control_get_job_by_name (void            *data,
 			 const char      *name,
 			 char           **job)
 {
-	JobClass *class;
+	Session  *session;
+	JobClass *class = NULL;
+	JobClass *global_class = NULL;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
@@ -397,8 +411,30 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
-	/* Lookup the job and copy its path into the reply */
-	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Lookup the job */
+	class = (JobClass *)nih_hash_search (job_classes, name, NULL);
+
+	while (class && (class->session != session)) {
+
+		/* Found a match in the global session which may be used
+		 * later if no matching user session job exists.
+		 */
+		if ((! class->session) && (session && ! session->chroot))
+			global_class = class;
+
+		class = (JobClass *)nih_hash_search (job_classes, name,
+				&class->entry);
+	}
+
+	/* If no job with the given name exists in the appropriate
+	 * session, look in the global namespace (aka the NULL session).
+	 */ 
+	if (! class)
+		class = global_class;
+
 	if (! class) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.UnknownJob",
@@ -406,6 +442,7 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
+	/* Copy the path */
 	*job = nih_strdup (message, class->path);
 	if (! *job)
 		nih_return_system_error (-1);
@@ -432,6 +469,7 @@ control_get_all_jobs (void             *data,
 		      NihDBusMessage   *message,
 		      char           ***jobs)
 {
+	Session *session;
 	char   **list;
 	size_t   len;
 
@@ -445,8 +483,15 @@ control_get_all_jobs (void             *data,
 	if (! list)
 		nih_return_system_error (-1);
 
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
+
+		if ((class->session || (session && session->chroot))
+		    && (class->session != session))
+			continue;
 
 		if (! nih_str_array_add (&list, message, &len,
 					 class->path)) {
@@ -519,6 +564,9 @@ control_emit_event (void            *data,
 	event = event_new (NULL, name, (char **)env);
 	if (! event)
 		nih_return_system_error (-1);
+
+	/* Obtain the session */
+	event->session = session_from_dbus (NULL, message);
 
 	if (wait) {
 		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
@@ -668,4 +716,19 @@ control_set_log_priority (void *          data,
 	}
 
 	return 0;
+}
+
+/**
+ * control_handle_bus_type:
+ *
+ * Determine D-Bus bus type to connect to.
+ **/
+void
+control_handle_bus_type (void)
+{
+	if (getenv (USE_SESSION_BUS_ENV))
+		use_session_bus = TRUE;
+
+	if (use_session_bus)
+		nih_debug ("Using session bus");
 }

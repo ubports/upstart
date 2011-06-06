@@ -51,7 +51,7 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = system_kill (pid1, FALSE);
+	ret = system_kill (pid1, SIGTERM);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -79,7 +79,7 @@ test_kill (void)
 	setpgid (pid1, pid1);
 	setpgid (pid2, pid1);
 
-	ret = system_kill (pid1, TRUE);
+	ret = system_kill (pid1, SIGKILL);
 	waitpid (pid1, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -114,7 +114,7 @@ test_kill (void)
 	kill (pid1, SIGTERM);
 	waitpid (pid1, &status, 0);
 
-	ret = system_kill (pid2, FALSE);
+	ret = system_kill (pid2, SIGTERM);
 	waitpid (pid2, &status, 0);
 
 	TEST_EQ (ret, 0);
@@ -133,6 +133,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_kill ();
 
 	return 0;

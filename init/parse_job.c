@@ -2,7 +2,7 @@
  *
  * parse_job.c - job definition parsing
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -263,6 +263,7 @@ static NihConfigStanza stanzas[] = {
 /**
  * parse_job:
  * @parent: parent object for new job,
+ * @session: session,
  * @update: If not NULL, update the existing specified JobClass,
  * @name: name of new job,
  * @file: file or string to parse,
@@ -284,6 +285,7 @@ static NihConfigStanza stanzas[] = {
  **/
 JobClass *
 parse_job (const void *parent,
+	   Session    *session,
 	   JobClass   *update,
 	   const char *name,
 	   const char *file,
@@ -302,11 +304,11 @@ parse_job (const void *parent,
 		nih_debug ("Reusing JobClass %s (%s)",
 				class->name, class->path);
 	} else {
-	  nih_debug ("Creating new JobClass %s",
+		nih_debug ("Creating new JobClass %s",
 			  name);
-	  class = job_class_new (parent, name);
-	  if (! class)
-		  nih_return_system_error (NULL);
+		class = job_class_new (parent, name, session);
+		if (! class)
+			nih_return_system_error (NULL);
 	}
 
 	if (nih_config_parse_file (file, len, pos, lineno,
@@ -1223,7 +1225,7 @@ stanza_version (JobClass        *class,
  *
  * Parse an env stanza from @file, extracting a single argument of the form
  * VAR or VAR=VALUE.  These are stored in the env array, which is increased
- * in size to accomodate the new value.
+ * in size to accommodate the new value.
  *
  * Returns: zero on success, negative value on error.
  **/
@@ -1794,6 +1796,7 @@ stanza_kill (JobClass        *class,
 {
 	size_t          a_pos, a_lineno;
 	int             ret = -1;
+	char           *endptr;
 	nih_local char *arg = NULL;
 
 	nih_assert (class != NULL);
@@ -1811,7 +1814,6 @@ stanza_kill (JobClass        *class,
 
 	if (! strcmp (arg, "timeout")) {
 		nih_local char *timearg = NULL;
-		char           *endptr;
 
 		/* Update error position to the timeout value */
 		*pos = a_pos;
@@ -1828,13 +1830,39 @@ stanza_kill (JobClass        *class,
 		if (errno || *endptr || (class->kill_timeout < 0))
 			nih_return_error (-1, PARSE_ILLEGAL_INTERVAL,
 					  _(PARSE_ILLEGAL_INTERVAL_STR));
+	} else if (! strcmp (arg, "signal")) {
+		unsigned long   status;
+		nih_local char *sigarg = NULL;
+		int		signal;
 
-		ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+		/* Update error position to the exit status */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
 
+		sigarg = nih_config_next_arg (NULL, file, len, &a_pos,
+					      &a_lineno);
+
+		if (! sigarg)
+			goto finish;
+
+		signal = nih_signal_from_name (sigarg);
+		if (signal < 0) {
+			errno = 0;
+			status = strtoul (sigarg, &endptr, 10);
+			if (errno || *endptr || (status > INT_MAX))
+				nih_return_error (-1, PARSE_ILLEGAL_SIGNAL,
+						  _(PARSE_ILLEGAL_SIGNAL_STR));
+		}
+
+		/* Set the signal */
+		class->kill_signal = signal;
 	} else {
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
 				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
+
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
 
 finish:
 	*pos = a_pos;
@@ -2245,6 +2273,7 @@ stanza_oom (JobClass        *class,
 	nih_local char *arg = NULL;
 	char           *endptr;
 	size_t          a_pos, a_lineno;
+	int		oom_adj;
 	int             ret = -1;
 
 	nih_assert (class != NULL);
@@ -2259,12 +2288,37 @@ stanza_oom (JobClass        *class,
 	if (! arg)
 		goto finish;
 
-	if (! strcmp (arg, "never")) {
-		class->oom_adj = -17;
+	if (! strcmp (arg, "score")) {
+		nih_local char *scorearg = NULL;
+
+		/* Update error position to the score value */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		scorearg = nih_config_next_arg (NULL, file, len,
+						&a_pos, &a_lineno);
+		if (! scorearg)
+			goto finish;
+
+		if (! strcmp (scorearg, "never")) {
+			class->oom_score_adj = -1000;
+		} else {
+			errno = 0;
+			class->oom_score_adj = (int)strtol (scorearg, &endptr, 10);
+			if (errno || *endptr ||
+			    (class->oom_score_adj < -1000) ||
+			    (class->oom_score_adj > 1000))
+				nih_return_error (-1, PARSE_ILLEGAL_OOM,
+						  _(PARSE_ILLEGAL_OOM_SCORE_STR));
+		}
+	} else if (! strcmp (arg, "never")) {
+		class->oom_score_adj = -1000;
 	} else {
 		errno = 0;
-		class->oom_adj = (int)strtol (arg, &endptr, 10);
-		if (errno || *endptr || (class->oom_adj < -17) || (class->oom_adj > 15))
+		oom_adj = (int)strtol (arg, &endptr, 10);
+		class->oom_score_adj = (oom_adj * 1000) / ((oom_adj < 0) ? 17 : 15);
+		if (errno || *endptr || (oom_adj < -17) || (oom_adj > 15))
 			nih_return_error (-1, PARSE_ILLEGAL_OOM,
 					  _(PARSE_ILLEGAL_OOM_STR));
 	}

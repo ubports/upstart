@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -61,6 +61,7 @@
 
 /* Prototypes for static functions */
 #ifndef DEBUG
+static int  logger_kmsg     (NihLogLevel priority, const char *message);
 static void crash_handler   (int signum);
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
@@ -68,6 +69,8 @@ static void pwr_handler     (void *data, NihSignal *signal);
 static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
+
+static void handle_confdir  (void);
 
 
 /**
@@ -87,13 +90,54 @@ static const char *argv0 = NULL;
 static int restart = FALSE;
 
 
+extern int disable_sessions;
+
+/**
+ * conf_dir:
+ *
+ * Full path to job configuration file directory.
+ *
+ **/
+static char *conf_dir = NULL;
+
+/**
+ * initial_event:
+ *
+ * Alternate event to emit at startup (rather than STARTUP_EVENT).
+ **/
+static char *initial_event = NULL;
+
+/**
+ * disable_startup_event:
+ *
+ * If TRUE, do not emit a startup event.
+ **/
+static int disable_startup_event = FALSE;
+
+extern int use_session_bus;
+
 /**
  * options:
  *
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
+		NULL, "DIR", &conf_dir, NULL },
+
+	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+		NULL, NULL, &disable_sessions, NULL },
+
+	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
+		NULL, NULL, &disable_startup_event, NULL },
+
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+
+	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
+		NULL, NULL, &use_session_bus, NULL },
+
+	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
+		NULL, "NAME", &initial_event, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -122,96 +166,105 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	handle_confdir ();
+	control_handle_bus_type ();
+
 #ifndef DEBUG
-	/* Check we're root */
-	if (getuid ()) {
-		nih_fatal (_("Need to be root"));
-		exit (1);
+	if (use_session_bus == FALSE) {
+
+		/* Check we're root */
+		if (getuid ()) {
+			nih_fatal (_("Need to be root"));
+			exit (1);
+		}
+
+		/* Check we're process #1 */
+		if (getpid () > 1) {
+			execv (TELINIT, argv);
+			/* Ignore failure, probably just that telinit doesn't exist */
+
+			nih_fatal (_("Not being executed as init"));
+			exit (1);
+		}
+
+		/* Clear our arguments from the command-line, so that we show up in
+		 * ps or top output as /sbin/init, with no extra flags.
+		 *
+		 * This is a very Linux-specific trick; by deleting the NULL
+		 * terminator at the end of the last argument, we fool the kernel
+		 * into believing we used a setproctitle()-a-like to extend the
+		 * argument space into the environment space, and thus make it use
+		 * strlen() instead of its own assumed length.  In fact, we've done
+		 * the exact opposite, and shrunk the command line length to just that
+		 * of whatever is in argv[0].
+		 *
+		 * If we don't do this, and just write \0 over the rest of argv, for
+		 * example; the command-line length still includes those \0s, and ps
+		 * will show whitespace in their place.
+		 */
+		if (argc > 1) {
+			char *arg_end;
+
+			arg_end = argv[argc-1] + strlen (argv[argc-1]);
+			*arg_end = ' ';
+		}
+
+
+		/* Become the leader of a new session and process group, shedding
+		 * any controlling tty (which we shouldn't have had anyway - but
+		 * you never know what initramfs did).
+		 */
+		setsid ();
+
+		/* Set the standard file descriptors to the ordinary console device,
+		 * resetting it to sane defaults unless we're inheriting from another
+		 * init process which we know left it in a sane state.
+		 */
+		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
+			nih_free (nih_error_get ());
+
+		/* Set the PATH environment variable */
+		setenv ("PATH", PATH, TRUE);
+
+		/* Switch to the root directory in case we were started from some
+		 * strange place, or worse, some directory in the initramfs that's
+		 * going to go away soon.
+		 */
+		if (chdir ("/"))
+			nih_warn ("%s: %s", _("Unable to set root directory"),
+				strerror (errno));
+
+		/* Mount the /proc and /sys filesystems, which are pretty much
+		 * essential for any Linux system; not to mention used by
+		 * ourselves.
+		 */
+		if (system_mount ("proc", "/proc") < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn ("%s: %s", _("Unable to mount /proc filesystem"),
+				err->message);
+			nih_free (err);
+		}
+
+		if (system_mount ("sysfs", "/sys") < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
+				err->message);
+			nih_free (err);
+		}
+	} else {
+		nih_log_set_priority (NIH_LOG_DEBUG);
+		nih_debug ("Running with UID %d as PID %d (PPID %d)",
+				(int)getuid (), (int)getpid (), (int)getppid ());
 	}
 
-	/* Check we're process #1 */
-	if (getpid () > 1) {
-		execv (TELINIT, argv);
-		/* Ignore failure, probably just that telinit doesn't exist */
-
-		nih_fatal (_("Not being executed as init"));
-		exit (1);
-	}
-
-	/* Clear our arguments from the command-line, so that we show up in
-	 * ps or top output as /sbin/init, with no extra flags.
-	 *
-	 * This is a very Linux-specific trick; by deleting the NULL
-	 * terminator at the end of the last argument, we fool the kernel
-	 * into believing we used a setproctitle()-a-like to extend the
-	 * argument space into the environment space, and thus make it use
-	 * strlen() instead of its own assumed length.  In fact, we've done
-	 * the exact opposite, and shrunk the command line length to just that
-	 * of whatever is in argv[0].
-	 *
-	 * If we don't do this, and just write \0 over the rest of argv, for
-	 * example; the command-line length still includes those \0s, and ps
-	 * will show whitespace in their place.
-	 */
-	if (argc > 1) {
-		char *arg_end;
-
-		arg_end = argv[argc-1] + strlen (argv[argc-1]);
-		*arg_end = ' ';
-	}
-
-
-	/* Become the leader of a new session and process group, shedding
-	 * any controlling tty (which we shouldn't have had anyway - but
-	 * you never know what initramfs did).
-	 */
-	setsid ();
-
-	/* Set the standard file descriptors to the ordinary console device,
-	 * resetting it to sane defaults unless we're inheriting from another
-	 * init process which we know left it in a sane state.
-	 */
-	if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
-		nih_free (nih_error_get ());
-	if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
-		nih_free (nih_error_get ());
-
-	/* Set the PATH environment variable */
-	setenv ("PATH", PATH, TRUE);
-
-	/* Switch to the root directory in case we were started from some
-	 * strange place, or worse, some directory in the initramfs that's
-	 * going to go away soon.
-	 */
-	if (chdir ("/"))
-		nih_warn ("%s: %s", _("Unable to set root directory"),
-			  strerror (errno));
-
-	/* Mount the /proc and /sys filesystems, which are pretty much
-	 * essential for any Linux system; not to mention used by
-	 * ourselves.
-	 */
-	if (system_mount ("proc", "/proc") < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_warn ("%s: %s", _("Unable to mount /proc filesystem"),
-			  err->message);
-		nih_free (err);
-	}
-
-	if (system_mount ("sysfs", "/sys") < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
-			  err->message);
-		nih_free (err);
-	}
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
-	nih_debug ("Running as PID %d (PPID %d)",
-		(int)getpid (), (int)getppid ());
+	nih_debug ("Running with UID %d as PID %d (PPID %d)",
+		(int)getuid (), (int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
 
@@ -223,11 +276,13 @@ main (int   argc,
 		nih_signal_reset ();
 
 #ifndef DEBUG
-	/* Catch fatal errors immediately rather than waiting for a new
-	 * iteration through the main loop.
-	 */
-	nih_signal_set_handler (SIGSEGV, crash_handler);
-	nih_signal_set_handler (SIGABRT, crash_handler);
+	if (use_session_bus == FALSE) {
+		/* Catch fatal errors immediately rather than waiting for a new
+		 * iteration through the main loop.
+		 */
+		nih_signal_set_handler (SIGSEGV, crash_handler);
+		nih_signal_set_handler (SIGABRT, crash_handler);
+	}
 #endif /* DEBUG */
 
 	/* Don't ignore SIGCHLD or SIGALRM, but don't respond to them
@@ -238,33 +293,35 @@ main (int   argc,
 	nih_signal_set_handler (SIGALRM, nih_signal_handler);
 
 #ifndef DEBUG
-	/* Ask the kernel to send us SIGINT when control-alt-delete is
-	 * pressed; generate an event with the same name.
-	 */
-	reboot (RB_DISABLE_CAD);
-	nih_signal_set_handler (SIGINT, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
+	if (use_session_bus == FALSE) {
+		/* Ask the kernel to send us SIGINT when control-alt-delete is
+		 * pressed; generate an event with the same name.
+		 */
+		reboot (RB_DISABLE_CAD);
+		nih_signal_set_handler (SIGINT, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGINT, cad_handler, NULL));
 
-	/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
-	 * generate a keyboard-request event.
-	 */
-	if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0) {
-		nih_signal_set_handler (SIGWINCH, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
-						  kbd_handler, NULL));
+		/* Ask the kernel to send us SIGWINCH when alt-uparrow is pressed;
+		 * generate a keyboard-request event.
+		 */
+		if (ioctl (0, KDSIGACCEPT, SIGWINCH) == 0) {
+			nih_signal_set_handler (SIGWINCH, nih_signal_handler);
+			NIH_MUST (nih_signal_add_handler (NULL, SIGWINCH,
+						kbd_handler, NULL));
+		}
+
+		/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
+		nih_signal_set_handler (SIGPWR, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
+
+		/* SIGHUP instructs us to re-load our configuration */
+		nih_signal_set_handler (SIGHUP, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+
+		/* SIGUSR1 instructs us to reconnect to D-Bus */
+		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 	}
-
-	/* powstatd sends us SIGPWR when it changes /etc/powerstatus */
-	nih_signal_set_handler (SIGPWR, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
-
-	/* SIGHUP instructs us to re-load our configuration */
-	nih_signal_set_handler (SIGHUP, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
-
-	/* SIGUSR1 instructs us to reconnect to D-Bus */
-	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 #endif /* DEBUG */
 
 
@@ -279,25 +336,27 @@ main (int   argc,
 
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
-	NIH_MUST (conf_source_new (NULL, CONFDIR, CONF_JOB_DIR));
+	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	conf_reload ();
 
 	/* Create a listening server for private connections. */
-	while (control_server_open () < 0) {
-		NihError *err;
+	if (use_session_bus == FALSE) {
+		while (control_server_open () < 0) {
+			NihError *err;
 
-		err = nih_error_get ();
-		if (err->number != ENOMEM) {
-			nih_warn ("%s: %s", _("Unable to listen for private connections"),
-				  err->message);
+			err = nih_error_get ();
+			if (err->number != ENOMEM) {
+				nih_warn ("%s: %s", _("Unable to listen for private connections"),
+					err->message);
+				nih_free (err);
+				break;
+			}
 			nih_free (err);
-			break;
 		}
-		nih_free (err);
 	}
 
-	/* Open connection to the system bus; we normally expect this to
+	/* Open connection to the appropriate D-Bus bus; we normally expect this to
 	 * fail and will try again later - don't let ENOMEM stop us though.
 	 */
 	while (control_bus_open () < 0) {
@@ -313,19 +372,32 @@ main (int   argc,
 	}
 
 #ifndef DEBUG
-	/* Now that the startup is complete, send all further logging output
-	 * to syslog instead of to the console.
-	 */
-	openlog (program_name, LOG_CONS, LOG_DAEMON);
-	nih_log_set_logger (nih_logger_syslog);
+	if (use_session_bus == FALSE) {
+		/* Now that the startup is complete, send all further logging output
+		 * to kmsg instead of to the console.
+		 */
+		if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+			nih_free (nih_error_get ());
+
+		nih_log_set_logger (logger_kmsg);
+	}
 #endif /* DEBUG */
 
 
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! restart) {
-		NIH_MUST (event_new (NULL, STARTUP_EVENT, NULL));
+	if (! restart ) {
+		if (disable_startup_event) {
+			nih_debug ("Startup event disabled");
+		} else {
+			NIH_MUST (event_new (NULL,
+				initial_event
+				? initial_event
+				: STARTUP_EVENT,
+				NULL));
+		}
+
 	} else {
 		sigset_t mask;
 
@@ -346,6 +418,67 @@ main (int   argc,
 
 
 #ifndef DEBUG
+/**
+ * logger_kmsg:
+ * @priority: priority of message being logged,
+ * @message: message to log.
+ *
+ * Outputs the @message to the kernel log message socket prefixed with an
+ * appropriate tag based on @priority, the program name and terminated with
+ * a new line.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+logger_kmsg (NihLogLevel priority,
+	     const char *message)
+{
+	int   tag;
+	FILE *kmsg;
+
+	nih_assert (message != NULL);
+
+	switch (priority) {
+	case NIH_LOG_DEBUG:
+		tag = '7';
+		break;
+	case NIH_LOG_INFO:
+		tag = '6';
+		break;
+	case NIH_LOG_MESSAGE:
+		tag = '5';
+		break;
+	case NIH_LOG_WARN:
+		tag = '4';
+		break;
+	case NIH_LOG_ERROR:
+		tag = '3';
+		break;
+	case NIH_LOG_FATAL:
+		tag = '2';
+		break;
+	default:
+		tag = 'd';
+	}
+
+	kmsg = fopen ("/dev/kmsg", "w");
+	if (! kmsg)
+		return -1;
+
+	if (fprintf (kmsg, "<%c>%s: %s\n", tag, program_name, message) < 0) {
+		int saved_errno = errno;
+		fclose (kmsg);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (fclose (kmsg) < 0)
+		return -1;
+
+	return 0;
+}
+
+
 /**
  * crash_handler:
  * @signum: signal number received.
@@ -510,3 +643,31 @@ usr1_handler (void      *data,
 	}
 }
 #endif /* DEBUG */
+
+/**
+ * handle_confdir:
+ *
+ * Determine where system configuration files should be loaded from.
+ **/
+static void
+handle_confdir (void)
+{
+	char *dir;
+
+	/* user has already specified directory on command-line */
+	if (conf_dir)
+		goto out;
+
+	conf_dir = CONFDIR;
+
+	dir = getenv (CONFDIR_ENV);
+	if (! dir)
+		return;
+
+	conf_dir = dir;
+
+out:
+	nih_debug ("Using alternate configuration directory %s",
+			conf_dir);
+}
+

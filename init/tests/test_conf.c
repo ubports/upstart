@@ -1052,6 +1052,82 @@ test_source_reload_job_dir (void)
 	nih_free (source);
 
 
+	/* Check that a file without the ".conf" extension is ignored.
+	 */
+	TEST_FEATURE ("without .conf extension only");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/munchkin");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
+	/* Check that a file named just ".conf" is ignored.
+	 */
+	TEST_FEATURE ("with literal .conf file");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	nfds = 0;
+	FD_ZERO (&readfds);
+	FD_ZERO (&writefds);
+	FD_ZERO (&exceptfds);
+
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);
+	nih_io_handle_fds (&readfds, &writefds, &exceptfds);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
 	/* Consume all available inotify instances so that the following
 	 * tests run without inotify.
 	 */
@@ -1506,6 +1582,76 @@ no_inotify:
 	TEST_EQ (job, NULL);
 
 	nih_free (source);
+
+
+	/* Check that a file without the ".conf" extension is ignored
+	 * when it exists at reload time.
+	 */
+	TEST_FEATURE ("without .conf extension only");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/munchkin");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
+
+
+	/* Check that a file named just ".conf" is ignored when it exists
+	 * at reload time.
+	 */
+	TEST_FEATURE ("with literal .conf file");
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "exec echo\n");
+	fclose (f);
+
+	ret = conf_source_reload (source);
+
+	TEST_EQ (ret, 0);
+
+	TEST_HASH_EMPTY (source->files);
+	TEST_HASH_EMPTY (job_classes);
+
+	nih_free (source);
+
+	unlink (filename);
+	rmdir (dirname);
 
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
@@ -2350,7 +2496,7 @@ test_toggle_conf_name (void)
 	nih_free (f);
 
 	/* test parent param */
-	job = job_class_new (NULL, "foo");
+	job = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (job, NULL);
 
 	f = toggle_conf_name (job, filename);
@@ -4453,9 +4599,9 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with not-current job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_class_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo", NULL);
 
-	other = job_class_new (NULL, "foo");
+	other = job_class_new (NULL, "foo", NULL);
 	nih_hash_add (job_classes, &other->entry);
 
 	TEST_FREE_TAG (job);
@@ -4475,7 +4621,7 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with stopped job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_class_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo", NULL);
 
 	nih_hash_add (job_classes, &job->entry);
 
@@ -4495,7 +4641,7 @@ test_file_destroy (void)
 	 */
 	TEST_FEATURE ("with running job");
 	file = conf_file_new (source, "/path/to/file");
-	job = file->job = job_class_new (NULL, "foo");
+	job = file->job = job_class_new (NULL, "foo", NULL);
 
 	nih_hash_add (job_classes, &job->entry);
 
@@ -4535,26 +4681,26 @@ test_select_job (void)
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
-	class1 = file1->job = job_class_new (NULL, "frodo");
+	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
 
 	file3 = conf_file_new (source2, "/tmp/bar/drogo");
-	class2 = file3->job = job_class_new (NULL, "drogo");
+	class2 = file3->job = job_class_new (NULL, "drogo", NULL);
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file4 = conf_file_new (source3, "/tmp/baz/frodo");
-	class3 = file4->job = job_class_new (NULL, "frodo");
+	class3 = file4->job = job_class_new (NULL, "frodo", NULL);
 
 	file5 = conf_file_new (source2, "/tmp/bar/bilbo");
-	class4 = file5->job = job_class_new (NULL, "bilbo");
+	class4 = file5->job = job_class_new (NULL, "bilbo", NULL);
 
 
 	/* Check that a job with only one file is returned.
 	 */
 	TEST_FEATURE ("with one file");
-	ptr = conf_select_job ("drogo");
+	ptr = conf_select_job ("drogo", NULL);
 
 	TEST_EQ_P (ptr, class2);
 
@@ -4563,7 +4709,7 @@ test_select_job (void)
 	 * returned.
 	 */
 	TEST_FEATURE ("with multiple files");
-	ptr = conf_select_job ("frodo");
+	ptr = conf_select_job ("frodo", NULL);
 
 	TEST_EQ_P (ptr, class1);
 
@@ -4571,7 +4717,7 @@ test_select_job (void)
 	/* Check that files with no attached job are ignored.
 	 */
 	TEST_FEATURE ("with file but no attached job");
-	ptr = conf_select_job ("bilbo");
+	ptr = conf_select_job ("bilbo", NULL);
 
 	TEST_EQ_P (ptr, class4);
 
@@ -4579,7 +4725,7 @@ test_select_job (void)
 	/* Check that when there is no match, NULL is returned.
 	 */
 	TEST_FEATURE ("with no match");
-	ptr = conf_select_job ("meep");
+	ptr = conf_select_job ("meep", NULL);
 
 	TEST_EQ_P (ptr, NULL);
 
@@ -4594,6 +4740,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_source_new ();
 	test_file_new ();
 	test_source_reload_job_dir ();

@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,14 +22,16 @@
 
 #include <nih/macros.h>
 
+#include "session.h"
 #include "job_class.h"
 
 
 NIH_BEGIN_EXTERN
 
-JobClass *parse_job (const void *parent, JobClass *update,
-		     const char *name, const char *file,
-		     size_t len, size_t *pos, size_t *lineno)
+JobClass *parse_job (const void *parent, Session *session,
+		     JobClass *update, const char *name,
+		     const char *file, size_t len,
+		     size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN

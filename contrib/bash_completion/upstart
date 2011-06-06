@@ -3,25 +3,27 @@
 #
 # We don't provide completion for 'init' itself for obvious reasons.
 have initctl &&
-_upstart_conf_events()
+_upstart_jobs()
 {
-  initctl list|awk '{print $1}'
+  initctl list|awk '{print $1}'|sort -u
 } &&
-_upstart_named_events()
-{
-  (cd /etc/init && grep '^emits ' *.conf|sed 's/^emits //g')
-} &&
-_upstart_events()
-{
-  (_upstart_conf_events;_upstart_named_events)|tr ' ' '\n'|sort -u
-} &&
-_upstart_startable_events()
+_upstart_startable_jobs()
 {
   initctl list|cut -d\, -f1|awk '$2 == "stop/waiting" {print $1}'
 } &&
-_upstart_stoppable_events()
+_upstart_stoppable_jobs()
 {
   initctl list|cut -d\, -f1|awk '$2 == "start/running" {print $1}'
+} &&
+_upstart_events()
+{
+  # note that we don't provide the internal events such as "starting"
+  # (and those from mountall) since the user should be using the
+  # associated command to emit such events.
+  (cd /etc/init && \
+   egrep '^[[:space:]]*emits ' *.conf |\
+   cut -d: -f2- | sed 's/^[[:space:]]*emits //g' |\
+   tr ' ' '\n' | awk '{print $NF}' | grep -v ^$|sort -u)
 } &&
 _upstart_initctl()
 {
@@ -32,34 +34,92 @@ _upstart_initctl()
   case "$prev" in
 
     start)
-      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_startable_events)" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_startable_jobs)" -- ${cur}) )
       return 0
     ;;
 
     stop)
-      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_stoppable_events)" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_stoppable_jobs)" -- ${cur}) )
       return 0
     ;;
 
     emit)
-      COMPREPLY=( $(compgen -W "$(_upstart_events)" -- ${cur}) )
+      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_events)" -- ${cur}) )
       return 0
     ;;
 
-    reload|restart|status)
-      COMPREPLY=( $(compgen -W "$(_upstart_conf_events)" -- ${cur}) )
-      return 0
-    ;;
-
-    -n|--no-wait)
-      # allow no wait after start/stop commands
-      for cmd in start stop
+    -i|--ignore-events)
+      # handle visualisation options after check-config command
+      for cmd in check-config
       do
         cwords=${COMP_WORDS[@]##}
         filtered_cwords=${COMP_WORDS[@]##${cmd}}
         if [ "$filtered_cwords" != "$cwords" ]
         then
-          COMPREPLY=( $(compgen -W "$(_upstart_${cmd}able_events)" -- ${cur}) )
+          COMPREPLY=( $(compgen -W "$(_upstart_jobs)" -- ${cur}) )
+          return 0
+        fi
+      done
+    ;;
+
+    -e|--enumerate)
+      # handle visualisation options after show-config command
+      for cmd in show-config
+      do
+        cwords=${COMP_WORDS[@]##}
+        filtered_cwords=${COMP_WORDS[@]##${cmd}}
+        if [ "$filtered_cwords" != "$cwords" ]
+        then
+          COMPREPLY=( $(compgen -W "$(_upstart_jobs)" -- ${cur}) )
+          return 0
+        fi
+      done
+    ;;
+
+    reload|restart)
+      COMPREPLY=( $(compgen -W "-n --no-wait $(_upstart_stoppable_jobs)" -- ${cur}) )
+      return 0
+    ;;
+
+    status)
+      COMPREPLY=( $(compgen -W "$(_upstart_jobs)" -- ${cur}) )
+      return 0
+    ;;
+
+    check-config)
+      COMPREPLY=( $(compgen -W "-w --warn -i --ignore-events= $(_upstart_jobs)" -- ${cur}) )
+      return 0
+    ;;
+    show-config)
+      COMPREPLY=( $(compgen -W "-e --enumerate $(_upstart_jobs)" -- ${cur}) )
+      return 0
+    ;;
+
+    -n|--no-wait)
+      # allow 'no wait' for certain commands
+      for cmd in start stop restart emit
+      do
+        cwords=${COMP_WORDS[@]##}
+        filtered_cwords=${COMP_WORDS[@]##${cmd}}
+        if [ "$filtered_cwords" != "$cwords" ]
+        then
+          case "$cmd" in
+            start)
+              COMPREPLY=( $(compgen -W "$(_upstart_startable_jobs)" -- ${cur}) )
+            ;;
+
+            stop)
+              COMPREPLY=( $(compgen -W "$(_upstart_stoppable_jobs)" -- ${cur}) )
+            ;;
+
+            restart)
+              COMPREPLY=( $(compgen -W "$(_upstart_stoppable_jobs)" -- ${cur}) )
+            ;;
+
+            emit)
+              COMPREPLY=( $(compgen -W "$(_upstart_events)" -- ${cur}) )
+            ;;
+          esac
           return 0
         fi
       done
@@ -71,7 +131,7 @@ _upstart_initctl()
     ;;
   esac
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q --quiet -v --verbose --session --system --dest="
   cmds=$(initctl help|grep "^  [^ ]"|awk '{print $1}')
 
   COMPREPLY=( $(compgen -W "${opts} ${cmds}" -- ${cur}) )
@@ -84,7 +144,7 @@ _upstart_start()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -94,7 +154,7 @@ _upstart_start()
     ;;
   esac
 
-  COMPREPLY=( $(compgen -W "$opts $(_upstart_startable_events)" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "$opts $(_upstart_startable_jobs)" -- ${cur}) )
   return 0
 } && complete -F _upstart_start start
 
@@ -104,7 +164,7 @@ _upstart_stop()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -114,7 +174,7 @@ _upstart_stop()
     ;;
   esac
 
-  COMPREPLY=( $(compgen -W "$opts $(_upstart_stoppable_events)" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "$opts $(_upstart_stoppable_jobs)" -- ${cur}) )
   return 0
 } && complete -F _upstart_stop stop
 
@@ -124,7 +184,7 @@ _upstart_restart()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest= \
+  opts="--help --version -q --quiet -v --verbose --session --system --dest= \
         -n --no-wait"
 
   case "$prev" in
@@ -134,7 +194,7 @@ _upstart_restart()
     ;;
   esac
 
-  COMPREPLY=( $(compgen -W "$opts $(_upstart_events)" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "$opts $(_upstart_stoppable_jobs)" -- ${cur}) )
   return 0
 
 } && complete -F _upstart_restart restart
@@ -145,7 +205,7 @@ _upstart_status()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q -d --detail -e --enumerate --quiet -v --verbose --session --system --dest="
 
   case "$prev" in
     --help|--version)
@@ -154,7 +214,7 @@ _upstart_status()
     ;;
   esac
 
-  COMPREPLY=( $(compgen -W "$opts $(_upstart_events)" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "$opts $(_upstart_jobs)" -- ${cur}) )
   return 0
 
 } && complete -F _upstart_status status
@@ -165,7 +225,7 @@ _upstart_reload()
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
 
-  opts="--help --version -q --quiet -v --verbose --system --dest="
+  opts="--help --version -q --quiet -v --verbose --session --system --dest="
 
   case "$prev" in
     --help|--version)
@@ -174,7 +234,7 @@ _upstart_reload()
     ;;
   esac
 
-  COMPREPLY=( $(compgen -W "$opts $(_upstart_events)" -- ${cur}) )
+  COMPREPLY=( $(compgen -W "$opts $(_upstart_stoppable_jobs)" -- ${cur}) )
   return 0
 
 } && complete -F _upstart_reload reload

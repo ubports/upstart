@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [0.6.8], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
+AC_INIT([upstart], [1.3], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2011 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -64,6 +64,7 @@ NIH_LINKER_OPTIMISATIONS
 
 AC_CONFIG_FILES([ Makefile intl/Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
-		  doc/Makefile contrib/Makefile po/Makefile.in ])
+		  doc/Makefile contrib/Makefile po/Makefile.in
+		  scripts/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

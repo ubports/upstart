@@ -1,4 +1,4 @@
-.TH init 5 2011-01-12 "Upstart"
+.TH init 5 2011-05-12 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -93,7 +93,7 @@ or
 .B script
 stanzas, only one of which is permitted.  These specify the executable
 or shell script that will be run when the job is considered to be running.
-Once this process terminates, the job stop.
+Once this process terminates, the job stops.
 
 All processes are run with the full job environment available as
 environment variables in their process.
@@ -106,7 +106,7 @@ special characters, e.g. quotes or `$' specified will result in the
 entire command being passed to a shell for expansion.
 
 .nf
-exec /usr/sbin/acpid -c $EVENTSDIR -s $SOCKET
+exec /usr/sbin/acpid \-c $EVENTSDIR \-s $SOCKET
 .fi
 .\"
 .TP
@@ -115,7 +115,7 @@ This stanza defines the process to be run as a shell script that will
 be executed using
 .BR sh(1).
 The
-.I -e
+.I \-e
 shell option is always used, so any command that fails will terminate
 the script.
 
@@ -129,7 +129,7 @@ stanza appearing on its own on a line.
 .nf
 script
     dd bs=1 if=/proc/kmsg of=$KMSGSINK
-    exec /sbin/klogd -P $KMSGSINK
+    exec /sbin/klogd \-P $KMSGSINK
 end script
 .fi
 
@@ -142,14 +142,14 @@ or
 stanza.
 
 .TP
-.B pre-start exec\fR|\fBscript\fR...
+.B pre\-start exec\fR|\fBscript\fR...
 This process will be run after the job's
 .BR starting (7)
 event has finished, but before the main process is run.  It is typically
 used to prepare the environment, such as making necessary directories.
 .\"
 .TP
-.B post-start exec\fR|\fBscript\fR...
+.B post\-start exec\fR|\fBscript\fR...
 This process will be run before the job's
 .BR started (7)
 event is emitted, but after the main process has been spawned.  It is
@@ -159,7 +159,7 @@ delay the
 event until the main process is ready to receive clients.
 .\"
 .TP
-.B pre-stop exec\fR|\fBscript\fR...
+.B pre\-stop exec\fR|\fBscript\fR...
 This process is run if the job is stopped by an event listed in its
 .B stop on
 stanza or by the
@@ -173,7 +173,7 @@ may also call the
 command without arguments to cancel the stop.
 .\"
 .TP
-.B post-stop exec\fR|\fBscript\fR...
+.B post\-stop exec\fR|\fBscript\fR...
 This process is run after the main process has been killed and before
 the job's
 .BR stopped (7)
@@ -187,13 +187,13 @@ stopped: this is commonly used to define states such as runlevels.  It
 is permissable to have no main process, but to have
 .B pre-start
 and
-.B post-stop
+.B post\-stop
 processes for the state.
 
 .RS
 .nf
-pre-start exec ifup -a
-post-stop exec ifdown -a
+pre\-start exec ifup \-a
+post\-stop exec ifdown \-a
 .fi
 .RE
 .\"
@@ -275,9 +275,9 @@ and
 .nf
 start on started gdm or started kdm
 
-start on device-added SUBSYSTEM=tty DEVPATH=ttyS*
+start on device\-added SUBSYSTEM=tty DEVPATH=ttyS*
 
-start on net-device-added INTERFACE!=lo
+start on net\-device\-added INTERFACE!=lo
 .fi
 .TP
 .B stop on \fIEVENT \fR[[\fIKEY=\fR]\fIVALUE\fR]... [\fBand\fR|\fBor\fR...]
@@ -295,7 +295,7 @@ job's start environment (either the event or the command that started it).
 .nf
 stop on stopping gdm or stopping kdm
 
-stop on device-removed DEVPATH=$DEVPATH
+stop on device\-removed DEVPATH=$DEVPATH
 .fi
 
 .TP
@@ -321,11 +321,11 @@ environment variable contains the list of events that started the job,
 it will not be present if the job was started manually.
 
 In addition, the
-.B pre-stop
+.B pre\-stop
 and
-.B post-stop
+.B post\-stop
 scripts are run with the environment of the events or commands that
-stopped the job.  THe
+stopped the job.  The
 .B UPSTART_STOP_EVENTS
 environment variable contains the list of events that stopped the job,
 it will not be present if the job was stopped manually.
@@ -444,12 +444,12 @@ so are an excellent way to limit the instances.
 
 .nf
 instance $CONFFILE
-exec /sbin/httpd -c $CONFFILE
+exec /sbin/httpd \-c $CONFFILE
 .fi
 
 .nf
 instance $TTY
-exec /sbin/getty -8 38300 $TTY
+exec /sbin/getty \-8 38300 $TTY
 .fi
 
 These jobs appear in the
@@ -500,6 +500,11 @@ daemon.
 
 This stanza allows a job to document in its job configuration what events
 it emits itself, and may be useful for graphing possible transitions.
+
+The
+.BR initctl "(8) " check\-config
+command attempts to use this stanza to resolve events.
+
 .\"
 .SS Process environment
 Many common adjustments to the process environment, such as resource
@@ -520,7 +525,7 @@ instead.
 is special, it not only connects the job to the system console but sets
 the job to be the owner of the system console, which means it will receive
 certain signals from the kernel when special key combinations such as
-Control-C are pressed.
+Control\-C are pressed.
 .\"
 .TP
 .B umask \fIUMASK
@@ -539,15 +544,15 @@ see
 for more details.
 .\"
 .TP
-.B oom \fIADJUSTMENT\fR|\fBnever
+.B oom score \fIADJUSTMENT\fR|\fBnever
 Normally the OOM killer regards all processes equally, this stanza
 advises the kernel to treat this job differently.
 
 .I ADJUSTMENT
 may be an integer value from
-.I -16
+.I -999
 (very unlikely to be killed by the OOM killer) up to
-.I 14
+.I 1000
 (very likely to be killed by the OOM killer).  It may also be the special
 value
 .B never
@@ -642,10 +647,20 @@ considered.
 .\"
 .SS Miscellaneous
 .TP
+.B kill signal \fISIGNAL
+Specifies the stopping signal, 
+.I SIGTERM
+by default, a job's main process will receive when stopping the
+running job.
+
+.nf
+kill signal INT
+.fi
+.\"
+.TP
 .B kill timeout \fIINTERVAL
 Specifies the interval between sending the job's main process the
-.I SIGTERM
-and
+"stopping" (see above) and
 .I SIGKILL
 signals when stopping the running job. Default is 5 seconds.
 .\"
@@ -655,7 +670,7 @@ Specifies that the job's main process will raise the
 .I SIGSTOP
 signal to indicate that it is ready.
 .BR init (8)
-will wait for this signal before running the job's post-start script,
+will wait for this signal before running the job's post\-start script,
 or considering the job to be running.
 
 .BR init (8)
@@ -669,7 +684,7 @@ Specifies that the job's main process is a daemon, and will fork twice
 after being run.
 .BR init (8)
 will follow this daemonisation, and will wait for this to occur before
-running the job's post-start script or considering the job to be running.
+running the job's post\-start script or considering the job to be running.
 
 Without this stanza
 .BR init (8)
@@ -681,7 +696,7 @@ stopped as soon as they daemonise on startup.
 Specifies that the job's main process will fork once after being run.
 .BR init (8)
 will follow this fork, and will wait for this to occur before
-running the job's post-start script or considering the job to be running.
+running the job's post\-start script or considering the job to be running.
 
 Without this stanza
 .BR init (8)
@@ -724,7 +739,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010 Canonical Ltd.
+Copyright \(co 2009-2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

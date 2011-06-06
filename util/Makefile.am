@@ -29,7 +29,7 @@ sbin_PROGRAMS = \
 	telinit
 
 initctl_SOURCES = \
-	initctl.c
+	initctl.c initctl.h
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
@@ -168,6 +168,16 @@ install-exec-hook:
 	  inst=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
           echo " ln -sf '$$src' '$(DESTDIR)$(sbindir)/$$inst'"; \
 	  ln -sf "$$src" "$(DESTDIR)$(sbindir)/$$inst"; \
+	done
+
+uninstall-hook:
+	for symlink in start stop restart reload status halt poweroff; do \
+	  file=`echo $$symlink | sed '$(transform)'`.8; \
+          echo " rm -f '$(DESTDIR)$(man8dir)/$$file'"; \
+	  rm -f "$(DESTDIR)$(man8dir)/$$file"; \
+	  file=`echo $$symlink | sed '$(transform);s/$$/$(EXEEXT)/'`; \
+          echo " rm -f '$(DESTDIR)$(sbindir)/$$file'"; \
+	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
 	done
 
 
