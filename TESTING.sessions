@@ -34,6 +34,7 @@ Setup
        
        script
          exec 2>>/tmp/foo.$$.log
+         set -x
          echo "foo: stat=`stat /`" 
          echo "foo: env=`env`"
          sleep 999 
@@ -45,6 +46,7 @@ Setup
           
        script
          exec 2>>/tmp/outside_chroot.$$.log
+         set -x
          echo "in_chroot: stat=`stat /`" 
          echo "in_chroot: env=`env`"
          sleep 999 
@@ -58,6 +60,7 @@ Setup
           
        script
          exec 2>>/tmp/foo.$$.log
+         set -x
          echo "foo: stat=`stat /`" 
          echo "foo: env=`env`" 
          sleep 999
@@ -69,6 +72,7 @@ Setup
         
        script
          exec 2>>/tmp/in_chroot.$$.log
+         set -x
          echo "in_chroot: stat=`stat /`" 
          echo "in_chroot: env=`env`" 
          sleep 999
@@ -83,13 +87,13 @@ Run as non-``root`` with no chroot
   Ensure list is contents of ``/etc/init/``: the command below should
   return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status cron``
 
   Should work.
 
-- ``initctl show-config cron``
+- ``initctl show-config``
 
   Should work.
 
@@ -103,7 +107,7 @@ Run as non-``root`` with no chroot
 
 - ``stop cron``
 
-   Should fail ("``initctl: Rejected send message``").
+  Should fail ("``initctl: Rejected send message``").
 
 - ``restart cron``
 
@@ -120,7 +124,7 @@ Run as ``root`` with no chroot
 
   Ensure list is contents of ``/etc/init/``: command below should return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status outside_chroot``
 
@@ -132,9 +136,13 @@ Run as ``root`` with no chroot
 
     initct: Unknown job: in_chroot
 
-- ``initctl show-config <job>``
+- ``initctl show-config``
 
-- ``initctl check-config <job>``
+  Should work.
+
+- ``initctl check-config``
+
+  Should work.
 
 - ``start in_chroot``
 
@@ -144,21 +152,21 @@ Run as ``root`` with no chroot
 
 - ``start outside_chroot``
 
-   Should work.
+  Should work.
 
 - ``stop in_chroot``
 
-   Should fail with message::
+  Should fail with message::
 
     initct: Unknown job: in_chroot
 
 - ``restart outside_chroot``
 
-   Sould work.
+  Should work.
 
 - ``stop outside_chroot``
 
-   Should work.
+  Should work.
 
 - ``initctl emit wibble``
 
@@ -181,7 +189,7 @@ Run as ``root`` inside a chroot
 
   Ensure list is contents of ``/path/to/chroot/etc/init/``: command below should return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status in_chroot``
 
@@ -193,33 +201,37 @@ Run as ``root`` inside a chroot
 
     initct: Unknown job: outside_chroot
 
-- ``initctl show-config <job>``
+- ``initctl show-config``
 
-- ``initctl check-config <job>``
+  Should work.
+
+- ``initctl check-config``
+
+  Should work.
 
 - ``start outside_chroot``
 
-   Should fail with message::
+  Should fail with message::
 
     initct: Unknown job: outside_chroot
 
 - ``stop outside_chroot``
 
-   Should fail with message::
+  Should fail with message::
 
     initct: Unknown job: outside_chroot
 
 - ``start in_chroot``
 
-   should work.
+  Should work.
 
 - ``restart in_chroot``
 
-   Should work.
+  Should work.
 
 - ``stop in_chroot``
 
-   Should work.
+  Should work.
 
 - ``initctl emit wibble``
 
