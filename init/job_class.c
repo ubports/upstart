@@ -149,7 +149,7 @@ job_class_init (void)
 JobClass *
 job_class_new (const void *parent,
 	       const char *name,
-	       Session *   session)
+	       Session    *session)
 {
 	JobClass *class;
 	int       i;

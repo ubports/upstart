@@ -1,3 +1,40 @@
+2011-06-06  James Hunt  <james.hunt@ubuntu.com>
+	
+	Add override file support.
+
+	* init/conf.c:
+	  - conf_reload(): Removed ENOENT check to ensure error thrown if
+	    conf files/dirs do not exist.
+	  - conf_reload_path(): Now takes an extra override_path parameter.
+	  - is_conf_file() / is_conf_file_std() / is_conf_file_override(): New
+	    functions to determine type of given file path.
+	  - toggle_conf_name(): New function which convert a conf file
+	    name to an override name and vice versa.
+	  - majority of remaining functions updated to handle override
+	    files.
+	* init/conf.h: Prototypes.
+	* init/job_class.c: Whitespace.
+	* init/man/init.5: Updated to document override file support.
+	* init/man/init.8: Added reference to control-alt-delete(7) man page.
+	* init/paths.h: New macros CONF_EXT_OVERRIDE, CONF_EXT_STD,
+	  IS_CONF_FILE_OVERRIDE and IS_CONF_FILE_STD.
+	* init/parse_conf.c: Added assertion to remind us forcibly to add
+	  override-handling code for directories if we ever allow content in
+	  'init.conf'.
+	* init/parse_job.c (parse_job): Additional parameter 'update' to
+	  allow override files to replace existing Job details.
+	* init/parse_job.h: Updated parse_job() prototype.
+	* init/test_conf.c
+	  - New macros TEST_ENSURE_CLEAN_ENV() and
+	    TEST_FORCE_WATCH_UPDATE().
+	  - test_override(): New function.
+	  - test_toggle_conf_name(): New function.
+	* init/test_parse_job.c:
+	  - Updated for extra parse_job() parameter.
+	  - added a test feature to test_parse_job() to exercise new
+	    parameter to parse_job().
+	* util/man/initctl.8: Clarified what it means to restart a job.
+
 2011-06-03  James Hunt  <james.hunt@ubuntu.com>
 
 	Add session support. Note that there are no automatically runnable and

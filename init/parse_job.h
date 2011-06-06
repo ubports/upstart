@@ -29,7 +29,8 @@
 NIH_BEGIN_EXTERN
 
 JobClass *parse_job (const void *parent, Session *session,
-		     const char *name, const char *file, size_t len,
+		     JobClass *update, const char *name,
+		     const char *file, size_t len,
 		     size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
 
