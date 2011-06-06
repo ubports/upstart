@@ -83,7 +83,7 @@ Run as non-``root`` with no chroot
   Ensure list is contents of ``/etc/init/``: the command below should
   return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status cron``
 
@@ -120,7 +120,7 @@ Run as ``root`` with no chroot
 
   Ensure list is contents of ``/etc/init/``: command below should return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status outside_chroot``
 
@@ -181,7 +181,7 @@ Run as ``root`` inside a chroot
 
   Ensure list is contents of ``/path/to/chroot/etc/init/``: command below should return no output::
 
-    cmp <(initctl list|awk '{print }'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
+    cmp <(initctl list|awk '{print $1}'|sort -u) <(cd /etc/init && ls *.conf|cut -d: -f2-|sed 's/\.conf//g'|sort -u)
 
 - ``initctl status in_chroot``
 
