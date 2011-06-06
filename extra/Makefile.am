@@ -45,7 +45,6 @@ dist_init_DATA += \
 dist_man_MANS += \
 	man/upstart-udev-bridge.8
 
-
 sbin_PROGRAMS += \
 	upstart-udev-bridge
 
@@ -59,6 +58,19 @@ upstart_udev_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
+
+install-data-hook:
+	src=`echo upstart-udev-bridge| sed '$(transform)'`.8; \
+	for symlink in \
+		net-device-added \
+		net-device-removed \
+		graphics-device-added \
+		drm-device-added; do \
+	  inst=`echo $$symlink | sed '$(transform)'`.7; \
+          echo " ln -sf '$(man8dir)/$$src' '$(DESTDIR)$(man7dir)/$$inst'"; \
+	  ln -sf "$(man8dir)/$$src" "$(DESTDIR)$(man7dir)/$$inst"; \
+	done
+
 else
 EXTRA_DIST = \
 	man/upstart-udev-bridge.8
