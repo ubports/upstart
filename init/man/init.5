@@ -541,6 +541,15 @@ The
 .BR initctl "(8) " check\-config
 command attempts to use this stanza to resolve events.
 
+.I EVENT
+can be either a literal string or a string including shell
+wildcard meta-characters (asterisk (\(aq*\(aq), question mark
+(\(aq?\(aq), and square brackets (\(aq[\(aq and \(aq]\(aq)).
+Meta-characters are useful to allow
+.BR initctl "(8) " check\-config
+to resolve a class of events, such as those emitted by
+.BR upstart-udev-bridge (8) "" .
+
 .\"
 .SS Process environment
 Many common adjustments to the process environment, such as resource
@@ -784,4 +793,5 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
 .BR init (8)
+.BR initctl (8)
 .BR sh (1)
