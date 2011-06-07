@@ -447,7 +447,7 @@ job_process_spawn (JobClass     *class,
 	/* Move the script fd to special fd 9; the only gotcha is if that
 	 * would be our error descriptor, but that's handled above.
 	 */
-	if (script_fd != -1) {
+	if ((script_fd != -1) && (script_fd != JOB_PROCESS_SCRIPT_FD))
 		int tmp = dup2 (script_fd, JOB_PROCESS_SCRIPT_FD);
 		if (tmp < 0)
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);

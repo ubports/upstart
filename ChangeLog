@@ -1,3 +1,8 @@
+2011-06-07  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_spawn): Make sure we don't close
+	our own file descriptor if it already has the right value.
+
 2011-06-06  James Hunt  <james.hunt@ubuntu.com>
 	
 	Add override file support.
