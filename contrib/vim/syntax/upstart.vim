@@ -2,9 +2,9 @@
 " Language:	Upstart job files
 " Maintainer:	Michael Biebl <biebl@debian.org>
 "		James Hunt <james.hunt@ubuntu.com>
-" Last Change:	2011 Mar 11
+" Last Change:	2011 Jun 14
 " License:	GPL v2
-" Version:	0.2
+" Version:	0.3
 " Remark:	Syntax highlighting for Upstart (init(8)) job files.
 "
 " It is inspired by the initng syntax file and includes sh.vim to do the
@@ -50,15 +50,16 @@ syn keyword upstartStatement respawn service instance manual debug task
 syn keyword upstartOption pre-start post-start pre-stop post-stop
 
 " option for kill
-syn keyword upstartOption timeout
+syn keyword upstartOption timeout signal
 " option for oom
-syn keyword upstartOption never
+syn keyword upstartOption score never
 " options for console
 syn keyword upstartOption output owner
 " options for expect
-syn keyword upstartOption fork daemon
+syn keyword upstartOption stop fork daemon none
 " options for limit
-syn keyword upstartOption unlimited
+syn keyword upstartOption unlimited core cpu data fsize memlock msgqueue nice
+syn keyword upstartOption nofile nproc rss rtprio sigpending stack
 
 " 'options' for start/stop on
 syn keyword upstartOption and or

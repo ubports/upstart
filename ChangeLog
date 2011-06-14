@@ -1,3 +1,8 @@
+2011-06-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/vim/syntax/upstart.vim: Updates for kill, oom, expect
+	and limit.  
+
 2011-06-07  Scott James Remnant  <scott@netsplit.com>
 
 	* init/job_process.c (job_process_spawn): Make sure we don't close
