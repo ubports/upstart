@@ -1,10 +1,11 @@
 " Vim syntax file
 " Language:	Upstart job files
 " Maintainer:	Michael Biebl <biebl@debian.org>
-" Last Change:	2007 Feb 13
+"		James Hunt <james.hunt@ubuntu.com>
+" Last Change:	2011 Mar 11
 " License:	GPL v2
-" Version:	0.1
-" Remark:	Syntax highlighting for upstart job files.
+" Version:	0.2
+" Remark:	Syntax highlighting for Upstart (init(8)) job files.
 "
 " It is inspired by the initng syntax file and includes sh.vim to do the
 " highlighting of script blocks.
@@ -14,11 +15,8 @@ if version < 600
 elseif exists("b:current_syntax")
 	finish
 endif
- 
-setlocal iskeyword=@,48-57,-,.
 
 let is_bash = 1
-"unlet! b:current_syntax
 syn include @Shell syntax/sh.vim
 
 syn case match
@@ -33,9 +31,12 @@ syn region upstartScript matchgroup=upstartStatement start="script" end="end scr
 syn cluster upstartShellCluster contains=@Shell
 
 " one argument
-syn keyword upstartStatement description author version
-syn keyword upstartStatement pid kill normal console env umask nice limit chroot chdir exec
-syn keyword upstartStatement expect export
+syn keyword upstartStatement description author version instance expect
+syn keyword upstartStatement pid kill normal console env exit export
+syn keyword upstartStatement umask nice oom chroot chdir exec
+
+" two arguments
+syn keyword upstartStatement limit
 
 " one or more arguments (events)
 syn keyword upstartStatement emits
@@ -43,29 +44,61 @@ syn keyword upstartStatement emits
 syn keyword upstartStatement on start stop
 
 " flag, no parameter
-syn keyword upstartStatement daemon respawn service instance task
+syn keyword upstartStatement respawn service instance manual debug task
 
-" prefix for exec or script
+" prefix for exec or script 
 syn keyword upstartOption pre-start post-start pre-stop post-stop
 
-" options for pid
-syn keyword upstartOption file binary timeout
-" option for
+" option for kill
 syn keyword upstartOption timeout
-" option for respawn
-syn keyword upstartOption limit
+" option for oom
+syn keyword upstartOption never
 " options for console
-syn keyword upstartOption logged output owner none
+syn keyword upstartOption output owner
 " options for expect
-syn keyword upstartOption daemon fork stop
+syn keyword upstartOption fork daemon
+" options for limit
+syn keyword upstartOption unlimited
 
-syn keyword upstartEvent startup stalled control-alt-delete kbdrequest starting started stopping stopped runlevel
+" 'options' for start/stop on
+syn keyword upstartOption and or
 
-hi def link upstartComment Comment
-hi def link upstartTodo	Todo
-hi def link upstartString String
+" Upstart itself and associated utilities
+syn keyword upstartEvent runlevel
+syn keyword upstartEvent started
+syn keyword upstartEvent starting
+syn keyword upstartEvent startup
+syn keyword upstartEvent stopped
+syn keyword upstartEvent stopping
+syn match   upstartEvent /control-alt-delete/
+syn match   upstartEvent /keyboard-request/
+syn match   upstartEvent /power-status-changed/
+
+" D-Bus
+syn match   upstartEvent /dbus-activation/
+
+" Display Manager (ie gdm)
+syn match   upstartEvent /desktop-session-start/
+syn match   upstartEvent /login-session-start/
+
+" mountall
+syn keyword upstartEvent filesystem
+syn keyword upstartEvent mounted
+syn keyword upstartEvent mounting
+syn match   upstartEvent /\(\<local\>\|\<virtual\>\|\<remote\>\)-filesystems/
+syn match   upstartEvent /all-swaps/
+
+" upstart-udev-bridge and ifup/down
+syn match   upstartEvent /\<\i\{-1,}-device-\(\<added\>\|\<removed\>\|\<up\>\|\<down\>\)/
+
+" upstart-socket-bridge
+syn keyword upstartEvent socket
+
+hi def link upstartComment   Comment
+hi def link upstartTodo	     Todo
+hi def link upstartString    String
 hi def link upstartStatement Statement
-hi def link upstartOption Type
-hi def link upstartEvent Define
+hi def link upstartOption    Type
+hi def link upstartEvent     Define
 
 let b:current_syntax = "upstart"
