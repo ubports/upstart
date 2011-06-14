@@ -1,5 +1,9 @@
 2011-06-14  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Release 1.3
+
+2011-06-14  James Hunt  <james.hunt@ubuntu.com>
+
 	* contrib/vim/syntax/upstart.vim: Updates for kill, oom, expect
 	and limit.  
 

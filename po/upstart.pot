@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.3\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-06-06 10:58+0100\n"
+"POT-Creation-Date: 2011-06-14 15:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -55,33 +55,33 @@ msgstr ""
 msgid "Error while reloading configuration file"
 msgstr ""
 
-#: init/control.c:163
+#: init/control.c:165
 msgid "Connection from private client"
 msgstr ""
 
-#: init/control.c:302
+#: init/control.c:304
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:368 init/main.c:616
+#: init/control.c:370 init/main.c:616
 msgid "Reloading configuration"
 msgstr ""
 
-#: init/control.c:410 init/control.c:552
+#: init/control.c:412 init/control.c:566
 msgid "Name may not be empty string"
 msgstr ""
 
-#: init/control.c:441
+#: init/control.c:443
 #, c-format
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:559 init/job_class.c:581 init/job_class.c:780
+#: init/control.c:574 init/job_class.c:581 init/job_class.c:780
 #: init/job_class.c:910 init/job_class.c:1045
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
-#: init/control.c:714
+#: init/control.c:743
 msgid "The log priority given was not recognised"
 msgstr ""
 
@@ -149,106 +149,106 @@ msgstr ""
 msgid "Name already taken"
 msgstr ""
 
-#: init/event.c:275
+#: init/event.c:277
 #, c-format
 msgid "Handling %s event"
 msgstr ""
 
-#: init/event.c:382
+#: init/event.c:384
 #, c-format
 msgid "Failed to obtain %s instance: %s"
 msgstr ""
 
-#: init/event.c:457
+#: init/event.c:467
 msgid "Event failed"
 msgstr ""
 
-#: init/job.c:230
+#: init/job.c:233
 #, c-format
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:301
+#: init/job.c:304
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:720 init/job.c:758
+#: init/job.c:723 init/job.c:761
 msgid "Job failed to start"
 msgstr ""
 
-#: init/job.c:733 init/job.c:769
+#: init/job.c:736 init/job.c:772
 msgid "Job failed while stopping"
 msgstr ""
 
-#: init/job.c:745 init/job.c:780
+#: init/job.c:748 init/job.c:783
 msgid "Job failed to restart"
 msgstr ""
 
-#: init/job.c:974
+#: init/job.c:977
 msgid "stop"
 msgstr ""
 
-#: init/job.c:976
+#: init/job.c:979
 msgid "start"
 msgstr ""
 
-#: init/job.c:978
+#: init/job.c:981
 msgid "respawn"
 msgstr ""
 
-#: init/job.c:1023
+#: init/job.c:1026
 msgid "waiting"
 msgstr ""
 
-#: init/job.c:1025
+#: init/job.c:1028
 msgid "starting"
 msgstr ""
 
-#: init/job.c:1027 init/process.c:80
+#: init/job.c:1030 init/process.c:80
 msgid "pre-start"
 msgstr ""
 
-#: init/job.c:1029
+#: init/job.c:1032
 msgid "spawned"
 msgstr ""
 
-#: init/job.c:1031 init/process.c:82
+#: init/job.c:1034 init/process.c:82
 msgid "post-start"
 msgstr ""
 
-#: init/job.c:1033
+#: init/job.c:1036
 msgid "running"
 msgstr ""
 
-#: init/job.c:1035 init/process.c:84
+#: init/job.c:1038 init/process.c:84
 msgid "pre-stop"
 msgstr ""
 
-#: init/job.c:1037
+#: init/job.c:1040
 msgid "stopping"
 msgstr ""
 
-#: init/job.c:1039
+#: init/job.c:1042
 msgid "killed"
 msgstr ""
 
-#: init/job.c:1041 init/process.c:86
+#: init/job.c:1044 init/process.c:86
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1124 init/job.c:1199 init/job.c:1275 init/job_class.c:772
+#: init/job.c:1127 init/job.c:1202 init/job.c:1278 init/job_class.c:772
 #: init/job_class.c:902 init/job_class.c:1037
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
 
-#: init/job.c:1132 init/job_class.c:826
+#: init/job.c:1135 init/job_class.c:826
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1207 init/job.c:1283 init/job_class.c:956 init/job_class.c:1090
+#: init/job.c:1210 init/job.c:1286 init/job_class.c:956 init/job_class.c:1090
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
@@ -970,4 +970,34 @@ msgstr ""
 #: util/telinit.c:139
 #, c-format
 msgid "%s: illegal runlevel: %s\n"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:76
+msgid "Detach and run in the background"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:95
+msgid "Bridge udev events into upstart"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:97
+msgid ""
+"By default, upstart-udev-bridge does not detach from the console and remains "
+"in the foreground.  Use the --daemon option to have it detach."
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:111
+msgid "Could not connect to Upstart"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:125
+msgid "Could not create Upstart proxy"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:149
+msgid "Unable to become daemon"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:297
+msgid "Disconnected from Upstart"
 msgstr ""

@@ -1,4 +1,36 @@
-1.3  xxxx-xx-xx
+1.3  2011-06-14  "Concordia"
+
+	* New upstart-socket-bridge application which allows jobs to be
+	  started when an incoming client socket connection is initiated
+	  (requires a suitably modified server daemon since jobs only
+	  need call accept(2) before reading from the socket).
+	* User session support allowing non-privileged users to
+	  manipulate their own jobs (not available within a chroot
+	  environment).
+	* Chroot support allowing jobs to be controlled within chroot
+	  environments.
+	* Updated bash completion script.
+	* Updated vim syntax script.
+	* init-checkconf script used to check syntax of Job
+	  Configuration Files (including script sections).
+	* initctl2dot script to convert initctl(8) output to GraphViz
+	  dot(1) format for analysing relationships between jobs and
+	  events.
+	* New "check-config" initctl command to check for jobs whose
+	* "start on" and "stop on" events cannot be satisfied.
+	* New "show-config" initctl command to display "start on", "stop
+	  on" and emits" information in parseable format.
+	* New initctl command-line option: "--session" for D-Bus
+	  session connection.
+	* New init command line options (mostly for testing):
+	  - "--session" for D-Bus session bus.
+	  - "--confdir <dir>".
+	  - "--startup-event <event>".
+	  - "--no-startup-event".
+	* New "kill signal" stanza to allow override of SIGTERM when
+	  stopping jobs.
+	* Add support for the oom_score_adj procfs API.
+	* Improved POSIX compliance when running shell scripts.
 
 1.2  2011-03-22  "This sort of thing is my bag, baby"
 
