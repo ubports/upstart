@@ -259,6 +259,5 @@ the introduction of session support.
 
 #. Reboot system and specify "``--no-sessions``" on kernel command-line.
 
-.. Ensure "``initctl list``" within a chroot displays the same list as
+#. Ensure "``initctl list``" within a chroot displays the same list as
    "``initctl list``" run outside of any chroot environment.
-
