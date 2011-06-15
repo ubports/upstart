@@ -65,7 +65,7 @@ static void  control_register_all   (DBusConnection *conn);
 /**
  * use_session_bus:
  *
- * If TRUE, connect to the D-Bus sessio bus rather than the system bus.
+ * If TRUE, connect to the D-Bus session bus rather than the system bus.
  *
  * Used for testing.
  **/
