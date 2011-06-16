@@ -1,7 +1,7 @@
 /* upstart
  *
  * Copyright © 2010 Canonical Ltd.
- * Author: Scott James Remnant <scott@netsplit.com>
+ * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -28,7 +28,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <unistd.h>
 #include <fnmatch.h>
 
@@ -162,18 +161,6 @@ const char *dest_address = DBUS_ADDRESS_UPSTART;
  * Whether to wait for a job or event to be finished before existing or not.
  **/
 int no_wait = FALSE;
-
-/**
- * verbose_detail:
- *
- * If TRUE, display the following extra information about jobs:
- *
- *   - emits
- *   - start on conditions (including environment)
- *   - stop on condition conditions (including environment)
- *
- **/
-int verbose_detail = FALSE;
 
 /**
  * enumerate_events:
@@ -314,9 +301,9 @@ upstart_open (const void *parent)
 		connection = dbus_bus_get (dbus_bus_type, &dbus_error);
 		if (! connection) {
 			nih_error ("%s: %s",
-					dbus_bus_type == DBUS_BUS_SYSTEM
-					? _("Unable to connect to system bus")
-					: _("Unable to connect to session bus"),
+				dbus_bus_type == DBUS_BUS_SYSTEM
+				? _("Unable to connect to system bus")
+				: _("Unable to connect to session bus"),
 				   dbus_error.message);
 			dbus_error_free (&dbus_error);
 			return NULL;
@@ -369,7 +356,7 @@ upstart_open (const void *parent)
  * job_status:
  * @parent: parent object for new string,
  * @job_class: proxy for remote job class object,
- * @job: proxy for remote instance object,
+ * @job: proxy for remote instance object.
  *
  * Queries the job object @job and contructs a string defining the status
  * of that instance, containing the name of the @job_class and @job,
@@ -1450,7 +1437,6 @@ log_priority_action (NihCommand *  command,
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
@@ -1547,7 +1533,7 @@ check_config_action (NihCommand *command,
 
 	nih_free (check_config_data.job_class_hash);
 	nih_free (check_config_data.event_hash);
-	if (! check_config_data.ignored_events_hash)
+	if (check_config_data.ignored_events_hash)
 		nih_free (check_config_data.ignored_events_hash);
 
 	return ret ? 1 : 0;

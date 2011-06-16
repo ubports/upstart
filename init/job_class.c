@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -148,7 +149,7 @@ job_class_init (void)
 JobClass *
 job_class_new (const void *parent,
 	       const char *name,
-	       Session *   session)
+	       Session    *session)
 {
 	JobClass *class;
 	int       i;
@@ -236,6 +237,7 @@ job_class_new (const void *parent,
 	class->task = FALSE;
 
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+	class->kill_signal = SIGTERM;
 
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
@@ -248,7 +250,7 @@ job_class_new (const void *parent,
 
 	class->umask = JOB_DEFAULT_UMASK;
 	class->nice = 0;
-	class->oom_adj = 0;
+	class->oom_score_adj = 0;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;
@@ -257,7 +259,7 @@ job_class_new (const void *parent,
 	class->chdir = NULL;
 
 	class->deleted = FALSE;
-	class->debug = FALSE;
+	class->debug   = FALSE;
 
 	return class;
 

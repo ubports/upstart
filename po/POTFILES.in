@@ -3,6 +3,7 @@ init/blocked.c
 init/conf.c
 init/control.c
 init/environ.c
+init/errors.h
 init/event.c
 init/event_operator.c
 init/job.c

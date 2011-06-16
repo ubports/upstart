@@ -5,8 +5,8 @@ EXTRA_DIST = \
   init-checkconf.sh
 
 dist_man_MANS = \
-  man/init-checkconf.8 \
-  man/initctl2dot.8
+  man/initctl2dot.8 \
+  man/init-checkconf.8
 
 install-exec-hook: $(EXTRA_DIST)
 	[ ! -d "$(DESTDIR)/$(bindir)" ] && mkdir -p "$(DESTDIR)/$(bindir)"; \

@@ -1,78 +1,70 @@
-0.9.7  2011-04-20
+1.4  xxxx-xx-xx
 
-	* Fix for user sessions to retain backwards compatibility behaviour
-	  where a non-privileged user can enquire on jobs owned by the
-	  global namespace.
+1.3  2011-06-14  "Concordia"
 
-0.9.6  2011-04-15
+	* New upstart-socket-bridge application which allows jobs to be
+	  started when an incoming client socket connection is initiated
+	  (requires a suitably modified server daemon since jobs only
+	  need call accept(2) before reading from the socket).
+	* User session support allowing non-privileged users to
+	  manipulate their own jobs (not available within a chroot
+	  environment).
+	* Chroot support allowing jobs to be controlled within chroot
+	  environments.
+	* Updated bash completion script.
+	* Updated vim syntax script.
+	* init-checkconf script used to check syntax of Job
+	  Configuration Files (including script sections).
+	* initctl2dot script to convert initctl(8) output to GraphViz
+	  dot(1) format for analysing relationships between jobs and
+	  events.
+	* New "check-config" initctl command to check for jobs whose
+	* "start on" and "stop on" events cannot be satisfied.
+	* New "show-config" initctl command to display "start on", "stop
+	  on" and emits" information in parseable format.
+	* New initctl command-line option: "--session" for D-Bus
+	  session connection.
+	* New init command line options (mostly for testing):
+	  - "--session" for D-Bus session bus.
+	  - "--confdir <dir>".
+	  - "--startup-event <event>".
+	  - "--no-startup-event".
+	* New "kill signal" stanza to allow override of SIGTERM when
+	  stopping jobs.
+	* Add support for the oom_score_adj procfs API.
+	* Improved POSIX compliance when running shell scripts.
 
-	* Fix for nasty OOM scenario when an attempt is made to start
-	  a chroot job with same name as running single-instance
-	  non-chroot job. Previously, the path for a chrooted Job
-	  was set from the (nul) instance name of its parent JobClass.
-	  However, since that job instance name already existed
-	  outside the chroot and was already D-Bus registered,
-	  nih_dbus_object_new() (which allocates storage and is
-	  called by job_register()) returned NULL and kept doing so
-	  due to being called within NIH_MUST(). This resulted in
-	  OOM due to an as-yet unidentified D-Bus bug (possibly a
-	  leak in find_subtree_recurse()).
+1.2  2011-03-22  "This sort of thing is my bag, baby"
 
-0.9.5  2011-04-06
+	* Fixed incorrect shell redirection syntax that broke at least
+	  pdksh.  (Bug: #739984)
 
-	* Important fixes for user and chroot sessions.
-	* scripts/init-checkconf.sh: Now checks script sections too.
-	* util/initctl.c: Added "--warn" option for check-config command
-	  to warn if any events or jobs are not known.
+1.1  2011-03-16  "It's probably 'cause you think you're cooler than me"
 
-0.9.4  2011-03-24
+	* When /sbin/halt is called (without -p), this now results in the
+	  system being halted and not powered down. If you meant it to be
+	  powered down, use /sbin/poweroff.  (Bug: #532366)
 
-	* scripts/initctl2dot.py: Fix to handle 'emits' glob syntax
-	  which was causing script to fail for upstart-udev-bridge.
+	* Fixed file descriptor leak of /proc/self/fd/NN to shell scripts
+	  executed by Upstart.  (Bug: #619269)
 
-0.9.3  2011-03-15
+	* Fixed bug where console was closed too early, causing loss of error
+	  messages and non-functioning keyboard-request event,
+	  (Bug: #707151)
 
-	* Added missing emits stanzas for supplied .conf files.
+	* Fixed bug where environment variables containing unusual characters
+	  were not accepted due to a mis-reading of POSIX.  (Bug: #567068).
 
-	* Added wildcard/globbing facility to initctl.c (for check-config
-	  command).
+	* Fixed non-removal of symlinks on "make uninstall".  (Bug: #604227)
 
-	* Updated man page on emits stanza syntax.
+	* Reduced priority of job termination messages from warn to info
+	  if the exit status or signal is listed in "normal exit".
+	  (Bug: #522197)
 
-0.9.2  2011-03-11
+1.0  2011-03-01  "This is a fertile land, and we will thrive"
 
-	* Improvements to existing documentation.
-	* scripts/man/init-checkconf.8: New manual page.
-	* scripts/man/initctl2dot.8: New manual page.
-	* packaging improvements (including "make distcheck" fix).
-	* extra/man/upstart-udev-bridge.8: Added examples.
-	* extra/Makefile.am: Create links to upstart-udev-bridge
-          man page for well-known Upstart udev events.
-
-0.9.1  2011-03-03
-
-	* Added supporting documentation for upstart-socket-bridge and
-	  sessions and chroot support.
-
-	* Added job configuration file for upstart-socket-bridge.
-
-	* Added job/event visualisation support. This comprises a new
-	  initctl command, "show-config" which generates human-readable
-	  (and machine parseable) output showing start on, stop on and
-	  emits details for each job. See initctl.8 for further details.
-	  The output from show-config is used by the new script
-	  contrib/utils/initctl2dot.py which graphs the data in GraphViz
-	  format.
-
-	* Added new initctl command check-config allowing unreachable
-	  job conditions to be detected. See initctl.8 for further
-	  details.
-
-	* Added script contrib/utils/init-checkconf.sh which allows
-	  non-privileged users to check job configuration files for syntax
-	  errors prior to installing in /etc/init/.
-
-0.9.0  2011-02-24
+	* Fixed an assertion when a file named /etc/init/.conf is created.
+	  Discovered by Коренберг Марк (Bug: #720573)
 
 	* utmp entries will be replaced with DEAD_PROCESS ones when a
 	  pid supervised by Upstart terminates.  (Bug: #183729)
@@ -82,29 +74,6 @@
 
 	* Included bash completion script in contrib directory.
           (Bug: #672067)
-
-	* Addition of Session support (chroots, sessions and
-	  user-session).
-
-	* Socket bridge support allowing jobs to be started based on
-	  socket connections. Examples of supported syntax:
-
-		start on socket PROTO=inet PORT=1234
-		start on socket PROTO=unix PATH=/var/run/.s.pgsql.1234
-		start on socket PROTO=unix PATH=@/at/upstart/example
-
-	* udev bridge support imported from Ubuntu. See
-	  "man 8 upstart-udev-bridge" for further details.
-
-	* Override file support allowing the creation of files named
-	  "<job_conf>.override" whose contents override that found in
-	  "<job_conf>.conf". Useful to modify a job without touching its
-	  .conf file. For example, a job can now be disabled simply by
-	  doing:
-
-		echo "manual" >> /etc/init/jobname.override
-
-	  See "man 5 init" for further details.
 
 0.6.7  2010-12-14  "Return of the Mole"
 

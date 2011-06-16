@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -65,7 +65,7 @@ static void  control_register_all   (DBusConnection *conn);
 /**
  * use_session_bus:
  *
- * If TRUE, connect to the D-Bus session bus rather than the system bus.
+ * If TRUE, connect to the D-Bus sessio bus rather than the system bus.
  *
  * Used for testing.
  **/

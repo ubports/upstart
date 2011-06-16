@@ -40,6 +40,7 @@ enum {
 	/* Errors while parsing configuration files */
 	PARSE_ILLEGAL_INTERVAL,
 	PARSE_ILLEGAL_EXIT,
+	PARSE_ILLEGAL_SIGNAL,
 	PARSE_ILLEGAL_UMASK,
 	PARSE_ILLEGAL_NICE,
 	PARSE_ILLEGAL_OOM,
@@ -60,9 +61,11 @@ enum {
 #define ENVIRON_MISMATCHED_BRACES_STR	N_("Mismatched braces")
 #define PARSE_ILLEGAL_INTERVAL_STR	N_("Illegal interval, expected number of seconds")
 #define PARSE_ILLEGAL_EXIT_STR		N_("Illegal exit status, expected integer")
+#define PARSE_ILLEGAL_SIGNAL_STR	N_("Illegal signal status, expected integer")
 #define PARSE_ILLEGAL_UMASK_STR		N_("Illegal file creation mask, expected octal integer")
 #define PARSE_ILLEGAL_NICE_STR		N_("Illegal nice value, expected -20 to 19")
-#define PARSE_ILLEGAL_OOM_STR		N_("Illegal oom adjustment, expected -16 to 15 or never")
+#define PARSE_ILLEGAL_OOM_STR		N_("Illegal oom adjustment, expected -16 to 15 or 'never'")
+#define PARSE_ILLEGAL_OOM_SCORE_STR	N_("Illegal oom score adjustment, expected -999 to 1000 or 'never'")
 #define PARSE_ILLEGAL_LIMIT_STR		N_("Illegal limit, expected 'unlimited' or integer")
 #define PARSE_EXPECTED_EVENT_STR	N_("Expected event")
 #define PARSE_EXPECTED_OPERATOR_STR	N_("Expected operator")

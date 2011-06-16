@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010,2011 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,6 +62,7 @@
 
 /* Prototypes for static functions */
 #ifndef DEBUG
+static int  logger_kmsg     (NihLogLevel priority, const char *message);
 static void crash_handler   (int signum);
 #endif /* DEBUG */
 static void term_handler    (void *data, NihSignal *signal);
@@ -93,6 +94,8 @@ static const char *argv0 = NULL;
 static int restart = FALSE;
 
 
+extern int disable_sessions;
+
 /**
  * conf_dir:
  *
@@ -117,8 +120,6 @@ static int disable_startup_event = FALSE;
 
 extern int use_session_bus;
 
-extern int disable_sessions;
-
 /**
  * options:
  *
@@ -128,19 +129,19 @@ static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", &conf_dir, NULL },
 
-	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
-		NULL, "NAME", &initial_event, NULL },
+	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
-		NULL, NULL, &disable_sessions, NULL },
-
 	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
-	
+
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },
+
+	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
+		NULL, "NAME", &initial_event, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -212,14 +213,18 @@ main (int   argc,
 			*arg_end = ' ';
 		}
 
+
 		/* Become the leader of a new session and process group, shedding
 		 * any controlling tty (which we shouldn't have had anyway - but
 		 * you never know what initramfs did).
 		 */
 		setsid ();
 
-		/* Set the standard file descriptors. */
-		if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+		/* Set the standard file descriptors to the ordinary console device,
+		 * resetting it to sane defaults unless we're inheriting from another
+		 * init process which we know left it in a sane state.
+		 */
+		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
 			nih_free (nih_error_get ());
 
 		/* Set the PATH environment variable */
@@ -231,7 +236,7 @@ main (int   argc,
 		 */
 		if (chdir ("/"))
 			nih_warn ("%s: %s", _("Unable to set root directory"),
-					strerror (errno));
+				strerror (errno));
 
 		/* Mount the /proc and /sys filesystems, which are pretty much
 		 * essential for any Linux system; not to mention used by
@@ -242,7 +247,7 @@ main (int   argc,
 
 			err = nih_error_get ();
 			nih_warn ("%s: %s", _("Unable to mount /proc filesystem"),
-					err->message);
+				err->message);
 			nih_free (err);
 		}
 
@@ -251,10 +256,15 @@ main (int   argc,
 
 			err = nih_error_get ();
 			nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
-					err->message);
+				err->message);
 			nih_free (err);
 		}
+	} else {
+		nih_log_set_priority (NIH_LOG_DEBUG);
+		nih_debug ("Running with UID %d as PID %d (PPID %d)",
+				(int)getuid (), (int)getpid (), (int)getppid ());
 	}
+
 #else /* DEBUG */
 	nih_log_set_priority (NIH_LOG_DEBUG);
 	nih_debug ("Running with UID %d as PID %d (PPID %d)",
@@ -325,6 +335,7 @@ main (int   argc,
 	}
 #endif /* DEBUG */
 
+
 	/* Watch children for events */
 	NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
 				       job_process_handler, NULL));
@@ -335,7 +346,7 @@ main (int   argc,
 
 
 	/* Read configuration */
-	NIH_MUST (conf_source_new (NULL, DEFAULT_CONFFILE, CONF_FILE));
+	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	conf_reload ();
@@ -348,7 +359,7 @@ main (int   argc,
 			err = nih_error_get ();
 			if (err->number != ENOMEM) {
 				nih_warn ("%s: %s", _("Unable to listen for private connections"),
-						err->message);
+					err->message);
 				nih_free (err);
 				break;
 			}
@@ -374,10 +385,12 @@ main (int   argc,
 #ifndef DEBUG
 	if (use_session_bus == FALSE) {
 		/* Now that the startup is complete, send all further logging output
-		 * to syslog instead of to the console.
+		 * to kmsg instead of to the console.
 		 */
-		openlog (program_name, LOG_CONS, LOG_DAEMON);
-		nih_log_set_logger (nih_logger_syslog);
+		if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+			nih_free (nih_error_get ());
+
+		nih_log_set_logger (logger_kmsg);
 	}
 #endif /* DEBUG */
 
@@ -456,6 +469,7 @@ main (int   argc,
 
 			closedir (piddir);
 		}
+
 	} else {
 		sigset_t mask;
 
@@ -479,6 +493,67 @@ main (int   argc,
 
 
 #ifndef DEBUG
+/**
+ * logger_kmsg:
+ * @priority: priority of message being logged,
+ * @message: message to log.
+ *
+ * Outputs the @message to the kernel log message socket prefixed with an
+ * appropriate tag based on @priority, the program name and terminated with
+ * a new line.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+logger_kmsg (NihLogLevel priority,
+	     const char *message)
+{
+	int   tag;
+	FILE *kmsg;
+
+	nih_assert (message != NULL);
+
+	switch (priority) {
+	case NIH_LOG_DEBUG:
+		tag = '7';
+		break;
+	case NIH_LOG_INFO:
+		tag = '6';
+		break;
+	case NIH_LOG_MESSAGE:
+		tag = '5';
+		break;
+	case NIH_LOG_WARN:
+		tag = '4';
+		break;
+	case NIH_LOG_ERROR:
+		tag = '3';
+		break;
+	case NIH_LOG_FATAL:
+		tag = '2';
+		break;
+	default:
+		tag = 'd';
+	}
+
+	kmsg = fopen ("/dev/kmsg", "w");
+	if (! kmsg)
+		return -1;
+
+	if (fprintf (kmsg, "<%c>%s: %s\n", tag, program_name, message) < 0) {
+		int saved_errno = errno;
+		fclose (kmsg);
+		errno = saved_errno;
+		return -1;
+	}
+
+	if (fclose (kmsg) < 0)
+		return -1;
+
+	return 0;
+}
+
+
 /**
  * crash_handler:
  * @signum: signal number received.
@@ -711,7 +786,7 @@ handle_confdir (void)
 	if (conf_dir)
 		goto out;
 
-	conf_dir = DEFAULT_CONFDIR;
+	conf_dir = CONFDIR;
 
 	dir = getenv (CONFDIR_ENV);
 	if (! dir)
