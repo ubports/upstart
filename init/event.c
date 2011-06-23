@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2009, 2010 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -126,6 +126,7 @@ event_new (const void  *parent,
 
 	event->session = NULL;
 	event->fd = -1;
+
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
 

@@ -1,3 +1,24 @@
+upstart (1.3-0ubuntu3) oneiric; urgency=low
+
+  * init/paths.h: Syned with upstream since Ubuntu file appears to have
+    diff applied twice, causing redefines.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 17 Jun 2011 09:59:49 +0100
+
+upstart (1.3-0ubuntu2) oneiric; urgency=low
+
+  * init/Makefile.am: Sync up from upstream, dropping TEST define which is
+    no longer required now we set UPSTART_NO_SESSIONS for init/tests/*.c
+    and specify "--no-sessions" for util/tests/*.c.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 17 Jun 2011 09:47:36 +0100
+
+upstart (1.3-0ubuntu1) oneiric; urgency=low
+
+  * Merge of Upstart 1.3 (lp:upstart @ 1.3 release tag).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 16 Jun 2011 15:09:41 +0100
+
 upstart (0.9.7-3) oneiric; urgency=low
 
   * Merge of upstream lp:~upstart-devel/upstart/0.9: Updates for

@@ -1,10 +1,4 @@
-Merge 1216.1.1 from Ubuntu (reload command), add test case.
-
-__abort_msg should be weak or changed
-
-
-
-0.6.x series:
+1.x series:
 
  * going into runlevel S from !S, need to stty console
  * going into 6, 0 or 1, need to stty console

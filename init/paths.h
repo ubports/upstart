@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2010-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,6 @@
 #define CONSOLE "/dev/console"
 #endif
 
-
 /**
  * DEV_NULL:
  *
@@ -57,24 +56,22 @@
 
 
 /**
- * DEFAULT_CONFFILE:
+ * CONFFILE:
  *
  * Init daemon configuration file.
  **/
-#ifndef DEFAULT_CONFFILE
-#define DEFAULT_CONFFILE "/etc/init.conf"
+#ifndef CONFFILE
+#define CONFFILE "/etc/init.conf"
 #endif
-
 
 /**
- * DEFAULT_CONFDIR:
+ * CONFDIR:
  *
- * Top-level directory of the system configuration files.
+ * Default top-level directory of the system configuration files.
  **/
-#ifndef DEFAULT_CONFDIR
-#define DEFAULT_CONFDIR "/etc/init"
+#ifndef CONFDIR
+#define CONFDIR "/etc/init"
 #endif
-
 
 /**
  * USERCONFDIR:
@@ -90,7 +87,7 @@
  * CONFDIR_ENV:
  *
  * If this environment variable is set, read configuration files
- * from the location specified, rather than DEFAULT_CONFDIR.
+ * from the location specified, rather than CONFDIR.
  *
  * Value is expected to be the full path to an alternative job
  * configuration directory.
@@ -110,7 +107,6 @@
 #define SHELL "/bin/sh"
 #endif
 
-
 /**
  * SBINDIR:
  *
@@ -119,7 +115,6 @@
 #ifndef SBINDIR
 #define SBINDIR "/sbin"
 #endif
-
 
 /**
  * TELINIT:
@@ -131,12 +126,10 @@
 #define TELINIT SBINDIR "/telinit"
 #endif
 
-
 /**
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"
-
 
 /**
  * File extension for override files.
@@ -146,7 +139,6 @@
  * the corresponding (CONF_EXT_STD) object.
  **/
 #define CONF_EXT_OVERRIDE ".override"
-
 
 /**
  * Determine if specified path extension representes a standard
@@ -160,7 +152,6 @@
 #define IS_CONF_EXT_STD(period) \
 	(!strcmp (period, CONF_EXT_STD))
 
-
 /**
  * Determine if specified path extension representes an
  * override file.
@@ -172,7 +163,6 @@
  **/
 #define IS_CONF_EXT_OVERRIDE(period) \
 	(!strcmp (period, CONF_EXT_OVERRIDE))
-
 
 /**
  * Determine if specified filename has a valid configuration
@@ -186,6 +176,5 @@
 #define IS_CONF_EXT(period) \
 	(IS_CONF_EXT_STD(period) || \
 	 IS_CONF_EXT_OVERRIDE(period))
-
 
 #endif /* INIT_PATHS_H */

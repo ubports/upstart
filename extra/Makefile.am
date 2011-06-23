@@ -74,7 +74,6 @@ install-data-hook:
 else
 EXTRA_DIST = \
 	man/upstart-udev-bridge.8
-
 endif
 
 

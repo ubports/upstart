@@ -48,26 +48,20 @@
 /**
  * system_kill:
  * @pid: process id of process,
- * @force: force the death.
+ * @signal: signal to send.
  *
- * Kill all processes in the same process group as @pid, which may not
- * necessarily be the group leader.
- *
- * When @force is FALSE, the TERM signal is sent; when it is TRUE, KILL
- * is sent instead.
+ * Send all processes in the same process group as @pid, which may not
+ * necessarily be the group leader the @signal.
  *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 system_kill (pid_t pid,
-	     int   force)
+	     int   signal)
 {
-	int   signal;
 	pid_t pgid;
 
 	nih_assert (pid > 0);
-
-	signal = (force ? SIGKILL : SIGTERM);
 
 	pgid = getpgid (pid);
 

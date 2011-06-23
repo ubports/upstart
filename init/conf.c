@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009, 2010 Canonical Ltd.
+ * Copyright © 2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -80,8 +80,7 @@ static inline int  is_conf_file        (const char *path)
 static inline int is_conf_file_std     (const char *path)
 	__attribute__ ((warn_unused_result));
 
-static inline int
-is_conf_file_override                  (const char *path)
+static inline int is_conf_file_override(const char *path)
 	__attribute__ ((warn_unused_result));
 
 /**
@@ -154,7 +153,7 @@ is_conf_file (const char *path)
 {
 	char *ptr = strrchr (path, '.');
 
-	if (ptr && IS_CONF_EXT (ptr))
+	if (ptr && (ptr > path) && (ptr[-1] != '/') && IS_CONF_EXT (ptr))
 		return TRUE;
 
 	return FALSE;
@@ -352,7 +351,8 @@ conf_reload (void)
 			NihError *err;
 
 			err = nih_error_get ();
-			nih_error ("%s: %s: %s", source->path,
+			if (err->number != ENOENT)
+				nih_error ("%s: %s: %s", source->path,
 					_("Unable to load configuration"),
 					err->message);
 			nih_free (err);
@@ -372,7 +372,7 @@ conf_reload (void)
  * out for editors that rename over the top, etc.
  *
  * We then parse the current state of the source.  The flag member is
- * toggled first, and this is propogated to all new and modified files and
+ * toggled first, and this is propagated to all new and modified files and
  * items that we find as a result of parsing.  Once done, we scan for
  * anything with the wrong flag, and delete them.
  *
@@ -538,7 +538,7 @@ conf_source_reload_file (ConfSource *source)
  * tree.
  *
  * Otherwise we walk the tree ourselves and parse all files that we find,
- * propogating the value of the flag member to all files so that deletion
+ * propagating the value of the flag member to all files so that deletion
  * can be detected by the calling function.
  *
  * Returns: zero on success, negative value on raised error.
@@ -1041,8 +1041,10 @@ conf_reload_path (ConfSource *source,
 		} else {
 			nih_debug ("Loading %s from %s", name, path);
 		}
+
 		file->job = parse_job (NULL, source->session, file->job,
-				       name, buf, len, &pos, &lineno);
+				name, buf, len, &pos, &lineno);
+
 		if (file->job) {
 			job_class_consider (file->job);
 		} else {
