@@ -399,7 +399,15 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		DIR *piddir;
+		DIR                *piddir;
+
+		/* Look in well-known locations for pid files.
+		 *
+		 * Try /run (the newer) location first, but fall back to
+		 * the original location for older systems.
+		 */
+		const char * const  pid_paths[] = { "/run/initramfs/", "/dev/.initramfs/", NULL };
+		const char * const *pid_path;
 
 		if (disable_startup_event) {
 			nih_debug ("Startup event disabled");
@@ -411,13 +419,16 @@ main (int   argc,
 				NULL));
                 }
 
-		/* Total hack, look for .pid files in /dev/.initramfs -
-		 * if there's a job config for them pretend that we
-		 * started it and it has that pid.
-		 */
-		piddir = opendir ("/dev/.initramfs");
-		if (piddir) {
+		for (pid_path = pid_paths; pid_path && *pid_path; pid_path++) {
 			struct dirent *ent;
+
+			/* Total hack, look for .pid files in known
+			 * locations - if there's a job config for them pretend
+			 * that we started it and it has that pid.
+			 */
+			piddir = opendir (*pid_path);
+			if (! piddir)
+				continue;
 
 			while ((ent = readdir (piddir)) != NULL) {
 				char      path[PATH_MAX];
@@ -430,7 +441,7 @@ main (int   argc,
 				if (ent->d_name[0] == '.')
 					continue;
 
-				strcpy (path, "/dev/.initramfs/");
+				strcpy (path, *pid_path);
 				strcat (path, ent->d_name);
 
 				ptr = strrchr (ent->d_name, '.');
@@ -447,8 +458,7 @@ main (int   argc,
 					;
 				fclose (pidfile);
 
-				if ((pid < 0)
-				    || (kill (pid, 0) < 0))
+				if ((pid < 0) || (kill (pid, 0) < 0))
 					continue;
 
 				class = (JobClass *)nih_hash_lookup (job_classes, ent->d_name);
@@ -468,8 +478,8 @@ main (int   argc,
 			}
 
 			closedir (piddir);
+			break;
 		}
-
 	} else {
 		sigset_t mask;
 
