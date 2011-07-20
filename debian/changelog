@@ -1,3 +1,9 @@
+upstart (1.3-0ubuntu5) oneiric; urgency=low
+
+  * Upstream cherry-pick to get dbus fix ("bzr merge -r 1314.. lp:upstart"). 
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 20 Jul 2011 12:27:53 +0100
+
 upstart (1.3-0ubuntu4) oneiric; urgency=low
 
   * init/main.c: main(): Add support for "/run" directory with
