@@ -1,3 +1,12 @@
+2011-07-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - test_show_config(): /* fall through :) */
+	  - test_check_config(): Manually start and stop dbus-daemon to work
+	    around change in dbus autostart behaviour which causes issues when
+	    running the tests in a chroot and non-X11 environment (see dbus commit
+	    cea055514a9dfc74e7f0515cf4a256da10a891bc).
+
 2011-06-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.3

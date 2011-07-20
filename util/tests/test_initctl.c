@@ -10929,7 +10929,8 @@ test_show_config (void)
 {
 	char             dirname[PATH_MAX];
 	nih_local char  *cmd;
-	pid_t            upstart_pid;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid    = 0;
 	char           **output;
 	size_t           lines;
 	char             expected_output[] = "foo";
@@ -10942,6 +10943,7 @@ test_show_config (void)
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
 
+	TEST_DBUS (dbus_pid);
 	START_UPSTART (upstart_pid);
 
 	TEST_FEATURE ("no emits, no start on, no stop on");
@@ -11382,6 +11384,7 @@ test_show_config (void)
 
 	STOP_UPSTART (upstart_pid);
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
 }
 
 void
@@ -11389,7 +11392,8 @@ test_check_config (void)
 {
 	char             dirname[PATH_MAX];
 	nih_local char  *cmd;
-	pid_t            upstart_pid;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid    = 0;
 	char           **output;
 	size_t           lines;
 
@@ -11401,6 +11405,7 @@ test_check_config (void)
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
 
+	TEST_DBUS (dbus_pid);
 	START_UPSTART (upstart_pid);
 
 	/*******************************************************************/
@@ -11835,6 +11840,7 @@ test_check_config (void)
 
 	STOP_UPSTART (upstart_pid);
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
 }
 
 

@@ -1,3 +1,11 @@
+upstart (1.3-0ubuntu4) oneiric; urgency=low
+
+  * init/main.c: main(): Add support for "/run" directory with fallback to
+    old location for initramfs state passing (LP: #810956).
+  * Upstream cherry-pick to get dbus fix ("bzr merge -r 1314.. lp:upstart"). 
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 20 Jul 2011 14:51:04 +0100
+
 upstart (1.3-0ubuntu3) oneiric; urgency=low
 
   * init/paths.h: Syned with upstream since Ubuntu file appears to have
