@@ -1,3 +1,8 @@
+2011-07-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/man/initctl.8: Clarify semantics of restart(8)
+	  command (LP: #731225).
+
 2011-07-20  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_initctl.c:
