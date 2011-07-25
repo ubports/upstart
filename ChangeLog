@@ -1,3 +1,8 @@
+2011-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Added dup2() return check.
+
 2011-07-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/initctl.8: Clarify semantics of restart(8)
