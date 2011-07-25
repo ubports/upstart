@@ -2,6 +2,25 @@
 
 	* init/job_process.c: job_process_spawn():
 	  - Added dup2() return check.
+	* TESTING.sessions: Updated with information on user sessions.
+	* init/job_process.c:
+	  - job_process_spawn():
+	    - Change group before user and do it as early as possible.
+	    - Ensure non-priv user is able to read script fd. Default system
+	      behaviour is seemingly not consistent/defined, so force it
+	      to be (LP: #813052)
+	    - Ensure cwd for user job is home directory by default.
+	  - job_process_error_read():
+	    - Added handling for JOB_PROCESS_ERROR_SETUID and
+	      JOB_PROCESS_ERROR_SETGID (LP: #807293).
+	    - Added new entry for JOB_PROCESS_ERROR_CHOWN.
+	* init/job_process.h:
+	  - Added entry for JOB_PROCESS_ERROR_CHOWN in JobProcessErrorType.
+	* init/man/init.5: Update for user jobs explaining behaviour of stanzas
+	  which manipulate system resource limits and when the init
+	  daemon reads the users job directory.
+	* util/tests/test_user_sessions.sh: New script for testing user sessions
+	  (NOTE: this is *NOT* run automatically).
 
 2011-07-22  James Hunt  <james.hunt@ubuntu.com>
 

@@ -373,13 +373,19 @@ job_process_spawn (JobClass     *class,
 		   int           trace,
 		   int           script_fd)
 {
-	sigset_t  child_set, orig_set;
-	pid_t     pid;
-	int       i, fds[2];
-	char      filename[PATH_MAX];
-	FILE     *fd;
+	sigset_t        child_set, orig_set;
+	pid_t           pid;
+	int             i, fds[2];
+	char            filename[PATH_MAX];
+	FILE           *fd;
+	int             user_job = FALSE;
+	nih_local char *user_dir = NULL;
+
 
 	nih_assert (class != NULL);
+
+	if (class && class->session && class->session->user)
+		user_job = TRUE;
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -462,6 +468,84 @@ job_process_spawn (JobClass     *class,
 	 */
 	setsid ();
 
+	/* Set the process environment from the function paramters. */
+	environ = (char **)env;
+
+	/* Handle unprivileged user job by dropping privileges to
+	 * their level as soon as possible to avoid privilege
+	 * escalations when we set resource limits.
+	 */
+	if (user_job) {
+		uid_t uid = class->session->user;
+		struct passwd *pw = NULL;
+
+		/* D-Bus does not expose a public API call to allow
+		 * us to query a users primary group.
+		 * _dbus_user_info_fill_uid () seems to exist for this
+		 * purpose, but is a "secret" API. It is unclear why
+		 * D-Bus neglects the gid when it allows the uid
+		 * to be queried directly.
+		 *
+		 * Our only recourse is to disallow user sessions in a
+		 * chroot and assume that all other user sessions
+		 * originate from the local system. In this way, we can
+		 * bypass D-Bus and use getpwuid ().
+		 */
+
+		if (class->session->chroot) {
+			/* We cannot determine the group id of the user
+			 * session in the chroot via D-Bus, so disallow
+			 * all jobs in such an environment.
+			 */
+			nih_return_error (-1, EPERM, "user jobs not supported in chroots");
+		}
+
+		pw = getpwuid (uid);
+
+		if (!pw)
+			nih_return_system_error (-1);
+
+		nih_assert (pw->pw_uid == uid);
+
+		if (! pw->pw_dir) {
+			nih_local char *message = NIH_MUST (nih_sprintf (NULL,
+						"no home directory for user with uid %d",
+						uid));
+
+			nih_return_error (-1, ENOENT, message);
+
+		}
+
+		/* Note we don't use NIH_MUST since this could result in a
+		 * DOS for a (low priority) user job in low-memory scenarios.
+		 */
+		user_dir = nih_strdup (NULL, pw->pw_dir);
+
+		if (!user_dir)
+			nih_return_no_memory_error (-1);
+
+		/* Ensure the file associated with fd 9
+		 * (/proc/self/fd/9) is owned by the user we're about to
+		 * become to avoid EPERM.
+		 */
+		if (script_fd != -1 && fchown (script_fd, pw->pw_uid, pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
+		}
+
+		if (pw->pw_gid && setgid (pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
+		}
+
+		if (pw->pw_uid && setuid (pw->pw_uid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+		}
+
+
+	}
+
 	/* Set the standard file descriptors to an output of our chosing;
 	 * any other open descriptor must be intended for the child, or have
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
@@ -482,6 +566,7 @@ job_process_spawn (JobClass     *class,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
 	}
 
+
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job class such that they inherit from
 	 * ourselves (and we inherit from kernel defaults).
@@ -496,9 +581,6 @@ job_process_spawn (JobClass     *class,
 						 JOB_PROCESS_ERROR_RLIMIT, i);
 		}
 	}
-
-	/* Set the process environment from the function paramters. */
-	environ = (char **)env;
 
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
@@ -567,11 +649,10 @@ job_process_spawn (JobClass     *class,
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (class->chdir ? class->chdir : "/") < 0) {
+	if (chdir (class->chdir ? class->chdir : user_job ? user_dir : "/") < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
 	}
-
 
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
@@ -605,54 +686,6 @@ job_process_spawn (JobClass     *class,
 						 JOB_PROCESS_ERROR_PTRACE, 0);
 		}
 	}
-
-	/* Handle unprivileged user job by dropping privileges to
-	 * their level.
-	 */
-	if (class->session && class->session->user) {
-		uid_t uid = class->session->user;
-		struct passwd *pw = NULL;
-
-		/* D-Bus does not expose a public API call to allow
-		 * us to query a users primary group.
-		 * _dbus_user_info_fill_uid () seems to exist for this
-		 * purpose, but is a "secret" API. It is unclear why
-		 * D-Bus neglects the gid when it allows the uid
-		 * to be queried directly.
-		 *
-		 * Our only recourse is to disallow user sessions in a
-		 * chroot and assume that all other user sessions
-		 * originate from the local system. In this way, we can
-		 * bypass D-Bus and use getpwuid ().
-		 */
-
-		if (class->session->chroot) {
-			/* We cannot determine the group id of the user
-			 * session in the chroot via D-Bus, so disallow
-			 * all jobs in such an environment.
-			 */
-			_nih_error_raise (__FILE__, __LINE__, __FUNCTION__,
-					EPERM, strerror (EPERM));
-		}
-
-		pw = getpwuid (uid);
-
-		if (!pw)
-			nih_return_system_error (-1);
-
-		nih_assert (pw->pw_uid == uid);
-
-		if (uid && setuid (uid) < 0) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
-		}
-
-		if (pw->pw_gid && setgid (pw->pw_gid) < 0) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
-		}
-	}
-
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {
@@ -845,6 +878,21 @@ job_process_error_read (int fd)
 	case JOB_PROCESS_ERROR_EXEC:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to execute: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_SETUID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setuid: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_SETGID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setgid: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CHOWN:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to chown: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:

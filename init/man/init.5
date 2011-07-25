@@ -77,8 +77,12 @@ Configuration files are plain text and should not be executable.
 A User Job is a job configuration file created by a non\-privileged user
 in their
 .B $HOME/.init/
-directory. Job configuration files in this directory have
-the same syntax as system job configuration files.
+directory. Job configuration files in this directory have the same
+syntax as system job configuration files.
+Files in this directory will be read and an
+.BR inotify (7)
+watch created the first time a user runs 
+.BR initctl (8) "."
 
 Any user can create user jobs, but that user can control
 .I only
@@ -87,6 +91,10 @@ jobs they create.
 Users are able to manage their jobs using the standard
 .BR initctl (8)
 facility.
+
+Note that stanzas which manipulate resources limits may cause a job to
+fail to start should the value provided to such a stanza attempt to
+exceed the maximum value the users privilege level allows.
 
 Note that a user job configuration file cannot have the same name as a
 system job configuration file.

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.4\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-06-15 14:49+0100\n"
+"POT-Creation-Date: 2011-07-25 14:57+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -63,7 +63,7 @@ msgstr ""
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:370 init/main.c:616
+#: init/control.c:370 init/main.c:619
 msgid "Reloading configuration"
 msgstr ""
 
@@ -273,152 +273,167 @@ msgstr ""
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:403
+#: init/job_process.c:409
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:473
+#: init/job_process.c:559
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:755
+#: init/job_process.c:790
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:760
+#: init/job_process.c:795
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:815
+#: init/job_process.c:850
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:820
+#: init/job_process.c:855
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:825
+#: init/job_process.c:860
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:830
+#: init/job_process.c:865
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:835
+#: init/job_process.c:870
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:840
+#: init/job_process.c:875
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:845
+#: init/job_process.c:880
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:876 init/job_process.c:926
+#: init/job_process.c:885
+#, c-format
+msgid "unable to setuid: %s"
+msgstr ""
+
+#: init/job_process.c:890
+#, c-format
+msgid "unable to setgid: %s"
+msgstr ""
+
+#: init/job_process.c:895
+#, c-format
+msgid "unable to chown: %s"
+msgstr ""
+
+#: init/job_process.c:926 init/job_process.c:976
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:885 init/job_process.c:935
+#: init/job_process.c:935 init/job_process.c:985
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:996
+#: init/job_process.c:1046
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1001
+#: init/job_process.c:1051
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1016
+#: init/job_process.c:1066
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1020
+#: init/job_process.c:1070
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1034
+#: init/job_process.c:1084
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1038
+#: init/job_process.c:1088
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1052
+#: init/job_process.c:1102
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1056
+#: init/job_process.c:1106
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1191
+#: init/job_process.c:1241
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1197
+#: init/job_process.c:1247
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1437
+#: init/job_process.c:1487
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1450 init/job_process.c:1645
+#: init/job_process.c:1500 init/job_process.c:1695
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1490 init/job_process.c:1581 init/job_process.c:1636
+#: init/job_process.c:1540 init/job_process.c:1631 init/job_process.c:1686
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1530
+#: init/job_process.c:1580
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1565
+#: init/job_process.c:1615
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1572
+#: init/job_process.c:1622
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1631
+#: init/job_process.c:1681
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
@@ -462,7 +477,7 @@ msgstr ""
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:234 init/main.c:526
+#: init/main.c:234 init/main.c:529
 msgid "Unable to set root directory"
 msgstr ""
 
@@ -478,21 +493,21 @@ msgstr ""
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:543
+#: init/main.c:546
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:547
+#: init/main.c:550
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:633
+#: init/main.c:636
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:639
+#: init/main.c:642
 msgid "Unable to connect to the system bus"
 msgstr ""
 
