@@ -189,6 +189,7 @@ cleanup()
 {
   if [ -d "$test_dir" ]
   then
+    echo "Removing test directory '$test_dir'"
     cmd="rmdir \"$test_dir\""
     eval "$cmd"
     TEST_EQ "$cmd" $? 0
@@ -484,9 +485,16 @@ test_user_jobs()
 
 tests()
 {
-  echo "Running user session tests in directory '$test_dir'"
+  echo
+  echo -n "Running user session tests as user '`whoami`'"
+  echo " (uid $uid, gid $gid) in directory '$test_dir'"
+  echo
 
   test_user_jobs
+
+  echo
+  echo "All tests completed successfully"
+  echo
 }
 
 usage()
