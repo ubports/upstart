@@ -21,6 +21,10 @@
 	  daemon reads the users job directory.
 	* util/tests/test_user_sessions.sh: New script for testing user sessions
 	  (NOTE: this is *NOT* run automatically).
+	* init/session.c: session_from_dbus(): Handle case where a users
+	  home directory is changed or where a uid is re-used for a
+	  different username.
+	* init/session.h: Updated comments for Session object.
 
 2011-07-22  James Hunt  <james.hunt@ubuntu.com>
 
