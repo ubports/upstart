@@ -25,6 +25,7 @@
 	  home directory is changed or where a uid is re-used for a
 	  different username.
 	* init/session.h: Updated comments for Session object.
+	* init/man/init.5: Explain that symbolic links are not supported.
 
 2011-07-22  James Hunt  <james.hunt@ubuntu.com>
 

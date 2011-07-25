@@ -757,6 +757,12 @@ Without this stanza
 is unable to supervise forking processes and will believe them to have
 stopped as soon as they fork on startup.
 .\"
+.SH RESTRICTIONS
+The use of symbolic links in job configuration file directories is not
+supported since it can lead to unpredicable behaviour resulting from
+broken or inaccessible links (such as would be caused by a link crossing
+a filesystem boundary to a filesystem that has not yet been mounted).
+.\"
 .SH BUGS
 The 
 .B and
