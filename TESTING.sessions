@@ -4,25 +4,51 @@
 Testing Sessions with Upstart
 =============================
 
-Upstart now has support for chroots which are implemented by creating a
-separate session for every user within each chroot. It also has partial
-support for user sessions, but since this is experimental (and disabled
-in Ubuntu), this document does not cover testing this feature.
+Upstart now has support for two types of "sessions":
+
+* user sessions
+
+* chroots sessions
+
+Such sessions are implemented by asociating a separate Upstart session
+with every chroot environment and every non-privileged user.
 
 The session support does not yet provide full tests (as would be run by
-"``make check``"). This is partly due to the complexity of automatically
+"``make check``"). This is mostly due to the complexity of automatically
 testing some of the scenarios below.
 
 This document attempts to outline the minimum set of tests that should
-be performed to ensure that chroot support works as expected.
+be performed to ensure that session support works as expected.
 
 Assumptions
 ===========
 
 You are running an Ubuntu or Debian system.
 
+User Sessions
+=============
+
+User sessions can be minimally tested using the script provided::
+
+  util/tests/test_user_sessions.sh
+
+Notes:
+
+- Run "``test_user_sessions.sh -h``" to understand what this script does.
+
+- that this script needs to be run on a system where the version of
+  ``/sbin/init`` has session support since the ``/sbin/init`` binary
+  itself will be tested. For this reason, the script cannot be run as part
+  of the "``make check``" run.
+
+- The script will complain loudly if any of the tests fail and tell you
+  how to raise a bug.
+
+Chroot Sessions
+===============
+
 Setup
-=====
+-----
 
 #. Install a chroot environement (such as ``schroot(1)``) and configure it.
 #. run, "``debootstrap(8)``" to install the same release as you are running into your chroot.
@@ -80,7 +106,7 @@ Setup
 
    
 Run as non-``root`` with no chroot
-==================================
+----------------------------------
 
 - ``initctl list``
 
@@ -118,7 +144,7 @@ Run as non-``root`` with no chroot
   Should fail ("``initctl: Rejected send message``").
 
 Run as ``root`` with no chroot
-==============================
+------------------------------
 
 - ``initctl list``
 
@@ -183,7 +209,7 @@ Run as ``root`` with no chroot
   - Ensure ``/path/to/chroot/etc/init/in_chroot.conf`` does *NOT* run.
 
 Run as ``root`` inside a chroot
-===============================
+-------------------------------
 
 - ``initctl list``
 
@@ -247,12 +273,12 @@ Run as ``root`` inside a chroot
   - Ensure ``/etc/init/outside_chroot.conf`` does *NOT* run.
 
 Run as non-root inside a chroot
-===============================
+-------------------------------
 
 Not supported.
 
 Run with ``--no-sessions``
-==========================
+--------------------------
 
 The "``--no-sessions``" option makes Upstart behave as it used to prior to
 the introduction of session support.

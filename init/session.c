@@ -124,12 +124,14 @@ Session *
 session_from_dbus (const void     *parent,
 		   NihDBusMessage *message)
 {
-	const char   *sender;
-	DBusError     dbus_error;
-	unsigned long unix_user;
-	unsigned long unix_process_id;
-	char          root[PATH_MAX];
-	Session      *session;
+	const char     *sender;
+	DBusError       dbus_error;
+	unsigned long   unix_user;
+	unsigned long   unix_process_id;
+	char            root[PATH_MAX];
+	Session        *session;
+	struct passwd  *pwd;
+	nih_local char *conf_path = NULL;
 
 	nih_assert (message != NULL);
 
@@ -192,11 +194,25 @@ session_from_dbus (const void     *parent,
 	} else if (! unix_user) {
 		/* No process id or user id found, return the NULL session */
 		return NULL;
-
 	}
 
+	if (unix_user) {
+		pwd = getpwuid (unix_user);
+
+		if (! pwd || ! pwd->pw_dir) {
+			nih_error ("%lu: %s: %s", unix_user,
+				   _("Unable to lookup home directory"),
+				   strerror (errno));
+			return NULL;
+		}
+
+		NIH_MUST (nih_strcat_sprintf (&conf_path, NULL, "%s/%s",
+					pwd->pw_dir, USERCONFDIR));
+	}
+
+
 	/* Now find in the existing Sessions list */
-	NIH_LIST_FOREACH (sessions, iter) {
+	NIH_LIST_FOREACH_SAFE (sessions, iter) {
 		Session *session = (Session *)iter;
 
 		if (unix_process_id) {
@@ -211,6 +227,31 @@ session_from_dbus (const void     *parent,
 		/* ignore sessions relating to other users */
 		if (unix_user != session->user)
 			continue;
+
+		/* Found a user with the same uid but different
+		 * conf_dir to the existing session user. Either the
+		 * original user has been deleted and a new user created
+		 * with the same uid, or the original users home
+		 * directory has changed since they first started
+		 * running jobs. Whatever the reason, we (can only) honour
+		 * the new value.
+		 *
+		 * Since multiple users with the same uid are considered
+		 * to be "the same user", invalidate the old path,
+		 * allowing the correct new path to be set below.
+		 *
+		 * Note that there may be a possibility of trouble if
+		 * the scenario relates to a deleted user and that original
+		 * user still has jobs running. However, if that were the
+		 * case, those jobs would likely fail anyway since they
+		 * would have no working directory due to the original
+		 * users home directory being deleted/changed/made inaccessible.
+		 */
+		if (unix_user && conf_path && session->conf_path &&
+				strcmp (conf_path, session->conf_path)) {
+			nih_free (session->conf_path);
+			session->conf_path = NULL;
+		}
 
 		if (! session->conf_path)
 			session_create_conf_source (session);

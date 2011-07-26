@@ -59,6 +59,7 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_EXEC,
 	JOB_PROCESS_ERROR_SETUID,
 	JOB_PROCESS_ERROR_SETGID,
+	JOB_PROCESS_ERROR_CHOWN
 } JobProcessErrorType;
 
 /**
