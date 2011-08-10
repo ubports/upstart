@@ -4593,7 +4593,6 @@ test_file_destroy (void)
 	TEST_FUNCTION ("conf_file_destroy");
 	source = conf_source_new (NULL, "/path", CONF_JOB_DIR);
 
-
 	/* Check that when a ConfFile for a job is freed, the attached
 	 * job is also freed if it is not the current job.
 	 */
