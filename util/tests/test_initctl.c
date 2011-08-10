@@ -77,9 +77,7 @@
 	if (pid == 0)                                                \
 		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
 				"--session",                         \
-				"--no-startup-event",                \
-				"--no-sessions",                     \
-				NULL);                               \
+				"--no-startup-event", NULL);         \
 	                                                             \
 	while (attempts) {                                           \
 		attempts--;                                          \

@@ -488,9 +488,6 @@ main (int   argc,
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
 
-	if (disable_sessions)
-		nih_debug ("Sessions disabled");
-
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to
 	 * process the startup event we emitted.
