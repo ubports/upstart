@@ -1,3 +1,21 @@
+upstart (1.3-0ubuntu6) oneiric; urgency=low
+
+  [ Steve Langasek ]
+  * Fix maintainer field to be compliant with policy definition
+
+  [ Clint Byrum ]
+  * conf/rc.conf: document events that are emitted by sysvinit
+    jobs to quiet 'initctl check-config' 
+  * extra/conf/upstart-udev-bridge.conf: narrow definition to
+    only the events actually emitted. (LP: #819928)
+  * debian/conf/failsafe.conf: new job for critical services to
+    start on.
+  * conf/rc-sysinit.conf: start after static-network-up or failsafe
+    so that runlevel 2 is only entered with all static net interfaces
+    up. (LP: #580319)
+
+ -- Clint Byrum <clint@ubuntu.com>  Wed, 10 Aug 2011 08:44:43 -0500
+
 upstart (1.3-0ubuntu5) oneiric; urgency=low
 
   * Upstream cherry-pick for user session fixes
