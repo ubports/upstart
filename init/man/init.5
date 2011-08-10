@@ -1,4 +1,4 @@
-.TH init 5 2011-03-03 "Upstart"
+.TH init 5 2011-05-12 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -51,7 +51,7 @@ configuration can refer both to a configuration file or an override
 file.
 
 Each configuration file defines the template for a single \fIservice\fP
-(long\-running process or daemon) or \fItask\fP (short\-lived process).
+(long-running process or daemon) or \fItask\fP (short-lived process).
 
 Note that a configuration file is not itself a job: it is a description
 of an environmenta job could be run in.  A job is the runtime embodiment
@@ -60,7 +60,7 @@ of a configuration file.
 The configuration file name as displayed by Upstart and associated
 tooling is taken from its relative path within the directory without the
 extension.  For example a configuration file
-.I /etc/init/rc\-sysinit.conf
+.I /etc/init/rc-sysinit.conf
 is named
 .IR rc\-sysinit ,
 while a configuration file
@@ -75,7 +75,7 @@ Configuration files are plain text and should not be executable.
 .SS User Jobs
 
 A User Job is a job configuration file created by a non\-privileged user
-in the
+in their
 .B $HOME/.init/
 directory. Job configuration files in this directory have
 the same syntax as system job configuration files.
@@ -90,7 +90,6 @@ facility.
 
 Note that a user job configuration file cannot have the same name as a
 system job configuration file.
-
 .\"
 .SS Chroot Support
 
@@ -131,7 +130,7 @@ or
 .B script
 stanzas, only one of which is permitted.  These specify the executable
 or shell script that will be run when the job is considered to be running.
-Once this process terminates, the job stop.
+Once this process terminates, the job stops.
 
 All processes are run with the full job environment available as
 environment variables in their process.
@@ -591,15 +590,15 @@ see
 for more details.
 .\"
 .TP
-.B oom \fIADJUSTMENT\fR|\fBnever
+.B oom score \fIADJUSTMENT\fR|\fBnever
 Normally the OOM killer regards all processes equally, this stanza
 advises the kernel to treat this job differently.
 
 .I ADJUSTMENT
 may be an integer value from
-.I \-16
+.I -999
 (very unlikely to be killed by the OOM killer) up to
-.I 14
+.I 1000
 (very likely to be killed by the OOM killer).  It may also be the special
 value
 .B never
@@ -694,10 +693,20 @@ considered.
 .\"
 .SS Miscellaneous
 .TP
+.B kill signal \fISIGNAL
+Specifies the stopping signal, 
+.I SIGTERM
+by default, a job's main process will receive when stopping the
+running job.
+
+.nf
+kill signal INT
+.fi
+.\"
+.TP
 .B kill timeout \fIINTERVAL
 Specifies the interval between sending the job's main process the
-.I SIGTERM
-and
+"stopping" (see above) and
 .I SIGKILL
 signals when stopping the running job. Default is 5 seconds.
 .\"
@@ -777,7 +786,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010,2011 Canonical Ltd.
+Copyright \(co 2009-2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -785,4 +794,5 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
 .BR init (8)
+.BR initctl (8)
 .BR sh (1)

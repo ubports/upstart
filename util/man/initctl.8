@@ -1,4 +1,4 @@
-.TH initctl 8 2011-03-08 "Upstart"
+.TH initctl 8 2011-06-02 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -15,12 +15,6 @@ initctl \- init daemon control tool
 allows a system administrator to communicate and interact with the Upstart
 .BR init (8)
 daemon.
-
-If D\-Bus has been configured to allow non\-privileged users to invoke all
-Upstart D\-Bus methods, this command is also able to manage user jobs.
-See
-.BR init (5)
-for further details.
 
 When run as
 .BR initctl ,
@@ -40,7 +34,9 @@ commands.
 .SH OPTIONS
 .TP
 .B \-\-session
-Connect to daemon using the D\-Bus session bus (for testing purposes only).
+Connect to
+.BR init (8)
+daemon using the D\-Bus session bus (for testing purposes only).
 .\"
 .TP
 .B \-\-system
@@ -259,10 +255,11 @@ name follows the job name in parentheses:
 .\"
 .TP
 .B list
+
 Requests a list of the known jobs and instances, outputs the status of
 each to standard output.
 
-Note that this command enumerates as\-yet\-to\-run jobs (in other words
+Note that this command includes in the enumeration as\-yet\-to\-run jobs (in other words
 configuration files for which no job instances have yet been created) in
 the output with status "stop/waiting". In effect such entries denote
 configuration files which represent potential future jobs.
@@ -517,7 +514,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2010, 2011 Canonical Ltd.
+Copyright \(co 2009\-2011 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

@@ -821,7 +821,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -859,7 +859,7 @@ test_spawn (void)
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -885,7 +885,7 @@ test_spawn (void)
 	class = job_class_new (NULL, "test", NULL);
 	class->chdir = "/tmp";
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -913,7 +913,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 
-	pid = job_process_spawn (class, args, env, FALSE);
+	pid = job_process_spawn (class, args, env, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -938,7 +938,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -958,7 +958,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 
-	pid = job_process_spawn (class, args, NULL, TRUE);
+	pid = job_process_spawn (class, args, NULL, TRUE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -987,7 +987,7 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();
@@ -1012,7 +1012,7 @@ test_spawn (void)
 	args[1] = function;
 	args[2] = NULL;
 
-	pid = job_process_spawn (class, args, NULL, FALSE);
+	pid = job_process_spawn (class, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	/* Ensure process is still running after some period of time.
@@ -1952,10 +1952,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -1985,11 +1982,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}
@@ -2298,10 +2290,7 @@ test_handler (void)
 		job->failed_process = -1;
 		job->exit_status = 0;
 
-		TEST_DIVERT_STDERR (output) {
-			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
-		}
-		rewind (output);
+		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 100);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
@@ -2331,11 +2320,6 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, (ProcessType)-1);
 		TEST_EQ (job->exit_status, 0);
-
-		TEST_FILE_EQ (output, ("test: test main process (1) "
-				       "terminated with status 100\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
 
 		nih_free (job);
 	}

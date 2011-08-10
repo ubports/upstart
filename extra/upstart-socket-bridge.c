@@ -478,7 +478,7 @@ job_add_socket (Job *  job,
 	nih_assert (! strcmp(socket_info[0], "socket"));
 
 	sock = NIH_MUST (nih_new (job, Socket));
-	memset (sock, 0, sizeof sock);
+	memset (sock, 0, sizeof (Socket));
 	sock->sock = -1;
 
 	nih_list_init (&sock->entry);

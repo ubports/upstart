@@ -3,7 +3,8 @@
  * test_initctl.c - test suite for util/initctl.c
  *
  * Copyright © 2010 Canonical Ltd.
- * Author: Scott James Remnant <scott@netsplit.com>.
+ * Authors: Scott James Remnant <scott@netsplit.com>,
+ *          James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -76,9 +77,7 @@
 	if (pid == 0)                                                \
 		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
 				"--session",                         \
-				"--no-startup-event",                \
-				"--no-sessions",                     \
-				NULL);                               \
+				"--no-startup-event", NULL);         \
 	                                                             \
 	while (attempts) {                                           \
 		attempts--;                                          \
@@ -237,8 +236,7 @@ extern int no_wait;
 extern NihDBusProxy *upstart_open (const void *parent)
 	__attribute__ ((warn_unused_result, malloc));
 extern char *        job_status   (const void *parent,
-				   NihDBusProxy *job_class,
-				   NihDBusProxy *job)
+				   NihDBusProxy *job_class, NihDBusProxy *job)
 	__attribute__ ((warn_unused_result, malloc));
 
 extern int start_action                (NihCommand *command, char * const *args);
@@ -14440,13 +14438,13 @@ int
 main (int   argc,
       char *argv[])
 {
-
 	nih_error_init ();
 	nih_timer_init ();
 	nih_signal_init ();
 	nih_child_init ();
 	nih_main_loop_init ();
 	program_name = "test";
+
 	test_upstart_open ();
 	test_job_status ();
 

@@ -119,6 +119,7 @@ test_new (void)
 		TEST_EQ (class->task, FALSE);
 
 		TEST_EQ (class->kill_timeout, 5);
+		TEST_EQ (class->kill_signal, SIGTERM);
 
 		TEST_EQ (class->respawn, FALSE);
 		TEST_EQ (class->respawn_limit, 10);
@@ -131,7 +132,7 @@ test_new (void)
 
 		TEST_EQ (class->umask, 022);
 		TEST_EQ (class->nice, 0);
-		TEST_EQ (class->oom_adj, 0);
+		TEST_EQ (class->oom_score_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
 			TEST_EQ_P (class->limits[i], NULL);
@@ -1942,7 +1943,7 @@ test_start (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_start (class, message, env, TRUE);
 
@@ -2378,7 +2379,7 @@ test_stop (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_stop (class, message, env, TRUE);
 
@@ -2862,7 +2863,7 @@ test_restart (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_restart (class, message, env, TRUE);
 

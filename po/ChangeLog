@@ -1,3 +1,11 @@
+2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
+
+	* POTFILES.in: Add errors.h
+
+2011-03-16  Scott James Remnant  <scott@netsplit.com>
+
+	* Makevars.template (COPYRIGHT_HOLDER): Update copyright.
+
 2010-02-03  Scott James Remnant  <scott@netsplit.com>
 
 	* upstart.pot: Actually include the pot file
