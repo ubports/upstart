@@ -597,7 +597,7 @@ job_process_spawn (JobClass     *class,
 
 	/* Adjust the process OOM killer priority.
 	 */
-	if (class->oom_score_adj) {
+	if (class->oom_score_adj != JOB_DEFAULT_OOM_SCORE_ADJ) {
 		int oom_value;
 		snprintf (filename, sizeof (filename),
 			  "/proc/%d/oom_score_adj", getpid ());

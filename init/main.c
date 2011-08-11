@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +54,7 @@
 #include "paths.h"
 #include "events.h"
 #include "system.h"
+#include "job_class.h"
 #include "job_process.h"
 #include "event.h"
 #include "conf.h"
@@ -347,6 +349,38 @@ main (int   argc,
 	/* Process the event queue each time through the main loop */
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
 					  NULL));
+
+
+	/* Adjust our OOM priority to the default, which will be inherited
+	 * by all jobs.
+	 */
+	if (JOB_DEFAULT_OOM_SCORE_ADJ) {
+		char  filename[PATH_MAX];
+		int   oom_value;
+		FILE *fd;
+
+		snprintf (filename, sizeof (filename),
+			  "/proc/%d/oom_score_adj", getpid ());
+		oom_value = JOB_DEFAULT_OOM_SCORE_ADJ;
+		fd = fopen (filename, "w");
+		if ((! fd) && (errno == EACCES)) {
+			snprintf (filename, sizeof (filename),
+				  "/proc/%d/oom_adj", getpid ());
+			oom_value = (JOB_DEFAULT_OOM_SCORE_ADJ
+				     * ((JOB_DEFAULT_OOM_SCORE_ADJ < 0) ? 17 : 15)) / 1000;
+			fd = fopen (filename, "w");
+		}
+		if (! fd) {
+			nih_warn ("%s: %s", _("Unable to set default oom score"),
+				  strerror (errno));
+		} else {
+			fprintf (fd, "%d\n", oom_value);
+
+			if (fclose (fd))
+				nih_warn ("%s: %s", _("Unable to set default oom score"),
+					  strerror (errno));
+		}
+	}
 
 
 	/* Read configuration */

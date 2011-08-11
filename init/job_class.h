@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -65,6 +65,62 @@ typedef enum console_type {
 	CONSOLE_OUTPUT,
 	CONSOLE_OWNER
 } ConsoleType;
+
+
+/**
+ * JOB_DEFAULT_KILL_TIMEOUT:
+ *
+ * The default length of time to wait after sending a process the TERM
+ * signal before sending the KILL signal if it hasn't terminated.
+ **/
+#define JOB_DEFAULT_KILL_TIMEOUT 5
+
+/**
+ * JOB_DEFAULT_RESPAWN_LIMIT:
+ *
+ * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * we permit a process to respawn before stoping it
+ **/
+#define JOB_DEFAULT_RESPAWN_LIMIT 10
+
+/**
+ * JOB_DEFAULT_RESPAWN_INTERVAL:
+ *
+ * The default number of seconds before resetting the respawn timer.
+ **/
+#define JOB_DEFAULT_RESPAWN_INTERVAL 5
+
+/**
+ * JOB_DEFAULT_UMASK:
+ *
+ * The default file creation mark for processes.
+ **/
+#define JOB_DEFAULT_UMASK 022
+
+/**
+ * JOB_DEFAULT_NICE:
+ *
+ * The default nice level for processes.
+ **/
+#define JOB_DEFAULT_NICE 0
+
+/**
+ * JOB_DEFAULT_OOM_SCORE_ADJ:
+ *
+ * The default OOM score adjustment for processes.
+ **/
+#define JOB_DEFAULT_OOM_SCORE_ADJ 0
+
+/**
+ * JOB_DEFAULT_ENVIRONMENT:
+ *
+ * Environment variables to always copy from our own environment, these
+ * can be overriden in the job definition or by events since they have the
+ * lowest priority.
+ **/
+#define JOB_DEFAULT_ENVIRONMENT \
+	"PATH",			\
+	"TERM"
 
 
 /**
