@@ -1,5 +1,9 @@
 2011-08-11  Scott James Remnant  <keybuk@google.com>
 
+	* init/job_process.c (job_process_spawn): Can't return on
+	dup2() error, we're in the child. Return an error back to
+	the child properly.
+
 	* init/job_process.c (job_process_spawn), init/main.c: error
 	should be ENOENT
 

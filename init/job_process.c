@@ -445,9 +445,9 @@ job_process_spawn (JobClass     *class,
 	close (fds[0]);
 	if (fds[1] == JOB_PROCESS_SCRIPT_FD) {
 		int tmp = dup2 (fds[1], fds[0]);
-		close (fds[1]);
 		if (tmp < 0)
-			nih_return_system_error (-1);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		close (fds[1]);
 		fds[1] = tmp;
 	}
 	nih_io_set_cloexec (fds[1]);
