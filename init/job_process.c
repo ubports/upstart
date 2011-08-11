@@ -603,7 +603,7 @@ job_process_spawn (JobClass     *class,
 			  "/proc/%d/oom_score_adj", getpid ());
 		oom_value = class->oom_score_adj;
 		fd = fopen (filename, "w");
-		if ((! fd) && (errno == EACCES)) {
+		if ((! fd) && (errno == ENOENT)) {
 			snprintf (filename, sizeof (filename),
 				  "/proc/%d/oom_adj", getpid ());
 			oom_value = (class->oom_score_adj

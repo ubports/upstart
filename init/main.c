@@ -363,7 +363,7 @@ main (int   argc,
 			  "/proc/%d/oom_score_adj", getpid ());
 		oom_value = JOB_DEFAULT_OOM_SCORE_ADJ;
 		fd = fopen (filename, "w");
-		if ((! fd) && (errno == EACCES)) {
+		if ((! fd) && (errno == ENOENT)) {
 			snprintf (filename, sizeof (filename),
 				  "/proc/%d/oom_adj", getpid ());
 			oom_value = (JOB_DEFAULT_OOM_SCORE_ADJ
