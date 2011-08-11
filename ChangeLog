@@ -1,3 +1,9 @@
+2011-08-11  Scott James Remnant  <keybuk@google.com>
+
+	* init/main.c: Deal with failure to setup the system console by
+	falling back to /dev/null, so we don't end up without default fds
+	and castrate the process.
+
 2011-08-10  Scott James Remnant  <keybuk@google.com>
 
 	* init/job_class.c (job_class_new): nit, use #defines for the default
