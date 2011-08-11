@@ -88,6 +88,20 @@
 #define JOB_DEFAULT_UMASK 022
 
 /**
+ * JOB_DEFAULT_NICE:
+ *
+ * The default nice level for processes.
+ **/
+#define JOB_DEFAULT_NICE 0
+
+/**
+ * JOB_DEFAULT_OOM_SCORE_ADJ:
+ *
+ * The default OOM score adjustment for processes.
+ **/
+#define JOB_DEFAULT_OOM_SCORE_ADJ 0
+
+/**
  * JOB_DEFAULT_ENVIRONMENT:
  *
  * Environment variables to always copy from our own environment, these
@@ -249,8 +263,8 @@ job_class_new (const void *parent,
 	class->console = CONSOLE_NONE;
 
 	class->umask = JOB_DEFAULT_UMASK;
-	class->nice = 0;
-	class->oom_score_adj = 0;
+	class->nice = JOB_DEFAULT_NICE;
+	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;

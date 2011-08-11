@@ -1,3 +1,8 @@
+2011-08-10  Scott James Remnant  <keybuk@google.com>
+
+	* init/job_class.c (job_class_new): nit, use #defines for the default
+	nice level and oom score adjustment.
+
 2011-07-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_spawn():
