@@ -1,3 +1,11 @@
+upstart (1.3-0ubuntu8) UNRELEASED; urgency=low
+
+  * debian/conf/failsafe.conf: Add plymouth messages to help users
+    understand why the system boot takes longer when they have
+    static network interfaces defined. (LP: #847782)
+
+ -- Clint Byrum <clint@ubuntu.com>  Tue, 13 Sep 2011 16:12:01 -0700
+
 upstart (1.3-0ubuntu7) oneiric; urgency=low
 
   * debian/conf/failsafe.conf: raise timeout to 120 seconds to
