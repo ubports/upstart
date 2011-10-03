@@ -1,3 +1,14 @@
+upstart (1.3-0ubuntu10) UNRELEASED; urgency=low
+
+  * debian/conf/failsafe.conf: do delay as script, not pre-start, so
+    that the messages/delays are stopped on runlevel immediately. emit
+    as an event, failsafe-boot, to provide finer grained control.
+    (LP: #863864)
+  * conf/rc-sysinit.conf: change from 'started failsafe' to 'failsafe-boot'
+    to accomodate changes to failsafe.conf.
+
+ -- Clint Byrum <clint@ubuntu.com>  Mon, 03 Oct 2011 16:37:32 -0700
+
 upstart (1.3-0ubuntu9) oneiric; urgency=low
 
   * Update rcS.conf to only start single user mode but not friendly-recovery.
