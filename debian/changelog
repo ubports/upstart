@@ -1,11 +1,15 @@
 upstart (1.3-0ubuntu10) UNRELEASED; urgency=low
 
+  [ Clint Byrum ]
   * debian/conf/failsafe.conf: do delay as script, not pre-start, so
     that the messages/delays are stopped on runlevel immediately. emit
     as an event, failsafe-boot, to provide finer grained control.
     (LP: #863864)
   * conf/rc-sysinit.conf: change from 'started failsafe' to 'failsafe-boot'
     to accomodate changes to failsafe.conf.
+
+  [ Steve Langasek ]
+  * Document device-not-ready in upstart-events(7).  LP: #805510.
 
  -- Clint Byrum <clint@ubuntu.com>  Mon, 03 Oct 2011 16:37:32 -0700
 
