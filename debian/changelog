@@ -1,4 +1,4 @@
-upstart (1.3-0ubuntu10) UNRELEASED; urgency=low
+upstart (1.3-0ubuntu10) oneiric; urgency=low
 
   [ Clint Byrum ]
   * debian/conf/failsafe.conf: do delay as script, not pre-start, so
@@ -14,7 +14,7 @@ upstart (1.3-0ubuntu10) UNRELEASED; urgency=low
   * Mention lightdm in the list of example DMs in upstart-events(7), since
     it's now the default...
 
- -- Clint Byrum <clint@ubuntu.com>  Mon, 03 Oct 2011 16:37:32 -0700
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Mon, 03 Oct 2011 18:37:04 -0700
 
 upstart (1.3-0ubuntu9) oneiric; urgency=low
 
