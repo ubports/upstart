@@ -156,6 +156,8 @@ typedef enum console_type {
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
+ * @setuid: user name to drop to before starting process,
+ * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
  *
  * This structure holds the configuration of a known task or service that
@@ -206,6 +208,8 @@ typedef struct job_class {
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;
+	char           *setuid;
+	char           *setgid;
 
 	int             deleted;
 	int             debug;

@@ -216,6 +216,9 @@ job_class_new (const void *parent,
 	class->chroot = NULL;
 	class->chdir = NULL;
 
+	class->setuid = NULL;
+	class->setgid = NULL;
+
 	class->deleted = FALSE;
 	class->debug   = FALSE;
 
