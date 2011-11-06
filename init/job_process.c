@@ -41,6 +41,7 @@
 #include <utmp.h>
 #include <utmpx.h>
 #include <pwd.h>
+#include <grp.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -380,6 +381,8 @@ job_process_spawn (JobClass     *class,
 	FILE           *fd;
 	int             user_job = FALSE;
 	nih_local char *user_dir = NULL;
+	uid_t           job_setuid = -1;
+	gid_t           job_setgid = -1;
 
 
 	nih_assert (class != NULL);
@@ -654,6 +657,67 @@ job_process_spawn (JobClass     *class,
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
 	}
 
+	/* Change the user and group of the process to the one
+	 * configured in the job. We must wait until now to lookup the
+	 * UID and GID from the names to accommodate both chroot
+	 * session jobs and jobs with a chroot stanza.
+	 */
+	if (class->setuid) {
+		/* Without resetting errno, it's impossible to
+		 * distinguish between a non-existent user and and
+		 * error during lookup */
+		errno = 0;
+		struct passwd *pwd = getpwnam (class->setuid);
+		if (! pwd) {
+			if (errno != 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWNAM, 0);
+			} else {
+				nih_error_raise (JOB_PROCESS_INVALID_SETUID,
+						 JOB_PROCESS_INVALID_SETUID_STR);
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETUID, 0);
+			}
+		}
+
+		job_setuid = pwd->pw_uid;
+		/* This will be overridden if setgid is also set: */
+		job_setgid = pwd->pw_gid;
+	}
+
+	if (class->setgid) {
+		errno = 0;
+		struct group *grp = getgrnam (class->setgid);
+		if (! grp) {
+			if (errno != 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRNAM, 0);
+			} else {
+				nih_error_raise (JOB_PROCESS_INVALID_SETGID,
+						 JOB_PROCESS_INVALID_SETGID_STR);
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETGID, 0);
+			}
+		}
+
+		job_setgid = grp->gr_gid;
+	}
+
+	if (script_fd != -1 &&
+	    (job_setuid != -1 || job_setgid != -1) &&
+	    fchown (script_fd, job_setuid, job_setgid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
+	}
+
+	if (job_setgid != -1 && setgid (job_setgid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
+	}
+
+	if (job_setuid != -1 && setuid (job_setuid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+	}
+
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
 	 * surprisingly handle them before we've exec()d the new process.
@@ -879,6 +943,24 @@ job_process_error_read (int fd)
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to execute: %s"),
 				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_GETPWNAM:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getpwnam: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_GETGRNAM:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getgrnam: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_BAD_SETUID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to find setuid user")));
+		break;
+	case JOB_PROCESS_ERROR_BAD_SETGID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to find setgid group")));
 		break;
 	case JOB_PROCESS_ERROR_SETUID:
 		err->error.message = NIH_MUST (nih_sprintf (
