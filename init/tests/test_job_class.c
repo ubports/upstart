@@ -139,6 +139,10 @@ test_new (void)
 
 		TEST_EQ_P (class->chroot, NULL);
 		TEST_EQ_P (class->chdir, NULL);
+
+		TEST_EQ_P (class->setuid, NULL);
+		TEST_EQ_P (class->setgid, NULL);
+
 		TEST_FALSE (class->deleted);
 
 		nih_free (class);
