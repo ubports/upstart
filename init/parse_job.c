@@ -209,6 +209,14 @@ static int stanza_chdir       (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_setuid      (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+static int stanza_setgid      (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
 static int stanza_debug       (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -253,6 +261,8 @@ static NihConfigStanza stanzas[] = {
 	{ "limit",       (NihConfigHandler)stanza_limit       },
 	{ "chroot",      (NihConfigHandler)stanza_chroot      },
 	{ "chdir",       (NihConfigHandler)stanza_chdir       },
+	{ "setuid",      (NihConfigHandler)stanza_setuid      },
+	{ "setgid",      (NihConfigHandler)stanza_setgid      },
 	{ "debug",       (NihConfigHandler)stanza_debug       },
 	{ "manual",      (NihConfigHandler)stanza_manual      },
 
@@ -2534,6 +2544,80 @@ stanza_chdir (JobClass        *class,
 
 	class->chdir = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->chdir)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * stanza_setuid:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a setuid stanza from @file, extracting a single argument
+ * containing a user name.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_setuid (JobClass        *class,
+	       NihConfigStanza *stanza,
+	       const char      *file,
+	       size_t           len,
+	       size_t          *pos,
+	       size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (class->setuid)
+		nih_unref (class->setuid, class);
+
+	class->setuid = nih_config_next_arg (class, file, len, pos, lineno);
+	if (! class->setuid)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * stanza_setgid:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a setgid stanza from @file, extracting a single argument
+ * containing a group name.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_setgid (JobClass        *class,
+	       NihConfigStanza *stanza,
+	       const char      *file,
+	       size_t           len,
+	       size_t          *pos,
+	       size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (class->setgid)
+		nih_unref (class->setgid, class);
+
+	class->setgid = nih_config_next_arg (class, file, len, pos, lineno);
+	if (! class->setgid)
 		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
