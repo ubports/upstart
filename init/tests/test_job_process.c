@@ -38,6 +38,8 @@
 #include <unistd.h>
 #include <utmp.h>
 #include <utmpx.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include <nih/macros.h>
 #include <nih/string.h>
@@ -124,13 +126,15 @@ child (enum child_tests  test,
 void
 test_run (void)
 {
-	JobClass   *class = NULL;
-	Job         *job = NULL;
-	FILE        *output;
-	struct stat  statbuf;
-	char         filename[PATH_MAX], buf[80];
-	int          ret = -1, status, first;
-	siginfo_t    info;
+	JobClass      *class = NULL;
+	Job           *job = NULL;
+	FILE          *output;
+	struct stat    statbuf;
+	char           filename[PATH_MAX], buf[80];
+	int            ret = -1, status, first;
+	siginfo_t      info;
+	struct passwd *pwd;
+	struct group  *grp;
 
 	TEST_FUNCTION ("job_process_run");
 	job_class_init ();
@@ -785,6 +789,44 @@ test_run (void)
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
+		nih_free (class);
+	}
+
+	/* Check that we can succesfully setuid and setgid to
+	 * ourselves. This should always work, privileged or
+	 * otherwise.
+	 */
+	TEST_FEATURE ("with setuid me");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = nih_sprintf (
+				class->process[PROCESS_MAIN],
+				"touch %s", filename);
+
+			pwd = getpwuid (getuid ());
+			TEST_NE (pwd, NULL);
+			class->setuid = nih_strdup (class, pwd->pw_name);
+
+			grp = getgrgid (getgid ());
+			TEST_NE (grp, NULL);
+			class->setuid = nih_strdup (class, grp->gr_name);
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+		}
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		unlink (filename);
 		nih_free (class);
 	}
 }
