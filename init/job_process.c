@@ -702,18 +702,18 @@ job_process_spawn (JobClass     *class,
 	}
 
 	if (script_fd != -1 &&
-	    (job_setuid != -1 || job_setgid != -1) &&
+	    (job_setuid != (uid_t) -1 || job_setgid != (gid_t) -1) &&
 	    fchown (script_fd, job_setuid, job_setgid) < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
 	}
 
-	if (job_setgid != -1 && setgid (job_setgid) < 0) {
+	if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
 	}
 
-	if (job_setuid != -1 && setuid (job_setuid) < 0) {
+	if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
 	}
