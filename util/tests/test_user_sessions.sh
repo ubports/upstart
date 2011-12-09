@@ -553,6 +553,45 @@ test_user_emit_events()
   rm -f "$job_file"
 }
 
+test_user_job_setuid_setgid()
+{
+    group="user job with setuid and setgid me"
+    job_name="setuid_setgid_me_test"
+    script="\
+setuid $(id -un)
+setgid $(id -gn)
+exec true"
+    test_user_job "$group" "$job_name" "$script" no ""
+
+    TEST_GROUP "user job with setuid and setgid root"
+    script="\
+setuid root
+setgid root
+exec true"
+
+    job_name="setuid_setgid_root_test"
+    job_file="${test_dir}/${job_name}.conf"
+    job="${test_dir_suffix}/${job_name}"
+
+    echo "$script" > $job_file
+
+    ensure_job_known "$job" "$job_name"
+
+    TEST_FEATURE "ensure job fails to start as root"
+    cmd="start ${job}"
+    output=$(eval "$cmd")
+    rc=$?
+    TEST_EQ "$cmd" $rc 1
+
+    TEST_FEATURE "ensure 'start' indicates job failure"
+    error=$(echo "$output"|grep failed)
+    TEST_NE "error" "$error" ""
+
+    TEST_FEATURE "ensure 'initctl' does not list job"
+    initctl list|grep -q "^$job stop/waiting" || \
+        TEST_FAILED "job $job_name not listed as stopped"
+}
+
 get_job_file()
 {
   job_name="$1"
@@ -942,6 +981,8 @@ test_user_jobs()
   test_user_job_binary_task
   test_user_job_single_line_script_task
   test_user_job_multi_line_script_task
+
+  test_user_job_setuid_setgid
 
   test_user_emit_events
 

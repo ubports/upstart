@@ -7965,6 +7965,238 @@ test_stanza_chdir (void)
 	nih_free (err);
 }
 
+void
+test_stanza_setuid (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_setuid");
+
+	/* Check that a setuid stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "setuid www-data\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setuid, job);
+		TEST_EQ_STR (job->setuid, "www-data");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple setuid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "setuid www-data\n");
+	strcat (buf, "setuid pulse\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setuid, job);
+		TEST_EQ_STR (job->setuid, "pulse");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a setuid stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "setuid\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a setuid stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "setuid www-data foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
+test_stanza_setgid (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_setgid");
+
+	/* Check that a setgid stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "setgid kvm\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setgid, job);
+		TEST_EQ_STR (job->setgid, "kvm");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple setgid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "setgid kvm\n");
+	strcat (buf, "setgid fuse\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setgid, job);
+		TEST_EQ_STR (job->setgid, "fuse");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a setgid stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "setgid\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a setgid stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "setgid kvm foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -8011,6 +8243,8 @@ main (int   argc,
 	test_stanza_limit ();
 	test_stanza_chroot ();
 	test_stanza_chdir ();
+	test_stanza_setuid ();
+	test_stanza_setgid ();
 
 	return 0;
 }

@@ -1,5 +1,10 @@
 2011-12-09  James Hunt  <james.hunt@ubuntu.com>
 
+	* Merge of 'setuid' + 'setgid' stanzas from
+	  Evan Broder (lp:~broder/upstart/drop-privileges).
+
+2011-12-09  James Hunt  <james.hunt@ubuntu.com>
+
 	Introduction of 'log' argument to 'console' stanza allowing
 	system job output only to be captured.
 	

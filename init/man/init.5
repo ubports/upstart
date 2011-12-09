@@ -756,6 +756,32 @@ value, both of which are integers.  The special value
 .B unlimited
 may be specified for either.
 .\"
+.TP
+.B setuid \fIUSERNAME
+Changes to the user
+.I USERNAME
+before running the job's process.
+
+If this stanza is unspecified, the job will run as root in the case of
+system jobs, and as the user in the case of User Jobs.
+
+Note that System jobs using the setuid stanza are still system jobs,
+and can not be controlled by an unprivileged user, even if the setuid
+stanza specifies that user.
+.\"
+.TP
+.B setgid \fIGROUPNAME
+Changes to the group
+.I GROUPNAME
+before running the job's process.
+
+If this stanza is unspecified, the primary group of the user specified
+in the
+.B setuid
+block is used. If both stanzas are unspecified, the job will run with
+its group ID set to 0 in the case of system jobs, and as the primary
+group of the user in the case of User Jobs.
+.\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
 the jobs configuration file. Rules governing override files:
