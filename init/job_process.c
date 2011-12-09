@@ -23,12 +23,15 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+/* Required for pty handling */
+#define _XOPEN_SOURCE   600
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/ptrace.h>
 #include <sys/resource.h>
+#include <sys/ioctl.h>
 
 #include <time.h>
 #include <errno.h>
@@ -41,6 +44,8 @@
 #include <utmp.h>
 #include <utmpx.h>
 #include <pwd.h>
+#include <libgen.h>
+#include <termios.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -49,6 +54,7 @@
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih-dbus/dbus_util.h>
 
 #include "paths.h"
 #include "system.h"
@@ -82,6 +88,13 @@ typedef struct job_process_wire_error {
 	int                 errnum;
 } JobProcessWireError;
 
+/**
+ * log_dir:
+ *
+ * Full path to directory where job logs are written.
+ *
+ **/
+char *log_dir = NULL;
 
 /* Prototypes for static functions */
 static void job_process_error_abort     (int fd, JobProcessErrorType type,
@@ -89,7 +102,17 @@ static void job_process_error_abort     (int fd, JobProcessErrorType type,
 	__attribute__ ((noreturn));
 static int  job_process_error_read      (int fd)
 	__attribute__ ((warn_unused_result));
+static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd);
 
+/**
+ * disable_job_logging:
+ *
+ * If TRUE, do not log any job output.
+ *
+ **/
+int disable_job_logging = 0;
+
+/* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
 static void job_process_terminated      (Job *job, ProcessType process,
 					 int status);
@@ -256,7 +279,7 @@ job_process_run (Job         *job,
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = job_process_spawn (job->class, argv,
+	while ((job->pid[process] = job_process_spawn (job, argv,
 						       env, trace, fds[0])) < 0) {
 		NihError *err;
 
@@ -332,20 +355,20 @@ job_process_run (Job         *job,
 
 /**
  * job_process_spawn:
- * @class: job class of process to be spawned,
+ * @job: job of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
  * @trace: whether to trace this process,
  * @script_fd: script file descriptor.
  *
- * This function spawns a new process using the @class details to set up the
- * environment for it; the process is always a session and process group
+ * This function spawns a new process using the class details in @job to set up
+ * the environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
  * The process to be executed is given in the @argv array which is passed
  * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
- * PATH environment in @class will be searched.
+ * PATH environment in the @job's associated class will be searched.
  *
  * If @trace is TRUE, the process will be traced with ptrace and this will
  * cause the process to be stopped when the exec() call is made.  You must
@@ -367,7 +390,7 @@ job_process_run (Job         *job,
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-job_process_spawn (JobClass     *class,
+job_process_spawn (Job          *job,
 		   char * const  argv[],
 		   char * const *env,
 		   int           trace,
@@ -376,13 +399,21 @@ job_process_spawn (JobClass     *class,
 	sigset_t        child_set, orig_set;
 	pid_t           pid;
 	int             i, fds[2];
+	int             pty_master = -1;
+	int             pty_slave = -1;
+	char            pts_name[PATH_MAX];
 	char            filename[PATH_MAX];
 	FILE           *fd;
 	int             user_job = FALSE;
 	nih_local char *user_dir = NULL;
+	nih_local char *log_path = NULL;
+	JobClass       *class;
 
 
-	nih_assert (class != NULL);
+	nih_assert (job != NULL);
+	nih_assert (job->class != NULL);
+
+	class = job->class;
 
 	if (class && class->session && class->session->user)
 		user_job = TRUE;
@@ -392,6 +423,52 @@ job_process_spawn (JobClass     *class,
 	 */
 	if (pipe (fds) < 0)
 		nih_return_system_error (-1);
+
+	/* Logging of user job output is not currently possible */
+	if (class->console == CONSOLE_LOG) {
+		if (disable_job_logging || user_job)
+			class->console = CONSOLE_NONE;
+	}
+
+	if (class->console == CONSOLE_LOG) {
+		NihError *err;
+
+		log_path = job_process_log_path (job, 0);
+
+		if (! log_path) {
+			/* Consume and re-raise */
+			err = nih_error_get ();
+			nih_assert (err->number == ENOMEM);
+			nih_free (err);
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_no_memory_error(-1);
+		}
+
+		pty_master = posix_openpt (O_RDWR | O_NOCTTY);
+
+		if (pty_master < 0) {
+			/* Give the user an indication that they need to
+			 * increase the available ptys. Any other scenario
+                         * suggests more serious trouble.
+                         */
+			if (errno == ENOENT)
+				nih_warn (_("No available ptys"));
+
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_system_error (-1);
+		}
+
+		/* pty_master will be closed by log_destroy() */
+		job->log = log_new (job, log_path, pty_master, 0);
+		if (! job->log) {
+			close (pty_master);
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_system_error (-1);
+		}
+	}
 
 	/* Block all signals while we fork to avoid the child process running
 	 * our own signal handlers before we've reset them all back to the
@@ -415,10 +492,15 @@ job_process_spawn (JobClass     *class,
 
 		/* Read error from the pipe, return if one is raised */
 		if (job_process_error_read (fds[0]) < 0) {
+			if (class->console == CONSOLE_LOG)
+				close (pty_master);
 			close (fds[0]);
 			return -1;
 		}
 
+		/* Note that pts_master is closed automatically in the parent when the
+		 * log object is destroyed.
+		 */
 		close (fds[0]);
 		return pid;
 	} else if (pid < 0) {
@@ -427,9 +509,10 @@ job_process_spawn (JobClass     *class,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[0]);
 		close (fds[1]);
+		if (class->console == CONSOLE_LOG)
+			close (pty_master);
 		return -1;
 	}
-
 
 	/* We're now in the child process.
 	 *
@@ -443,14 +526,55 @@ job_process_spawn (JobClass     *class,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
-	if (fds[1] == JOB_PROCESS_SCRIPT_FD) {
-		int tmp = dup2 (fds[1], fds[0]);
-		if (tmp < 0)
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
-		close (fds[1]);
-		fds[1] = tmp;
-	}
+
+	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
+
+	job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
+
+	if (class->console == CONSOLE_LOG) {
+		struct sigaction act;
+
+		/* Child is the slave, so won't need this */
+		nih_io_set_cloexec (pty_master);
+
+		/* Save old handler as grantpt disallows child handler
+		 * to be in effect
+		 */
+		if (sigaction (SIGCHLD, NULL, &act) < 0) {
+			close (pty_master);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		if (grantpt (pty_master) < 0) {
+			close (pty_master);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		/* Restore handler */
+		if (sigaction (SIGCHLD, &act, NULL) < 0) {
+			close (pty_master);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		if (unlockpt (pty_master) < 0) {
+			close (pty_master);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_UNLOCKPT, 0);
+		}
+
+		if (ptsname_r (pty_master, pts_name, sizeof(pts_name)) < 0) {
+			close (pty_master);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_PTSNAME, 0);
+		}
+
+		pty_slave = open (pts_name, O_RDWR | O_NOCTTY);
+
+		if (pty_slave < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_SLAVE, 0);
+		}
+
+		job_process_remap_fd (&pty_slave, JOB_PROCESS_SCRIPT_FD, fds[1]);
+	}
 
 	/* Move the script fd to special fd 9; the only gotcha is if that
 	 * would be our error descriptor, but that's handled above.
@@ -517,11 +641,11 @@ job_process_spawn (JobClass     *class,
 		}
 
 		/* Note we don't use NIH_MUST since this could result in a
-		 * DOS for a (low priority) user job in low-memory scenarios.
+		 * DoS for a (low priority) user job in low-memory scenarios.
 		 */
 		user_dir = nih_strdup (NULL, pw->pw_dir);
 
-		if (!user_dir)
+		if (! user_dir)
 			nih_return_no_memory_error (-1);
 
 		/* Ensure the file associated with fd 9
@@ -542,8 +666,6 @@ job_process_spawn (JobClass     *class,
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
 		}
-
-
 	}
 
 	/* Set the standard file descriptors to an output of our chosing;
@@ -566,6 +688,20 @@ job_process_spawn (JobClass     *class,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
 	}
 
+	if (class->console == CONSOLE_LOG) {
+		/* Redirect stdout and stderr to the logger fd */
+		if (dup2 (pty_slave, STDOUT_FILENO) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		}
+
+		if (dup2 (pty_slave, STDERR_FILENO) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		}
+
+		close (pty_slave);
+	}
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job class such that they inherit from
@@ -893,6 +1029,26 @@ job_process_error_read (int fd)
 	case JOB_PROCESS_ERROR_CHOWN:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to chown: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_OPENPT_MASTER:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to open pt master: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_UNLOCKPT:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to unlockpt: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_PTSNAME:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to get ptsname: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_OPENPT_SLAVE:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to open pt slave: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:
@@ -1737,4 +1893,120 @@ job_process_find (pid_t        pid,
 	}
 
 	return NULL;
+}
+
+/**
+ * job_process_log_path:
+ *
+ * @job: Job,
+ * @user_job: TRUE if @job refers to a non-root job, else FALSE.
+ *
+ * Determine full path to on-disk log file for specified @job.
+ *
+ * This differs depending on whether the job is a system job or a user job.
+ * Instance names need to be encoded as part of the path. D-Bus name
+ * encoding is employed to avoid attempting to create illegal path names
+ * and for consistency with job names on D-Bus.
+ *
+ * Returns: newly allocated log path string, or NULL on raised error.
+ **/
+char *
+job_process_log_path (Job *job, int user_job)
+{
+	JobClass        *class = NULL;
+	char            *log_path = NULL;
+	nih_local char  *dir = NULL;
+	nih_local char  *class_name = NULL;
+
+	nih_assert (job);
+	nih_assert (job->class);
+
+	/* Logging of user job output not currently supported */
+	nih_assert (user_job == 0);
+
+	class = job->class;
+
+	nih_assert (class->name);
+
+	/* Override, primarily for tests */
+	if (getenv (LOGDIR_ENV)) {
+		dir = nih_strdup (NULL, getenv (LOGDIR_ENV));
+		nih_debug ("Using alternative directory '%s' for logs", dir);
+	} else {
+		dir = nih_strdup (NULL, log_dir ? log_dir : JOB_LOGDIR);
+	}
+
+	if (! dir)
+		nih_return_no_memory_error (NULL);
+
+        /* Always begins with a '/' which we don't want. This
+         * explains our ignoring the 1st byte below.
+         */
+	class_name = nih_dbus_path (NULL, "", class->name, NULL);
+
+	if (! class_name)
+		nih_return_no_memory_error (NULL);
+
+	/* Handle jobs with multiple instances */
+	if (job->name && *job->name) {
+		nih_local char *job_name = NULL;
+
+                /* Again, we ignore the 1st byte when used below */
+		job_name = nih_dbus_path (NULL, "", job->name, NULL);
+
+		if (! job_name)
+			nih_return_no_memory_error (NULL);
+
+		/* Note we skip over the leading slash generated by
+		 * nih_dbus_path().
+		 */
+		log_path = nih_sprintf (NULL, "%s/%s-%s.log",
+					dir,
+					class_name+1,
+					job_name+1);
+	} else {
+		log_path = nih_sprintf (NULL, "%s/%s.log",
+					dir,
+					class_name+1);
+	}
+
+	if (! log_path)
+		nih_return_no_memory_error (NULL);
+
+	return log_path;
+}
+
+/**
+ * job_process_remap_fd:
+ *
+ * @fd: pointer to fd to potentially remap,
+ * @reserved_fd: reserved fd value,
+ * @error_fd: fd to report errors on,
+ *
+ * Remap @fd to a new value iff it has the same value as @reserved_fd.
+ *
+ * Errors are reported via @error_fd and are fatal.
+ *
+ * Notes:
+ *
+ * - File descriptor flags are not retained.
+ * - It is permissible for @error_fd to have the same value as @fd.
+ **/
+static void
+job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
+{
+	int new = -1;
+
+	nih_assert (fd);
+	nih_assert (reserved_fd);
+	nih_assert (error_fd);
+
+	if (*fd != reserved_fd)
+		return;
+
+	new = dup (*fd);
+	if (new < 0)
+		job_process_error_abort (error_fd, JOB_PROCESS_ERROR_DUP, 0);
+	close (*fd);
+	*fd = new;
 }

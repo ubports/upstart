@@ -56,14 +56,18 @@ typedef enum expect_type {
  * ConsoleType:
  *
  * This is used to identify how a job would like its standard input, output
- * and error file descriptors arranged.  The options are to have these
- * mapped to /dev/null, the console device (without being or being the owning
- * process) or to the logging daemon.
+ * and error file descriptors arranged.  The options are:
+ * - CONSOLE_NONE: to have these all mapped to /dev/null,
+ * - CONSOLE_OUTPUT: the console device (non-owning process),
+ * - CONSOLE_OWNER: the console device (non-owning process),
+ * - CONSOLE_LOG: stdin is mapped to /dev/null and standard output and error
+ *   are redirected to the built-in logger (this is the default).
  **/
 typedef enum console_type {
 	CONSOLE_NONE,
 	CONSOLE_OUTPUT,
-	CONSOLE_OWNER
+	CONSOLE_OWNER,
+	CONSOLE_LOG
 } ConsoleType;
 
 
@@ -291,6 +295,9 @@ int         job_class_get_stop_on          (JobClass *class,
 int         job_class_get_emits	           (JobClass *class,
 					    NihDBusMessage *message,
 					    char ***emits);
+
+ConsoleType job_class_console_type         (const char *console)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

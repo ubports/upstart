@@ -72,7 +72,9 @@ static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
-static void handle_confdir  (void);
+static void handle_confdir      (void);
+static void handle_logdir       (void);
+static int  console_type_setter (NihOption *option, const char *arg);
 
 
 /**
@@ -90,9 +92,6 @@ static const char *argv0 = NULL;
  * process.
  **/
 static int restart = FALSE;
-
-
-extern int disable_sessions;
 
 /**
  * conf_dir:
@@ -116,7 +115,12 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-extern int use_session_bus;
+extern int          disable_sessions;
+extern int          disable_job_logging;
+extern int          use_session_bus;
+extern int          default_console;
+extern char        *log_dir;
+
 
 /**
  * options:
@@ -127,7 +131,16 @@ static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", &conf_dir, NULL },
 
-	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+	{ 0, "default-console", N_("default value for console stanza"),
+		NULL, "VALUE", NULL, console_type_setter },
+
+	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
+		NULL, "DIR", &log_dir, NULL },
+
+	{ 0, "no-log", N_("disable job logging"),
+		NULL, NULL, &disable_job_logging, NULL },
+
+	{ 0, "no-sessions", N_("disable user and chroot sessions"),
 		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
@@ -169,6 +182,11 @@ main (int   argc,
 		exit (1);
 
 	handle_confdir ();
+	handle_logdir ();
+
+	if (disable_job_logging)
+		nih_debug ("Job logging disabled");
+
 	control_handle_bus_type ();
 
 #ifndef DEBUG
@@ -444,7 +462,7 @@ main (int   argc,
 	/* Generate and run the startup event or read the state from the
 	 * init daemon that exec'd us
 	 */
-	if (! restart ) {
+	if (! restart) {
 		if (disable_startup_event) {
 			nih_debug ("Startup event disabled");
 		} else {
@@ -731,3 +749,50 @@ out:
 			conf_dir);
 }
 
+/**
+ * handle_logdir:
+ *
+ * Determine directory where job log files should be written to.
+ **/
+static void
+handle_logdir (void)
+{
+	char *dir;
+
+	/* user has already specified directory on command-line */
+	if (log_dir)
+		goto out;
+
+	log_dir = JOB_LOGDIR;
+
+	dir = getenv (LOGDIR_ENV);
+	if (! dir)
+		return;
+
+	log_dir = dir;
+
+out:
+	nih_debug ("Using alternate log directory %s",
+			log_dir);
+}
+
+/**  
+ * NihOption setter function to handle selection of default console
+ * type.
+ *
+ * Returns 1 on success, -1 on invalid console type.
+ **/
+static int
+console_type_setter (NihOption *option, const char *arg)
+{
+	 nih_assert (option);
+
+	 default_console = (int)job_class_console_type (arg);
+
+	 if (default_console == -1) {
+		 nih_fatal ("%s: %s", _("invalid console type specified"), arg);
+		 return -1;
+	 }
+
+	 return 1;
+}

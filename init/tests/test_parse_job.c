@@ -5544,6 +5544,38 @@ test_stanza_console (void)
 	}
 
 
+	/* Check that console log sets the job's console to
+	 * CONSOLE_LOG.
+	 */
+	TEST_FEATURE ("with log argument");
+	strcpy (buf, "console log\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->console, CONSOLE_LOG);
+
+		nih_free (job);
+	}
+
 	/* Check that the last of multiple console stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");

@@ -147,6 +147,8 @@ test_new (void)
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
 
+		TEST_EQ_P (job->log, NULL);
+
 		event_operator_reset (job->stop_on);
 
 		nih_free (job);
@@ -691,6 +693,7 @@ test_change_state (void)
 	mkdir (dirname, 0700);
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 		class->process[PROCESS_MAIN], "touch %s/run", dirname);

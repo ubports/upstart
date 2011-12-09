@@ -61,6 +61,14 @@
 static void job_class_add    (JobClass *class);
 static int  job_class_remove (JobClass *class, const Session *session);
 
+/**
+ * default_console:
+ *
+ * If a job does not specify a value for the 'console' stanza, use this value.
+ *
+ * Only used if value is >= 0;
+ **/
+int default_console = -1;
 
 /**
  * job_classes:
@@ -204,7 +212,7 @@ job_class_new (const void *parent,
 	class->normalexit = NULL;
 	class->normalexit_len = 0;
 
-	class->console = CONSOLE_NONE;
+	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
 	class->umask = JOB_DEFAULT_UMASK;
 	class->nice = JOB_DEFAULT_NICE;
@@ -1406,4 +1414,26 @@ job_class_get_emits (JobClass *      class,
 	}
 
 	return 0;
+}
+
+/**
+ * job_class_console_type:
+ * @console: string representing console type.
+ *
+ * Returns: ConsoleType equivalent of @string, or -1 on invalid @string.
+ **/
+ConsoleType
+job_class_console_type (const char *console)
+{
+	if (! strcmp (console, "none")) {
+		return CONSOLE_NONE;
+	} else if (! strcmp (console, "output")) {
+		return CONSOLE_OUTPUT;
+	} else if (! strcmp (console, "owner")) {
+		return CONSOLE_OWNER;
+	} else if (! strcmp (console, "log")) {
+		return CONSOLE_LOG;
+	}
+
+	return (ConsoleType)-1;
 }

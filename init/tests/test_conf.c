@@ -85,9 +85,7 @@
 	FD_ZERO (&writefds);                                         \
 	FD_ZERO (&exceptfds);                                        \
 	                                                             \
-	nih_debug("calling nih_io_select_fds");                      \
 	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	nih_debug("calling nih_io_handle_fds");                      \
 	nih_io_handle_fds (&readfds, &writefds, &exceptfds);         \
 }
 
@@ -3194,7 +3192,6 @@ test_override (void)
 	fprintf (f, "author \"foo\"\n");
 	fclose (f);
 
-	/* FIXME: crashes here */
 	TEST_FORCE_WATCH_UPDATE();
 
 	/* ensure conf loaded */
@@ -4672,8 +4669,12 @@ void
 test_select_job (void)
 {
 	ConfSource *source1, *source2, *source3;
-	ConfFile   *file1, *file2, *file3, *file4, *file5;
-	JobClass   *class1, *class2, *class3, *class4, *ptr;
+	ConfFile   *file1, *file3, *file4, *file5;
+	JobClass   *class1, *class2, *class4, *ptr;
+
+	/* keep gcc 4.6 happy */
+	ConfFile   *file2  __attribute__((__unused__));
+	JobClass   *class3 __attribute__((__unused__));
 
 	TEST_FUNCTION ("conf_select_job");
 	source1 = conf_source_new (NULL, "/tmp/foo", CONF_DIR);

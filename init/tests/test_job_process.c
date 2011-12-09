@@ -38,6 +38,10 @@
 #include <unistd.h>
 #include <utmp.h>
 #include <utmpx.h>
+#include <dirent.h>
+
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <nih/macros.h>
 #include <nih/string.h>
@@ -54,6 +58,80 @@
 #include "errors.h"
 
 
+#define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
+#define TEST_SHELL                "/bin/sh"
+#define TEST_SHELL_ARG            "-e"
+
+/* Used to generate single- and multi-line output. */
+#define TEST_CMD_ECHO             "/bin/echo"
+
+/* Used to generate multi-line output out stdout without using shell
+ * meta-characters.
+ */
+#define TEST_CMD_YES              "/usr/bin/yes"
+
+/* Used to generate multi-line output on stderr without using shell
+ * meta-characters.
+ */
+#define TEST_CMD_DD               "/bin/dd"
+
+/* Force an inotify watch update */
+#define TEST_FORCE_WATCH_UPDATE()                                    \
+{                                                                    \
+	int         nfds = 0;                                        \
+	int         ret = 0;                                         \
+	fd_set      readfds, writefds, exceptfds;                    \
+	                                                             \
+	FD_ZERO (&readfds);                                          \
+	FD_ZERO (&writefds);                                         \
+	FD_ZERO (&exceptfds);                                        \
+	                                                             \
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
+	ret = select (nfds, &readfds, &writefds, &exceptfds, NULL);  \
+	if (ret > 0)                                                 \
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
+}
+
+/* Force an inotify watch update (allowing a struct timeval
+ * timeout to be specified
+ */
+#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(t)                           \
+{                                                                    \
+	int         nfds = 0;                                        \
+	int         ret = 0;                                         \
+	fd_set      readfds, writefds, exceptfds;                    \
+	                                                             \
+	FD_ZERO (&readfds);                                          \
+	FD_ZERO (&writefds);                                         \
+	FD_ZERO (&exceptfds);                                        \
+	                                                             \
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
+	ret = select (nfds, &readfds, &writefds, &exceptfds, &t);    \
+	if (ret > 0)                                                 \
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
+}
+
+#define ENSURE_DIRECTORY_EMPTY(path)                                 \
+{                                                                    \
+	DIR            *dp = NULL;                                   \
+	struct dirent  *file = NULL;                                 \
+	int             count = 0;                                   \
+                                                                     \
+	dp = opendir (path);                                         \
+	TEST_NE_P (dp, NULL);                                        \
+                                                                     \
+	while((file = readdir (dp))) {                               \
+		if (!strcmp (".", file->d_name) ||                   \
+				!strcmp ("..", file->d_name))        \
+			continue;                                    \
+		count++;                                             \
+	}                                                            \
+                                                                     \
+	closedir (dp);                                               \
+                                                                     \
+	TEST_EQ (count, 0);                                          \
+}
+
 /* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
  * kills whatever had /dev/console (usually X).
@@ -65,18 +143,25 @@ enum child_tests {
 	TEST_PIDS,
 	TEST_CONSOLE,
 	TEST_PWD,
-	TEST_ENVIRONMENT
+	TEST_ENVIRONMENT,
+	TEST_OUTPUT,
+	TEST_SIGNALS
 };
 
 static char *argv0;
+
+static int get_available_pty_count (void) __attribute__((unused));
 
 static void
 child (enum child_tests  test,
        const char       *filename)
 {
-	FILE *out;
-	char  tmpname[PATH_MAX], path[PATH_MAX];
-	int   i;
+	FILE  *out;
+	FILE  *in;
+	char   tmpname[PATH_MAX], path[PATH_MAX];
+	int    i;
+	char   buffer[1024];
+
 
 	strcpy (tmpname, filename);
 	strcat (tmpname, ".tmp");
@@ -110,6 +195,30 @@ child (enum child_tests  test,
 		for (char **env = environ; *env; env++)
 			fprintf (out, "%s\n", *env);
 		break;
+	case TEST_OUTPUT:
+		/* Write to stdout and stderr.
+		 *
+		 * Of course, daemon's usually make a point of not writing to
+		 * stdout/stderr...
+		 */
+		fprintf(stdout, "stdout\n");
+		fprintf(stderr, "stderr\n");
+		break;
+	case TEST_SIGNALS:
+		/* Write signal stats for child process to stdout */
+		in = fopen("/proc/self/status", "r");
+		if (! in) {
+			abort();
+		}
+
+		while (fgets (buffer, sizeof (buffer), in) != NULL) {
+			if (strstr (buffer, "SigBlk:") == buffer ||
+					strstr (buffer, "SigIgn:") == buffer)
+				fputs (buffer, out);
+		}
+
+		fclose(in);
+		break;
 	}
 
 	fsync (fileno (out));
@@ -120,22 +229,71 @@ child (enum child_tests  test,
 	exit (0);
 }
 
+/* FIXME:
+ *
+ * This is not currently reliable due to a kernel bug that does
+ * not bound 'nr' to the range:
+ *
+ *	0 <= nr <= 'max'
+ */
 
+/**
+ * get_available_pty_count:
+ *
+ * Return count of available ptys.
+ *
+ **/
+static int
+get_available_pty_count (void)
+{
+	FILE *f;
+	int nr, max;
+	int ret;
+
+	f = fopen ("/proc/sys/kernel/pty/max", "r");
+	TEST_NE_P (f, NULL);
+
+	ret = fscanf (f, "%d", &max);
+	TEST_EQ (ret, 1);
+	TEST_GT (max, 0);
+
+	fclose (f);
+
+	f = fopen ("/proc/sys/kernel/pty/nr", "r");
+	TEST_NE_P (f, NULL);
+
+	ret = fscanf (f, "%d", &nr);
+	TEST_EQ (ret, 1);
+	TEST_GE (nr, 0);
+
+	fclose (f);
+
+	return max - nr;
+}
+
+/* XXX: Note that none of these tests attempts to test with a Session
+ * passed to job_class_new() since to do so would modify the home
+ * directory of the user running these tests (BAD!!).
+ *
+ * (Such tests are handled in the bundled test_user_sessions.sh script).
+ */
 void
 test_run (void)
 {
-	JobClass   *class = NULL;
-	Job         *job = NULL;
-	FILE        *output;
-	struct stat  statbuf;
-	char         filename[PATH_MAX], buf[80];
-	int          ret = -1, status, first;
-	siginfo_t    info;
+	char             dirname[PATH_MAX];
+	JobClass        *class = NULL;
+	Job             *job = NULL;
+	FILE            *output;
+	struct stat      statbuf;
+	char             filename[PATH_MAX], buf[80];
+	int              ret = -1, status, first;
+	siginfo_t        info;
+	char             filebuf[1024];
+	char            *p;
+	int              ok;
+
 
 	TEST_FUNCTION ("job_process_run");
-	job_class_init ();
-	nih_error_init ();
-	nih_io_init ();
 
 	TEST_FILENAME (filename);
 	program_name = "test";
@@ -148,6 +306,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -180,6 +339,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -217,6 +377,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -254,6 +415,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -291,6 +453,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
@@ -328,6 +491,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -362,6 +526,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -377,6 +542,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
@@ -411,6 +577,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
+		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -427,6 +594,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_STOP] = process_new (class);
 			class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				class->process[PROCESS_PRE_STOP],
@@ -462,6 +630,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -478,6 +647,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
 				class->process[PROCESS_POST_STOP],
@@ -513,6 +683,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
 		unlink (filename);
@@ -529,6 +700,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->script = TRUE;
 			class->process[PROCESS_MAIN]->command = nih_alloc (
@@ -594,6 +766,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
 
@@ -630,6 +803,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "true";
 
@@ -667,6 +841,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_DAEMON;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -714,6 +889,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_FORK;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = "true";
@@ -752,7 +928,6 @@ test_run (void)
 		nih_free (class);
 	}
 
-
 	/* Check that if we try and run a command that doesn't exist,
 	 * job_process_run() raises a ProcessError and the command doesn't
 	 * have any stored process id for it.
@@ -763,6 +938,7 @@ test_run (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
 			class->process[PROCESS_MAIN]->command = filename;
 
@@ -787,17 +963,1776 @@ test_run (void)
 
 		nih_free (class);
 	}
+
+	TEST_FILENAME (dirname);       
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Override default location to ensure job output goes to a
+	 * writeable location
+	 */
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure that no log file written for single-line no-output script");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/bin/true");
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	ENSURE_DIRECTORY_EMPTY (dirname);
+
+	/* Paranoia */
+	TEST_TRUE (stat (filename, &statbuf) < 0 && errno == ENOENT);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure that no log file written for single-line no-output command");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/bin/true");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	ENSURE_DIRECTORY_EMPTY (dirname);
+
+	/* Paranoia */
+	TEST_TRUE (stat (filename, &statbuf) < 0 && errno == ENOENT);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure that no log file written for CONSOLE_NONE");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* If a log is written, select(2) will inform us, but we don't
+	 * expect this, hence specify a timeout.
+	 */
+	{
+		struct timeval t;
+		/* be generous */
+		t.tv_usec = 500000;
+		TEST_FORCE_WATCH_UPDATE_TIMEOUT (t);
+	}
+
+	ENSURE_DIRECTORY_EMPTY (dirname);
+
+	/* Paranoia */
+	TEST_TRUE (stat (filename, &statbuf) < 0 && errno == ENOENT);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure that no log file written for multi-line no-output script");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/bin/true\n/bin/false");
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/* XXX: call 1: wait for script write to child shell */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+
+	/* we've just run /bin/false remember? :) */
+	TEST_EQ (WEXITSTATUS (status), 1);
+
+	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	ENSURE_DIRECTORY_EMPTY (dirname);
+
+	/* Paranoia */
+	TEST_TRUE (stat (filename, &statbuf) < 0 && errno == ENOENT);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes 1 line to stdout");
+
+	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
+	 * the ENOMEM loop all we could do is discard the error and
+	 * continue since job_process_run() calls job_process_spawn()
+	 * repeatedly until it works, but the alloc fails in log_new()
+	 * invoked by job_process_spawn() such that when we've left
+	 * job_process_run(), it's too late.
+	 *
+	 * However, we test this scenario in test_spawn() so all is not
+	 * lost.
+	 */
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that is killed");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world;sleep 999", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that is killed");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s", TEST_CMD_YES);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* XXX: this _might_ be a kernel(?) bug - sometimes we don't read
+	 * the final line end character (presumably since the process
+	 * was forcibly killed).
+	 */
+	while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+		if (! strcmp (filebuf, "y\r\n"))
+			ok = 1;
+		else if (! strcmp (filebuf, "y") && feof (output))
+			ok = 1;
+		else
+			ok = 0;
+
+		if (! ok)
+			break;
+	}
+	TEST_EQ (ok, 1);
+
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that is killed");
+
+	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
+	 * the ENOMEM loop all we could do is discard the error and
+	 * continue since job_process_run() calls job_process_spawn()
+	 * repeatedly until it works, but the alloc fails in log_new()
+	 * invoked by job_process_spawn() such that when we've left
+	 * job_process_run(), it's too late.
+	 *
+	 * However, we test this scenario in test_spawn() so all is not
+	 * lost.
+	 */
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world\nsleep 999", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/* XXX: call 1: wait for script write to child shell */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes 1 byte and is killed");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s -ne X;sleep 999", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "X");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	/* Can't think of a command that would echo 1 byte and then
+	 * either sleep or read a file forever to allow us time to kill
+	 * it *after* it had written the single byte. Answers on a
+	 * postcard please.
+	 *
+	 * TEST_FEATURE ("with single-line command that writes 1 byte and is killed");
+	 */
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes 1 byte and is killed");
+
+	class = job_class_new (NULL, "multiline", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/multiline.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"/bin/true\n%s -ne F", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/* XXX: call 1: wait for script write to child shell */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "F");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that writes 1 line to stdout");
+
+	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
+	 * the ENOMEM loop all we could do is discard the error and
+	 * continue since job_process_run() calls job_process_spawn()
+	 * repeatedly until it works, but the alloc fails in log_new()
+	 * invoked by job_process_spawn() such that when we've left
+	 * job_process_run(), it's too late.
+	 *
+	 * However, we test this scenario in test_spawn() so all is not
+	 * lost.
+	 */
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes 1 line to stdout");
+
+	/* XXX: Note that all tests which use multi-line scripts (but
+	 * XXX: *NOT* commands!) and produce output must call
+	 * XXX: TEST_FORCE_WATCH_UPDATE() *TWICE* to ensure select(2) is
+	 * XXX: called twice.
+	 *
+	 * This is required since job_process_run() uses an NihIo object
+	 * to squirt the script to the shell sub-process and this
+	 * triggers select to return when the data is written to the shell.
+	 * However, we don't care about that directly - we care more about
+	 * a subsequent fd becoming ready to read data from - the fd
+	 * associated with the pty which will trigger the log file to be
+	 * written.
+	 *
+	 * Note that the 2nd call to TEST_FORCE_WATCH_UPDATE would not be
+	 * required should job_process_run() simple invoke write(2) to
+	 * send the data.
+	 */
+
+	class = job_class_new (NULL, "multiline", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/multiline.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"/bin/true\n%s hello world\n\n\n\n\n\n\n\n\n\n", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/* XXX: call 1: wait for script write to child shell */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with instance job and single-line script that writes 1 line to stdout");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test-instance.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "instance");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes >1 lines to stdout");
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/foo.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s -ne \"hello world\\n\\n\\n\"", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* Yup, pseudo-terminals record *everything*,
+	 * even the carriage returns.
+	 */
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that writes >1 lines to stdout");
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/foo.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s -ne \"hello world\\n\\n\\n\"", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes >1 lines to stdout");
+
+	class = job_class_new (NULL, "elf", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/elf.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"\n/bin/true\n%s -ne \"hello world\\n\\n\\n\"\n\n", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes 1 line to stderr");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world >&2", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that writes 1 line to stderr");
+
+	/* Run a command that generates output to stderr without having
+	 * to use script redirection.
+	 *
+	 * dd(1) is a good choice as it always writes to stderr.
+	 */
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s if=/dev/zero of=/dev/null bs=1 count=0", TEST_CMD_DD);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "0+0 records in\r\n");
+	TEST_FILE_EQ (output, "0+0 records out\r\n");
+	TEST_FILE_MATCH (output, "0 bytes (0 B) copied,*\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes 1 line to stderr");
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"/bin/true\n%s hello world >&2\n\n\n", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes >1 lines to stderr");
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/foo.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s -ne \"hello\\nworld\\n\\n\\n\" >&2", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* Yup, pseudo-terminals record *everything*,
+	 * even the carriage returns.
+	 */
+	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_FILE_EQ (output, "world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that writes >1 lines to stderr");
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/foo.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s -ne \"hello world\\n\\n\\n\"", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes >1 lines to stderr");
+
+	class = job_class_new (NULL, "elf", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/elf.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"/bin/true\n%s -ne \"hello world\\n\\n\" 1>&2\n\n\n", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_EQ (output, "\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes 1 line to stdout then 1 line to stderr");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s stdout;%s stderr >&2",
+			TEST_CMD_ECHO, TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script that writes 1 line to stderr then 1 line to stdout");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			/* XXX: note the required quoting */
+			"%s stderr >&2;%s stdout",
+			TEST_CMD_ECHO, TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command that writes to stdout and stderr");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s if=/dev/zero bs=1 count=7", TEST_CMD_DD);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_NE_P (fgets (filebuf, sizeof(filebuf), output), NULL);
+	TEST_EQ (memcmp (filebuf, "\000\000\000\000\000\000", 7), 0);
+	p = filebuf + 7;
+	TEST_EQ_STR (p, "7+0 records in\r\n");
+
+	TEST_FILE_EQ (output, "7+0 records out\r\n");
+	TEST_FILE_MATCH (output, "7 bytes (7 B) copied,*\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script running an invalid command");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_NE (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "/bin/sh: 1: /this/command/does/not/exist: not found\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************
+	 * No point in running a test for:
+	 *
+	 *   TEST_FEATURE ("with single-line command running an invalid command");
+	 *
+	 * Since as such commands are exec'ed directly, there is no shell to report
+	 * an error back - exec just fails.
+	 *
+	 ************************************************************/
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script running an invalid command");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"true\n/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_NE (WEXITSTATUS (status), 0);
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "/proc/self/fd/9: 3: /this/command/does/not/exist: not found\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes 1 line to stdout then 1 line to stderr");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s stdout\n%s stderr >&2\n",
+			TEST_CMD_ECHO, TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script that writes 1 line to stderr then 1 line to stdout");
+
+	class = job_class_new (NULL, "blah", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/blah.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s stderr >&2\n%s stdout\n",
+			TEST_CMD_ECHO, TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	nih_free (class);
+
+	/************************************************************/
+	/* Final clean-up */
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 
 
+/* 
+ * XXX: Note that none of these tests attempts to test with a Session
+ * passed to job_class_new() since to do so would modify the home
+ * directory of the user running these tests (BAD!!).
+ *
+ * (Such tests are handled in the bundled test_user_sessions.sh script).
+ */
 void
 test_spawn (void)
 {
-	FILE             *output;
+	FILE             *output, *input;
 	char              function[PATH_MAX], filename[PATH_MAX];
+	char              dirname[PATH_MAX];
+	char              script[PATH_MAX];
 	char              buf[80];
-	char             *env[3], *args[4];
+	char              filebuf[1024];
+	char             *args[6];
+	char             *env[3];
+	nih_local char  **args_array = NULL;
+	size_t            argc;
 	JobClass         *class;
+	Job              *job;
 	pid_t             pid;
 	siginfo_t         info;
 	NihError         *err;
@@ -820,8 +2755,10 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_PIDS);
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job   = job_new (class, "");
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -858,8 +2795,9 @@ test_spawn (void)
 
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
+	job = job_new (class, "");
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -875,6 +2813,53 @@ test_spawn (void)
 
 	nih_free (class);
 
+	/* Check that a job spawned with a log console has file descriptors:
+	 *
+	 * 0 bound to the /dev/null device.
+	 * 1 bound to the pseudo-tty device.
+	 * 2 bound to the pseudo-tty device.
+	 *
+	 */
+	TEST_FEATURE ("with console logging");
+	sprintf (function, "%d", TEST_CONSOLE);
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_LOG;
+	job = job_new (class, "");
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	waitpid (pid, NULL, 0);
+	output = fopen (filename, "r");
+
+	/* /dev/null */
+	TEST_FILE_EQ (output, "0: 1 3\n");
+
+	/* stdout and stderr should be bound to the same Unix98 PTY slave
+	 * device (one of the char devices in range 136-143).
+	 * We ignore the minor as it could be any value.
+	 */
+	{
+		unsigned int major, saved_major;
+		unsigned int unused;
+
+		TEST_EQ (fscanf (output, "1: %u %u\n", &major, &unused), 2);
+		TEST_TRUE (major >= 136 && major <= 143);
+		saved_major = major;
+
+		TEST_EQ (fscanf (output, "2: %u %u\n", &major, &unused), 2);
+		TEST_TRUE (major == saved_major);
+	}
+
+
+	TEST_FILE_END (output);
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (class);
+
 
 	/* Check that a job with an alternate working directory is run from
 	 * that directory.
@@ -883,9 +2868,11 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_PWD);
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->chdir = "/tmp";
+	job = job_new (class, "");
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -912,8 +2899,10 @@ test_spawn (void)
 	env[2] = NULL;
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job   = job_new (class, "");
 
-	pid = job_process_spawn (class, args, env, FALSE, -1);
+	pid = job_process_spawn (job, args, env, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -921,6 +2910,7 @@ test_spawn (void)
 
 	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 	TEST_FILE_END (output);
 
 	fclose (output);
@@ -937,8 +2927,10 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job   = job_new (class, "");
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -957,8 +2949,9 @@ test_spawn (void)
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test", NULL);
-
-	pid = job_process_spawn (class, args, NULL, TRUE, -1);
+	job   = job_new (class, "");
+	class->console = CONSOLE_NONE;
+	pid = job_process_spawn (job, args, NULL, TRUE, -1);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -986,8 +2979,10 @@ test_spawn (void)
 	args[2] = NULL;
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job   = job_new (class, "");
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_LT (pid, 0);
 
 	err = nih_error_get ();
@@ -1005,14 +3000,16 @@ test_spawn (void)
 	TEST_FEATURE ("with debug enabled");
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->debug = TRUE;
+	job = job_new (class, "");
 
 	sprintf (function, "%s", "/bin/true");
 	args[0] = function;
 	args[1] = function;
 	args[2] = NULL;
 
-	pid = job_process_spawn (class, args, NULL, FALSE, -1);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
 	/* Ensure process is still running after some period of time.
@@ -1033,6 +3030,574 @@ test_spawn (void)
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	nih_free (class);
+
+	/* Check that when the job process is execed that no unexpected
+	 * signals are blocked or ignored.
+	 */
+	TEST_FEATURE ("ensure sane signal state with no console");
+
+	sprintf (function, "%d", TEST_SIGNALS);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filename;
+	args[3] = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job = job_new (class, "");
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	waitpid (pid, NULL, 0);
+	output = fopen (filename, "r");
+
+	TEST_NE_P (output, NULL);
+
+	{
+		unsigned long int value;
+
+		/* No signals should be blocked */
+		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
+		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
+		TEST_EQ (value, 0x0);
+
+		/* No signals should be ignored */
+		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
+		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
+		TEST_EQ (value, 0x0);
+
+		TEST_FILE_END (output);
+	}
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (class);
+
+	TEST_FEATURE ("ensure sane signal state with log console");
+
+	sprintf (function, "%d", TEST_SIGNALS);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filename;
+	args[3] = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_LOG;
+	job = job_new (class, "");
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	waitpid (pid, NULL, 0);
+	output = fopen (filename, "r");
+
+	TEST_NE_P (output, NULL);
+
+	{
+		unsigned long int value;
+
+		/* No signals should be blocked */
+		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
+		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
+		TEST_EQ (value, 0x0);
+
+		/* No signals should be ignored */
+		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
+		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
+		TEST_EQ (value, 0x0);
+
+		TEST_FILE_END (output);
+	}
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("simple test");
+
+	TEST_FILENAME (dirname);       
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			TEST_NE_P (class, NULL);
+
+			TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+			job = job_new (class, "");
+			TEST_NE_P (job, NULL);
+
+			argc = 0;
+			args_array = NIH_MUST (nih_str_array_new (NULL));
+
+			TEST_FILENAME (script);
+			input = fopen (script, "w");
+			TEST_NE_P (input, NULL);
+			TEST_GT (fprintf (input, "%s hello world\n", TEST_CMD_ECHO), 0);
+			fclose (input);
+
+			NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL));
+			NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL_ARG));
+			NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
+		}
+
+		pid = job_process_spawn (job, args_array, NULL, FALSE, -1);
+
+		if (test_alloc_failed) {
+			err = nih_error_get ();
+			TEST_NE_P (err, NULL);
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+			TEST_LT (pid, 0);
+		} else {
+			TEST_GT (pid, 0);
+		}
+	}
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line script and 'console log'");
+
+	/* Check that we can spawn a job and retrieve its output.
+	 */
+
+	TEST_FILENAME (dirname);       
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Override default location to ensure job output goes to a
+	 * writeable location
+	 */
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	argc = 0;
+	args_array = NIH_MUST (nih_str_array_new (NULL));
+	
+	TEST_FILENAME (script);       
+	input = fopen (script, "w");
+	TEST_NE_P (input, NULL);
+	TEST_GT (fprintf (input, "%s hello world\n", TEST_CMD_ECHO), 0);
+	fclose (input);
+
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL_ARG));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
+
+	pid = job_process_spawn (job, args_array, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	unlink (filename);
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("with multi-line script and 'console log'");
+
+	/* Check that we can spawn a job and retrieve its output.
+	 */
+	TEST_FILENAME (dirname);       
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	argc = 0;
+	args_array = NIH_MUST (nih_str_array_new (NULL));
+	
+	TEST_FILENAME (script);       
+	input = fopen (script, "w");
+	TEST_NE_P (input, NULL);
+	TEST_GT (fprintf (input, "/bin/true\n%s hello world\n", TEST_CMD_ECHO), 0);
+	fclose (input);
+
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL_ARG));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
+
+	pid = job_process_spawn (job, args_array, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	unlink (filename);
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("read single null byte with 'console log'");
+
+	/* Check that we can spawn a job and read a single byte written
+	 * to stdout.
+	 */
+
+	TEST_FILENAME (dirname);       
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	argc = 0;
+	args_array = NIH_MUST (nih_str_array_new (NULL));
+
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_CMD_ECHO));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, "-en"));
+	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, "\\000"));
+
+	pid = job_process_spawn (job, args_array, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_NE_P (fgets (filebuf, sizeof(filebuf), output), NULL);
+	TEST_EQ (memcmp (filebuf, "\000", 1), 0);
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	unlink (filename);
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("read data from forked process");
+
+	TEST_FILENAME (dirname);
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	sprintf (function, "%d", TEST_OUTPUT);
+
+	/* fork */
+	sprintf (filebuf, "%d", 1);
+	TEST_FILENAME (script);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = script;
+	args[3] = filebuf;
+	args[4] = NULL;
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	unlink (filename);
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("read data from daemon process");
+
+	TEST_FILENAME (dirname);       
+	umask(0);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	sprintf (function, "%d", TEST_OUTPUT);
+
+	/* daemonize */
+	sprintf (filebuf, "%d", 2);
+	TEST_FILENAME (script);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = script;
+	args[3] = filebuf;
+	args[4] = NULL;
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_TRUE (WIFEXITED (status));
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	unlink (filename);
+
+	TEST_EQ (rmdir (dirname), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	nih_free (job);
+
+
+	/* FIXME */
+#if 0
+	/************************************************************/
+	TEST_FEATURE ("when no free ptys");
+	{
+		int            available_ptys;
+		int            ret;
+		struct rlimit  rlimit;
+
+		TEST_FILENAME (dirname);       
+		umask(0);
+		TEST_EQ (mkdir (dirname, 0755), 0);
+
+		TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+		class = job_class_new (NULL, "test", NULL);
+		TEST_NE_P (class, NULL);
+		TEST_EQ (class->console, CONSOLE_LOG);
+
+		TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+		job = job_new (class, "");
+		TEST_NE_P (job, NULL);
+
+		available_ptys = get_available_pty_count ();
+		TEST_GT (available_ptys, 1);
+		
+		TEST_EQ (getrlimit (RLIMIT_NOFILE, &rlimit), 0);
+		
+		if ((unsigned int)rlimit.rlim_cur <= (unsigned int)available_ptys) {
+			/* Since we do not run as root, we are unable to
+			 * raise our limit to allow us to consume all
+			 * remaining ptys.
+			 */
+			printf ("WARNING:\n");
+			printf ("WARNING: Test not run as insufficient files available\n");
+			printf ("WARNING: (%u available files for uid %d, need atleast %u)\n",
+					 (unsigned int)rlimit.rlim_cur,
+					 (int)getuid (),
+					 (unsigned int)available_ptys);
+			printf ("WARNING:\n");
+			printf ("WARNING: See limits(5).\n");
+			printf ("WARNING:\n");
+		} else {
+			/* Consume all free ptys */
+			{
+				int pty;
+
+				for (pty = 0; pty < available_ptys; ++pty) {
+					ret = posix_openpt (O_RDWR | O_NOCTTY);
+					if (ret < 0)
+						break;
+				}
+			}
+
+			pid = job_process_spawn (job, args, NULL, FALSE, -1);
+			TEST_LT (pid, 0);
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+		}
+		nih_free (job);
+	}
+#else
+		/* FIXME */
+		TEST_FEATURE ("WARNING: FIXME: test 'when no free ptys' disabled due to kernel bug");
+#endif
+
+	nih_free (class);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+}
+
+void
+test_log_path (void)
+{
+	JobClass        *class = NULL;
+	Job             *job = NULL;
+	nih_local char  *log_path = NULL;
+	nih_local char  *expected = NULL;
+	nih_local char  *home = NULL;
+	char             dirname[PATH_MAX];
+
+	TEST_FILENAME (dirname);       
+
+	TEST_FUNCTION ("job_process_log_path");
+
+	/************************************************************/
+	TEST_FEATURE ("with system job with simple name");
+
+	class = job_class_new (NULL, "system", NULL);
+	TEST_NE_P (class, NULL);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	log_path = job_process_log_path (job, FALSE);
+	TEST_NE_P (log_path, NULL);
+
+	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				EXPECTED_JOB_LOGDIR, "system"));
+	TEST_EQ_STR (log_path, expected);
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("with system job containing illegal path characters");
+
+	class = job_class_new (NULL, "//hello_foo bar.z/", NULL);
+	TEST_NE_P (class, NULL);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	log_path = job_process_log_path (job, FALSE);
+	TEST_NE_P (log_path, NULL);
+
+	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				EXPECTED_JOB_LOGDIR, "_2f_2fhello_5ffoo_20bar_2ez_2f"));
+	TEST_EQ_STR (log_path, expected);
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("with system job with named instance");
+
+	class = job_class_new (NULL, "foo bar", NULL);
+	TEST_NE_P (class, NULL);
+	job = job_new (class, "bar foo");
+	TEST_NE_P (job, NULL);
+
+	log_path = job_process_log_path (job, FALSE);
+	TEST_NE_P (log_path, NULL);
+
+	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				EXPECTED_JOB_LOGDIR, "foo_20bar-bar_20foo"));
+	TEST_EQ_STR (log_path, expected);
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("with system job with named instance and illegal path characters");
+
+	class = job_class_new (NULL, "a/b", NULL);
+	TEST_NE_P (class, NULL);
+	job = job_new (class, "c/d_?/");
+	TEST_NE_P (job, NULL);
+
+	log_path = job_process_log_path (job, FALSE);
+	TEST_NE_P (log_path, NULL);
+
+	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				EXPECTED_JOB_LOGDIR, "a_2fb-c_2fd_5f_3f_2f"));
+	TEST_EQ_STR (log_path, expected);
+	nih_free (job);
+
+	/************************************************************/
+	TEST_FEATURE ("with subverted logdir and system job with named instance and illegal path characters");
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "a/b", NULL);
+	TEST_NE_P (class, NULL);
+	job = job_new (class, "c/d_?/");
+	TEST_NE_P (job, NULL);
+
+	log_path = job_process_log_path (job, FALSE);
+	TEST_NE_P (log_path, NULL);
+
+	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				dirname, "a_2fb-c_2fd_5f_3f_2f"));
+	TEST_EQ_STR (log_path, expected);
+	nih_free (job);
+
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 
 
@@ -1197,6 +3762,11 @@ test_handler (void)
 	siginfo_t       info;
 	unsigned long   data;
 	struct timespec now;
+	char            dirname[PATH_MAX];
+
+	TEST_FILENAME (dirname);       
+	TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
 	TEST_FUNCTION ("job_process_handler");
 	program_name = "test";
@@ -1205,6 +3775,7 @@ test_handler (void)
 	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
 	file = conf_file_new (source, "/tmp/test");
 	file->job = class = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (file->job, NULL);
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = "echo";
 
@@ -4353,6 +6924,8 @@ test_handler (void)
 
 	nih_free (event);
 	event_poll ();
+
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 
 
@@ -4732,6 +7305,10 @@ main (int   argc,
 	 * environment).
 	 */
 
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
+
 	/* We re-exec this binary to test various children features.  To
 	 * do that, we need to know the full path to the program.
 	 */
@@ -4746,6 +7323,24 @@ main (int   argc,
 		argv0 = path;
 	}
 
+	/* If three arguments are given, the first is the child enum,
+	 * second is a filename to write the result to and the third is
+	 * the number of times to fork.
+	 */
+	if (argc == 4) {
+		int forks = atol (argv[3]);
+		nih_assert (forks > 0);
+
+		do {
+			if (fork () != 0)
+				exit (0);
+
+		} while (forks--);
+
+		child (atoi (argv[1]), argv[2]);
+		exit (1);
+	}
+
 	/* If two arguments are given, the first is the child enum and the
 	 * second is a filename to write the result to.
 	 */
@@ -4754,13 +7349,17 @@ main (int   argc,
 		exit (1);
 	}
 
+	job_class_init ();
+	nih_error_init ();
+	nih_io_init ();
+
 	/* Otherwise run the tests as normal */
 	test_run ();
 	test_spawn ();
+	test_log_path ();
 	test_kill ();
 	test_handler ();
 	test_utmp ();
-
 	test_find ();
 
 	return 0;

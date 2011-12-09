@@ -110,6 +110,8 @@ system_setup_console (ConsoleType type,
 		if (type == CONSOLE_OWNER)
 			ioctl (fd, TIOCSCTTY, 1);
 		break;
+		/* FALLTHROUGH */
+	case CONSOLE_LOG:
 	case CONSOLE_NONE:
 		/* No console really means /dev/null */
 		fd = open (DEV_NULL, O_RDWR | O_NOCTTY);

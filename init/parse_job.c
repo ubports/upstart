@@ -2116,15 +2116,11 @@ stanza_console (JobClass        *class,
 	if (! arg)
 		goto finish;
 
-	if (! strcmp (arg, "none")) {
-		class->console = CONSOLE_NONE;
-	} else if (! strcmp (arg, "output")) {
-		class->console = CONSOLE_OUTPUT;
-	} else if (! strcmp (arg, "owner")) {
-		class->console = CONSOLE_OWNER;
-	} else {
+	class->console = job_class_console_type (arg);
+
+	if (class->console == (ConsoleType)-1) {
 		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
-				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+				_(NIH_CONFIG_UNKNOWN_STANZA_STR));
 	}
 
 	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);

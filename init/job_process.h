@@ -59,7 +59,11 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_EXEC,
 	JOB_PROCESS_ERROR_SETUID,
 	JOB_PROCESS_ERROR_SETGID,
-	JOB_PROCESS_ERROR_CHOWN
+	JOB_PROCESS_ERROR_CHOWN,
+	JOB_PROCESS_ERROR_OPENPT_MASTER,
+	JOB_PROCESS_ERROR_UNLOCKPT,
+	JOB_PROCESS_ERROR_PTSNAME,
+	JOB_PROCESS_ERROR_OPENPT_SLAVE
 } JobProcessErrorType;
 
 /**
@@ -93,7 +97,7 @@ NIH_BEGIN_EXTERN
 
 int    job_process_run     (Job *job, ProcessType process);
 
-pid_t  job_process_spawn   (JobClass *class, char * const argv[],
+pid_t  job_process_spawn   (Job *job, char * const argv[],
 			    char * const *env, int trace, int script_fd)
 	__attribute__ ((warn_unused_result));
 
@@ -102,7 +106,10 @@ void   job_process_kill    (Job *job, ProcessType process);
 void   job_process_handler (void *ptr, pid_t pid,
 			    NihChildEvents event, int status);
 
-Job   *job_process_find    (pid_t pid, ProcessType *process);
+Job   *job_process_find     (pid_t pid, ProcessType *process);
+
+char  *job_process_log_path (Job *job, int user_job)
+	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
 
