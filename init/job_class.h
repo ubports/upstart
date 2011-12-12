@@ -59,7 +59,7 @@ typedef enum expect_type {
  * and error file descriptors arranged.  The options are:
  * - CONSOLE_NONE: to have these all mapped to /dev/null,
  * - CONSOLE_OUTPUT: the console device (non-owning process),
- * - CONSOLE_OWNER: the console device (non-owning process),
+ * - CONSOLE_OWNER: the console device (owning process),
  * - CONSOLE_LOG: stdin is mapped to /dev/null and standard output and error
  *   are redirected to the built-in logger (this is the default).
  **/
