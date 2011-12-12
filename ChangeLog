@@ -1,3 +1,22 @@
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8:
+	  - Added new '--no-strip' option.
+	  - Added missing '--daemon', '--debug' and '--help' options.
+	* extra/upstart-udev-bridge.c:
+	  XXX: Behavioural change: non-printable bytes are now removed
+	  by default from all udev message data to handle buggy
+	  hardware devices which expose this data to userland (the
+	  kernel simply passes it through verbatim). To revert to old
+	  behaviour (where no udev message data is modified), specify
+	  the new '--no-strip' option (LP: #829980).
+	  - make_safe_string(): New function to cleanse udev data.
+	  - udev_monitor_watcher():
+	    - Cleanse udev data unless '--no-strip' specified.
+	    - Fixed possible crash should 'action' not be set.
+	    - Fixed possible crash should 'devname' not be set
+	      and '--debug' specified.
+
 2011-12-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* Merge of 'setuid' + 'setgid' stanzas from
