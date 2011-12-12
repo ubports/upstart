@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.4\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2011-12-09 12:17+0000\n"
+"POT-Creation-Date: 2011-12-12 11:29+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: init/conf.c:356
+#: init/conf.c:356 init/session.c:337
 msgid "Unable to load configuration"
 msgstr ""
 
@@ -76,8 +76,8 @@ msgstr ""
 msgid "Unknown job: %s"
 msgstr ""
 
-#: init/control.c:574 init/job_class.c:547 init/job_class.c:746
-#: init/job_class.c:876 init/job_class.c:1011
+#: init/control.c:574 init/job_class.c:550 init/job_class.c:749
+#: init/job_class.c:879 init/job_class.c:1014
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
@@ -85,67 +85,75 @@ msgstr ""
 msgid "The log priority given was not recognised"
 msgstr ""
 
-#: init/errors.h:58
+#: init/errors.h:60
 msgid "Illegal parameter"
 msgstr ""
 
-#: init/errors.h:59
+#: init/errors.h:61
 msgid "Unknown parameter"
 msgstr ""
 
-#: init/errors.h:60 init/errors.h:71
+#: init/errors.h:62 init/errors.h:75
 msgid "Expected operator"
 msgstr ""
 
-#: init/errors.h:61
+#: init/errors.h:63
 msgid "Mismatched braces"
 msgstr ""
 
-#: init/errors.h:62
-msgid "Illegal interval, expected number of seconds"
-msgstr ""
-
-#: init/errors.h:63
-msgid "Illegal exit status, expected integer"
-msgstr ""
-
 #: init/errors.h:64
-msgid "Illegal signal status, expected integer"
+msgid "Invalid setuid user name does not exist"
 msgstr ""
 
 #: init/errors.h:65
-msgid "Illegal file creation mask, expected octal integer"
+msgid "Invalid setgid group name does not exist"
 msgstr ""
 
 #: init/errors.h:66
-msgid "Illegal nice value, expected -20 to 19"
+msgid "Illegal interval, expected number of seconds"
 msgstr ""
 
 #: init/errors.h:67
-msgid "Illegal oom adjustment, expected -16 to 15 or 'never'"
+msgid "Illegal exit status, expected integer"
 msgstr ""
 
 #: init/errors.h:68
-msgid "Illegal oom score adjustment, expected -999 to 1000 or 'never'"
+msgid "Illegal signal status, expected integer"
 msgstr ""
 
 #: init/errors.h:69
-msgid "Illegal limit, expected 'unlimited' or integer"
+msgid "Illegal file creation mask, expected octal integer"
 msgstr ""
 
 #: init/errors.h:70
-msgid "Expected event"
+msgid "Illegal nice value, expected -20 to 19"
+msgstr ""
+
+#: init/errors.h:71
+msgid "Illegal oom adjustment, expected -16 to 15 or 'never'"
 msgstr ""
 
 #: init/errors.h:72
-msgid "Expected variable name before value"
+msgid "Illegal oom score adjustment, expected -999 to 1000 or 'never'"
 msgstr ""
 
 #: init/errors.h:73
-msgid "Mismatched parentheses"
+msgid "Illegal limit, expected 'unlimited' or integer"
 msgstr ""
 
 #: init/errors.h:74
+msgid "Expected event"
+msgstr ""
+
+#: init/errors.h:76
+msgid "Expected variable name before value"
+msgstr ""
+
+#: init/errors.h:77
+msgid "Mismatched parentheses"
+msgstr ""
+
+#: init/errors.h:78
 msgid "Name already taken"
 msgstr ""
 
@@ -237,229 +245,251 @@ msgstr ""
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1129 init/job.c:1204 init/job.c:1280 init/job_class.c:738
-#: init/job_class.c:868 init/job_class.c:1003
+#: init/job.c:1129 init/job.c:1204 init/job.c:1280 init/job_class.c:741
+#: init/job_class.c:871 init/job_class.c:1006
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
 
-#: init/job.c:1137 init/job_class.c:792
+#: init/job.c:1137 init/job_class.c:795
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1212 init/job.c:1288 init/job_class.c:922 init/job_class.c:1056
+#: init/job.c:1212 init/job.c:1288 init/job_class.c:925 init/job_class.c:1059
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
 
-#: init/job_class.c:584 init/job_class.c:629 init/job_class.c:914
-#: init/job_class.c:1048
+#: init/job_class.c:587 init/job_class.c:632 init/job_class.c:917
+#: init/job_class.c:1051
 #, c-format
 msgid "Unknown instance: %s"
 msgstr ""
 
-#: init/job_process.c:300
+#: init/job_process.c:301
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
 
-#: init/job_process.c:306
+#: init/job_process.c:307
 msgid "Temporary process spawn error"
 msgstr ""
 
-#: init/job_process.c:313
+#: init/job_process.c:314
 #, c-format
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:456
+#: init/job_process.c:461
 msgid "No available ptys"
 msgstr ""
 
-#: init/job_process.c:486
+#: init/job_process.c:491
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:681
+#: init/job_process.c:686
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:926
+#: init/job_process.c:992
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:931
+#: init/job_process.c:997
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:986
+#: init/job_process.c:1052
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:991
+#: init/job_process.c:1057
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:996
+#: init/job_process.c:1062
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:1001
+#: init/job_process.c:1067
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:1006
+#: init/job_process.c:1072
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:1011
+#: init/job_process.c:1077
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:1016
+#: init/job_process.c:1082
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:1021
+#: init/job_process.c:1087
+#, c-format
+msgid "unable to getpwnam: %s"
+msgstr ""
+
+#: init/job_process.c:1092
+#, c-format
+msgid "unable to getgrnam: %s"
+msgstr ""
+
+#: init/job_process.c:1097
+msgid "unable to find setuid user"
+msgstr ""
+
+#: init/job_process.c:1101
+msgid "unable to find setgid group"
+msgstr ""
+
+#: init/job_process.c:1105
 #, c-format
 msgid "unable to setuid: %s"
 msgstr ""
 
-#: init/job_process.c:1026
+#: init/job_process.c:1110
 #, c-format
 msgid "unable to setgid: %s"
 msgstr ""
 
-#: init/job_process.c:1031
+#: init/job_process.c:1115
 #, c-format
 msgid "unable to chown: %s"
 msgstr ""
 
-#: init/job_process.c:1036
+#: init/job_process.c:1120
 #, c-format
 msgid "unable to open pt master: %s"
 msgstr ""
 
-#: init/job_process.c:1041
+#: init/job_process.c:1125
 #, c-format
 msgid "unable to unlockpt: %s"
 msgstr ""
 
-#: init/job_process.c:1046
+#: init/job_process.c:1130
 #, c-format
 msgid "unable to get ptsname: %s"
 msgstr ""
 
-#: init/job_process.c:1051
+#: init/job_process.c:1135
 #, c-format
 msgid "unable to open pt slave: %s"
 msgstr ""
 
-#: init/job_process.c:1082 init/job_process.c:1132
+#: init/job_process.c:1166 init/job_process.c:1216
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1091 init/job_process.c:1141
+#: init/job_process.c:1175 init/job_process.c:1225
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1202
+#: init/job_process.c:1286
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1207
+#: init/job_process.c:1291
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1222
+#: init/job_process.c:1306
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1226
+#: init/job_process.c:1310
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1240
+#: init/job_process.c:1324
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1244
+#: init/job_process.c:1328
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1258
+#: init/job_process.c:1342
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1262
+#: init/job_process.c:1346
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1397
+#: init/job_process.c:1481
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1403
+#: init/job_process.c:1487
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1643
+#: init/job_process.c:1727
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1656 init/job_process.c:1851
+#: init/job_process.c:1740 init/job_process.c:1935
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1696 init/job_process.c:1787 init/job_process.c:1842
+#: init/job_process.c:1780 init/job_process.c:1871 init/job_process.c:1926
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1736
+#: init/job_process.c:1820
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1771
+#: init/job_process.c:1855
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1778
+#: init/job_process.c:1862
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1837
+#: init/job_process.c:1921
 #, c-format
 msgid "%s %s process (%d) executable changed"
+msgstr ""
+
+#: init/log.c:260
+msgid "Failed to write to log file"
 msgstr ""
 
 #: init/main.c:131
@@ -569,6 +599,10 @@ msgstr ""
 
 #: init/process.c:78
 msgid "main"
+msgstr ""
+
+#: init/session.c:223 init/session.c:313
+msgid "Unable to lookup home directory"
 msgstr ""
 
 #: util/initctl.c:305
@@ -1043,32 +1077,74 @@ msgstr ""
 msgid "%s: illegal runlevel: %s\n"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:76
+#: extra/upstart-udev-bridge.c:85 extra/upstart-socket-bridge.c:130
 msgid "Detach and run in the background"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:95
+#: extra/upstart-udev-bridge.c:87
+msgid "Do not strip non-printable bytes from udev message data"
+msgstr ""
+
+#: extra/upstart-udev-bridge.c:106
 msgid "Bridge udev events into upstart"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:97
+#: extra/upstart-udev-bridge.c:108
 msgid ""
 "By default, upstart-udev-bridge does not detach from the console and remains "
 "in the foreground.  Use the --daemon option to have it detach."
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:111
+#: extra/upstart-udev-bridge.c:122 extra/upstart-socket-bridge.c:180
 msgid "Could not connect to Upstart"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:125
+#: extra/upstart-udev-bridge.c:136 extra/upstart-socket-bridge.c:194
 msgid "Could not create Upstart proxy"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:149
+#: extra/upstart-udev-bridge.c:160 extra/upstart-socket-bridge.c:250
 msgid "Unable to become daemon"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:297
+#: extra/upstart-udev-bridge.c:333 extra/upstart-socket-bridge.c:623
 msgid "Disconnected from Upstart"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:148
+msgid "Bridge socket events into upstart"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:150
+msgid ""
+"By default, upstart-socket-bridge does not detach from the console and "
+"remains in the foreground.  Use the --daemon option to have it detach."
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:163
+msgid "Could not create epoll descriptor"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:207
+msgid "Could not create JobAdded signal connection"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:219
+msgid "Could not create JobRemoved signal connection"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:231
+msgid "Could not obtain job list"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:287
+msgid "Error from epoll"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:350
+msgid "Could not send socket event"
+msgstr ""
+
+#: extra/upstart-socket-bridge.c:642
+msgid "Error emitting socket event"
 msgstr ""
