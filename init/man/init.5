@@ -602,28 +602,27 @@ and standard output and standard error are connected to a pseudo-tty
 which logs all job output.
 
 Output is logged to file
-.IR /var/log/upstart/<job-file> "."
-If a job has specified \fBinstance\fR, <job-file> will be
-<job>-<instance>.log where \(aq<instance>\(aq is replaced by the
-specific instance value and \(aq<job>\(aq is replaced with the job name
-(job configuration file name, without the extension).
-If \fBinstance\fR is not specified, <job-file> will be <job>.log where
-\(aq<job>\(aq is replaced with the job name. If log files already exist,
-they are appended to.
+.IR /var/log/upstart/<job-log-file> "."
+If a job has specified \fBinstance\fR,
+.I <job-log-file>
+will equate to
+.I <job>-<instance>.log
+where \(aq<instance>\(aq is replaced by the specific instance value and
+\(aq<job>\(aq is replaced with the job name (job configuration file
+name, without the extension).  If \fBinstance\fR is not specified,
+.I <job-log-file>
+will be
+.I <job>.log
+where \(aq<job>\(aq is replaced with the job name.
 
-Note that all non alpha-numeric characters in \(aq<job>\(aq are encoded
-in the same manner as job names are encoded when exposed via D-Bus: each
-character requiring encoding is expanded to a 3-byte value comprising
-\(aq_XX\(aq where \(aqXX\(aq is the 2-byte hex representation of the
-original character. For example \(aq<my-job>\(aq would be encoded as
-\(aqmy_2djob\(aq since \(aq2d\(aq is the hex equivalent of the original
-\(aq-\(aq. For further details see
-.BR ascii (7) "" "."
+If log files already exist, they are appended to.
 
-Note that the log file directory has a flat structure: if the job a
-log file refers to was created in a sub\-directory of the configuration
-file directory, that sub\-directory is not created. Instead, all slash
-characters (\(aq/\(aq) are replaced with \(aq_2f\(aq.
+All slash (\(aq/\(aq) characters in
+.I <job-log-file>
+are replaced with underscore (\(aq_\(aq) characters. For example,
+any output from the \(aqwibble\(aq instance of the \(aqfoo/bar\(aq job
+would be encoded in file \(aqfoo_bar-wibble.log\(aq in the log file
+directory. This gives the log file directory a flat structure.
 
 If the directory for system jobs does not exist, job output for each job
 will be cached until the job finishes. Thus, the boot process

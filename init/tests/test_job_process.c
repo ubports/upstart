@@ -3584,7 +3584,7 @@ test_log_path (void)
 	TEST_NE_P (log_path, NULL);
 
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
-				EXPECTED_JOB_LOGDIR, "_2f_2fhello_5ffoo_20bar_2ez_2f"));
+				EXPECTED_JOB_LOGDIR, "__hello_foo bar.z_"));
 	TEST_EQ_STR (log_path, expected);
 	nih_free (job);
 
@@ -3600,7 +3600,7 @@ test_log_path (void)
 	TEST_NE_P (log_path, NULL);
 
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
-				EXPECTED_JOB_LOGDIR, "foo_20bar-bar_20foo"));
+				EXPECTED_JOB_LOGDIR, "foo bar-bar foo"));
 	TEST_EQ_STR (log_path, expected);
 	nih_free (job);
 
@@ -3616,7 +3616,7 @@ test_log_path (void)
 	TEST_NE_P (log_path, NULL);
 
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
-				EXPECTED_JOB_LOGDIR, "a_2fb-c_2fd_5f_3f_2f"));
+				EXPECTED_JOB_LOGDIR, "a_b-c_d_?_"));
 	TEST_EQ_STR (log_path, expected);
 	nih_free (job);
 
@@ -3634,7 +3634,7 @@ test_log_path (void)
 	TEST_NE_P (log_path, NULL);
 
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
-				dirname, "a_2fb-c_2fd_5f_3f_2f"));
+				dirname, "a_b-c_d_?_"));
 	TEST_EQ_STR (log_path, expected);
 	nih_free (job);
 

@@ -82,34 +82,18 @@ make_job_name()
     tr ' ' '-'
 }
 
-# semi-simulation of nih_dbus_path()
-#
-# XXX: it is not safe to call this with an already-encoded string since
-# it will be further modified
-dbus_encode()
+upstart_encode()
 {
   str="$1"
 
-   echo "$str" | sed 's/./&\
-/g'|sed '/^$/d'|while read char
-   do
-     echo -n "$char"|grep -q "[[:alnum:]]"
-     if [ $? -eq 0 ]
-     then
-       echo -n "$char"
-     else
-       echo -n _
-       echo -n $char|od -x|head -1|cut -d' ' -f2|sed 's/^00//g'
-     fi
-     
-   done |tr -d '\n'
+  echo "$str" | sed 's!/!_!g'
 }
 
 # take a string and convert it into a valid job log file name
 make_log_name()
 {
   str="$1"
-  dbus_encode "$str"
+  upstart_encode "$str"
 }
 
 TEST_FAILED()
@@ -705,7 +689,7 @@ get_job_logfile_name()
   # XXX: instance may be null
   [ -z "$job_name" ] && die "no job name"
 
-  encoded_test_dir_suffix=$(dbus_encode "${test_dir_suffix}/")
+  encoded_test_dir_suffix=$(upstart_encode "${test_dir_suffix}/")
   file_name="${encoded_test_dir_suffix}$(make_log_name $job_name)"
 
   if [ ! -z "$instance_value" ]

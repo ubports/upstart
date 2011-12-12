@@ -1,5 +1,24 @@
 2011-12-12  James Hunt  <james.hunt@ubuntu.com>
 
+	Simplify logfile name encoding.
+	
+	* init/job_process.c: job_process_log_path(): Ditch D-Bus job name
+	  encoding in path names for saner approach that simply remaps slash
+	  characters (minimal surprises for users).
+	* init/job_process.h: Addition of macros:
+	  - JOB_PROCESS_LOG_FILE_EXT
+	  - JOB_PROCESS_LOG_REMAP_FROM_CHAR
+	  - JOB_PROCESS_LOG_REMAP_TO_CHAR
+	* init/man/init.5: Update console section for simplified log filename
+	  encoding approach.
+	* init/test_job_process.c: test_log_path(): Updates for simplified
+	  logfile name encoding.
+	* util/tests/test_user_sessions.sh: Updates for simplified
+	  logfile name encoding: removed dbus_encode() and replaced with
+	  upstart_encode().
+
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
 	* extra/man/upstart-udev-bridge.8:
 	  - Added new '--no-strip' option.
 	  - Added missing '--daemon', '--debug' and '--help' options.

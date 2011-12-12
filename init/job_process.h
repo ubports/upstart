@@ -40,6 +40,29 @@
  **/
 #define JOB_PROCESS_SCRIPT_FD 9
 
+/**
+ * JOB_PROCESS_LOG_REMAP_FROM_CHAR:
+ * JOB_PROCESS_LOG_REMAP_TO_CHAR:
+ *
+ * All logs are written to a single directory so any jobs containing
+ * slashes must be remapped.
+ **/
+#ifndef JOB_PROCESS_LOG_REMAP_FROM_CHAR
+#define JOB_PROCESS_LOG_REMAP_FROM_CHAR  '/'
+#endif
+#ifndef JOB_PROCESS_LOG_REMAP_TO_CHAR
+#define JOB_PROCESS_LOG_REMAP_TO_CHAR    '_'
+#endif
+
+/**
+ * JOB_PROCESS_LOG_FILE_EXT:
+ *
+ * Extension for log files.
+ **/
+#ifndef JOB_PROCESS_LOG_FILE_EXT
+#define JOB_PROCESS_LOG_FILE_EXT ".log"
+#endif
+
 
 /**
  * JobProcessErrorType:
