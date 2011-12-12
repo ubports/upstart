@@ -298,6 +298,8 @@ ensure_job_known()
   TEST_EQ "$cmd" $rc 0
 }
 
+# Note that if the specified job is *not* as task, it is expected to run
+# indefinately. This allows us to perform PID checks, etc.
 run_user_job_tests()
 {
   job_name="$1"
@@ -560,14 +562,14 @@ test_user_job_setuid_setgid()
     script="\
 setuid $(id -un)
 setgid $(id -gn)
-exec true"
+exec sleep 999"
     test_user_job "$group" "$job_name" "$script" no ""
 
     TEST_GROUP "user job with setuid and setgid root"
     script="\
 setuid root
 setgid root
-exec true"
+exec sleep 999"
 
     job_name="setuid_setgid_root_test"
     job_file="${test_dir}/${job_name}.conf"
@@ -579,7 +581,7 @@ exec true"
 
     TEST_FEATURE "ensure job fails to start as root"
     cmd="start ${job}"
-    output=$(eval "$cmd")
+    output=$(eval "$cmd" 2>&1)
     rc=$?
     TEST_EQ "$cmd" $rc 1
 
@@ -590,6 +592,8 @@ exec true"
     TEST_FEATURE "ensure 'initctl' does not list job"
     initctl list|grep -q "^$job stop/waiting" || \
         TEST_FAILED "job $job_name not listed as stopped"
+
+    delete_job "$job_name"
 }
 
 get_job_file()
