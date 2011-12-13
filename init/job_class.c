@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2010,2011 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -57,52 +57,18 @@
 #include "com.ubuntu.Upstart.Job.h"
 
 
-/**
- * JOB_DEFAULT_KILL_TIMEOUT:
- *
- * The default length of time to wait after sending a process the TERM
- * signal before sending the KILL signal if it hasn't terminated.
- **/
-#define JOB_DEFAULT_KILL_TIMEOUT 5
-
-/**
- * JOB_DEFAULT_RESPAWN_LIMIT:
- *
- * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
- * we permit a process to respawn before stoping it
- **/
-#define JOB_DEFAULT_RESPAWN_LIMIT 10
-
-/**
- * JOB_DEFAULT_RESPAWN_INTERVAL:
- *
- * The default number of seconds before resetting the respawn timer.
- **/
-#define JOB_DEFAULT_RESPAWN_INTERVAL 5
-
-/**
- * JOB_DEFAULT_UMASK:
- *
- * The default file creation mark for processes.
- **/
-#define JOB_DEFAULT_UMASK 022
-
-/**
- * JOB_DEFAULT_ENVIRONMENT:
- *
- * Environment variables to always copy from our own environment, these
- * can be overriden in the job definition or by events since they have the
- * lowest priority.
- **/
-#define JOB_DEFAULT_ENVIRONMENT \
-	"PATH",			\
-	"TERM"
-
-
 /* Prototypes for static functions */
 static void job_class_add    (JobClass *class);
 static int  job_class_remove (JobClass *class, const Session *session);
 
+/**
+ * default_console:
+ *
+ * If a job does not specify a value for the 'console' stanza, use this value.
+ *
+ * Only used if value is >= 0;
+ **/
+int default_console = -1;
 
 /**
  * job_classes:
@@ -246,17 +212,20 @@ job_class_new (const void *parent,
 	class->normalexit = NULL;
 	class->normalexit_len = 0;
 
-	class->console = CONSOLE_NONE;
+	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
 	class->umask = JOB_DEFAULT_UMASK;
-	class->nice = 0;
-	class->oom_score_adj = 0;
+	class->nice = JOB_DEFAULT_NICE;
+	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;
 
 	class->chroot = NULL;
 	class->chdir = NULL;
+
+	class->setuid = NULL;
+	class->setgid = NULL;
 
 	class->deleted = FALSE;
 	class->debug   = FALSE;
@@ -1448,4 +1417,26 @@ job_class_get_emits (JobClass *      class,
 	}
 
 	return 0;
+}
+
+/**
+ * job_class_console_type:
+ * @console: string representing console type.
+ *
+ * Returns: ConsoleType equivalent of @string, or -1 on invalid @string.
+ **/
+ConsoleType
+job_class_console_type (const char *console)
+{
+	if (! strcmp (console, "none")) {
+		return CONSOLE_NONE;
+	} else if (! strcmp (console, "output")) {
+		return CONSOLE_OUTPUT;
+	} else if (! strcmp (console, "owner")) {
+		return CONSOLE_OWNER;
+	} else if (! strcmp (console, "log")) {
+		return CONSOLE_LOG;
+	}
+
+	return (ConsoleType)-1;
 }

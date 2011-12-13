@@ -127,6 +127,29 @@
 #endif
 
 /**
+ * JOB_LOGDIR:
+ *
+ * Directory that jobs which specify CONSOLE_LOG will have their output
+ * logged to.
+ *
+ **/
+#ifndef JOB_LOGDIR
+#define JOB_LOGDIR "/var/log/upstart"
+#endif
+
+/**
+ * LOGDIR_ENV:
+ *
+ * Environment variable that if set specifies an alternative directory
+ * to JOB_LOGDIR to write log files to.
+ *
+ **/
+#ifndef LOGDIR_ENV
+#define LOGDIR_ENV "UPSTART_LOGDIR" 
+#endif
+
+
+/**
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"

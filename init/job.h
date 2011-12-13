@@ -34,6 +34,7 @@
 
 #include "job_class.h"
 #include "event_operator.h"
+#include "log.h"
 
 #include "com.ubuntu.Upstart.Instance.h"
 
@@ -113,7 +114,8 @@ typedef enum trace_state {
  * @respawn_time: time job was first respawned,
  * @respawn_count: number of respawns since @respawn_time,
  * @trace_forks: number of forks traced,
- * @trace_state: state of trace.
+ * @trace_state: state of trace,
+ * @log: pointer to log to hold job output.
  *
  * This structure holds the state of an active job instance being tracked
  * by the init daemon, the configuration details of the job are available
@@ -153,6 +155,7 @@ typedef struct job {
 
 	int             trace_forks;
 	TraceState      trace_state;
+	Log            *log;
 } Job;
 
 

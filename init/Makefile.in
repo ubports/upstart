@@ -37,7 +37,7 @@ host_triplet = @host@
 sbin_PROGRAMS = init$(EXEEXT)
 TESTS = test_system$(EXEEXT) test_environ$(EXEEXT) \
 	test_process$(EXEEXT) test_job_class$(EXEEXT) \
-	test_job_process$(EXEEXT) test_job$(EXEEXT) \
+	test_job_process$(EXEEXT) test_job$(EXEEXT) test_log$(EXEEXT) \
 	test_event$(EXEEXT) test_event_operator$(EXEEXT) \
 	test_blocked$(EXEEXT) test_parse_job$(EXEEXT) \
 	test_parse_conf$(EXEEXT) test_conf$(EXEEXT) \
@@ -74,7 +74,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__EXEEXT_1 = test_system$(EXEEXT) test_environ$(EXEEXT) \
 	test_process$(EXEEXT) test_job_class$(EXEEXT) \
-	test_job_process$(EXEEXT) test_job$(EXEEXT) \
+	test_job_process$(EXEEXT) test_job$(EXEEXT) test_log$(EXEEXT) \
 	test_event$(EXEEXT) test_event_operator$(EXEEXT) \
 	test_blocked$(EXEEXT) test_parse_job$(EXEEXT) \
 	test_parse_conf$(EXEEXT) test_conf$(EXEEXT) \
@@ -84,9 +84,10 @@ am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man5dir)" \
 PROGRAMS = $(sbin_PROGRAMS)
 am_init_OBJECTS = main.$(OBJEXT) system.$(OBJEXT) environ.$(OBJEXT) \
 	process.$(OBJEXT) session.$(OBJEXT) job_class.$(OBJEXT) \
-	job_process.$(OBJEXT) job.$(OBJEXT) event.$(OBJEXT) \
-	event_operator.$(OBJEXT) blocked.$(OBJEXT) parse_job.$(OBJEXT) \
-	parse_conf.$(OBJEXT) conf.$(OBJEXT) control.$(OBJEXT)
+	job_process.$(OBJEXT) job.$(OBJEXT) log.$(OBJEXT) \
+	event.$(OBJEXT) event_operator.$(OBJEXT) blocked.$(OBJEXT) \
+	parse_job.$(OBJEXT) parse_conf.$(OBJEXT) conf.$(OBJEXT) \
+	control.$(OBJEXT)
 am__objects_1 = com.ubuntu.Upstart.$(OBJEXT)
 am__objects_2 = com.ubuntu.Upstart.Job.$(OBJEXT)
 am__objects_3 = com.ubuntu.Upstart.Instance.$(OBJEXT)
@@ -103,7 +104,7 @@ am_test_blocked_OBJECTS = test_blocked.$(OBJEXT)
 test_blocked_OBJECTS = $(am_test_blocked_OBJECTS)
 test_blocked_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -111,7 +112,7 @@ am_test_conf_OBJECTS = test_conf.$(OBJEXT)
 test_conf_OBJECTS = $(am_test_conf_OBJECTS)
 test_conf_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -119,7 +120,7 @@ am_test_control_OBJECTS = test_control.$(OBJEXT)
 test_control_OBJECTS = $(am_test_control_OBJECTS)
 test_control_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -130,7 +131,7 @@ am_test_event_OBJECTS = test_event.$(OBJEXT)
 test_event_OBJECTS = $(am_test_event_OBJECTS)
 test_event_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -139,14 +140,14 @@ test_event_operator_OBJECTS = $(am_test_event_operator_OBJECTS)
 test_event_operator_DEPENDENCIES = system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	blocked.o parse_job.o parse_conf.o conf.o control.o session.o \
-	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	log.o com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_test_job_OBJECTS = test_job.$(OBJEXT)
 test_job_OBJECTS = $(am_test_job_OBJECTS)
 test_job_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -154,7 +155,7 @@ am_test_job_class_OBJECTS = test_job_class.$(OBJEXT)
 test_job_class_OBJECTS = $(am_test_job_class_OBJECTS)
 test_job_class_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -163,6 +164,14 @@ test_job_process_OBJECTS = $(am_test_job_process_OBJECTS)
 test_job_process_DEPENDENCIES = system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	blocked.o parse_job.o parse_conf.o conf.o control.o session.o \
+	log.o com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+am_test_log_OBJECTS = test_log.$(OBJEXT)
+test_log_OBJECTS = $(am_test_log_OBJECTS)
+test_log_DEPENDENCIES = system.o environ.o process.o job_class.o \
+	job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -171,14 +180,14 @@ test_parse_conf_OBJECTS = $(am_test_parse_conf_OBJECTS)
 test_parse_conf_DEPENDENCIES = system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o \
 	blocked.o parse_job.o parse_conf.o conf.o control.o session.o \
-	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	log.o com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_test_parse_job_OBJECTS = test_parse_job.$(OBJEXT)
 test_parse_job_OBJECTS = $(am_test_parse_job_OBJECTS)
 test_parse_job_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -186,7 +195,7 @@ am_test_process_OBJECTS = test_process.$(OBJEXT)
 test_process_OBJECTS = $(am_test_process_OBJECTS)
 test_process_DEPENDENCIES = system.o environ.o process.o job_class.o \
 	job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o session.o \
+	parse_job.o parse_conf.o conf.o control.o session.o log.o \
 	com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
 	com.ubuntu.Upstart.Instance.o $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -224,16 +233,17 @@ SOURCES = $(init_SOURCES) $(nodist_init_SOURCES) \
 	$(test_control_SOURCES) $(test_environ_SOURCES) \
 	$(test_event_SOURCES) $(test_event_operator_SOURCES) \
 	$(test_job_SOURCES) $(test_job_class_SOURCES) \
-	$(test_job_process_SOURCES) $(test_parse_conf_SOURCES) \
-	$(test_parse_job_SOURCES) $(test_process_SOURCES) \
-	$(test_system_SOURCES)
+	$(test_job_process_SOURCES) $(test_log_SOURCES) \
+	$(test_parse_conf_SOURCES) $(test_parse_job_SOURCES) \
+	$(test_process_SOURCES) $(test_system_SOURCES)
 DIST_SOURCES = $(init_SOURCES) $(test_blocked_SOURCES) \
 	$(test_conf_SOURCES) $(test_control_SOURCES) \
 	$(test_environ_SOURCES) $(test_event_SOURCES) \
 	$(test_event_operator_SOURCES) $(test_job_SOURCES) \
 	$(test_job_class_SOURCES) $(test_job_process_SOURCES) \
-	$(test_parse_conf_SOURCES) $(test_parse_job_SOURCES) \
-	$(test_process_SOURCES) $(test_system_SOURCES)
+	$(test_log_SOURCES) $(test_parse_conf_SOURCES) \
+	$(test_parse_job_SOURCES) $(test_process_SOURCES) \
+	$(test_system_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -301,6 +311,7 @@ DBUS_CFLAGS = @DBUS_CFLAGS@
 DBUS_LIBS = @DBUS_LIBS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -354,6 +365,7 @@ LTLIBPTH = @LTLIBPTH@
 LTLIBTHREAD = @LTLIBTHREAD@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 MSGFMT = @MSGFMT@
 MSGFMT_015 = @MSGFMT_015@
@@ -403,6 +415,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
@@ -435,7 +448,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -490,6 +502,7 @@ init_SOURCES = \
 	job_class.c job_class.h \
 	job_process.c job_process.h \
 	job.c job.h \
+	log.c log.h \
 	event.c event.h \
 	event_operator.c event_operator.h \
 	blocked.c blocked.h \
@@ -561,7 +574,7 @@ test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -573,7 +586,7 @@ test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -585,7 +598,7 @@ test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -597,19 +610,32 @@ test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
+test_log_SOURCES = tests/test_log.c
+test_log_LDADD = \
+	system.o environ.o process.o \
+	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o conf.o control.o \
+	session.o log.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	-lutil
+
 test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -621,7 +647,7 @@ test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -633,7 +659,7 @@ test_blocked_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -645,7 +671,7 @@ test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -657,7 +683,7 @@ test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -669,7 +695,7 @@ test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -681,7 +707,7 @@ test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
-	session.o \
+	session.o log.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -805,6 +831,9 @@ test_job_class$(EXEEXT): $(test_job_class_OBJECTS) $(test_job_class_DEPENDENCIES
 test_job_process$(EXEEXT): $(test_job_process_OBJECTS) $(test_job_process_DEPENDENCIES) 
 	@rm -f test_job_process$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_job_process_OBJECTS) $(test_job_process_LDADD) $(LIBS)
+test_log$(EXEEXT): $(test_log_OBJECTS) $(test_log_DEPENDENCIES) 
+	@rm -f test_log$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_log_OBJECTS) $(test_log_LDADD) $(LIBS)
 test_parse_conf$(EXEEXT): $(test_parse_conf_OBJECTS) $(test_parse_conf_DEPENDENCIES) 
 	@rm -f test_parse_conf$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_parse_conf_OBJECTS) $(test_parse_conf_LDADD) $(LIBS)
@@ -836,6 +865,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job_class.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job_process.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse_conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse_job.Po@am__quote@
@@ -851,6 +881,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_job.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_job_class.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_job_process.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_job.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_process.Po@am__quote@
@@ -1023,6 +1054,22 @@ test_job_process.obj: tests/test_job_process.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_job_process.c' object='test_job_process.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_job_process.obj `if test -f 'tests/test_job_process.c'; then $(CYGPATH_W) 'tests/test_job_process.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_job_process.c'; fi`
+
+test_log.o: tests/test_log.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_log.o -MD -MP -MF $(DEPDIR)/test_log.Tpo -c -o test_log.o `test -f 'tests/test_log.c' || echo '$(srcdir)/'`tests/test_log.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_log.Tpo $(DEPDIR)/test_log.Po
+@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_log.c' object='test_log.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_log.o `test -f 'tests/test_log.c' || echo '$(srcdir)/'`tests/test_log.c
+
+test_log.obj: tests/test_log.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_log.obj -MD -MP -MF $(DEPDIR)/test_log.Tpo -c -o test_log.obj `if test -f 'tests/test_log.c'; then $(CYGPATH_W) 'tests/test_log.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_log.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_log.Tpo $(DEPDIR)/test_log.Po
+@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tests/test_log.c' object='test_log.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_log.obj `if test -f 'tests/test_log.c'; then $(CYGPATH_W) 'tests/test_log.c'; else $(CYGPATH_W) '$(srcdir)/tests/test_log.c'; fi`
 
 test_parse_conf.o: tests/test_parse_conf.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_parse_conf.o -MD -MP -MF $(DEPDIR)/test_parse_conf.Tpo -c -o test_parse_conf.o `test -f 'tests/test_parse_conf.c' || echo '$(srcdir)/'`tests/test_parse_conf.c

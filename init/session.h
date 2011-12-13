@@ -33,23 +33,25 @@
  * @entry: list header,
  * @chroot: path all jobs are chrooted to,
  * @user: uid all jobs are switched to,
- * @conf_path: configuration path.
+ * @conf_path: configuration path (either full path to chroot root, or
+ * full path to users job directory (which may itself be prepended
+ * with a chroot path)).
  *
  * This structure is used to identify collections of jobs
  * that share either a common @chroot and/or common @user.
  *
  * Summary of Session values for different environments:
  *
- * +-------------+---------------------------------------+
- * |    D-Bus    |             Session                   |
- * +------+------+--------+-----+------------------------+
- * | user | PID  | chroot | uid | Object contents        |
- * +------+------+--------+-----+------------------------+
- * | 0    | >0   | no     | 0   | NULL (*1)              |
- * | >0   | "0"  | no     | >0  | only uid set.          |
- * | 0    | >0   | yes    | 0   | chroot + conf_path set |
- * | >0   | ??   | yes    | >0  | XXX: fails (*2)        |
- * +------+------+--------+-----+------------------------+
+ * +-------------+--------------------------------------------------+
+ * |    D-Bus    |             Session                              |
+ * +------+------+--------+-----+-----------------------------------+
+ * | user | PID  | chroot | uid | Object contents                   |
+ * +------+------+--------+-----+-----------------------------------+
+ * | 0    | >0   | no     | 0   | NULL (*1)                         |
+ * | >0   | "0"  | no     | >0  | uid + conf_path set to "~/.init". |
+ * | 0    | >0   | yes    | 0   | chroot + conf_path set            |
+ * | >0   | ??   | yes    | >0  | XXX: fails (*2)                   |
+ * +------+------+--------+-----+-----------------------------------+
  *
  * Notes:
  *

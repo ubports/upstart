@@ -69,6 +69,30 @@ Read job configuration files from a directory other than
 \fI/etc/init\fP.
 .\"
 .TP
+.B \-\-default-console \fIvalue\fP
+Default value for jobs that do not specify a \(aq\fBconsole\fR\(aq
+stanza. This could be used for example to set the default to
+\(aq\fBnone\fR\(aq but still honour jobs that specify explicitly
+\(aq\fBconsole log\fR\(aq. See
+.BR init (5)
+for all possible values of
+.BR console "."
+.\"
+.TP
+.B \-\-logdir \fIdirectory\fP
+Write job output log files to a directory other than
+\fI/var/log/upstart\fP.
+.\"
+.TP
+.B \-\-no\-log
+Disable logging of job output. Note that jobs specifying \(aq\fBconsole
+log\fR\(aq will be treated as if they had specified
+\(aq\fBconsole none\fR\(aq.
+See 
+.BR init (5)
+for further details.
+.\"
+.TP
 .B \-\-no\-sessions
 Disable user and chroot sessions.
 .\"

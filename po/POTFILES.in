@@ -9,10 +9,12 @@ init/event_operator.c
 init/job.c
 init/job_class.c
 init/job_process.c
+init/log.c
 init/main.c
 init/parse_conf.c
 init/parse_job.c
 init/process.c
+init/session.c
 init/system.c
 
 util/initctl.c
@@ -22,3 +24,4 @@ util/shutdown.c
 util/telinit.c
 
 extra/upstart-udev-bridge.c
+extra/upstart-socket-bridge.c

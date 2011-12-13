@@ -163,8 +163,15 @@ for a discussion on instances.
 
 Requests that an instance of the named
 .I JOB
-be restarted (stopped and then started), outputting the status of the
-job to standard output when the command completes.
+be restarted, outputting the status of the job to standard output when
+the command completes.
+
+The job instance being restarted will retain its original configuration.
+To have the new instance run with the latest job configuration,
+.B stop
+the job and then
+.B start
+it again instead.
 
 See
 .B status
