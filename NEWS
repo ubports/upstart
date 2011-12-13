@@ -1,4 +1,16 @@
-1.4  xxxx-xx-xx
+1.4  2011-12-13 "Let them speak"
+
+	* Improved console setting.
+	* New "log" argument to console stanza allowing a system jobs
+	  stdout/stderr to be captured to a file. New options added to
+	  support this feature: '--default-console', '--logdir',
+	  '--no-log'. This feature only currently applies to system jobs:
+	  user jobs which specify "console log" will be treated as if they
+	  had specified "console none".
+	* New "setuid" and "setgid" stanzas to allow system jobs to be run
+	  under the specified uid/gid corresponding to the given name/group.
+	* Improvements to upstart-udev-bridge to handle problematic hardware
+	  (such as some batteries) which pass non-printable bytes to userspace.
 
 1.3  2011-06-14  "Concordia"
 

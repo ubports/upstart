@@ -1,3 +1,8 @@
+2011-12-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.4
+	* configure.ac (NIH_COPYRIGHT): Update
+
 2011-12-12  James Hunt  <james.hunt@ubuntu.com>
 
 	Simplify logfile name encoding.
