@@ -1,3 +1,10 @@
+upstart (1.4-0ubuntu5) precise; urgency=low
+
+  *  debian/manpages/upstart-events.7: Add missing
+     'deconfiguring-networking' event (LP: #904175).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 15:09:32 +0000
+
 upstart (1.4-0ubuntu4) precise; urgency=low
 
   * debian/manpages/upstart-events.7: Add missing 'static-network-up'
