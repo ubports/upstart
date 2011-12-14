@@ -1,3 +1,12 @@
+upstart (1.4-0ubuntu3) precise; urgency=low
+
+  * po/en@boldquot.gmo, po/en@quot.gmo: Overwrite with upstream versions to
+    keep bzr happy. This makes the files technically "wrong" (since the
+    Ubuntu Upstart code has additional messages not in upstream), but they get
+    re-genrated on build so it all works out.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 14:47:25 +0000
+
 upstart (1.4-0ubuntu2) precise; urgency=low
 
   * debian/upstart.dirs: Create /var/log/upstart to hold job logs.
