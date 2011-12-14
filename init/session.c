@@ -82,6 +82,16 @@ session_init (void)
 }
 
 
+/**
+ * session_new:
+ * @parent: parent,
+ * @chroot: full chroot path,
+ * @user: user id.
+ *
+ * Create a new session.
+ *
+ * Return new Session, or NULL on error.
+ **/
 Session *
 session_new (const void *parent,
 	     const char *chroot,
@@ -120,6 +130,15 @@ session_new (const void *parent,
 	return session;
 }
 
+/**
+ * session_from_dbus:
+ * @parent: parent,
+ * @message: D-Bus message.
+ *
+ * Create a new session, based on the specified D-Bus message.
+ *
+ * Return new Session, or NULL on error.
+ **/
 Session *
 session_from_dbus (const void     *parent,
 		   NihDBusMessage *message)
@@ -268,6 +287,13 @@ session_from_dbus (const void     *parent,
 	return session;
 }
 
+/**
+ * session_create_conf_source:
+ * @session: Session.
+ *
+ * Create a new ConfSouce object and associate the specified session
+ * with it.
+ **/
 static void
 session_create_conf_source (Session *session)
 {

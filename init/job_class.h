@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -56,15 +56,75 @@ typedef enum expect_type {
  * ConsoleType:
  *
  * This is used to identify how a job would like its standard input, output
- * and error file descriptors arranged.  The options are to have these
- * mapped to /dev/null, the console device (without being or being the owning
- * process) or to the logging daemon.
+ * and error file descriptors arranged.  The options are:
+ * - CONSOLE_NONE: to have these all mapped to /dev/null,
+ * - CONSOLE_OUTPUT: the console device (non-owning process),
+ * - CONSOLE_OWNER: the console device (owning process),
+ * - CONSOLE_LOG: stdin is mapped to /dev/null and standard output and error
+ *   are redirected to the built-in logger (this is the default).
  **/
 typedef enum console_type {
 	CONSOLE_NONE,
 	CONSOLE_OUTPUT,
-	CONSOLE_OWNER
+	CONSOLE_OWNER,
+	CONSOLE_LOG
 } ConsoleType;
+
+
+/**
+ * JOB_DEFAULT_KILL_TIMEOUT:
+ *
+ * The default length of time to wait after sending a process the TERM
+ * signal before sending the KILL signal if it hasn't terminated.
+ **/
+#define JOB_DEFAULT_KILL_TIMEOUT 5
+
+/**
+ * JOB_DEFAULT_RESPAWN_LIMIT:
+ *
+ * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * we permit a process to respawn before stoping it
+ **/
+#define JOB_DEFAULT_RESPAWN_LIMIT 10
+
+/**
+ * JOB_DEFAULT_RESPAWN_INTERVAL:
+ *
+ * The default number of seconds before resetting the respawn timer.
+ **/
+#define JOB_DEFAULT_RESPAWN_INTERVAL 5
+
+/**
+ * JOB_DEFAULT_UMASK:
+ *
+ * The default file creation mark for processes.
+ **/
+#define JOB_DEFAULT_UMASK 022
+
+/**
+ * JOB_DEFAULT_NICE:
+ *
+ * The default nice level for processes.
+ **/
+#define JOB_DEFAULT_NICE 0
+
+/**
+ * JOB_DEFAULT_OOM_SCORE_ADJ:
+ *
+ * The default OOM score adjustment for processes.
+ **/
+#define JOB_DEFAULT_OOM_SCORE_ADJ 0
+
+/**
+ * JOB_DEFAULT_ENVIRONMENT:
+ *
+ * Environment variables to always copy from our own environment, these
+ * can be overriden in the job definition or by events since they have the
+ * lowest priority.
+ **/
+#define JOB_DEFAULT_ENVIRONMENT \
+	"PATH",			\
+	"TERM"
 
 
 /**
@@ -100,6 +160,8 @@ typedef enum console_type {
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
+ * @setuid: user name to drop to before starting process,
+ * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
  *
  * This structure holds the configuration of a known task or service that
@@ -150,6 +212,8 @@ typedef struct job_class {
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;
+	char           *setuid;
+	char           *setgid;
 
 	int             deleted;
 	int             debug;
@@ -235,6 +299,9 @@ int         job_class_get_stop_on          (JobClass *class,
 int         job_class_get_emits	           (JobClass *class,
 					    NihDBusMessage *message,
 					    char ***emits);
+
+ConsoleType job_class_console_type         (const char *console)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

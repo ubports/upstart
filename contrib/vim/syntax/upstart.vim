@@ -2,9 +2,9 @@
 " Language:	Upstart job files
 " Maintainer:	Michael Biebl <biebl@debian.org>
 "		James Hunt <james.hunt@ubuntu.com>
-" Last Change:	2011 Jun 14
+" Last Change:	2011 Oct 27
 " License:	GPL v2
-" Version:	0.3
+" Version:	0.4
 " Remark:	Syntax highlighting for Upstart (init(8)) job files.
 "
 " It is inspired by the initng syntax file and includes sh.vim to do the
@@ -33,7 +33,7 @@ syn cluster upstartShellCluster contains=@Shell
 " one argument
 syn keyword upstartStatement description author version instance expect
 syn keyword upstartStatement pid kill normal console env exit export
-syn keyword upstartStatement umask nice oom chroot chdir exec
+syn keyword upstartStatement umask nice oom chroot chdir exec setiud setgid
 
 " two arguments
 syn keyword upstartStatement limit
@@ -54,7 +54,7 @@ syn keyword upstartOption timeout signal
 " option for oom
 syn keyword upstartOption score never
 " options for console
-syn keyword upstartOption output owner
+syn keyword upstartOption output owner none log
 " options for expect
 syn keyword upstartOption stop fork daemon none
 " options for limit

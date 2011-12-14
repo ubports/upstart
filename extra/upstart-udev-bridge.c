@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <ctype.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -50,6 +51,7 @@ static void udev_monitor_watcher (struct udev_monitor *udev_monitor,
 static void upstart_disconnected (DBusConnection *connection);
 static void emit_event_error     (void *data, NihDBusMessage *message);
 
+static char *make_safe_string    (const void *parent, const char *original);
 
 /**
  * daemonise:
@@ -66,6 +68,13 @@ static int daemonise = FALSE;
  **/
 static NihDBusProxy *upstart = NULL;
 
+/**
+ * no_strip_udev_data:
+ *
+ * If TRUE, do not modify any udev message data (old behaviour).
+ * If FALSE, use make_safe_string () to cleanse udev strings.
+ **/
+static int no_strip_udev_data = FALSE;
 
 /**
  * options:
@@ -75,6 +84,8 @@ static NihDBusProxy *upstart = NULL;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
+	{ 0, "no-strip", N_("Do not strip non-printable bytes from udev message data"),
+	  NULL, NULL, &no_strip_udev_data, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -179,25 +190,43 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 		      NihIoEvents          events)
 {
 	struct udev_device *    udev_device;
-	const char *            subsystem;
-	const char *            action;
-	const char *            kernel;
-	const char *            devpath;
-	const char *            devname;
+	nih_local char *        subsystem = NULL;
+	nih_local char *        action = NULL;
+	nih_local char *        kernel = NULL;
+	nih_local char *        devpath = NULL;
+	nih_local char *        devname = NULL;
 	nih_local char *        name = NULL;
 	nih_local char **       env = NULL;
+	const char *            value = NULL;
 	size_t                  env_len = 0;
 	DBusPendingCall *       pending_call;
+	char                 *(*copy_string)(const void *, const char *) = NULL;
+
 
 	udev_device = udev_monitor_receive_device (udev_monitor);
 	if (! udev_device)
 		return;
 
-	subsystem = udev_device_get_subsystem (udev_device);
-	action = udev_device_get_action (udev_device);
-	kernel = udev_device_get_sysname (udev_device);
-	devpath = udev_device_get_devpath (udev_device);
-	devname = udev_device_get_devnode (udev_device);
+	copy_string = no_strip_udev_data ? nih_strdup : make_safe_string;
+
+	value = udev_device_get_subsystem (udev_device);
+	subsystem = value ? copy_string (NULL, value) : NULL;
+
+	value = udev_device_get_action (udev_device);
+	action = value ? copy_string (NULL, value) : NULL;
+
+	value = udev_device_get_sysname (udev_device);
+	kernel = value ? copy_string (NULL, value) : NULL;
+
+	value = udev_device_get_devpath (udev_device);
+	devpath = value ? copy_string (NULL, value) : NULL;
+
+	value = udev_device_get_devnode (udev_device);
+	devname = value ? copy_string (NULL, value) : NULL;
+
+	/* Protect against the "impossible" */
+	if (! action)
+		goto out;
 
 	if (! strcmp (action, "add")) {
 		name = NIH_MUST (nih_sprintf (NULL, "%s-device-added",
@@ -253,10 +282,10 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 	for (struct udev_list_entry *list_entry = udev_device_get_properties_list_entry (udev_device);
 	     list_entry != NULL;
 	     list_entry = udev_list_entry_get_next (list_entry)) {
-		const char *    key;
+		nih_local char *key = NULL;
 		nih_local char *var = NULL;
 
-		key = udev_list_entry_get_name (list_entry);
+		key = copy_string (NULL, udev_list_entry_get_name (list_entry));
 		if (! strcmp (key, "DEVPATH"))
 			continue;
 		if (! strcmp (key, "DEVNAME"))
@@ -267,26 +296,33 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 			continue;
 
 		var = NIH_MUST (nih_sprintf (NULL, "%s=%s", key,
-					     udev_list_entry_get_value (list_entry)));
+					     copy_string (NULL, udev_list_entry_get_value (list_entry))));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 	}
 
-	nih_debug ("%s %s", name, devname);
+	nih_debug ("%s %s", name, devname ? devname : "");
 
-	pending_call = NIH_SHOULD (upstart_emit_event (upstart,
-						       name, env, FALSE,
-						       NULL, emit_event_error, NULL,
-						       NIH_DBUS_TIMEOUT_NEVER));
+	pending_call = upstart_emit_event (upstart,
+			name, env, FALSE,
+			NULL, emit_event_error, NULL,
+			NIH_DBUS_TIMEOUT_NEVER);
+
 	if (! pending_call) {
 		NihError *err;
+		int saved = errno;
 
 		err = nih_error_get ();
 		nih_warn ("%s", err->message);
+
+		if (saved != ENOMEM && subsystem)
+			nih_warn ("Likely that udev '%s' event contains binary garbage", subsystem);
+
 		nih_free (err);
 	}
 
 	dbus_pending_call_unref (pending_call);
 
+out:
 	udev_device_unref (udev_device);
 }
 
@@ -307,4 +343,74 @@ emit_event_error (void *          data,
 	err = nih_error_get ();
 	nih_warn ("%s", err->message);
 	nih_free (err);
+}
+
+/**
+ * make_safe_string:
+ * @parent: parent,
+ * @original: original string.
+ *
+ * Strip non-printable and non-blank bytes from specified string.
+ *
+ * Notes:
+ *
+ * Sadly, this is necessary as some hardware (such as battery devices)
+ * exposes non-printable bytes in their descriptive registers to the
+ * kernel. Since neither the kernel nor udev specify any encoding for
+ * udev messages, these (probably bogus) bytes get passed up to userland
+ * to deal with. This is sub-optimal since it implies that _every_
+ * application that processes udev messages must perform its own
+ * sanitizing on the messages. Let's just hope they all deal with the
+ * problem in the same way...
+ *
+ * Note that *iff* the kernel/udev did specify an encoding model, this
+ * problem could go away since one of the lower layers could then
+ * detect the out-of-bound data and deal with it at source. All instances
+ * of this issue seen so far seem to indicate the binary control data
+ * being presented by the hardware is in fact bogus ("corruption") and
+ * looks like some block of memory has not been initialized correctly.
+ *
+ * The approach taken here is to simulate the approach already adopted
+ * by 'upower' (up_device_supply_make_safe_string()), with the exception
+ * that we also allow blank characters (such as tabs).
+ *
+ * Returns a copy of @original stripped of all non-printable and
+ * non-blank characters, or NULL if insufficient memory.
+ **/
+char *
+make_safe_string (const void *parent, const char *original)
+{
+	size_t   len;
+	size_t   i, j;
+	char    *cleaned;
+
+	nih_assert (original);
+
+	len = strlen (original);
+
+	cleaned = nih_alloc (parent, len + 1);
+
+	if (! cleaned)
+		return NULL;
+
+	for (i=0, j=0; i < len; ) {
+		/* Skip over bogus bytes */
+		if (! (isprint (original[i]) || isblank (original[i]))) {
+			i++;
+			continue;
+		}
+
+		/* Copy what remains */
+		cleaned[j] = original[i];
+		i++; j++;
+	}
+
+	/* Terminate */
+	cleaned[j] = '\0';
+
+	if (i != j)
+		nih_debug ("removed unexpected bytes from udev message data");
+
+	/* If substitutions were necessary, shrink the string */
+	return i == j ? cleaned : nih_realloc (cleaned, parent, j + 1);
 }

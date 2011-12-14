@@ -151,6 +151,8 @@ job_new (JobClass   *class,
 	job->trace_forks = 0;
 	job->trace_state = TRACE_NONE;
 
+	job->log = NULL;
+
 	nih_hash_add (class->instances, &job->entry);
 
 	NIH_LIST_FOREACH (control_conns, iter) {

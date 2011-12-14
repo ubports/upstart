@@ -1,3 +1,181 @@
+2011-12-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.4
+	* configure.ac (NIH_COPYRIGHT): Update
+
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
+	Simplify logfile name encoding.
+	
+	* init/job_process.c: job_process_log_path(): Ditch D-Bus job name
+	  encoding in path names for saner approach that simply remaps slash
+	  characters (minimal surprises for users).
+	* init/job_process.h: Addition of macros:
+	  - JOB_PROCESS_LOG_FILE_EXT
+	  - JOB_PROCESS_LOG_REMAP_FROM_CHAR
+	  - JOB_PROCESS_LOG_REMAP_TO_CHAR
+	* init/man/init.5: Update console section for simplified log filename
+	  encoding approach.
+	* init/test_job_process.c: test_log_path(): Updates for simplified
+	  logfile name encoding.
+	* util/tests/test_user_sessions.sh: Updates for simplified
+	  logfile name encoding: removed dbus_encode() and replaced with
+	  upstart_encode().
+
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8:
+	  - Added new '--no-strip' option.
+	  - Added missing '--daemon', '--debug' and '--help' options.
+	* extra/upstart-udev-bridge.c:
+	  XXX: Behavioural change: non-printable bytes are now removed
+	  by default from all udev message data to handle buggy
+	  hardware devices which expose this data to userland (the
+	  kernel simply passes it through verbatim). To revert to old
+	  behaviour (where no udev message data is modified), specify
+	  the new '--no-strip' option (LP: #829980).
+	  - make_safe_string(): New function to cleanse udev data.
+	  - udev_monitor_watcher():
+	    - Cleanse udev data unless '--no-strip' specified.
+	    - Fixed possible crash should 'action' not be set.
+	    - Fixed possible crash should 'devname' not be set
+	      and '--debug' specified.
+
+2011-12-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* Merge of 'setuid' + 'setgid' stanzas from
+	  Evan Broder (lp:~broder/upstart/drop-privileges).
+
+2011-12-09  James Hunt  <james.hunt@ubuntu.com>
+
+	Introduction of 'log' argument to 'console' stanza allowing
+	system job output only to be captured.
+	
+	* contrib/vim/syntax/upstart.vim: Added 'log' and missing
+	  'none'.
+	* init/Makefile.am: Update for log.c, log.h and test_log.c.
+	* init/job.c: job_new(): Initialize log.
+	* init/job.h: Add Log pointer to Job.
+	* init/job_class.c:
+	  - XXX: behaviour change: Default for 'console'
+	    is now CONSOLE_LOG rather than CONSOLE_NONE.
+	    Rationale is that if a job does produce output, you want to see
+	    it since the chances are it will contain useful error details.
+	  - Added default_console variable.
+	  - job_class_console_type(): New function to parse console type
+	    string.
+	* init/job_class.h:
+	  - Added CONSOLE_LOG to ConsoleType and updated documentation
+	    for ConsoleType.
+	  - Added prototype for job_class_console_type().
+	* init/job_process.c:
+	  - New log_dir and disable_job_logging variables.
+	  - job_process_run(): Updated to reflect new parameter for
+	    job_process_spawn().
+	  - job_process_spawn(): Now accepts a Job rather than a
+	    JobClass to allow job->log and class->console to be handled
+	    appropriately. Now creates pty master and slave fds for
+	    console logging. Simplified code for file descriptor
+	    switching by using new job_process_remap_fd().
+	  - job_process_error_read(): Added entries for:
+	    - JOB_PROCESS_ERROR_OPENPT_MASTER
+	    - JOB_PROCESS_ERROR_OPENPT_UNLOCKPT
+	    - JOB_PROCESS_ERROR_PTSNAME
+	    - JOB_PROCESS_ERROR_OPENPT_SLAVE
+	  - job_process_log_path(): New function that returns full path to log
+	    file for specified Job.
+	  - job_process_remap_fd(): New function to ensure file
+	    descriptors do not collide.
+	* init/job_process.h:
+	  - Updated JobProcessErrorType with new entries:
+	    - JOB_PROCESS_ERROR_OPENPT_MASTER
+	    - JOB_PROCESS_ERROR_OPENPT_UNLOCKPT
+	    - JOB_PROCESS_ERROR_PTSNAME
+	    - JOB_PROCESS_ERROR_OPENPT_SLAVE
+	  - job_process_spawn(): Updated prototype.
+	  - job_process_log_path(): Added prototype.
+	* init/main.c:
+	  - handle_logdir(): New function for overriding log directory.
+	  - console_type_setter(): New Function to handle selection of
+	    default console value.
+	  - Added following command-line options:
+	    - '--default-console'
+	    - '--logdir'
+	    - '--no-log'
+	* init/man/init.5:
+	  - Update and restructure of section on 'console' stanza.
+	  - Added a FILES section.
+	* init/man/init.8: Updated with details of new options:
+	  - '--default-console'
+	  - '--logdir'
+	  - '--no-log'
+	* init/parse_job.c: stanza_console(): Updated for "log".
+	* init/paths.h: Added defines for JOB_LOGDIR and LOGDIR_ENV.
+	* init/session.c:
+	  - Added missing function headers.
+	* init/system.c: system_setup_console(): Update for CONSOLE_LOG.
+	* init/test_conf.c:
+	  - TEST_FORCE_WATCH_UPDATE(): Removed debug.
+	  - test_override(): Removed erroneous comment.
+	  - test_select_job(): Added variable attributes to keep gcc 4.6 happy.
+	* init/test_event.c: Explicitly set console type to CONSOLE_NONE to
+	  retain behaviour of existing tests.
+	* init/test_job.c:
+	  - test_job_new(): Ensure log object not created on Job instantiation.
+	  - test_change_state(): Explicitly set console type to CONSOLE_NONE to
+	    retain behaviour of existing tests.
+	* init/test_job_class.c:
+	  - test_new(): Ensure console type now defaults to CONSOLE_LOG.
+	  - Explicitly set console type to CONSOLE_NONE to retain behaviour of
+	    existing tests.
+	* init/test_job_process.c:
+	  - Added various new macros to simplify test code.
+	  - child(): New child_tests added for TEST_OUTPUT and TEST_SIGNALS.
+	  - get_available_pty_count(): New function.
+	  - Explicitly set console type to CONSOLE_NONE to retain behaviour of
+	    existing tests.
+	  - test_run(): Added new tests for CONSOLE_LOG.
+	  - test_spawn(): Added new tests for CONSOLE_LOG.
+	  - test_log_path(): New function.
+	  - test_handler(): Added UPSTART_LOGDIR support to 
+	  - main():
+	    - Update to allow number of forks to be specified when run as a child
+	      process.
+	    - Added call to test_log_path().
+	    - initialize various subsystems since before, functions run from
+	      main() had to be run in the order specified and exactly as listed
+	     (certain tests relied on previous tests initializing a subsystem
+	     which gives unexpected results and thus confusing behaviour
+	     if the order of tests is changed).
+	* init/test_parse_job.c: Added new test to test_stanza_console() for
+	  "console log".
+	* util/tests/test_user_sessions.sh: Added tests for job logging
+	  to ensure no unexpected output recorded for user jobs.
+
+2011-08-11  Scott James Remnant  <keybuk@google.com>
+
+	* init/job_process.c (job_process_spawn): Can't return on
+	dup2() error, we're in the child. Return an error back to
+	the child properly.
+
+	* init/job_process.c (job_process_spawn), init/main.c: error
+	should be ENOENT
+
+	* init/job_class.c, init/job_class.h: Move constants into the
+	header file so they can be found from other source files.
+	* init/job_process.c (job_process_spawn): Only adjust the OOM
+	score if it isn't the default
+	* init/main.c: Apply the default OOM score to the init process
+	itself.
+
+	* init/main.c: Deal with failure to setup the system console by
+	falling back to /dev/null, so we don't end up without default fds
+	and castrate the process.
+
+2011-08-10  Scott James Remnant  <keybuk@google.com>
+
+	* init/job_class.c (job_class_new): nit, use #defines for the default
+	nice level and oom score adjustment.
 2011-07-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_spawn():

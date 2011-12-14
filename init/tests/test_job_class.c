@@ -128,7 +128,7 @@ test_new (void)
 		TEST_EQ_P (class->normalexit, NULL);
 		TEST_EQ (class->normalexit_len, 0);
 
-		TEST_EQ (class->console, CONSOLE_NONE);
+		TEST_EQ (class->console, CONSOLE_LOG);
 
 		TEST_EQ (class->umask, 022);
 		TEST_EQ (class->nice, 0);
@@ -139,6 +139,10 @@ test_new (void)
 
 		TEST_EQ_P (class->chroot, NULL);
 		TEST_EQ_P (class->chdir, NULL);
+
+		TEST_EQ_P (class->setuid, NULL);
+		TEST_EQ_P (class->setgid, NULL);
+
 		TEST_FALSE (class->deleted);
 
 		nih_free (class);
@@ -179,14 +183,17 @@ test_consider (void)
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
 	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
+	class1->console = CONSOLE_NONE;
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
 	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
+	class2->console = CONSOLE_NONE;
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
 	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
+	class3->console = CONSOLE_NONE;
 
 
 	control_init ();
@@ -380,6 +387,7 @@ test_consider (void)
 	 */
 	TEST_FEATURE ("with replacable registered class and not best class");
 	class4 = job_class_new (NULL, "frodo", NULL);
+	class4->console = CONSOLE_NONE;
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -478,14 +486,17 @@ test_reconsider (void)
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
 	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
+	class1->console = CONSOLE_NONE;
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
 	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
+	class2->console = CONSOLE_NONE;
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
 	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
+	class3->console = CONSOLE_NONE;
 
 
 	control_init ();
@@ -719,6 +730,7 @@ test_reconsider (void)
 	nih_free (source1);
 
 	class4 = job_class_new (NULL, "frodo", NULL);
+	class4->console = CONSOLE_NONE;
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -788,6 +800,7 @@ test_register (void)
 	 */
 	TEST_FEATURE ("with signal emission");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -825,6 +838,7 @@ test_register (void)
 	 */
 	TEST_FEATURE ("without signal emission");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -893,6 +907,7 @@ test_unregister (void)
 
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -950,6 +965,7 @@ test_environment (void)
 	 */
 	TEST_FEATURE ("with no configured environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	TEST_ALLOC_FAIL {
 		env = job_class_environment (NULL, class, &len);
@@ -980,6 +996,7 @@ test_environment (void)
 	 */
 	TEST_FEATURE ("with configured environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1017,6 +1034,7 @@ test_environment (void)
 	 */
 	TEST_FEATURE ("with configuration overriding built-ins");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1075,6 +1093,7 @@ test_get_instance (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			job = job_new (class, "");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -1112,6 +1131,7 @@ test_get_instance (void)
 	 */
 	TEST_FEATURE ("with unknown job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	message = nih_new (NULL, NihDBusMessage);
 	message->connection = NULL;
@@ -1143,6 +1163,7 @@ test_get_instance (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->instance = "$FOO";
 
 			job = job_new (class, "wibble");
@@ -1187,6 +1208,7 @@ test_get_instance (void)
 	 */
 	TEST_FEATURE ("with invalid environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -1230,6 +1252,7 @@ test_get_instance_by_name (void)
 	nih_error_init ();
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 
 	/* Check that when given a known instance name, the path to that
@@ -1360,6 +1383,7 @@ test_get_all_instances (void)
 	job_class_init ();
 
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 
 	/* Check that paths for each of the active instances are returned
@@ -1493,6 +1517,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with new job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1584,6 +1609,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with no wait");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1664,6 +1690,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with stopping job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -1765,6 +1792,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with starting job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -1821,6 +1849,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	method = dbus_message_new_method_call (
@@ -1922,6 +1951,7 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with invalid environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2008,6 +2038,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with running job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2091,6 +2122,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with no wait");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2161,6 +2193,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with stopping job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2216,6 +2249,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with unknown job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2265,6 +2299,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2354,6 +2389,7 @@ test_stop (void)
 	 */
 	TEST_FEATURE ("with invalid environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2443,6 +2479,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with running job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2540,6 +2577,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with no wait");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2621,6 +2659,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with stopping job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2676,6 +2715,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with unknown job");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2725,6 +2765,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2838,6 +2879,7 @@ test_restart (void)
 	 */
 	TEST_FEATURE ("with invalid environment");
 	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2914,6 +2956,7 @@ test_get_name (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -2966,6 +3009,7 @@ test_get_description (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->description = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3006,6 +3050,7 @@ test_get_description (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3058,6 +3103,7 @@ test_get_author (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->author = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3098,6 +3144,7 @@ test_get_author (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3150,6 +3197,7 @@ test_get_version (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->version = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3190,6 +3238,7 @@ test_get_version (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3245,6 +3294,7 @@ test_get_start_on (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			class->start_on = event_operator_new (
 				class, EVENT_OR, NULL, NULL);
@@ -3340,6 +3390,7 @@ test_get_start_on (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3396,6 +3447,7 @@ test_get_stop_on (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			class->stop_on = event_operator_new (
 				class, EVENT_OR, NULL, NULL);
@@ -3491,6 +3543,7 @@ test_get_stop_on (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3546,6 +3599,7 @@ test_get_emits (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->emits = nih_str_array_new (class);
 
 			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "foo"));
@@ -3598,6 +3652,7 @@ test_get_emits (void)
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;

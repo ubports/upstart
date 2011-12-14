@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,7 @@
 #include "paths.h"
 #include "events.h"
 #include "system.h"
+#include "job_class.h"
 #include "job_process.h"
 #include "event.h"
 #include "conf.h"
@@ -74,7 +76,9 @@ static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
-static void handle_confdir  (void);
+static void handle_confdir      (void);
+static void handle_logdir       (void);
+static int  console_type_setter (NihOption *option, const char *arg);
 
 
 /**
@@ -92,9 +96,6 @@ static const char *argv0 = NULL;
  * process.
  **/
 static int restart = FALSE;
-
-
-extern int disable_sessions;
 
 /**
  * conf_dir:
@@ -118,7 +119,12 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-extern int use_session_bus;
+extern int          disable_sessions;
+extern int          disable_job_logging;
+extern int          use_session_bus;
+extern int          default_console;
+extern char        *log_dir;
+
 
 /**
  * options:
@@ -129,7 +135,16 @@ static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", &conf_dir, NULL },
 
-	{ 0, "no-sessions", N_("Disable user and chroot sessions"),
+	{ 0, "default-console", N_("default value for console stanza"),
+		NULL, "VALUE", NULL, console_type_setter },
+
+	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
+		NULL, "DIR", &log_dir, NULL },
+
+	{ 0, "no-log", N_("disable job logging"),
+		NULL, NULL, &disable_job_logging, NULL },
+
+	{ 0, "no-sessions", N_("disable user and chroot sessions"),
 		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
@@ -171,6 +186,11 @@ main (int   argc,
 		exit (1);
 
 	handle_confdir ();
+	handle_logdir ();
+
+	if (disable_job_logging)
+		nih_debug ("Job logging disabled");
+
 	control_handle_bus_type ();
 
 #ifndef DEBUG
@@ -224,8 +244,23 @@ main (int   argc,
 		 * resetting it to sane defaults unless we're inheriting from another
 		 * init process which we know left it in a sane state.
 		 */
-		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0)
-			nih_free (nih_error_get ());
+		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0) {
+			NihError *err;
+	
+			err = nih_error_get ();
+			nih_warn ("%s: %s", _("Unable to initialize console, will try /dev/null"),
+				  err->message);
+			nih_free (err);
+	
+			if (system_setup_console (CONSOLE_NONE, FALSE) < 0) {
+				err = nih_error_get ();
+				nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
+					   err->message);
+				nih_free (err);
+	
+				exit (1);
+			}
+		}
 
 		/* Set the PATH environment variable */
 		setenv ("PATH", PATH, TRUE);
@@ -345,6 +380,38 @@ main (int   argc,
 					  NULL));
 
 
+	/* Adjust our OOM priority to the default, which will be inherited
+	 * by all jobs.
+	 */
+	if (JOB_DEFAULT_OOM_SCORE_ADJ) {
+		char  filename[PATH_MAX];
+		int   oom_value;
+		FILE *fd;
+
+		snprintf (filename, sizeof (filename),
+			  "/proc/%d/oom_score_adj", getpid ());
+		oom_value = JOB_DEFAULT_OOM_SCORE_ADJ;
+		fd = fopen (filename, "w");
+		if ((! fd) && (errno == ENOENT)) {
+			snprintf (filename, sizeof (filename),
+				  "/proc/%d/oom_adj", getpid ());
+			oom_value = (JOB_DEFAULT_OOM_SCORE_ADJ
+				     * ((JOB_DEFAULT_OOM_SCORE_ADJ < 0) ? 17 : 15)) / 1000;
+			fd = fopen (filename, "w");
+		}
+		if (! fd) {
+			nih_warn ("%s: %s", _("Unable to set default oom score"),
+				  strerror (errno));
+		} else {
+			fprintf (fd, "%d\n", oom_value);
+
+			if (fclose (fd))
+				nih_warn ("%s: %s", _("Unable to set default oom score"),
+					  strerror (errno));
+		}
+	}
+
+
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
@@ -387,8 +454,16 @@ main (int   argc,
 		/* Now that the startup is complete, send all further logging output
 		 * to kmsg instead of to the console.
 		 */
-		if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
-			nih_free (nih_error_get ());
+		if (system_setup_console (CONSOLE_NONE, FALSE) < 0) {
+			NihError *err;
+			
+			err = nih_error_get ();
+			nih_fatal ("%s: %s", _("Unable to setup standard file descriptors"),
+				   err->message);
+			nih_free (err);
+	
+			exit (1);
+		}
 
 		nih_log_set_logger (logger_kmsg);
 	}
@@ -480,6 +555,7 @@ main (int   argc,
 			closedir (piddir);
 			break;
 		}
+
 	} else {
 		sigset_t mask;
 
@@ -809,3 +885,50 @@ out:
 			conf_dir);
 }
 
+/**
+ * handle_logdir:
+ *
+ * Determine directory where job log files should be written to.
+ **/
+static void
+handle_logdir (void)
+{
+	char *dir;
+
+	/* user has already specified directory on command-line */
+	if (log_dir)
+		goto out;
+
+	log_dir = JOB_LOGDIR;
+
+	dir = getenv (LOGDIR_ENV);
+	if (! dir)
+		return;
+
+	log_dir = dir;
+
+out:
+	nih_debug ("Using alternate log directory %s",
+			log_dir);
+}
+
+/**  
+ * NihOption setter function to handle selection of default console
+ * type.
+ *
+ * Returns 1 on success, -1 on invalid console type.
+ **/
+static int
+console_type_setter (NihOption *option, const char *arg)
+{
+	 nih_assert (option);
+
+	 default_console = (int)job_class_console_type (arg);
+
+	 if (default_console == -1) {
+		 nih_fatal ("%s: %s", _("invalid console type specified"), arg);
+		 return -1;
+	 }
+
+	 return 1;
+}
