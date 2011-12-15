@@ -11,7 +11,6 @@ Default location of system job configuration files.
 .TP
 .B $HOME/.init/
 Default location of user job configuration files.
-.RE
 .\"
 .SH DESCRIPTION
 On startup, the Upstart
@@ -638,6 +637,9 @@ value of
 .BR none
 and all subsequent job output will be discarded.
 
+If the logger detects that the file it is about to write to was deleted,
+it will re-open the file first.
+
 Care should be taken if the log directory is a mount point since any job
 that starts before that mount is available and which produces output will
 then attempt to write logs to the mount point, not to the mounted
@@ -762,10 +764,13 @@ Changes to the user
 before running the job's process.
 
 If this stanza is unspecified, the job will run as root in the case of
-system jobs, and as the user in the case of User Jobs.
+system jobs, and as the user in the case of user jobs.
 
-Note that System jobs using the setuid stanza are still system jobs,
-and can not be controlled by an unprivileged user, even if the setuid
+Note that system jobs using the
+.B setuid
+stanza are still system jobs, and can not be controlled by an
+unprivileged user, even if the
+.B setuid
 stanza specifies that user.
 .\"
 .TP

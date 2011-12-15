@@ -282,21 +282,24 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 	for (struct udev_list_entry *list_entry = udev_device_get_properties_list_entry (udev_device);
 	     list_entry != NULL;
 	     list_entry = udev_list_entry_get_next (list_entry)) {
-		nih_local char *key = NULL;
+		nih_local char *udev_name = NULL;
+		nih_local char *udev_value = NULL;
 		nih_local char *var = NULL;
 
-		key = copy_string (NULL, udev_list_entry_get_name (list_entry));
-		if (! strcmp (key, "DEVPATH"))
+		udev_name = copy_string (NULL, udev_list_entry_get_name (list_entry));
+
+		if (! strcmp (udev_name, "DEVPATH"))
 			continue;
-		if (! strcmp (key, "DEVNAME"))
+		if (! strcmp (udev_name, "DEVNAME"))
 			continue;
-		if (! strcmp (key, "SUBSYSTEM"))
+		if (! strcmp (udev_name, "SUBSYSTEM"))
 			continue;
-		if (! strcmp (key, "ACTION"))
+		if (! strcmp (udev_name, "ACTION"))
 			continue;
 
-		var = NIH_MUST (nih_sprintf (NULL, "%s=%s", key,
-					     copy_string (NULL, udev_list_entry_get_value (list_entry))));
+		udev_value = copy_string (NULL, udev_list_entry_get_value (list_entry));
+
+		var = NIH_MUST (nih_sprintf (NULL, "%s=%s", udev_name, udev_value));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 	}
 
@@ -411,6 +414,10 @@ make_safe_string (const void *parent, const char *original)
 	if (i != j)
 		nih_debug ("removed unexpected bytes from udev message data");
 
-	/* If substitutions were necessary, shrink the string */
-	return i == j ? cleaned : nih_realloc (cleaned, parent, j + 1);
+	/* Note that strictly we should realloc the string if
+	 * bogus bytes were found (since it will now be shorter).
+	 * However, since all the strings are short (and short-lived) we
+	 * do not do this to avoid the associated overhead.
+	 */
+	return cleaned;
 }
