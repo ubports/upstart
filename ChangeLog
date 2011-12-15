@@ -19,6 +19,8 @@
 	  - log_file_open(): Comments.
 	  - log_file_write(): Added missing cast on
 	    nih_io_buffer_shrink() call.
+	* init/main.c: console_type_setter(): NihOptionSetter's should
+	  return 0 on success.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
