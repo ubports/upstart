@@ -1,44 +1,19 @@
-upstart (1.4-0ubuntu6) precise; urgency=low
+upstart (1.4-0ubuntu1) precise; urgency=low
 
-  * Upstream merge for minor test fixes.
-
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 15 Dec 2011 09:46:12 +0000
-
-upstart (1.4-0ubuntu5) precise; urgency=low
-
-  *  debian/manpages/upstart-events.7: Add missing
-     'deconfiguring-networking' event (LP: #904175).
-
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 15:09:32 +0000
-
-upstart (1.4-0ubuntu4) precise; urgency=low
-
-  * debian/manpages/upstart-events.7: Add missing 'static-network-up'
-    event (LP: #889047).
-
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 14:50:29 +0000
-
-upstart (1.4-0ubuntu3) precise; urgency=low
-
+  * New upstream 1.4 release.
+  * debian/upstart.dirs: Create /var/log/upstart to hold job logs.
+  * debian/upstart.logrotate: Logrotate script for job logs.
   * po/en@boldquot.gmo, po/en@quot.gmo: Overwrite with upstream versions to
     keep bzr happy. This makes the files technically "wrong" (since the
     Ubuntu Upstart code has additional messages not in upstream), but they get
     re-genrated on build so it all works out.
+  * debian/manpages/upstart-events.7: Add missing 'static-network-up'
+    event (LP: #889047).
+  *  debian/manpages/upstart-events.7: Add missing
+     'deconfiguring-networking' event (LP: #904175).
+  * Upstream merge for minor test fixes.
 
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 14:47:25 +0000
-
-upstart (1.4-0ubuntu2) precise; urgency=low
-
-  * debian/upstart.dirs: Create /var/log/upstart to hold job logs.
-  * debian/upstart.logrotate: Logrotate script for job logs.
-
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 14:33:16 +0000
-
-upstart (1.4-0ubuntu1) precise; urgency=low
-
-  * New upstream release.
-
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 14 Dec 2011 14:07:07 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 15 Dec 2011 12:11:50 +0000
 
 upstart (1.3-0ubuntu11) oneiric-proposed; urgency=low
 
