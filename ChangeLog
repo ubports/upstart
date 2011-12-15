@@ -21,6 +21,8 @@
 	    nih_io_buffer_shrink() call.
 	* init/main.c: console_type_setter(): NihOptionSetter's should
 	  return 0 on success.
+	* init/man/init.5: lower-case all references to system jobs
+	  and user jobs.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
