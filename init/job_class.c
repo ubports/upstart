@@ -1423,7 +1423,7 @@ job_class_get_emits (JobClass *      class,
  * job_class_console_type:
  * @console: string representing console type.
  *
- * Returns: ConsoleType equivalent of @string, or -1 on invalid @string.
+ * Returns: ConsoleType equivalent of @string, or -1 on invalid @console.
  **/
 ConsoleType
 job_class_console_type (const char *console)

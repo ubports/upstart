@@ -9,6 +9,7 @@
 	  - udev_monitor_watcher(): Fix leak when obtaining udev value.
 	  - make_safe_string(): Don't realloc since overhead too high
 	  considering size of strings.
+	* init/job_class.c: Typo.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
