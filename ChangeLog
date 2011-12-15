@@ -5,6 +5,10 @@
 	  of more standard (Ubuntu Upstart) events.
 	* extra/man/upstart-udev-bridge.8: Ensure literal dashes used
 	  for all command-line options.
+	* extra/upstart-udev-bridge.c:
+	  - udev_monitor_watcher(): Fix leak when obtaining udev value.
+	  - make_safe_string(): Don't realloc since overhead too high
+	  considering size of strings.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
