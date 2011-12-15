@@ -1,5 +1,9 @@
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
+	* Makefile.am: Add missing TESTING.sessions to distribution.
+
+2011-12-15  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/tests/test_job_process.c: test_run():
 	  - Ensure process group killed for multi-process shell scripts.
 	  - Change 'command-not-found' tests to use regex matching rather
