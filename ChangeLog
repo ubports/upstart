@@ -3,6 +3,8 @@
 	* Makefile.am: Add missing TESTING.sessions to distribution.
 	* contrib/vim/syntax/upstart.vim: Meta-data update and addition
 	  of more standard (Ubuntu Upstart) events.
+	* extra/man/upstart-udev-bridge.8: Ensure literal dashes used
+	  for all command-line options.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
