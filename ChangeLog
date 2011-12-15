@@ -1,3 +1,11 @@
+2011-12-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_job_process.c: test_run():
+	  - Ensure process group killed for multi-process shell scripts.
+	  - Change 'command-not-found' tests to use regex matching rather
+	    than literal to allow for minor differences in /bin/sh variants
+	    error output.
+
 2011-12-13  James Hunt  <james.hunt@ubuntu.com>
 
 	* configure.ac: Bump version to 1.5

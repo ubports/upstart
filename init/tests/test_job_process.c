@@ -294,6 +294,7 @@ test_run (void)
 	struct group    *grp;
 	char            *p;
 	int              ok;
+	char             buffer[1024];
 
 
 	TEST_FUNCTION ("job_process_run");
@@ -1227,7 +1228,7 @@ test_run (void)
 	/*  wait for read from pty allowing logger to write to log file */
 	TEST_FORCE_WATCH_UPDATE ();
 
-	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
@@ -1372,7 +1373,7 @@ test_run (void)
 	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
 	TEST_FORCE_WATCH_UPDATE ();
 
-	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
@@ -1430,7 +1431,7 @@ test_run (void)
 	/*  wait for read from pty allowing logger to write to log file */
 	TEST_FORCE_WATCH_UPDATE ();
 
-	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
+	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
@@ -2510,7 +2511,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "/bin/sh: 1: /this/command/does/not/exist: not found\r\n");
+	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
+	TEST_EQ (fnmatch ("*sh*/this/command/does/not/exist*not found*", buffer, 0), 0);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2577,7 +2580,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "/proc/self/fd/9: 3: /this/command/does/not/exist: not found\r\n");
+	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
+	TEST_EQ (fnmatch ("/proc/self/fd/9*/this/command/does/not/exist*not found*", buffer, 0), 0);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
