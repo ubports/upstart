@@ -43,6 +43,7 @@
 #include <sys/resource.h>
 #include <pwd.h>
 #include <grp.h>
+#include <fnmatch.h>
 
 #include <nih/macros.h>
 #include <nih/string.h>

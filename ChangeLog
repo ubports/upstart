@@ -23,6 +23,8 @@
 	  return 0 on success.
 	* init/man/init.5: lower-case all references to system jobs
 	  and user jobs.
+	* init/tests/test_job_process.c: Add missing include for
+	  fnmatch.h.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
