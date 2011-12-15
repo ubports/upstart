@@ -333,6 +333,9 @@ log_file_open (Log *log)
 	 * unlinked file, but it *is* a problem for
 	 * users who expect to see some data. Therefore,
 	 * close the file and attempt to rewrite it.
+	 *
+	 * This behaviour also allows tools such as logrotate(8)
+	 * to operate without disrupting the logger.
 	 */
 	if (log->fd > -1 && ! statbuf.st_nlink) {
 		close (log->fd);
@@ -454,7 +457,7 @@ log_file_write (Log *log, const char *buf, size_t len)
 			goto error;
 		}
 
-		nih_io_buffer_shrink (log->unflushed, wlen);
+		nih_io_buffer_shrink (log->unflushed, (size_t)wlen);
 	}
 
 	/* Only managed a partial write for the unflushed data,

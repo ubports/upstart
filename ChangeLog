@@ -15,6 +15,10 @@
 	  - Removed redundant close(2) calls.
 	  - Move declarations to top of block for
 	    getpwnam(3)/getgrnam(3).
+	* init/log.c:
+	  - log_file_open(): Comments.
+	  - log_file_write(): Added missing cast on
+	    nih_io_buffer_shrink() call.
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
