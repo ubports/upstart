@@ -1,3 +1,9 @@
+upstart (1.4-0ubuntu6) precise; urgency=low
+
+  * Upstream merge for minor test fixes.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 15 Dec 2011 09:46:12 +0000
+
 upstart (1.4-0ubuntu5) precise; urgency=low
 
   *  debian/manpages/upstart-events.7: Add missing
