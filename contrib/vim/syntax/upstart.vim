@@ -2,9 +2,9 @@
 " Language:	Upstart job files
 " Maintainer:	Michael Biebl <biebl@debian.org>
 "		James Hunt <james.hunt@ubuntu.com>
-" Last Change:	2011 Oct 27
+" Last Change:	2011 Dec 15
 " License:	GPL v2
-" Version:	0.4
+" Version:	0.5
 " Remark:	Syntax highlighting for Upstart (init(8)) job files.
 "
 " It is inspired by the initng syntax file and includes sh.vim to do the
@@ -78,19 +78,30 @@ syn match   upstartEvent /power-status-changed/
 " D-Bus
 syn match   upstartEvent /dbus-activation/
 
-" Display Manager (ie gdm)
+" Display Manager (ie gdm/lightdm)
 syn match   upstartEvent /desktop-session-start/
 syn match   upstartEvent /login-session-start/
+syn match   upstartEvent /desktop-shutdown/
 
 " mountall
 syn keyword upstartEvent filesystem
 syn keyword upstartEvent mounted
 syn keyword upstartEvent mounting
+syn match   upstartEvent /device-not-ready/
 syn match   upstartEvent /\(\<local\>\|\<virtual\>\|\<remote\>\)-filesystems/
 syn match   upstartEvent /all-swaps/
 
 " upstart-udev-bridge and ifup/down
 syn match   upstartEvent /\<\i\{-1,}-device-\(\<added\>\|\<removed\>\|\<up\>\|\<down\>\)/
+syn match   upstartEvent /static-network-up/
+
+" SysV handling
+syn match   upstartEvent /unmounted-remote-filesystems/
+syn match   upstartEvent /deconfiguring-networking/
+
+" misc
+syn match   upstartEvent /failsafe-boot/
+syn match   upstartEvent /recovery/
 
 " upstart-socket-bridge
 syn keyword upstartEvent socket
