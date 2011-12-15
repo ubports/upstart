@@ -10,6 +10,11 @@
 	  - make_safe_string(): Don't realloc since overhead too high
 	  considering size of strings.
 	* init/job_class.c: Typo.
+	* init/job_process.c: job_process_spawn():
+	  - Correct ignoring of SIGCHLD prior to grantpt(3) call.
+	  - Removed redundant close(2) calls.
+	  - Move declarations to top of block for
+	    getpwnam(3)/getgrnam(3).
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 

@@ -539,36 +539,35 @@ job_process_spawn (Job          *job,
 
 	if (class->console == CONSOLE_LOG) {
 		struct sigaction act;
+		struct sigaction ignore;
 
 		/* Child is the slave, so won't need this */
 		nih_io_set_cloexec (pty_master);
 
-		/* Save old handler as grantpt disallows child handler
-		 * to be in effect
+		/* Save old handler as grantpt disallows a child handler
+		 * to be in effect.
 		 */
-		if (sigaction (SIGCHLD, NULL, &act) < 0) {
-			close (pty_master);
+		ignore.sa_handler = SIG_IGN;
+		sigemptyset (&ignore.sa_mask);
+
+		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
 		if (grantpt (pty_master) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
 		/* Restore handler */
 		if (sigaction (SIGCHLD, &act, NULL) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
 		if (unlockpt (pty_master) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_UNLOCKPT, 0);
 		}
 
 		if (ptsname_r (pty_master, pts_name, sizeof(pts_name)) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_PTSNAME, 0);
 		}
 
@@ -801,11 +800,12 @@ job_process_spawn (Job          *job,
 	 * session jobs and jobs with a chroot stanza.
 	 */
 	if (class->setuid) {
+		struct passwd *pwd;
 		/* Without resetting errno, it's impossible to
 		 * distinguish between a non-existent user and and
 		 * error during lookup */
 		errno = 0;
-		struct passwd *pwd = getpwnam (class->setuid);
+		pwd = getpwnam (class->setuid);
 		if (! pwd) {
 			if (errno != 0) {
 				nih_error_raise_system ();
@@ -823,8 +823,9 @@ job_process_spawn (Job          *job,
 	}
 
 	if (class->setgid) {
+		struct group *grp;
 		errno = 0;
-		struct group *grp = getgrnam (class->setgid);
+		grp = getgrnam (class->setgid);
 		if (! grp) {
 			if (errno != 0) {
 				nih_error_raise_system ();
