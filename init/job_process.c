@@ -544,10 +544,11 @@ job_process_spawn (Job          *job,
 		/* Child is the slave, so won't need this */
 		nih_io_set_cloexec (pty_master);
 
-		/* Save old handler as grantpt disallows a child handler
-		 * to be in effect.
+		/* Temporarily disable child handler as grantpt(3) disallows one
+		 * being in effect when called.
 		 */
-		ignore.sa_handler = SIG_IGN;
+		ignore.sa_handler = SIG_DFL;
+		ignore.sa_flags = 0;
 		sigemptyset (&ignore.sa_mask);
 
 		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
@@ -558,7 +559,7 @@ job_process_spawn (Job          *job,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
-		/* Restore handler */
+		/* Restore child handler */
 		if (sigaction (SIGCHLD, &act, NULL) < 0) {
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}

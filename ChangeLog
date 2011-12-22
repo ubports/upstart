@@ -1,3 +1,10 @@
+2011-12-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Set child handler to default rather than explicit ignore
+	    to avoid test failures in environments that disallow
+	    ignoring SIGCHLD.
+
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* Makefile.am: Add missing TESTING.sessions to distribution.
