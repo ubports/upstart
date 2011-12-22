@@ -1083,7 +1083,8 @@ test_run (void)
 	{
 		struct timeval t;
 		/* be generous */
-		t.tv_usec = 500000;
+		t.tv_sec  = 2;
+		t.tv_usec = 0;
 		TEST_FORCE_WATCH_UPDATE_TIMEOUT (t);
 	}
 
