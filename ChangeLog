@@ -4,6 +4,9 @@
 	  - Set child handler to default rather than explicit ignore
 	    to avoid test failures in environments that disallow
 	    ignoring SIGCHLD.
+	* init/tests/test_job_process.c: test_run():
+	  - Changed timeout for test feature "ensure that no log
+	    file written for CONSOLE_NONE".
 
 2011-12-15  James Hunt  <james.hunt@ubuntu.com>
 
