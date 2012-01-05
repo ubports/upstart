@@ -761,10 +761,10 @@ may be specified for either.
 .B setuid \fIUSERNAME
 Changes to the user
 .I USERNAME
-before running the job's process.
+before running any job process.
 
-If this stanza is unspecified, the job will run as root in the case of
-system jobs, and as the user in the case of user jobs.
+If this stanza is unspecified, all job processes will run as root in the
+case of system jobs, and as the user in the case of user jobs.
 
 Note that system jobs using the
 .B setuid
@@ -777,14 +777,15 @@ stanza specifies that user.
 .B setgid \fIGROUPNAME
 Changes to the group
 .I GROUPNAME
-before running the job's process.
+before running any job process.
 
 If this stanza is unspecified, the primary group of the user specified
 in the
 .B setuid
-block is used. If both stanzas are unspecified, the job will run with
-its group ID set to 0 in the case of system jobs, and as the primary
-group of the user in the case of User Jobs.
+block is used for all job processes. If both stanzas are unspecified,
+all job processes will run with its group ID set to 0 in the case of
+system jobs, and as the primary group of the user in the case of User
+Jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
