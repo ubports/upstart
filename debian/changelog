@@ -1,3 +1,11 @@
+upstart (1.4-0ubuntu2) precise; urgency=low
+
+  * init/main.c: Temporarily disable default job logging whilst
+    investigating bug 912558 (can be re-enabled with
+    _temporary_ '--log' option).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 06 Jan 2012 16:11:23 +0000
+
 upstart (1.4-0ubuntu1) precise; urgency=low
 
   * New upstream 1.4 release.
