@@ -1,3 +1,9 @@
+upstart (1.4-0ubuntu3) UNRELEASED; urgency=low
+
+  * Mark upstart Multi-Arch:foreign
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Mon, 09 Jan 2012 11:08:27 +0100
+
 upstart (1.4-0ubuntu2) precise; urgency=low
 
   * init/main.c: Temporarily disable default job logging whilst
