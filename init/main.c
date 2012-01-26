@@ -121,7 +121,6 @@ static int disable_startup_event = FALSE;
 
 extern int          disable_sessions;
 extern int          disable_job_logging;
-int                 force_logging;
 extern int          use_session_bus;
 extern int          default_console;
 extern char        *log_dir;
@@ -138,9 +137,6 @@ static NihOption options[] = {
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
-
-	{ 0, "log", N_("enable job logging"),
-		NULL, NULL, &force_logging, NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
@@ -185,18 +181,12 @@ main (int   argc,
 		  "process id 1 to denote its special status.  When executed "
 		  "by a user process, it will actually run /sbin/telinit."));
 
-	/* Temporarily disable job logging (bug 912558) */
-	disable_job_logging = 1;
-
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
 
 	handle_confdir ();
 	handle_logdir ();
-
-	if (force_logging)
-		disable_job_logging = 0;
 
 	if (disable_job_logging)
 		nih_debug ("Job logging disabled");

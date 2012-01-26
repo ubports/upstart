@@ -6,6 +6,7 @@ upstart (1.4-0ubuntu3) precise; urgency=low
   [ James Hunt ]
   * Merge of important logger fixes from upstream lp:upstart
     (LP: #912558).
+  * Reverted temporary fix to disable job logging. 
 
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 26 Jan 2012 15:13:25 +0000
 
