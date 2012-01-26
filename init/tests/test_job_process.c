@@ -296,12 +296,20 @@ test_run (void)
 	char            *p;
 	int              ok;
 	char             buffer[1024];
-
+	pid_t            pid;
 
 	TEST_FUNCTION ("job_process_run");
 
 	TEST_FILENAME (filename);
 	program_name = "test";
+
+	TEST_FILENAME (dirname);       
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Override default location to ensure job output goes to a
+	 * writeable location
+	 */
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
 	/* Check that we can run a simple command, and have the process id
 	 * and state filled in.  We should be able to wait for the pid to
@@ -1277,6 +1285,8 @@ test_run (void)
 	class->process[PROCESS_MAIN]->script = FALSE;
 
 	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
@@ -1292,6 +1302,9 @@ test_run (void)
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFSIGNALED (status));
 	TEST_EQ (WTERMSIG (status), SIGKILL);
+
+	/* allow destructor to write any lingering unflushed data */
+	nih_free (class);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -1333,7 +1346,6 @@ test_run (void)
 	fclose (output);
 
 	TEST_EQ (unlink (filename), 0);
-	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that is killed");
@@ -2523,14 +2535,36 @@ test_run (void)
 	nih_free (class);
 
 	/************************************************************
-	 * No point in running a test for:
+	 * Superficially, there seems little point in running a test for
+	 * this scenario since if Upstart attempts to exec(2) directly a
+	 * command that does not exist, the exec simply fails (since
+	 * there is no shell to report the error).
 	 *
-	 *   TEST_FEATURE ("with single-line command running an invalid command");
-	 *
-	 * Since as such commands are exec'ed directly, there is no shell to report
-	 * an error back - exec just fails.
-	 *
+	 * And yet -- ironically -- bug 912558 would have been prevented
+	 * had we originally tested this scenario!
 	 ************************************************************/
+	TEST_FEATURE ("with single-line command running an invalid command");
+
+	class = job_class_new (NULL, "buzz", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/buzz.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_LT (ret, 0);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script running an invalid command");
@@ -2712,6 +2746,246 @@ test_run (void)
 
 	TEST_EQ (unlink (filename), 0);
 	nih_free (class);
+
+	/************************************************************/
+	/* XXX: Note that we don't force a watch update here to simulate
+	 * a job that writes data _after_ Upstart has run nih_io_handle_fds()
+	 * in the main loop and just _before_ it exits _in the same main
+	 * loop iteration_.
+	 */
+	TEST_FEATURE ("with single line command writing fast and exiting");
+
+	class = job_class_new (NULL, "budapest", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/budapest.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	/* program to run "fast", so directly exec a program with
+	 * no shell intervention.
+	 */
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello\n",
+			TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	/* allow destructor to write any lingering unflushed data */
+	nih_free (class);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+
+	/************************************************************/
+	TEST_FEATURE ("with single line command writing lots of data fast and exiting");
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/foo.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	/* program must run "fast", so directly exec with
+	 * no shell intervention.
+	 *
+	 * Writes large number of nulls (3MB).
+	 */
+#define EXPECTED_1K_BLOCKS	(1024*3)
+#define TEST_BLOCKSIZE           1024
+
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s if=/dev/zero bs=%d count=%d",
+			TEST_CMD_DD, TEST_BLOCKSIZE, EXPECTED_1K_BLOCKS);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	NIH_MUST (nih_child_add_watch (NULL,
+				-1,
+				NIH_CHILD_ALL,
+				job_process_handler,
+				NULL)); 
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	pid = job->pid[PROCESS_MAIN];
+
+	/* job will block until something reads the other end of the pty */
+	TEST_EQ (kill (pid, 0), 0);
+
+	{
+		size_t  bytes;
+		size_t  expected_bytes = TEST_BLOCKSIZE * EXPECTED_1K_BLOCKS;
+		off_t   filesize = (off_t)-1;
+
+		/* Check repeatedly for job log output jobs until
+		 * we've either read the expected number of nulls, or we
+		 * timed out.
+		 */
+		while ( 1 ) {
+			size_t           length;
+			size_t           i;
+			struct timeval   t;
+			nih_local char  *file = NULL;
+
+			t.tv_sec  = 1;
+			t.tv_usec = 0;
+
+			TEST_FORCE_WATCH_UPDATE_TIMEOUT (t);
+
+			TEST_EQ (stat (filename, &statbuf), 0);
+
+			/* We expect the file size to change */
+			if (statbuf.st_size == filesize) {
+				break;
+			}
+
+			filesize = statbuf.st_size;
+
+			file = nih_file_read (NULL, filename, &length);
+			TEST_NE_P (file, NULL);
+
+			bytes = 0;
+			for (i=0; i < length; ++i) {
+				if (file[i] == '\0')
+					bytes++;
+			}
+
+			if (bytes == expected_bytes) {
+				break;
+			}
+		}
+
+		TEST_EQ (bytes, expected_bytes);
+	}
+
+	TEST_EQ (kill (pid, 0), 0);
+	nih_child_poll ();
+
+	/* The process should now be dead */
+	TEST_EQ (kill (pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
+
+	nih_free (class);
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (S_ISREG (statbuf.st_mode));
+
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	TEST_EQ (unlink (filename), 0);
+
+#undef  EXPECTED_1K_BLOCKS
+#undef  TEST_BLOCKSIZE
+
+	/************************************************************/
+	/* Applies to respawn jobs too */
+
+	TEST_FEATURE ("with log object freed on process exit");
+
+	class = job_class_new (NULL, "acorn", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/acorn.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello",
+			TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	/* XXX: Manually add the class so job_process_find() works */
+	nih_hash_add (job_classes, &class->entry);
+
+	NIH_MUST (nih_child_add_watch (NULL,
+				-1,
+				NIH_CHILD_ALL,
+				job_process_handler,
+				NULL)); 
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	TEST_EQ_P (job->log, NULL);
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	pid = job->pid[PROCESS_MAIN];
+
+	job->goal = JOB_STOP;
+	job->state = JOB_KILLED;
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	TEST_NE_P (job->log, NULL);
+
+	TEST_FREE_TAG (job);
+	TEST_FREE_TAG (job->log);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	nih_child_poll ();
+
+	/* Should have been destroyed now */
+	TEST_FREE (job);
+	TEST_FREE (job->log);
+
+	nih_free (class);
+	unlink (filename);
+
+	/************************************************************/
 
 	/* Check that we can succesfully setuid and setgid to
 	 * ourselves. This should always work, privileged or
@@ -3315,7 +3589,7 @@ test_spawn (void)
 
 	TEST_EQ (fclose (output), 0);
 
-	unlink (filename);
+	TEST_EQ (unlink (filename), 0);
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
@@ -3409,6 +3683,9 @@ test_spawn (void)
 
 	TEST_FORCE_WATCH_UPDATE ();
 
+	/* This will eventually call the log destructor */
+	nih_free (class);
+
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
@@ -3422,8 +3699,6 @@ test_spawn (void)
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
-
-	nih_free (job);
 
 	/************************************************************/
 	TEST_FEATURE ("read data from daemon process");
@@ -3456,10 +3731,14 @@ test_spawn (void)
 	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_GT (pid, 0);
 
+	TEST_FORCE_WATCH_UPDATE ();
+
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	/* This will eventually call the log destructor */
+	nih_free (class);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -3474,9 +3753,6 @@ test_spawn (void)
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
-
-	nih_free (job);
-
 
 	/* FIXME */
 #if 0
@@ -3538,14 +3814,13 @@ test_spawn (void)
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);
 		}
-		nih_free (job);
+		nih_free (class);
 	}
 #else
 		/* FIXME */
 		TEST_FEATURE ("WARNING: FIXME: test 'when no free ptys' disabled due to kernel bug");
 #endif
 
-	nih_free (class);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 

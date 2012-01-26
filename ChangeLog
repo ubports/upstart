@@ -1,3 +1,41 @@
+2012-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_terminated(): Free log to ensure data
+	  written as soon as _any_ process ends (consider respawn jobs).
+	* init/log.c:
+	  - log_destroy():
+	    - Improved documentation.
+	    - Now calls new function log_flush().
+	  - log_flush(): New function to ensure no lingering buffered job data
+	    remains. Now considers EBADF (LP: #912558).
+	  - log_io_reader():
+	    - Added missing assert for @len.
+	    - Simplified ENOSPC handling.
+	    - Ensure log->io set to NULL to allow other routines to detect it
+	      really has gone.
+	  - log_file_write(): Added @len checks.
+	  - log_read_watch(): New function to drain data from a watch descriptor
+	    (which also must consider EBADF).
+	* init/log.h: Added define for LOG_READ_SIZE.
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - Added some extra pointer checks.
+	    - Free class *before* checking file to ensure destructor invoked at
+	      correct point.
+	    - Added test "with single-line command running an invalid command"
+	      (for scenario bug 912558 exposed).
+	    - Added test "with single-line command writing fast and exiting".
+	* init/tests/test_log.c: Changed all tests to use openpty(3) rather than
+	  pipe(2) for semantic parity with actual code.
+	* util/tests/test_user_sessions.sh:
+	  - ensure_no_output(): Now calls check_job_output() and delete_job() to
+	    simplify logic.
+	  - delete_job(): Call get_job_file() rather than doing it long-hand.
+	  - check_job_output(): New function.
+	  - start_job(): Added allow_failure parameter.
+	  - test_ensure_no_unexpected_output(): New test
+	    "ensure command job does not create log file with invalid command".
+
 2012-01-05  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Explain that all job processes affected

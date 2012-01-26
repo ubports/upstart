@@ -599,24 +599,8 @@ ensure_no_output()
   create_job "$job_name" "$script"
   start_job "$job" "$job_name" "$instance"
 
-  [ ! -z "$(ls $user_log_dir 2>/dev/null)" ] && \
-    TEST_FAILED "job $job_name created logfile unexpectedly in '$user_log_dir'"
-
-  # XXX: note that it mihgt appear that checking in $sys_log_dir
-  # could result in false positives, but this isn't so since
-  # (currently) it is not possible for a user job to have the
-  # same name as a system job. start_job() will detect this.
-  # scenario.
-  for dir in "$user_log_dir" "$sys_log_dir"
-  do
-    log_file="${dir}/${job_name}.log"
-    [ -f "$log_file" ] && \
-      TEST_FAILED "job $job_name created logfile unexpectedly as '$log_file'"
-  done
-
-  job_file="$(get_job_file $job_name)"
-  rm "$job_file" || \
-    TEST_FAILED "unable to remove script '$job_file'"
+  check_job_output "$job_name"
+  delete_job "$job_name"
 }
 
 create_job()
@@ -652,9 +636,29 @@ delete_job()
 
   [ -z "$job_name" ] && die "no job name"
 
-  job_file="${test_dir}/${job_name}.conf"
+  job_file="$(get_job_file $job_name)"
 
   rm "$job_file" || TEST_FAILED "unable to remove job file '$job_file'"
+}
+
+check_job_output()
+{
+  job_name="$1"
+
+  [ ! -z "$(ls $user_log_dir 2>/dev/null)" ] && \
+    TEST_FAILED "job $job_name created logfile unexpectedly in '$user_log_dir'"
+
+  # XXX: note that it might appear that checking in $sys_log_dir
+  # could result in false positives, but this isn't so since
+  # (currently) it is not possible for a user job to have the
+  # same name as a system job. start_job() will detect this
+  # scenario.
+  for dir in "$user_log_dir" "$sys_log_dir"
+  do
+    log_file="${dir}/${job_name}.log"
+    [ -f "$log_file" ] && \
+      TEST_FAILED "job $job_name created logfile unexpectedly as '$log_file'"
+  done
 }
 
 start_job()
@@ -662,6 +666,7 @@ start_job()
   job="$1"
   job_file="$2"
   instance="$3"
+  allow_failure="$4"
 
   # XXX: instance may be blank
   [ -z "$job" ] && die "no job"
@@ -670,6 +675,7 @@ start_job()
   debug "start_job: job='$job'"
   debug "start_job: job_file='$job_file'"
   debug "start_job: instance='$instance'"
+  debug "start_job: allow_failure='$allow_failure'"
 
   eval output=$(mktemp)
 
@@ -677,7 +683,14 @@ start_job()
   # start(8).
   cmd="start \"$job\" $instance >${output} 2>&1"
   debug "start_job: running '$cmd'"
-  eval "$cmd" || TEST_FAILED "job $job_file not started: $(cat $output)"
+  eval "$cmd"
+  rc=$?
+
+  if [ $rc -ne 0 -a -z "$allow_failure" ]
+  then
+    TEST_FAILED "job $job_file not started: $(cat $output)"
+  fi
+
   rm -f "$output"
 }
 
@@ -950,6 +963,22 @@ test_ensure_no_unexpected_output()
 
   mkdir "${user_log_dir}" || \
     TEST_FAILED "unable to recreate log directory '$user_log_dir'"
+
+  #---------------------------------------------------------------------
+  feature="ensure command job does not create log file with invalid command"
+  TEST_FEATURE "$feature"
+
+  job_name=$(make_job_name "$feature")
+
+  script="\
+    console log
+    exec /this/command/does/not/exist"
+
+  job="${test_dir_suffix}/${job_name}"
+  create_job "$job_name" "$script"
+  start_job "$job" "$job_name" "" 1
+  check_job_output "$job_name"
+  delete_job "$job_name"
 }
 
 test_output_logged()
