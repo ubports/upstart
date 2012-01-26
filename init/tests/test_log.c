@@ -91,7 +91,6 @@ void
 test_log_new (void)
 {
 	Log	        *log;
-	int	         fds[2] = { -1, -1 };
 	char	         path[] = "/foo";
 	char             str[] = "hello, world!";
 	char             str2[] = "The end?";
@@ -104,6 +103,8 @@ test_log_new (void)
 	FILE            *output;
 	mode_t           old_perms;
 	off_t            old_size;
+	int              pty_master;
+	int              pty_slave;
 
 	TEST_FUNCTION ("log_new");
 
@@ -130,8 +131,8 @@ test_log_new (void)
 	TEST_FEATURE ("object checks with uid 0");
 
 	TEST_ALLOC_FAIL {
-		TEST_EQ (pipe (fds), 0);
-		log = log_new (NULL, path, fds[0], 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+		log = log_new (NULL, path, pty_master, 0);
 
 		/* Handle all alloc failures where the alloc calls were
                  * initiated by log_new().
@@ -140,8 +141,8 @@ test_log_new (void)
 				(test_alloc_failed <= LOG_NEW_ALLOC_CALLS)) {
  
 			TEST_EQ_P (log, NULL);
-			close (fds[0]);
-			close (fds[1]);
+			close (pty_master);
+			close (pty_slave);
 			continue;
 		}
 
@@ -153,11 +154,11 @@ test_log_new (void)
 		TEST_ALLOC_PARENT (log->path, log);
 
 		TEST_EQ_STR (log->path, path);
-		TEST_EQ (log->io->watch->fd, fds[0]);
+		TEST_EQ (log->io->watch->fd, pty_master);
 		TEST_EQ (log->uid, 0);
 		TEST_LT (log->fd, 0);
 
-		close (fds[1]);
+		close (pty_slave);
 
 		/* frees fds[0] */
 		nih_free (log);
@@ -168,13 +169,13 @@ test_log_new (void)
 	/* XXX: No support for logging of user job output currently */
 	TEST_FEATURE ("ensure logging disallowed for uid >0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, path, fds[0], 1);
+	log = log_new (NULL, path, pty_master, 1);
 	TEST_EQ (log, NULL);
 
-	close (fds[0]);
-	close (fds[1]);
+	close (pty_master);
+	close (pty_slave);
 
 	/************************************************************/
 	TEST_FEATURE ("parent check");
@@ -185,14 +186,15 @@ test_log_new (void)
 			string = NIH_MUST (nih_strdup (NULL, str));
 		}
 
-		TEST_EQ (pipe (fds), 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-		log = log_new (string, path, fds[0], 0);
+		log = log_new (string, path, pty_master, 0);
 
-		if (test_alloc_failed) {
+		if (test_alloc_failed &&
+				(test_alloc_failed <= LOG_NEW_ALLOC_CALLS)) {
 			TEST_EQ_P (log, NULL);         
-			close (fds[0]);
-			close (fds[1]);
+			close (pty_master);
+			close (pty_slave);
 			nih_free (string);
 			continue;
 		}
@@ -201,7 +203,7 @@ test_log_new (void)
 		TEST_ALLOC_PARENT (log, string);
 		TEST_FREE_TAG (log);
 
-		close (fds[1]);
+		close (pty_slave);
 
 		/* Freeing the parent should free the child */
 		nih_free (string);
@@ -215,9 +217,9 @@ test_log_new (void)
 
 		TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 		TEST_LT (stat (filename, &statbuf), 0);
-		TEST_EQ (pipe (fds), 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-		log = log_new (NULL, filename, fds[0], 0);
+		log = log_new (NULL, filename, pty_master, 0);
 
 		/* First time through at this point only log_new() has been called.
                  * But by the end of the first loop, log_io_reader() will have
@@ -232,16 +234,16 @@ test_log_new (void)
 		if (test_alloc_failed &&
 				(test_alloc_failed <= LOG_NEW_ALLOC_CALLS)) {
 			TEST_EQ_P (log, NULL);         
-			close (fds[0]);
-			close (fds[1]);
+			close (pty_master);
+			close (pty_slave);
 			continue;
 		}
 
 		TEST_NE_P (log, NULL);
 
-		ret = write (fds[1], str, strlen (str));
+		ret = write (pty_slave, str, strlen (str));
 		TEST_GT (ret, 0);
-		ret = write (fds[1], "\n", 1);
+		ret = write (pty_slave, "\n", 1);
 		TEST_EQ (ret, 1);
 
 		TEST_FORCE_WATCH_UPDATE ();
@@ -251,12 +253,13 @@ test_log_new (void)
                  */
 		if (test_alloc_failed == 1+LOG_NEW_ALLOC_CALLS) {
 			TEST_NE_P (log, NULL);         
-			close (fds[1]);
+			close (pty_slave);
 			nih_free (log);
+			TEST_EQ (unlink (filename), 0);
 			continue;
 		}
 
-		close (fds[1]);
+		close (pty_slave);
 		nih_free (log);
 
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -277,7 +280,7 @@ test_log_new (void)
 		output = fopen (filename, "r");
 		TEST_NE_P (output, NULL);
 
-		TEST_FILE_EQ (output, "hello, world!\n");
+		TEST_FILE_EQ (output, "hello, world!\r\n");
 		TEST_FILE_END (output);
 		fclose (output);
 
@@ -287,17 +290,17 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("same logger appending to file with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 	TEST_LT (stat (filename, &statbuf), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -321,11 +324,11 @@ test_log_new (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
-	ret = write (fds[1], str2, strlen (str2));
+	ret = write (pty_slave, str2, strlen (str2));
 	TEST_GT (ret, 0);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -351,31 +354,32 @@ test_log_new (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_EQ (output, str2);
 	TEST_FILE_END (output);
 	fclose (output);
 
 	TEST_EQ (unlink (filename), 0);
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	/************************************************************/
 	TEST_FEATURE ("different logger appending to file with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
 	bytes = 0;
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
 	bytes += ret;
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
-	bytes += ret;
+	/* XXX: '+1' for '\r' */
+	bytes += (ret+1);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
@@ -400,16 +404,16 @@ test_log_new (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -430,16 +434,17 @@ test_log_new (void)
 	TEST_EQ (statbuf.st_size, old_size);
 
 	bytes = 0;
-	ret = write (fds[1], str2, strlen (str2));
+	ret = write (pty_slave, str2, strlen (str2));
 	TEST_GT (ret, 0);
 	bytes += ret;
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
-	bytes += ret;
+	/* '+1' for '\r' */
+	bytes += (1+ret);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -462,8 +467,8 @@ test_log_new (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
-	TEST_FILE_EQ (output, "The end?\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
+	TEST_FILE_EQ (output, "The end?\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -472,15 +477,15 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("ensure logging resumes when file made accessible with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -508,7 +513,7 @@ test_log_new (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -516,9 +521,9 @@ test_log_new (void)
 	TEST_EQ (chmod (filename, 0x0), 0);
 
 	/* Send more data to logger */
-	ret = write (fds[1], str2, strlen (str2));
+	ret = write (pty_slave, str2, strlen (str2));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	/* File shouldn't have changed */
@@ -531,12 +536,12 @@ test_log_new (void)
 	/* Further data should cause previous data that could not be
 	 * written to be flushed to the file.
 	 */
-	ret = write (fds[1], "foo\n", 4);
+	ret = write (pty_slave, "foo\n", 4);
 	TEST_EQ (ret, 4);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -559,9 +564,9 @@ test_log_new (void)
 	TEST_NE_P (output, NULL);
 
 	/* Re-check entire file contents */
-	TEST_FILE_EQ (output, "hello, world!\n");
-	TEST_FILE_EQ (output, "The end?\n");
-	TEST_FILE_EQ (output, "foo\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
+	TEST_FILE_EQ (output, "The end?\r\n");
+	TEST_FILE_EQ (output, "foo\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -570,18 +575,18 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("ensure logger flushes when destroyed with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 
 	TEST_EQ (rmdir (dirname), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -591,7 +596,7 @@ test_log_new (void)
 	umask (old_perms);
 
 	/* No more data sent to ensure logger writes it on log destroy */
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	output = fopen (filename, "r");
@@ -611,7 +616,7 @@ test_log_new (void)
 	TEST_FALSE (statbuf.st_mode & S_IROTH);
 	TEST_FALSE (statbuf.st_mode & S_IWOTH);
 	TEST_FALSE (statbuf.st_mode & S_IXOTH);
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -620,35 +625,31 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("ensure log written when directory created accessible with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 
 	TEST_EQ (rmdir (dirname), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
-
-	TEST_FORCE_WATCH_UPDATE ();
 
 	old_perms = umask (0);
 	TEST_EQ (mkdir (dirname, 0755), 0);
 	umask (old_perms);
 
 	/* Send more data */
-	ret = write (fds[1], str2, strlen (str2));
+	ret = write (pty_slave, str2, strlen (str2));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
-	TEST_FORCE_WATCH_UPDATE ();
-
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	output = fopen (filename, "r");
@@ -668,8 +669,8 @@ test_log_new (void)
 	TEST_FALSE (statbuf.st_mode & S_IROTH);
 	TEST_FALSE (statbuf.st_mode & S_IWOTH);
 	TEST_FALSE (statbuf.st_mode & S_IXOTH);
-	TEST_FILE_EQ (output, "hello, world!\n");
-	TEST_FILE_EQ (output, "The end?\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
+	TEST_FILE_EQ (output, "The end?\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -678,16 +679,16 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("ensure remainder of log written when file deleted with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -711,7 +712,7 @@ test_log_new (void)
 	TEST_FALSE (statbuf.st_mode & S_IXOTH);
 	TEST_EQ (fstat (log->fd, &statbuf), 0);
 
-	TEST_FILE_EQ (output, "hello, world!\n");
+	TEST_FILE_EQ (output, "hello, world!\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -720,9 +721,9 @@ test_log_new (void)
 	TEST_EQ (fstat (log->fd, &statbuf), 0);
 
 	/* Send more data */
-	ret = write (fds[1], str2, strlen (str2));
+	ret = write (pty_slave, str2, strlen (str2));
 	TEST_GT (ret, 0);
-	ret = write (fds[1], "\n", 1);
+	ret = write (pty_slave, "\n", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -744,31 +745,31 @@ test_log_new (void)
 	TEST_FALSE (statbuf.st_mode & S_IROTH);
 	TEST_FALSE (statbuf.st_mode & S_IWOTH);
 	TEST_FALSE (statbuf.st_mode & S_IXOTH);
-	TEST_FILE_EQ (output, "The end?\n");
+	TEST_FILE_EQ (output, "The end?\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 	TEST_EQ (unlink (filename), 0);
 
 	/************************************************************/
 	TEST_FEATURE ("writing 1 null with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 	TEST_LT (stat (filename, &statbuf), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], "\000", 1);
+	ret = write (pty_slave, "\000", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -799,20 +800,20 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("writing >1 null with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 	TEST_LT (stat (filename, &statbuf), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], "\000\000\000", 3);
+	ret = write (pty_slave, "\000\000\000", 3);
 	TEST_EQ (ret, 3);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -843,20 +844,20 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("writing 1 non-printable only with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 	TEST_LT (stat (filename, &statbuf), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], " ", 1);
+	ret = write (pty_slave, " ", 1);
 	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -887,20 +888,20 @@ test_log_new (void)
 	/************************************************************/
 	TEST_FEATURE ("writing >1 non-printable only with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
 	TEST_LT (stat (filename, &statbuf), 0);
 
-	log = log_new (NULL, filename, fds[0], 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], "\n \t", 3);
+	ret = write (pty_slave, "\n \t", 3);
 	TEST_EQ (ret, 3);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
-	close (fds[1]);
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
@@ -917,15 +918,18 @@ test_log_new (void)
 	TEST_FALSE (statbuf.st_mode & S_IROTH);
 	TEST_FALSE (statbuf.st_mode & S_IWOTH);
 	TEST_FALSE (statbuf.st_mode & S_IXOTH);
-	TEST_EQ (statbuf.st_size, 3);
+
+	/* '\r', '\n', ' ', '\t' */
+	TEST_EQ (statbuf.st_size, 4);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_EQ (fread (buffer, 1, 3,  output), 3);
-	TEST_EQ (buffer[0], '\n');
-	TEST_EQ (buffer[1], ' ');
-	TEST_EQ (buffer[2], '\t');
+	TEST_EQ (fread (buffer, 1, 4,  output), 4);
+	TEST_EQ (buffer[0], '\r');
+	TEST_EQ (buffer[1], '\n');
+	TEST_EQ (buffer[2], ' ');
+	TEST_EQ (buffer[3], '\t');
 
 	TEST_FILE_END (output);
 	fclose (output);
@@ -949,13 +953,17 @@ test_log_new (void)
 
 		memset (long_path+len, 'J', sizeof(long_path)-len-1);
 
-		TEST_EQ (pipe (fds), 0);
+		nih_debug("long_path='%s'", long_path);
 
-		log = log_new (NULL, long_path, fds[0], 0);
+		pty_master = -1; pty_slave = -1;
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+		log = log_new (NULL, long_path, pty_master, 0);
 		TEST_NE_P (log, NULL);
 
+		close (pty_slave);
+		pty_slave = -1;
 		nih_free (log);
-		close (fds[1]);
 	}
 
 	/************************************************************/
@@ -975,12 +983,13 @@ test_log_new (void)
 
 		memset (illegal_path+len, 'z', sizeof(illegal_path)-len-1);
 
-		TEST_EQ (pipe (fds), 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-		log = log_new (NULL, illegal_path, fds[0], 0);
+		log = log_new (NULL, illegal_path, pty_master, 0);
 		TEST_EQ_P (log, NULL);
 
-		close (fds[1]);
+		close (pty_master);
+		close (pty_slave);
 	}
 
 	/************************************************************/
@@ -997,13 +1006,13 @@ test_log_new (void)
 
 		memset (long_path+len, 'J', sizeof(long_path)-len-1);
 
-		TEST_EQ (pipe (fds), 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-		log = log_new (NULL, long_path, fds[0], 0);
+		log = log_new (NULL, long_path, pty_master, 0);
 		TEST_NE_P (log, NULL);
 
+		close (pty_slave);
 		nih_free (log);
-		close (fds[1]);
 	}
 
 	/************************************************************/
@@ -1020,12 +1029,13 @@ test_log_new (void)
 
 		memset (illegal_path+len, 'z', sizeof(illegal_path)-len-1);
 
-		TEST_EQ (pipe (fds), 0);
+		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-		log = log_new (NULL, illegal_path, fds[0], 0);
+		log = log_new (NULL, illegal_path, pty_master, 0);
 		TEST_EQ_P (log, NULL);
 
-		close (fds[1]);
+		close (pty_master);
+		close (pty_slave);
 	}
 
 	/************************************************************/
@@ -1035,48 +1045,48 @@ test_log_new (void)
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 
-	void
+void
 test_log_destroy (void)
 {
 	Log  *log;
-	int   fd;
 	int   ret;
 	int   flags;
-	int   fds[2];
 	char  str[] = "hello, world!";
+	int   pty_master;
+	int   pty_slave;
 
 	TEST_FUNCTION ("log_destroy");
 
 	/************************************************************/
 	TEST_FEATURE ("ensure log fd closed with uid 0");
 
-	fd = dup (2);
-	TEST_GT (fd, 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	flags = fcntl (fd, F_GETFL);
+	flags = fcntl (pty_master, F_GETFL);
 	TEST_NE (flags, -1);
 
-	log = log_new (NULL, "/foo", fd, 0);
+	log = log_new (NULL, "/foo", pty_master, 0);
 	TEST_NE_P (log, NULL);
 
+	close (pty_slave);
 	nih_free (log);
 
-	flags = fcntl (fd, F_GETFL);
+	flags = fcntl (pty_master, F_GETFL);
 	TEST_EQ (flags, -1);
 	TEST_EQ (errno, EBADF);
 
 	/************************************************************/
 	TEST_FEATURE ("ensure path and io elements freed with uid 0");
 
-	fd = dup (2);
-	TEST_GT (fd, 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, "/bar", fd, 0);
+	log = log_new (NULL, "/bar", pty_master, 0);
 	TEST_NE_P (log, NULL);
 
 	TEST_FREE_TAG (log->path);
 	TEST_FREE_TAG (log->io);
 
+	close (pty_slave);
 	nih_free (log);
 
 	TEST_FREE (log->path);
@@ -1085,13 +1095,12 @@ test_log_destroy (void)
 	/************************************************************/
 	TEST_FEATURE ("ensure unflushed data freed with uid 0");
 
-	TEST_EQ (pipe (fds), 0);
-	TEST_GT (fd, 0);
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, "/bar", fds[0], 0);
+	log = log_new (NULL, "/bar", pty_master, 0);
 	TEST_NE_P (log, NULL);
 
-	ret = write (fds[1], str, strlen (str));
+	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
 
 	TEST_FORCE_WATCH_UPDATE ();
@@ -1100,6 +1109,7 @@ test_log_destroy (void)
 	TEST_EQ_STR (log->unflushed->buf, str);
 	TEST_FREE_TAG (log->unflushed);
 
+	close (pty_slave);
 	nih_free (log);
 	TEST_FREE (log->unflushed);
 }

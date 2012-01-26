@@ -35,6 +35,8 @@
 
 static int  log_file_open   (Log *log);
 static int  log_file_write  (Log *log, const char *buf, size_t len);
+static void log_read_watch  (Log *log);
+static void log_flush       (Log *log);
 
 /**
  * log_new:
@@ -140,11 +142,54 @@ error:
  * @log: Log.
  *
  * Called automatically when Log is being destroyed.
+ *
+ * XXX: Note that the fd associated with the jobs stdout and stderr (as
+ * passed to log_new()) *MUST* be closed by the time this function is
+ * called since it will continue to read from the fd until an error is
+ * detected. This behaviour is required to ensure all job output is
+ * read.
+ *
+ * Returns: 0 always.
  **/
 int
 log_destroy (Log *log)
 {
+	nih_assert (log);
+
+	/* User job logging not currently available */
+	nih_assert (log->uid == 0);
+
+	log_flush (log);
+
+	/* Force file to flush */
+	if (log->fd != -1)
+		close (log->fd);
+
+	log->fd = -1;
+
+	return 0;
+}
+
+/**
+ * log_flush:
+ *
+ * @log: Log.
+ *
+ * Ensure that no job output data is buffered and attempt to flush all
+ * unflushed data to disk.
+ *
+ * It is safe to call this function multiple times and may in fact be
+ * necessary if the log file cannot be written for any reason.
+ *
+ * Note no return value since there isn't much that can be done at
+ * the point this function is called should the flushing operations
+ * fail.
+ **/
+static void
+log_flush (Log *log)
+{
 	int ret;
+	int flags;
 
 	nih_assert (log);
 
@@ -162,21 +207,49 @@ log_destroy (Log *log)
 			goto out;
 
 		ret = log_file_write (log, NULL, 0);
-		if (ret < 0)
+		if (ret < 0) {
+			close (log->fd);
+			log->fd = -1;
 			goto out;
+		}
 	}
 
-	/* Force file to flush
-	 *
-	 * Only attempt this for jobs which the current process is
-	 * in control of.
-	 */
-	if (log->fd > 0)
+	if (log->io) {
+		nih_assert (log->io->watch);
+
+		/* If the job associated with this log produces output _after_
+		 * nih_io_handle_fds() has been called in any loop of the main
+		 * loop and just before the job is destroyed, we will miss it.
+		 * 
+		 * Therefore, attempt to read from the watch fd until we get an error.
+		 */
+		log_read_watch (log);
+
+		flags = fcntl (log->io->watch->fd, F_GETFL);
+
+		if (flags < 0 && errno == EBADF) {
+			/* The watch fd is now known to be invalid, so disable
+			 * the error handler to avoid an infinite loop where the
+			 * error handler attempts to free the NihIo, which would
+			 * error, causing the error handler to be called
+			 * ad infinitum.
+			 *
+			 * Note that the NihIo is freed via
+			 * nih_io_destroy().
+			 */
+			log->io->error_handler = NULL;
+
+			nih_free (log->io);
+			log->io = NULL;
+		}
+	}
+
+	/* Force file to flush */
+	if (log->fd != -1)
 		close (log->fd);
 
 out:
 	log->fd = -1;
-	return 0;
 }
 
 /**
@@ -191,7 +264,7 @@ out:
  * encapsulated in @io.
  *
  * Notes for user jobs:
-
+ *
  * User jobs by necessity are handled differently to system jobs. Since
  * a user job must log their data to files owned by a non-root user, the
  * safest technique is for a process running as that user to create the
@@ -223,14 +296,10 @@ log_io_reader (Log *log, NihIo *io, const char *buf, size_t len)
 	nih_assert (io);
 	nih_assert (log->io == io);
 	nih_assert (buf);
+	nih_assert (len);
 
 	/* User job logging not currently available */
 	nih_assert (log->uid == 0);
-
-	/* Note we don't assert @len in case we are being called after
-	 * an error is detected (where there is no new data, but may be
-	 * unflushed data).
-	 */
 
 	/* Just in case we try to write more than read can inform us
 	 * about (this should really be a build-time assertion).
@@ -238,29 +307,25 @@ log_io_reader (Log *log, NihIo *io, const char *buf, size_t len)
 	nih_assert (sizeof (size_t) == sizeof (ssize_t));
 
 	if (log_file_open (log) < 0) {
-		if (errno == ENOSPC) {
-			/* Always discard when out of space */
-			nih_io_buffer_shrink (io->recv_buf, len);
-			return;
-		} else {
+		if (errno != ENOSPC) {
 			/* Add new data to unflushed buffer */
 			if (nih_io_buffer_push (log->unflushed, buf, len) < 0)
 				return;
-
-			nih_io_buffer_shrink (io->recv_buf, len);
-			/* No point attempting to write if we cannot
-			 * open the file.
-			 */
-			return;
 		}
+
+		/* Note that we always discard when out of space */
+		nih_io_buffer_shrink (io->recv_buf, len);
+
+		/* No point attempting to write if we cannot
+		 * open the file.
+		 */
+		return;
 	}
 
 	ret = log_file_write (log, buf, len);
-	if (ret < 0) {
+	if (ret < 0)
 		nih_warn ("%s %s", _("Failed to write to log file"), log->path);
-	}
 }
-
 
 /**
  * log_io_error_handler:
@@ -289,12 +354,12 @@ log_io_error_handler (Log *log, NihIo *io)
 	err = nih_error_get ();
 
 	nih_assert (err->number == EIO);
+
 	nih_free (err);
 
-	if (log->io) {
-		/* Close the connection */
-		nih_free (log->io);
-	}
+	/* Ensure the NihIo is closed */
+	nih_free (log->io);
+	log->io = NULL;
 }
 
 /**
@@ -448,10 +513,12 @@ log_file_write (Log *log, const char *buf, size_t len)
 			 * Note that data is always discarded when out of
 			 * space.
 			 */
-			if (saved != ENOSPC && nih_io_buffer_push (log->unflushed, buf, len) < 0)
+			if (saved != ENOSPC && len
+					&& nih_io_buffer_push (log->unflushed, buf, len) < 0)
 				goto error;
 
-			nih_io_buffer_shrink (io->recv_buf, len);
+			if (len)
+				nih_io_buffer_shrink (io->recv_buf, len);
 
 			/* Still need to indicate that the write failed */
 			goto error;
@@ -466,6 +533,9 @@ log_file_write (Log *log, const char *buf, size_t len)
 	 * next time.
 	 */
 	if (log->unflushed->len) {
+		if (! len)
+			goto error;
+
 		/* Save new data */
 		if (nih_io_buffer_push (log->unflushed, buf, len) < 0)
 			goto error;
@@ -504,3 +574,62 @@ error:
 	return -1;
 }
 
+/**
+ * log_read_watch:
+ *
+ * @log: Log.
+ *
+ * Attempt a final read from the watch descriptor to ensure we've
+ * drained all the data from the job.
+ **/
+void
+log_read_watch (Log *log)
+{
+	NihIo   *io;
+	ssize_t  len;
+	int      saved;
+
+	nih_assert (log);
+
+	/* Must not be called if there is unflushed data as the log
+	 * would then not be written in order .
+	 */
+	nih_assert (! log->unflushed->len);
+
+	io = log->io;
+
+	if (! io)
+		return;
+
+	while (1) {
+		/* Ensure we have some space to read data from the job */
+		if (nih_io_buffer_resize (io->recv_buf, LOG_READ_SIZE) < 0)
+			break;
+
+		/* Append to buffer */
+		len = read (io->watch->fd,
+				io->recv_buf->buf + io->recv_buf->len,
+				io->recv_buf->size - io->recv_buf->len);
+		saved = errno;
+
+		if (len > 0)
+			io->recv_buf->len += len;
+
+		if (io->recv_buf->len)
+			log_io_reader (log, io, io->recv_buf->buf, io->recv_buf->len);
+
+		/* If an error occurs, it is likely to be EIO or EBADF.
+		 * But erring on the side of caution, any unusual error
+		 * causes the loop to be exited.
+		 */
+		if ((len < 0 && saved != EAGAIN && saved != EWOULDBLOCK) || len == 0) {
+			/* Either the job process end of the pty has
+			 * been closed, or there really
+			 * is no (more) data to be read.
+			 */
+			close (log->fd);
+			log->fd = -1;
+			break;
+		}
+	}
+}

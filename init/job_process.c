@@ -1571,6 +1571,18 @@ job_process_terminated (Job         *job,
 		job->kill_process = -1;
 	}
 
+	if (job->class->console == CONSOLE_LOG) {
+		/* It is imperative that we free the log at this stage to ensure
+		 * that jobs which respawn have their log written _now_
+		 * (and not just when the overall Job object is freed at
+		 * some distant future point).
+		 */
+		if (job->log) {
+			nih_free (job->log);
+			job->log = NULL;
+		}
+	}
+
 	/* Find existing utmp entry for the process pid */
 	setutxent();
 	while ((utmptr = getutxent()) != NULL) {

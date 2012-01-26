@@ -41,6 +41,12 @@
  **/
 #define LOG_DEFAULT_MODE         (S_IRWXU | S_IRGRP)
 
+/** LOG_READ_SIZE:
+ *
+ * Minimum buffer size for reading log data.
+ **/
+#define LOG_READ_SIZE            1024
+
 /**
  * Log:
  *
