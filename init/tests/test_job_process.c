@@ -3006,7 +3006,7 @@ test_run (void)
 
 			grp = getgrgid (getgid ());
 			TEST_NE (grp, NULL);
-			class->setuid = nih_strdup (class, grp->gr_name);
+			class->setgid = nih_strdup (class, grp->gr_name);
 
 			job = job_new (class, "");
 			job->goal = JOB_START;
