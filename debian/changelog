@@ -1,3 +1,11 @@
+upstart (1.4-0ubuntu4) UNRELEASED; urgency=low
+
+  * Disable job logging by default again due to a reported regression with
+    plymouth-upstart-bridge and upstart itself taking 100% CPU.  Use --log
+    at boot time again for testing.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 27 Jan 2012 10:28:26 -0800
+
 upstart (1.4-0ubuntu3) precise; urgency=low
 
   [ Stéphane Graber ]
