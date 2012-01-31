@@ -1,3 +1,27 @@
+upstart (1.4-0ubuntu6) UNRELEASED; urgency=low
+
+  [ Serge Hallyn ]
+  * debian/conf/container-detect.conf: an upstart job to track whether upstart
+    detected itself running in a container.
+  * debian/running-in-container: a script using container.conf to
+    answer whether upstart is running in a container.
+  * debian/conf/console.conf: run getty on /dev/console when running
+    in a lxc container.
+  * debian/control: conflict with lxcguest.
+
+  [ Stéphane Graber ]
+  * debian/conf/container-detect.conf: extend to also detect OpenVZ and vserver
+    as well as write the type in /run/container_type and emit either:
+    - container CONTAINER=type
+      (where type is lxc, lxc-libvirt, openvz or vserver)
+    - not-container
+  * debian/running-in-container: extend to also print the type of container.
+  * Rebase debian/conf/console.conf on debian/conf/tty1.conf.
+  * Update tty[1234].conf to start on regular machines and LXC containers.
+  * Update tty[56].conf to only start on regular machines.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 31 Jan 2012 15:05:40 -0500
+
 upstart (1.4-0ubuntu5) precise; urgency=low
 
   * Merge of important upstream log fixes to handle scenario attempts
