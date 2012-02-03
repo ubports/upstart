@@ -1054,6 +1054,7 @@ test_log_destroy (void)
 	char  str[] = "hello, world!";
 	int   pty_master;
 	int   pty_slave;
+	int   found_fd;
 
 	TEST_FUNCTION ("log_destroy");
 
@@ -1111,6 +1112,54 @@ test_log_destroy (void)
 
 	close (pty_slave);
 	nih_free (log);
+	TEST_FREE (log->unflushed);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure watch freed when log destroyed");
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	log = log_new (NULL, "/bar", pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	found_fd = 0;
+	NIH_LIST_FOREACH (nih_io_watches, iter) {
+		NihIoWatch *watch = (NihIoWatch *)iter;
+		if (watch->fd == pty_master) {
+			found_fd = pty_master;
+			break;
+		}
+	}
+
+	/* fd passed to log_new() should have resulted in a watch being
+	 * created.
+	 */
+	TEST_EQ (found_fd, pty_master);
+
+	ret = write (pty_slave, str, strlen (str));
+	TEST_GT (ret, 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+	TEST_NE_P (log->unflushed, NULL);
+	TEST_EQ (log->unflushed->len, strlen(str));
+	TEST_EQ_STR (log->unflushed->buf, str);
+	TEST_FREE_TAG (log->unflushed);
+
+	close (pty_slave);
+	nih_free (log);
+
+	found_fd = 0;
+	NIH_LIST_FOREACH (nih_io_watches, iter) {
+		NihIoWatch *watch = (NihIoWatch *)iter;
+		if (watch->fd == pty_master) {
+			found_fd = pty_master;
+			break;
+		}
+	}
+
+	/* Freeing the log object should have removed the watch */
+	TEST_EQ (found_fd, 0);
+
 	TEST_FREE (log->unflushed);
 }
 

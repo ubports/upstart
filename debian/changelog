@@ -1,3 +1,10 @@
+upstart (1.4-0ubuntu5) precise; urgency=low
+
+  * Merge of important upstream log fixes to handle scenario attempts
+    are made to exec(3) directly non-existent commands. (LP: #922754)
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 03 Feb 2012 14:16:40 +0000
+
 upstart (1.4-0ubuntu4) precise; urgency=low
 
   * Disable job logging by default again due to a reported regression with
