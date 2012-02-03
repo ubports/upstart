@@ -465,6 +465,11 @@ job_process_spawn (Job          *job,
 			nih_return_system_error (-1);
 		}
 
+		/* Stop any process created _before_ the log object below is
+		 * freed from inheriting this fd.
+		 */
+		nih_io_set_cloexec (pty_master);
+
 		/* pty_master will be closed by log_destroy() */
 		job->log = log_new (job, log_path, pty_master, 0);
 		if (! job->log) {
@@ -482,6 +487,13 @@ job_process_spawn (Job          *job,
 	sigfillset (&child_set);
 	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
 
+	/* Ensure that any lingering data in stdio buffers is flushed
+	 * to avoid the child getting a copy of it.
+	 * If not done, CONSOLE_LOG jobs may end up with unexpected data
+	 * in their logs if we run with for example '--debug'.
+	 */
+	fflush (NULL);
+
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
 	 */
@@ -497,8 +509,13 @@ job_process_spawn (Job          *job,
 
 		/* Read error from the pipe, return if one is raised */
 		if (job_process_error_read (fds[0]) < 0) {
-			if (class->console == CONSOLE_LOG)
-				close (pty_master);
+			if (class->console == CONSOLE_LOG) {
+				/* Ensure the pty_master watch gets
+				 * removed and the fd closed.
+				 */
+				nih_free (job->log);
+				job->log = NULL;
+			}
 			close (fds[0]);
 			return -1;
 		}
@@ -514,8 +531,10 @@ job_process_spawn (Job          *job,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[0]);
 		close (fds[1]);
-		if (class->console == CONSOLE_LOG)
-			close (pty_master);
+		if (class->console == CONSOLE_LOG) {
+			nih_free (job->log);
+			job->log = NULL;
+		}
 		return -1;
 	}
 
@@ -535,11 +554,11 @@ job_process_spawn (Job          *job,
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
 
-	job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
-
 	if (class->console == CONSOLE_LOG) {
 		struct sigaction act;
 		struct sigaction ignore;
+
+		job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
 
 		/* Child is the slave, so won't need this */
 		nih_io_set_cloexec (pty_master);

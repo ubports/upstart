@@ -147,12 +147,41 @@ enum child_tests {
 	TEST_PWD,
 	TEST_ENVIRONMENT,
 	TEST_OUTPUT,
-	TEST_SIGNALS
+	TEST_SIGNALS,
+	TEST_FDS
 };
 
 static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
+
+
+/**
+ * fd_valid:
+ * @fd: file descriptor.
+ *
+ * Return 1 if @fd is valid, else 0.
+ **/
+static int
+fd_valid (int fd)
+{
+	int flags = 0;
+
+	if (fd < 0)
+		return 0;
+
+	errno = 0;
+	flags = fcntl (fd, F_GETFL);
+
+	if (flags < 0)
+		return 0;
+
+	/* redundant really */
+	if (errno == EBADF)
+		return 0;
+
+	return 1;
+}
 
 static void
 child (enum child_tests  test,
@@ -163,7 +192,7 @@ child (enum child_tests  test,
 	char   tmpname[PATH_MAX], path[PATH_MAX];
 	int    i;
 	char   buffer[1024];
-
+	int    ret = EXIT_SUCCESS;
 
 	strcpy (tmpname, filename);
 	strcat (tmpname, ".tmp");
@@ -221,14 +250,103 @@ child (enum child_tests  test,
 
 		fclose(in);
 		break;
+	case TEST_FDS:
+		/* Establish list of open (valid) and closed (invalid)
+		 * file descriptors.
+		 *
+		 * XXX: Note that if you attempt to run this program
+		 * through gdb, the TEST_FDS tests will probably fail.
+		 * This seems to be due to gdb creating/leaking atleast 1 fd.
+		 *
+		 * To work around this issue, either comment out all
+		 * TEST_FDS tests to allow you to debug the _actual_ failing
+		 * test(s), or if it is one of the TEST_FDS tests which is
+		 * failing either use an alternative technique to debug the
+		 * failing test(s) (such as strace(1)), or force the TEST_FDS
+		 * tests to pass in gdb by setting the appropriate flag
+		 * variable to indicate the test(s) passed.
+		 */
+		{
+			DIR           *dir;
+			struct dirent *ent;
+			struct stat    statbuf;
+			char          *prefix_path = "/proc/self/fd";
+			char           path[PATH_MAX];
+			char           link[PATH_MAX];
+			int            saved_errno;
+			ssize_t        len;
+			int            valid;
+
+			dir = opendir(prefix_path);
+
+			if (!dir)
+			{
+				saved_errno = errno;
+				fprintf (out, "failed to open '%s'"
+						" (errno=%d [%s])",
+						prefix_path,
+						saved_errno, strerror(saved_errno));
+
+				ret = EXIT_FAILURE;
+				goto out;
+			}
+
+			while ((ent=readdir(dir)) != NULL)
+			{
+				int fd;
+
+				valid = 0;
+
+				if ( !strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") )
+					continue;
+
+				sprintf (path, "%s/%s", prefix_path, ent->d_name);
+				fd = atoi (ent->d_name);
+
+				len = readlink (path, link, sizeof (link));
+				TEST_GT (len, 0);
+				link[len] = '\0';
+
+				if (fd == fileno (out)) {
+					/* we (have to) pretend the log file that
+					 * we write is invisible.
+					 */
+					valid = 0;
+				} else if (link[0] == '/') {
+					sprintf (path, "/proc/%d/fd", getpid ());
+
+					if (stat (link, &statbuf) < 0)
+						valid = 0;
+					else if (S_ISDIR (statbuf.st_mode) && ! strcmp (path, link)) {
+						/* Ignore the last entry which is a link to the
+						 * /proc/self/fd/ directory.
+						 */
+						valid = 0;
+					} else {
+						valid = 1;
+					}
+				} else {
+					valid = fd_valid (fd);
+				}
+
+				fprintf (out, "fd %d: %svalid (link=%s)\n",
+						fd,
+						valid ? "" : "in",
+						link);
+			}
+
+			closedir(dir);
+		}
+		break;
 	}
 
+out:
 	fsync (fileno (out));
 	fclose (out);
 
 	rename (tmpname, filename);
 
-	exit (0);
+	exit (ret);
 }
 
 /* FIXME:
@@ -288,6 +406,7 @@ test_run (void)
 	FILE            *output;
 	struct stat      statbuf;
 	char             filename[PATH_MAX], buf[80];
+	char             function[PATH_MAX];
 	int              ret = -1, status, first;
 	siginfo_t        info;
 	char             filebuf[1024];
@@ -984,6 +1103,274 @@ test_run (void)
 	 * writeable location
 	 */
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure sane fds with no console, no script");
+
+	class = job_class_new (NULL, "prism", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/prism.log", dirname), 0);
+
+	sprintf (function, "%d", TEST_FDS);
+
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s %s %s",
+			argv0, function, filename);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
+	}
+
+	fclose (output);
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure sane fds with no console, and script");
+
+	class = job_class_new (NULL, "prism", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/prism.log", dirname), 0);
+
+	sprintf (function, "%d", TEST_FDS);
+
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s %s %s",
+			argv0, function, filename);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
+	}
+
+	fclose (output);
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure sane fds with console log, no script");
+
+	class = job_class_new (NULL, "prism", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/prism.log", dirname), 0);
+
+	sprintf (function, "%d", TEST_FDS);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s %s %s",
+			argv0, function, filename);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
+	}
+
+	fclose (output);
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure sane fds with console log, and script");
+
+	class = job_class_new (NULL, "prism", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/prism.log", dirname), 0);
+
+	sprintf (function, "%d", TEST_FDS);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s %s %s",
+			argv0, function, filename);
+	class->process[PROCESS_MAIN]->script = TRUE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
+	}
+
+	fclose (output);
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("ensure that no log file written for single-line no-output script");
@@ -2558,12 +2945,389 @@ test_run (void)
 			"/this/command/does/not/exist");
 	class->process[PROCESS_MAIN]->script = FALSE;
 
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_MAIN]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
 	job = job_new (class, "");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_LT (ret, 0);
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_LT (ret, 0);
+	}
+	fclose (output);
+
+	/* We don't expect a logfile to be written since there is no
+	 * accompanying shell to write the error.
+	 */
+	TEST_EQ (stat (filename, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command running an invalid command, then a 1-line post-stop script");
+
+	class = job_class_new (NULL, "asterix", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/asterix.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+			class->process[PROCESS_POST_STOP],
+			"echo hello");
+	class->process[PROCESS_POST_STOP]->script = TRUE;
+
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_MAIN]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	job = job_new (class, "");
+
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_LT (ret, 0);
+
+		/* We don't expect a logfile to be written since there is no
+		 * accompanying shell to write the error.
+		 */
+		TEST_EQ (stat (filename, &statbuf), -1);
+		TEST_EQ (errno, ENOENT);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+
+		/* Flush the io so that the shell on the client side
+		 * gets the data (the script to execute).
+		 */
+		TEST_FORCE_WATCH_UPDATE ();
+
+		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		/* .. but the post stop should have written data */
+		TEST_EQ (stat (filename, &statbuf), 0);
+	}
+	fclose (output);
+
+	/* check file contents */
+	output = fopen (filename, "r");
+	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command running an invalid command, then a 2-line post-stop script");
+
+	class = job_class_new (NULL, "asterix", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/asterix.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+			class->process[PROCESS_POST_STOP],
+			"echo hello\necho world");
+	class->process[PROCESS_POST_STOP]->script = TRUE;
+
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_MAIN]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	job = job_new (class, "");
+
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_LT (ret, 0);
+
+		/* We don't expect a logfile to be written since there is no
+		 * accompanying shell to write the error.
+		 */
+		TEST_EQ (stat (filename, &statbuf), -1);
+		TEST_EQ (errno, ENOENT);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+
+		/* Flush the io so that the shell on the client side
+		 * gets the data (the script to execute).
+		 */
+		TEST_FORCE_WATCH_UPDATE ();
+
+		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		/* Allow the log to be written */
+		TEST_FORCE_WATCH_UPDATE ();
+
+		/* .. but the post stop should have written data */
+		TEST_EQ (stat (filename, &statbuf), 0);
+	}
+	fclose (output);
+
+	/* check file contents */
+	output = fopen (filename, "r");
+	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_FILE_EQ (output, "world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command running an invalid command, then a post-stop command");
+
+	class = job_class_new (NULL, "asterix", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/asterix.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+			class->process[PROCESS_POST_STOP],
+			"echo hello");
+	class->process[PROCESS_POST_STOP]->script = FALSE;
+
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_MAIN]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	job = job_new (class, "");
+
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_LT (ret, 0);
+
+		/* We don't expect a logfile to be written since there is no
+		 * accompanying shell to write the error.
+		 */
+		TEST_EQ (stat (filename, &statbuf), -1);
+		TEST_EQ (errno, ENOENT);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+
+		/* Flush the io so that the shell on the client side
+		 * gets the data (the script to execute).
+		 */
+		TEST_FORCE_WATCH_UPDATE ();
+
+		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		/* .. but the post stop should have written data */
+		TEST_EQ (stat (filename, &statbuf), 0);
+	}
+	fclose (output);
+
+	/* check file contents */
+	output = fopen (filename, "r");
+	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command running an invalid command, then an invalid post-stop command");
+
+	class = job_class_new (NULL, "asterix", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/asterix.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_strdup (
+			class->process[PROCESS_MAIN],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_sprintf (
+			class->process[PROCESS_POST_STOP],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_POST_STOP]->script = FALSE;
+
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_MAIN]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	job = job_new (class, "");
+
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_LT (ret, 0);
+
+		/* We don't expect a logfile to be written since there is no
+		 * accompanying shell to write the error.
+		 */
+		TEST_EQ (stat (filename, &statbuf), -1);
+		TEST_EQ (errno, ENOENT);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_LT (ret, 0);
+
+		/* Again, no file expected */
+		TEST_EQ (stat (filename, &statbuf), -1);
+		TEST_EQ (errno, ENOENT);
+	}
+	fclose (output);
+	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("with single-line command running a valid command, then a 1-line invalid post-stop command");
+
+	class = job_class_new (NULL, "obelix", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_FILENAME (filename);
+	TEST_GT (sprintf (filename, "%s/obelix.log", dirname), 0);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s hello world", TEST_CMD_ECHO);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	class->process[PROCESS_POST_STOP] = process_new (class);
+	class->process[PROCESS_POST_STOP]->command = nih_strdup (
+			class->process[PROCESS_POST_STOP],
+			"/this/command/does/not/exist");
+	class->process[PROCESS_POST_STOP]->script = FALSE;
+
+	/* Stranger things have happened at sea */
+	TEST_EQ (stat (class->process[PROCESS_POST_STOP]->command, &statbuf), -1);
+	TEST_EQ (errno, ENOENT);
+
+	job = job_new (class, "");
+
+	output = tmpfile ();
+	TEST_NE_P (output, NULL);
+	TEST_DIVERT_STDERR (output) {
+
+		job->goal = JOB_START;
+		job->state = JOB_SPAWNED;
+
+		ret = job_process_run (job, PROCESS_MAIN);
+		TEST_EQ (ret, 0);
+
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+		waitpid (job->pid[PROCESS_MAIN], &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		/* Flush the io so that the shell on the client side
+		 * gets the data (the script to execute).
+		 */
+		TEST_FORCE_WATCH_UPDATE ();
+
+		/* Expect a log file */
+		TEST_EQ (stat (filename, &statbuf), 0);
+
+		job->goal = JOB_STOP;
+		job->state = JOB_POST_STOP;
+
+		ret = job_process_run (job, PROCESS_POST_STOP);
+		TEST_LT (ret, 0);
+
+		TEST_EQ (job->pid[PROCESS_POST_STOP], 0);
+	}
+	fclose (output);
+
+	/* check file contents */
+	output = fopen (filename, "r");
+	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+
 	nih_free (class);
 
 	/************************************************************/
@@ -2992,6 +3756,8 @@ test_run (void)
 	 * otherwise.
 	 */
 	TEST_FEATURE ("with setuid me");
+
+	TEST_NE_P (output, NULL);
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -3011,10 +3777,15 @@ test_run (void)
 			job = job_new (class, "");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
+
+			output = tmpfile ();
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		TEST_DIVERT_STDERR (output) {
+			ret = job_process_run (job, PROCESS_MAIN);
+			TEST_EQ (ret, 0);
+		}
+		fclose (output);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3060,10 +3831,25 @@ test_spawn (void)
 	NihError         *err;
 	JobProcessError  *perr;
 	int               status;
+	struct stat       statbuf;
+
+	/* Override default location to ensure job output goes to a
+	 * writeable location
+	 */
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
 	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
 
+#if 0
+	perr = NULL;
+	info.si_signo = 0;
+	if ((int)getuid() == (int)getpid()) {
+		perr = NULL;
+		buf[0] = filebuf[0] = '\0';
+		printf("%p %s %p %p" ,perr, buf, env, &info);
+	}
+#else
 	args[0] = argv0;
 	args[1] = function;
 	args[2] = filename;
@@ -3317,6 +4103,37 @@ test_spawn (void)
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
 
+#endif
+
+	/************************************************************/
+	TEST_FEATURE ("with no such file, no shell and console log");
+
+	args[0] = "does-not-exist";
+	args[1] = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_LOG;
+	job   = job_new (class, "");
+
+	TEST_EQ_P (job->log, NULL);
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_LT (pid, 0);
+
+	/* The log should have been allocated in job_process_spawn,
+	 * but then freed on error.
+	 */
+	TEST_EQ_P (job->log, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, JOB_PROCESS_ERROR);
+	TEST_ALLOC_SIZE (err, sizeof (JobProcessError));
+
+	perr = (JobProcessError *)err;
+	TEST_EQ (perr->type, JOB_PROCESS_ERROR_EXEC);
+	TEST_EQ (perr->arg, 0);
+	TEST_EQ (perr->errnum, ENOENT);
+	nih_free (perr);
+
 	/* Check that we can spawn a job and pause it
 	 */
 	TEST_FEATURE ("with debug enabled");
@@ -3398,6 +4215,7 @@ test_spawn (void)
 
 	nih_free (class);
 
+	/********************************************************************/
 	TEST_FEATURE ("ensure sane signal state with log console");
 
 	sprintf (function, "%d", TEST_SIGNALS);
@@ -3433,6 +4251,114 @@ test_spawn (void)
 		TEST_EQ (value, 0x0);
 
 		TEST_FILE_END (output);
+	}
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (class);
+
+	/********************************************************************/
+	TEST_FEATURE ("ensure sane fds with no console");
+
+	sprintf (function, "%d", TEST_FDS);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filename;
+	args[3] = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	job = job_new (class, "");
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	waitpid (pid, NULL, 0);
+	TEST_EQ (stat (filename, &statbuf), 0);
+	output = fopen (filename, "r");
+
+	TEST_NE_P (output, NULL);
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
+	}
+
+	fclose (output);
+	unlink (filename);
+
+	nih_free (class);
+
+	/********************************************************************/
+	TEST_FEATURE ("ensure sane fds with console log");
+
+	sprintf (function, "%d", TEST_FDS);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filename;
+	args[3] = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_LOG;
+	job = job_new (class, "");
+
+	pid = job_process_spawn (job, args, NULL, FALSE, -1);
+	TEST_GT (pid, 0);
+
+	waitpid (pid, NULL, 0);
+	TEST_EQ (stat (filename, &statbuf), 0);
+	output = fopen (filename, "r");
+
+	TEST_NE_P (output, NULL);
+
+	{
+		char  state[32];
+		int   fd;
+		int   ret;
+		int   valid;
+
+		while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
+			ret = sscanf (filebuf, "fd %d: %s ", &fd, state);
+			TEST_EQ (ret, 2);
+
+			if (! strcmp ("invalid", state))
+				valid = 0;
+			else
+				valid = 1;
+
+			/* 0, 1, 2 */
+			if (fd < 3) {
+				if (! valid)
+					TEST_FAILED ("fd %d is unexpected invalid", fd);
+			} else {
+				if (valid)
+					TEST_FAILED ("fd %d is unexpected valid", fd);
+			}
+		}
 	}
 
 	fclose (output);
@@ -3481,6 +4407,8 @@ test_spawn (void)
 			TEST_LT (pid, 0);
 		} else {
 			TEST_GT (pid, 0);
+			TEST_EQ (unlink (script), 0);
+			unlink (filename);
 		}
 	}
 

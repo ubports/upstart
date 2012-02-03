@@ -1,3 +1,46 @@
+2012-02-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Set close-on-exec for pty_master.
+	  - Ensure stdio buffers flushed prior to forking to ensure no data
+	    leakage to child (should init be run with '--debug', or the tests
+	    be run with redirected output, for example).
+	  - Free log object if child process fails to exec(3) rather than just
+	    closing fd. This ensures io watch is removed correctly. (LP: #922754)
+	  - Only need to remap pty_master if CONSOLE_LOG in operation.
+	* init/tests/test_job_process:
+	  - fd_valid(): New helper function to determine if specified fd is valid.
+	  - child(): Added new 'TEST_FDS' test to ensure no fd leakage to child
+	    processes.
+	  - test_run():
+	    - New tests:
+	      - "ensure sane fds with no console, no script"
+	      - "ensure sane fds with no console, and script"
+	      - "ensure sane fds with console log, no script"
+	      - "ensure sane fds with console log, and script"
+	      - "with single-line command running an invalid command, \
+	         then a 1-line post-stop script"
+	      - "with single-line command running an invalid command, \
+	         then a 2-line post-stop script"
+	      - "with single-line command running an invalid command, \
+	         then a post-stop command"
+	      - "with single-line command running an invalid command, \
+	         then an invalid post-stop command"
+	      - "with single-line command running a valid command, \
+	         then a 1-line invalid post-stop command"
+	    - Test "with single-line command running an invalid command":
+	      - now diverts stderr output for less chatty test-run experience.
+	      - Improved checking.
+	    - Test "with setuid me" now diverts stderr output for less chatty
+	      test-run experience.
+	  - test_spawn():
+	    - New tests:
+	      - "with no such file, no shell and console log"
+	      - "ensure sane fds with no console"
+	      - "ensure sane fds with console log"
+	* init/tests/test_log.c: test_log_destroy():
+	  - New test "ensure watch freed when log destroyed"
+
 2012-01-27  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_job_process.c: test_run(): Fixed typo in
