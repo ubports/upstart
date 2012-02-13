@@ -1,3 +1,22 @@
+2012-02-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_flush(): Comments.
+	  - log_read_watch():
+	    - Improved comments.
+	    - Don't re-attempt read on EAGAIN/EWOULDBLOCK since those errors are
+	      nominally impossible due to the remote end of the pty already
+	      having ended (LP: #926468).
+	    - Added a debug-mode warning when 'badly-behaved' application
+	      detected that leaks fds to its children, as this is generally a bug.
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - "with single line command writing fast and exiting": added
+	      waitpid() to ensure no EAGAIN.
+	  - test_spawn():
+	    - "with no such file, no shell and console log": added
+	      waitpid() to ensure no EAGAIN.
+
 2012-02-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_spawn():

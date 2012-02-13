@@ -3,6 +3,8 @@ upstart (1.4-0ubuntu7) precise; urgency=low
   * debian/manpages/upstart-events.7: Added missing events 'container' and
     'not-container'.
   * Update 'runlevel' event emission time in upstart-events(7) (LP: #921501).
+  * Merge of important upstream log fixes to avoid spinning when a job
+    which leaks fds (such as 'sshd -D') is stopped (LP: #926468).
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 13 Feb 2012 13:59:15 +0000
 
