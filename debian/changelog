@@ -2,6 +2,7 @@ upstart (1.4-0ubuntu7) precise; urgency=low
 
   * debian/manpages/upstart-events.7: Added missing events 'container' and
     'not-container'.
+  * Update 'runlevel' event emission time in upstart-events(7) (LP: #921501).
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 13 Feb 2012 13:59:15 +0000
 
