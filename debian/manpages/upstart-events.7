@@ -49,6 +49,7 @@ Ref@Event@Type@Emit@Time@Note
 =
   @\fBall\-swaps\fP@S@M@> (5)@
   @\fBcontrol\-alt\-delete\fP(7)@S@A@> (5)@A
+  @container@S@C@> \fI/run\fP mounted@Q
   @dbus\-activation@S@B@> D\-Bus client request@
   @deconfiguring\-networking@H@V@< non-local IFs down@P
   @desktop\-session\-start@H@D@> \fBX\fP(7) session created@B
@@ -67,6 +68,7 @@ Ref@Event@Type@Emit@Time@Note
   @net\-device\-down@S@F@< (4)@C
 4@net\-device\-removed@S@U@> (5)@C
   @net\-device\-up@S@F,N@> (3)@C
+  @not\-container@S@C@> \fI/run\fP mounted@Q
   @\fBpower\-\%status\-\%changed\fP(7)@S@I@> (5)@I
   @\fBremote\-\%filesystems\fP(7)@S@M@> (6)@
   @\fBrunlevel\fP(7)@M@T@> (5)@
@@ -132,6 +134,7 @@ Ref@Emitter@Notes
 =
 A@System Administrator (initiator)@Technically emitted by init(8).
 B@\fBdbus\-daemon\fP(1)@Run with "\fI\-\-activation=upstart"\fP
+C@container\-detect job@
 D@Display Manager@e.g. lightdm/gdm/kdm/xdm.
 F@\fBifup\fP(8) or \fBifdown\fP(8)@See \fI/etc/network/\fP.
 I@\fBinit\fP(8)@
@@ -204,6 +207,10 @@ T}
 P@T{
 Emitted by /etc/init.d/networking just prior to stopping all non-local
 network interfaces.
+T}
+Q@T{
+Either \(aqcontainer\(aq or \(aqnot-container\(aq is emitted (depending
+on the environment), but not both.
 T}
 .TE
 .po \n[old_po]
