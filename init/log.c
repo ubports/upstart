@@ -232,7 +232,7 @@ log_flush (Log *log)
 			 * the error handler to avoid an infinite loop where the
 			 * error handler attempts to free the NihIo, which would
 			 * error, causing the error handler to be called
-			 * ad infinitum.
+			 * _ad infinitum_.
 			 *
 			 * Note that the NihIo is freed via
 			 * nih_io_destroy().
@@ -581,6 +581,9 @@ error:
  *
  * Attempt a final read from the watch descriptor to ensure we've
  * drained all the data from the job.
+ *
+ * This can only legitimately be called after the associated primary job
+ * process has finished.
  **/
 void
 log_read_watch (Log *log)
@@ -592,7 +595,7 @@ log_read_watch (Log *log)
 	nih_assert (log);
 
 	/* Must not be called if there is unflushed data as the log
-	 * would then not be written in order .
+	 * would then not be written in order.
 	 */
 	nih_assert (! log->unflushed->len);
 
@@ -601,6 +604,10 @@ log_read_watch (Log *log)
 	if (! io)
 		return;
 
+	/* Slurp up any remaining data from the job that is cached in
+	 * the kernel. Keep reading until we get EOF or an error
+	 * condition.
+	 */
 	while (1) {
 		/* Ensure we have some space to read data from the job */
 		if (nih_io_buffer_resize (io->recv_buf, LOG_READ_SIZE) < 0)
@@ -618,15 +625,36 @@ log_read_watch (Log *log)
 		if (io->recv_buf->len)
 			log_io_reader (log, io, io->recv_buf->buf, io->recv_buf->len);
 
-		/* If an error occurs, it is likely to be EIO or EBADF.
+		/* This scenario indicates the process that has now
+		 * ended has leaked one or more file descriptors to a
+		 * child process, and that child process is still
+		 * running. We know this since EAGAIN/EWOULDBLOCK
+		 * indicate there _may_ be further data to read in the
+		 * future, but that isn't possible as the process we care
+		 * about has now ended. Thus a leakage must have
+		 * occured such that data may be available in the future
+		 * _from some other process_ that is holding the fd(s) open.
+		 *
+		 * For daemons, this is generally a bug (see for example bug 926468).
+		 *
+		 * Only display the message in debug mode though since
+		 * it is not unusual for script sections to leak fds.
+		 */
+		if (len < 0 && (saved == EAGAIN || saved == EWOULDBLOCK)) {
+			nih_debug ("%s %s",
+					"Process associated with log leaked a file descriptor",
+					log->path);
+		}
+
+		/* Either the job process (remote) end of the pty has
+		 * been closed, or there really is no (more) data to be read.
+		 *
+		 * If an error occurs, it is likely to be EIO (remote
+		 * end closed) or EBADF (fd invalid if exec(3) failed).
 		 * But erring on the side of caution, any unusual error
 		 * causes the loop to be exited.
 		 */
-		if ((len < 0 && saved != EAGAIN && saved != EWOULDBLOCK) || len == 0) {
-			/* Either the job process end of the pty has
-			 * been closed, or there really
-			 * is no (more) data to be read.
-			 */
+		if (len <= 0) {
 			close (log->fd);
 			log->fd = -1;
 			break;

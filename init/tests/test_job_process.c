@@ -3543,6 +3543,12 @@ test_run (void)
 	ret = job_process_run (job, PROCESS_MAIN);
 	TEST_EQ (ret, 0);
 
+	/* Wait for process to avoid any possibility of EAGAIN in
+	 * log_read_watch().
+	 */
+	pid = job->pid[PROCESS_MAIN];
+	TEST_EQ (waitpid (pid, NULL, 0), pid);
+
 	/* allow destructor to write any lingering unflushed data */
 	nih_free (class);
 
@@ -3841,15 +3847,6 @@ test_spawn (void)
 	TEST_FUNCTION ("job_process_spawn");
 	TEST_FILENAME (filename);
 
-#if 0
-	perr = NULL;
-	info.si_signo = 0;
-	if ((int)getuid() == (int)getpid()) {
-		perr = NULL;
-		buf[0] = filebuf[0] = '\0';
-		printf("%p %s %p %p" ,perr, buf, env, &info);
-	}
-#else
 	args[0] = argv0;
 	args[1] = function;
 	args[2] = filename;
@@ -4103,8 +4100,6 @@ test_spawn (void)
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
 
-#endif
-
 	/************************************************************/
 	TEST_FEATURE ("with no such file, no shell and console log");
 
@@ -4118,6 +4113,8 @@ test_spawn (void)
 	TEST_EQ_P (job->log, NULL);
 	pid = job_process_spawn (job, args, NULL, FALSE, -1);
 	TEST_LT (pid, 0);
+
+	TEST_GT (waitpid (-1, NULL, 0), 0);
 
 	/* The log should have been allocated in job_process_spawn,
 	 * but then freed on error.
