@@ -7,6 +7,8 @@ upstart (1.4-0ubuntu7) precise; urgency=low
     which leaks fds (such as 'sshd -D') is stopped (LP: #926468).
   * Merge of lp:~jamesodhunt/upstart/early-job-log-flush to allow jobs that
     _end_ very early in the boot to have their output logged.
+  * debian/conf/flush-early-job-log.conf: Upstart job to force flushing of
+    early job log output data when disk becomes writeable.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 13 Feb 2012 13:59:15 +0000
 
