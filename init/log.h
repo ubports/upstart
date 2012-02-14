@@ -52,9 +52,12 @@
  *
  * @fd: Write file descriptor associated with @path,
  * @path: Full path to log file,
- * @io: NihIo associated with jobs stdout and stderr.
+ * @io: NihIo associated with jobs stdout and stderr,
  * @uid: User ID of caller,
- * @unflushed: Unflushed data.
+ * @unflushed: Unflushed data,
+ * @detached: TRUE if log is no longer associated with a parent,(job),
+ * @remote_closed: TRUE if remote end of pty has been closed,
+ * @open_errno: value of errno immediately after last attempt to open @path.
  **/
 typedef struct log {
 	int          fd;
@@ -62,9 +65,14 @@ typedef struct log {
 	NihIo       *io;
 	uid_t        uid;
 	NihIoBuffer *unflushed;
+	int          detached;
+	int          remote_closed;
+	int          open_errno;
 } Log;
 
 NIH_BEGIN_EXTERN
+
+extern NihList *log_unflushed_files;
 
 Log  *log_new                (const void *parent, const char *path,
 			      int fd, uid_t uid)
@@ -72,6 +80,10 @@ Log  *log_new                (const void *parent, const char *path,
 void  log_io_reader          (Log *log, NihIo *io, const char *buf, size_t len);
 void  log_io_error_handler   (Log *log, NihIo *io);
 int   log_destroy            (Log *log);
+int   log_handle_unflushed   (void *parent, Log *log);
+int   log_clear_unflushed    (void);
+void  log_unflushed_init     (void);
+
 
 NIH_END_EXTERN
 

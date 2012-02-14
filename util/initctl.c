@@ -121,7 +121,7 @@ int version_action              (NihCommand *command, char * const *args);
 int log_priority_action         (NihCommand *command, char * const *args);
 int show_config_action          (NihCommand *command, char * const *args);
 int check_config_action         (NihCommand *command, char * const *args);
-
+int flush_early_job_log_action  (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -1539,6 +1539,42 @@ check_config_action (NihCommand *command,
 	return ret ? 1 : 0;
 }
 
+/**
+ * flush_early_job_log_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "flush-early-job-log" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+flush_early_job_log_action (NihCommand *command,
+		char * const *args)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	NihError *              err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_flush_early_job_log_sync (NULL, upstart) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
 static void
 start_reply_handler (char **         job_path,
 		     NihDBusMessage *message,
@@ -2469,6 +2505,12 @@ static NihCommand commands[] = {
 	  N_("List all jobs and events which cannot be satisfied by "
 	     "currently available job configuration files"),
 	  NULL, check_config_options, check_config_action },
+
+	{ "flush-early-job-log", NULL,
+	  N_("Flush job log for early ending jobs."),
+	  N_("Run to ensure output from jobs ending before "
+			  "disk is writeable are flushed to disk"),
+	  NULL, NULL, flush_early_job_log_action },
 
 
 	NIH_COMMAND_LAST

@@ -57,6 +57,9 @@
       <arg name="file" type="h" direction="in" />
     </method>
 
+    <method name="FlushEarlyJobLog">
+    </method>
+
     <!-- Basic information about Upstart -->
     <property name="version" type="s" access="read" />
     <property name="log_priority" type="s" access="readwrite" />

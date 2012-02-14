@@ -123,12 +123,12 @@
 	assert (pid);                                                \
 	                                                             \
 	if (kill (pid, 0) == 0) {                                    \
-		kill (pid, SIGTERM);                                 \
+		TEST_EQ (kill (pid, SIGTERM), 0);                    \
 		sleep (1);                                           \
 	}                                                            \
 	                                                             \
 	if (kill (pid, 0) == 0) {                                    \
-		kill (pid, SIGKILL);                                 \
+		TEST_EQ (kill (pid, SIGKILL), 0);                    \
 	}                                                            \
 }
 
@@ -169,7 +169,7 @@
 		TEST_NE_P (ret, NULL);                               \
 	}                                                            \
 	                                                             \
-	TEST_NE ( pclose (f), -1);                                   \
+	TEST_NE (pclose (f), -1);                                    \
 }
 
 /**
@@ -11385,6 +11385,7 @@ test_show_config (void)
 	STOP_UPSTART (upstart_pid);
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 	TEST_DBUS_END (dbus_pid);
+        TEST_EQ (rmdir (dirname), 0);
 }
 
 void
@@ -11841,6 +11842,97 @@ test_check_config (void)
 	STOP_UPSTART (upstart_pid);
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 	TEST_DBUS_END (dbus_pid);
+        TEST_EQ (rmdir (dirname), 0);
+}
+
+void
+test_flush_early_job_log (void)
+{
+	char             confdir_name[PATH_MAX];
+	char             logdir_name[PATH_MAX];
+	nih_local char  *logfile_name;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid;
+	nih_local char  *cmd;
+	char           **output;
+	size_t           lines;
+	struct stat      statbuf;
+	mode_t           old_perms;
+	FILE            *file;
+
+        TEST_FILENAME (confdir_name);
+        TEST_EQ (mkdir (confdir_name, 0755), 0);
+
+        TEST_FILENAME (logdir_name);
+        TEST_EQ (mkdir (logdir_name, 0755), 0);
+
+	TEST_EQ (stat (logdir_name, &statbuf), 0);
+	old_perms = statbuf.st_mode;
+
+	/* Make inaccessible */
+	TEST_EQ (chmod (logdir_name, 0x0), 0);
+
+	/* Use the "secret" interfaces */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir_name, 1), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir_name, 1), 0);
+
+	TEST_FUNCTION ("flush-early-job-log");
+
+	TEST_FEATURE ("with job ending before log disk writeable");
+
+	CREATE_FILE (confdir_name, "foo.conf",
+			"console log\n"
+			"exec echo hello world\n");
+
+	logfile_name = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir_name,
+				"foo.log"));
+
+	TEST_DBUS (dbus_pid);
+	START_UPSTART (upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
+			INITCTL_BINARY, "foo");
+	TEST_NE_P (cmd, NULL);
+
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+
+	TEST_EQ (fnmatch ("foo stop/waiting", output[0], 0), 0);
+
+	/* Ensure no log file written */
+	TEST_LT (stat (logfile_name, &statbuf), 0);
+
+	/* Restore access */
+	TEST_EQ (chmod (logdir_name, old_perms), 0);
+
+	/* Ensure again that no log file written */
+	TEST_LT (stat (logfile_name, &statbuf), 0);
+
+	cmd = nih_sprintf (NULL, "%s flush-early-job-log 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Ensure file written now */
+	TEST_EQ (stat (logfile_name, &statbuf), 0);
+
+	file = fopen (logfile_name, "r");
+	TEST_NE_P (file, NULL);
+	TEST_FILE_EQ (file, "hello world\r\n");
+	TEST_FILE_END (file);
+	TEST_EQ (fclose (file), 0);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
+
+	DELETE_FILE (confdir_name, "foo.conf");
+	DELETE_FILE (logdir_name, "foo.log");
+
+	TEST_EQ (rmdir (confdir_name), 0);
+	TEST_EQ (rmdir (logdir_name), 0);
 }
 
 
@@ -14469,13 +14561,14 @@ main (int   argc,
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"
-				"WARNING: not running show-config "
-				"and check-config tests within chroot "
+				"WARNING: not running show-config, "
+				"check-config & flush-early-job-log tests within chroot "
 				"as no D-Bus, or D-Bus not configured (lp:#728988)"
 				"\n\n");
 	} else {
 		test_show_config ();
 		test_check_config ();
+		test_flush_early_job_log ();
 	}
 
 	return 0;
