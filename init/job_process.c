@@ -1590,16 +1590,30 @@ job_process_terminated (Job         *job,
 		job->kill_process = -1;
 	}
 
-	if (job->class->console == CONSOLE_LOG) {
+	if (job->class->console == CONSOLE_LOG && job->log) {
+		int  ret;
+
 		/* It is imperative that we free the log at this stage to ensure
 		 * that jobs which respawn have their log written _now_
 		 * (and not just when the overall Job object is freed at
 		 * some distant future point).
 		 */
-		if (job->log) {
+		ret = log_handle_unflushed (job, job->log);
+
+		if (ret != 0) {
+			if (ret < 0) {
+				/* Any lingering data will now be lost in what
+				 * is probably a low-memory scenario.
+				 */
+				nih_warn (_("Failed to add log to unflushed queue"));
+			}
 			nih_free (job->log);
-			job->log = NULL;
 		}
+
+		/* Either the log has been freed, or it needs to be
+		 * severed from its parent job fully.
+		 */
+		job->log = NULL;
 	}
 
 	/* Find existing utmp entry for the process pid */

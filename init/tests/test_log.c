@@ -81,6 +81,9 @@
  *       nih_new
  *         __nih_alloc # XXX: call 7
  *
+ * (There is actually an 8th call to log_unflushed_init(), but we handle
+ * that by calling log_unflushed_init() prior to any tests).
+ *
  * XXX: Unfortunately, having created a log, we cannot intelligently test the
  * memory failure handling of the asynchronously called log_io_reader() due to the
  * underlying complexities of the way NIH re-allocs memory at particular
@@ -116,19 +119,22 @@ test_log_new (void)
 
 	/* XXX:
 	 *
-	 * It is *essential* we call this prior to any TEST_ALLOC_FAIL
-	 * blocks since TEST_ALLOC_FAIL tracks calls to memory
-	 * allocation routines and expects the function under test to
-	 * call said routines *the same number of times* on each loop.
-	 * NIH will attempt to initialise internal data structures
-	 * lazily so force it to not be lazy to avoid surprises wrt
-	 * number of malloc calls.
+	 * It is *essential* we call these functions prior to any
+	 * TEST_ALLOC_FAIL blocks since TEST_ALLOC_FAIL tracks calls to
+	 * memory allocation routines and expects the function under
+	 * test to call said routines *the same number of times* on each
+	 * loop.  NIH will attempt to initialise internal data
+	 * structures lazily so force it to not be lazy to avoid
+	 * surprises wrt number of malloc calls.
 	 */
 	nih_io_init ();
 	nih_error_init ();
+	log_unflushed_init ();
 
 	/************************************************************/
 	TEST_FEATURE ("object checks with uid 0");
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
 
 	TEST_ALLOC_FAIL {
 		TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
@@ -157,10 +163,12 @@ test_log_new (void)
 		TEST_EQ (log->io->watch->fd, pty_master);
 		TEST_EQ (log->uid, 0);
 		TEST_LT (log->fd, 0);
+		TEST_NE (log_unflushed_files, NULL);
+		TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
 
 		close (pty_slave);
 
-		/* frees fds[0] */
+		/* frees pty_master */
 		nih_free (log);
 		log = NULL;
 	}
@@ -254,12 +262,21 @@ test_log_new (void)
 		if (test_alloc_failed == 1+LOG_NEW_ALLOC_CALLS) {
 			TEST_NE_P (log, NULL);         
 			close (pty_slave);
+			TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+			ret = log_handle_unflushed (NULL, log);
+			TEST_EQ (ret, 1);
+			TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
 			nih_free (log);
 			TEST_EQ (unlink (filename), 0);
 			continue;
 		}
 
 		close (pty_slave);
+		TEST_FORCE_WATCH_UPDATE ();
+		ret = log_handle_unflushed (NULL, log);
+		TEST_EQ (ret, 1);
+		TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
 		nih_free (log);
 
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -573,6 +590,87 @@ test_log_new (void)
 	TEST_EQ (unlink (filename), 0);
 
 	/************************************************************/
+	TEST_FEATURE ("ensure logger flushes cached data on request");
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	TEST_NE (log_unflushed_files, NULL);
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_EQ (stat (dirname, &statbuf), 0);
+
+	/* Save */
+	old_perms = statbuf.st_mode;
+
+	/* Make file inaccessible */
+	TEST_EQ (chmod (dirname, 0x0), 0);
+
+	log = log_new (NULL, filename, pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	ret = write (pty_slave, str, strlen (str));
+	TEST_GT (ret, 0);
+	ret = write (pty_slave, "\n", 1);
+	TEST_EQ (ret, 1);
+
+	close (pty_slave);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	/* Ensure no log file written */
+	TEST_LT (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_FREE_TAG (log);
+
+	TEST_EQ (log_handle_unflushed (NULL, log), 0);
+
+	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	//TEST_FORCE_WATCH_UPDATE ();
+
+	/* Again, ensure no log file written */
+	TEST_LT (stat (filename, &statbuf), 0);
+
+	TEST_EQ (log_clear_unflushed (), -1);
+
+	/* Restore access */
+	TEST_EQ (chmod (dirname, old_perms), 0);
+
+	/* Force flush */
+	TEST_EQ (log_clear_unflushed (), 0);
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	TEST_TRUE  (S_ISREG (statbuf.st_mode));
+	TEST_TRUE  (statbuf.st_mode & S_IRUSR);
+	TEST_TRUE  (statbuf.st_mode & S_IWUSR);
+	TEST_FALSE (statbuf.st_mode & S_IXUSR);
+
+	TEST_TRUE  (statbuf.st_mode & S_IRGRP);
+	TEST_FALSE (statbuf.st_mode & S_IWGRP);
+	TEST_FALSE (statbuf.st_mode & S_IXGRP);
+
+	TEST_FALSE (statbuf.st_mode & S_IROTH);
+	TEST_FALSE (statbuf.st_mode & S_IWOTH);
+	TEST_FALSE (statbuf.st_mode & S_IXOTH);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "hello, world!\r\n");
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filename), 0);
+	TEST_FREE (log);
+
+	/************************************************************/
 	TEST_FEATURE ("ensure logger flushes when destroyed with uid 0");
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
@@ -650,7 +748,9 @@ test_log_new (void)
 	TEST_EQ (ret, 1);
 
 	close (pty_slave);
-	nih_free (log);
+
+	ret = log_handle_unflushed (NULL, log);
+	TEST_EQ (ret, 1);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -1163,10 +1263,9 @@ test_log_destroy (void)
 	TEST_FREE (log->unflushed);
 }
 
-
-	int
+int
 main (int   argc,
-		char *argv[])
+      char *argv[])
 {
 	/* run tests in legacy (pre-session support) mode */
 	setenv ("UPSTART_NO_SESSIONS", "1", 1);

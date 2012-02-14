@@ -510,11 +510,26 @@ Note that internal events (such as \fBstartup\fP(7) and
 \fBstarting\fP(7)) are automatically ignored.
 .IP "\fB-w\fP, \fB\-\-warn\fP"
 If specified, treat \fIany\fP unknown jobs and events as errors.
+.RE
+.\"
+.TP
+.B flush\-early\-job\-log
 
+Forces the
+.BR init (8)
+daemon to flush its internal cache of \(aqearly job\(aq output data.
+An early job is any job which
+.I finishes
+before the log disk becomes writeable. If job logging is not disabled,
+this command should be called once when the log disk becomes writeable
+to ensure that output from all early jobs is flushed. If the data is
+written successfully, the internal cache is deleted.
 .\"
 .SH AUTHOR
 Written by Scott James Remnant
 .RB < scott@netsplit.com >
+and James Hunt
+.RB < james.hunt@canonical.com > .
 .\"
 .SH REPORTING BUGS
 Report bugs at

@@ -761,3 +761,48 @@ control_handle_bus_type (void)
 	if (use_session_bus)
 		nih_debug ("Using session bus");
 }
+/**
+ * control_flush_early_job_log:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ *
+ * Implements the FlushEarlyJobLog method of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to flush the job logs for all jobs that ended before the log
+ * disk became writeable.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_flush_early_job_log (void   *data,
+		     NihDBusMessage *message)
+{
+	int       ret;
+	Session  *session;
+
+	nih_assert (message != NULL);
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	if (session && session->user) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to flush the job log"));
+		return -1;
+	}
+
+	/* "nop" when run from a chroot */
+	if (session && session->chroot)
+		return 0;
+
+	ret = log_clear_unflushed ();
+
+	if (ret < 0) {
+		nih_error_raise_system ();
+		return -1;
+	}
+
+	return 0;
+}
