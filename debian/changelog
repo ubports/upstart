@@ -1,4 +1,4 @@
-upstart (1.4-0ubuntu7) precise; urgency=low
+upstart (1.4-0ubuntu7) UNRELEASED; urgency=low
 
   * debian/manpages/upstart-events.7: Added missing events 'container' and
     'not-container'.
@@ -10,6 +10,11 @@ upstart (1.4-0ubuntu7) precise; urgency=low
   * debian/conf/flush-early-job-log.conf: Upstart job to force flushing of
     early job log output data when disk becomes writeable.
   * Re-enable job logging by default.
+
+  [ Steve Langasek ]
+  * init/tests/test_job_process.c: close all fds before running tests that
+    check for unexpected open fds, so that files leaked from the environment
+    don't cause the test suite to fail gratuitously.  LP: #926473.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 13 Feb 2012 13:59:15 +0000
 

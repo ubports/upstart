@@ -391,6 +391,22 @@ get_available_pty_count (void)
 	return max - nr;
 }
 
+/* Helper function to close all fds above 2, in case any have been leaked
+ * to us from the environment (and thence to the child process)
+ */
+void
+close_all_files (void)
+{
+	int i;
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return;
+
+	for (i = 3; i < rlim.rlim_cur; i++)
+		close(i);
+}
+
 /* XXX: Note that none of these tests attempts to test with a Session
  * passed to job_class_new() since to do so would modify the home
  * directory of the user running these tests (BAD!!).
@@ -1105,6 +1121,8 @@ test_run (void)
 	 * writeable location
 	 */
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	close_all_files();
 
 	/************************************************************/
 	TEST_FEATURE ("ensure sane fds with no console, no script");
