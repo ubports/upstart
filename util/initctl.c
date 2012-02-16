@@ -2452,6 +2452,16 @@ NihOption check_config_options[] = {
 	  NULL, NULL, &check_config_warn, NULL },
 	NIH_OPTION_LAST
 };
+
+/**
+ * usage_options:
+ *
+ * Command-line options accepted for the usage command.
+ **/
+NihOption usage_options[] = {
+	NIH_OPTION_LAST
+};
+
 /**
  * job_group:
  *
@@ -2572,10 +2582,10 @@ static NihCommand commands[] = {
 	     "currently available job configuration files"),
 	  NULL, check_config_options, check_config_action },
 
-	{ "usage",  N_("JOB [KEY=VALUE]..."),
+	{ "usage",  N_("JOB"),
 	  N_("Show job usage message if available."),
 	  N_("JOB is the name of the job which usage is to be shown.\n" ),
-	  NULL, check_config_options, usage_action },
+	  NULL, usage_options, usage_action },
 
 
 	NIH_COMMAND_LAST
