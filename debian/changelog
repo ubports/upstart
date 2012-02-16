@@ -15,6 +15,9 @@ upstart (1.4-0ubuntu7) UNRELEASED; urgency=low
   * init/tests/test_job_process.c: close all fds before running tests that
     check for unexpected open fds, so that files leaked from the environment
     don't cause the test suite to fail gratuitously.  LP: #926473.
+  * bump debhelper compat to 9 and adjust debian/rules to use the
+    dpkg-buildflags interfaces, so that upstart can be cross-compiled and
+    also so we pick up any future hardening flags for free.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 13 Feb 2012 13:59:15 +0000
 
