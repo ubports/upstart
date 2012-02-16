@@ -34,6 +34,7 @@ syn cluster upstartShellCluster contains=@Shell
 syn keyword upstartStatement description author version instance expect
 syn keyword upstartStatement pid kill normal console env exit export
 syn keyword upstartStatement umask nice oom chroot chdir exec setuid setgid
+syn keyword upstartStatement usage
 
 " two arguments
 syn keyword upstartStatement limit

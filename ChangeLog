@@ -1,3 +1,11 @@
+2011-11-16  Petr Lautrbach <plautrba@redhat.com>
+	* init/parse_job.c, init/job_class.c, init/job_class.h: Added "usage"
+	stanza which is used by initctl command.
+	* init/tests/test_parse_job.c: Tests for "usage" stanza
+	* init/man/init.5: "usage" stanza documentation.
+	* util/initctl.c, util/man/initctl.8: Added "inictl usage" command.
+	* util/tests/test_initctl.c: Tests for ""inictl usage" command.
+
 2012-02-13  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:

@@ -230,6 +230,8 @@ job_class_new (const void *parent,
 	class->deleted = FALSE;
 	class->debug   = FALSE;
 
+	class->usage = NULL;
+
 	return class;
 
 error:
@@ -567,12 +569,21 @@ job_class_get_instance (JobClass        *class,
 	name = environ_expand (NULL, class->instance, instance_env);
 	if (! name) {
 		NihError *error;
+		char *error_message;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
+			error_message = nih_strdup(NULL, error->message);
+			if (class->usage) {
+				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
+					nih_error_raise_no_memory ();
+				}
+			}
+
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      error->message);
+					      error_message);
+			nih_free (error_message);
 			nih_free (error);
 		}
 
@@ -766,12 +777,20 @@ job_class_start (JobClass        *class,
 	name = environ_expand (NULL, class->instance, start_env);
 	if (! name) {
 		NihError *error;
+		char *error_message;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
+			error_message = nih_strdup(NULL, error->message);
+			if (class->usage) {
+				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
+					nih_error_raise_no_memory ();
+				}
+			}
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      error->message);
+					      error_message);
+			nih_free (error_message);
 			nih_free (error);
 		}
 
@@ -1439,4 +1458,41 @@ job_class_console_type (const char *console)
 	}
 
 	return (ConsoleType)-1;
+}
+
+/**
+ * job_class_get_usage:
+ * @class: class to obtain usage from,
+ * @message: D-Bus connection and message received,
+ * @usage: pointer for reply string.
+ *
+ * Implements the get method for the usage property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the usage of the given @class
+ * which will be stored as an string in @usage.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_usage (JobClass *      class,
+		     NihDBusMessage *message,
+		     char **        usage)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (usage != NULL);
+
+	if (class->usage) {
+		*usage = nih_strdup (message, class->usage);
+		}
+	else {
+		*usage = nih_strdup (message, "");
+	}
+
+	if (! *usage) {
+		nih_return_no_memory_error (-1);
+	}
+
+	return 0;
 }

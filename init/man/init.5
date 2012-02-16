@@ -564,6 +564,21 @@ to resolve a class of events, such as those emitted by
 .BR upstart-udev-bridge (8) "" .
 
 .\"
+.TP
+.B usage \fIUSAGE
+This stanza may contain the text used by
+.BR initctl "(8) " usage
+command. This text may be also shown when commands
+.BR start (8),
+.BR stop (8)
+or
+.BR status (8)
+fail.
+
+.nf
+usage "tty DEV=ttyX - where X is console id"
+.fi
+.\"
 .SS Process environment
 Many common adjustments to the process environment, such as resource
 limits, may be configured directly in the job rather than having to handle
