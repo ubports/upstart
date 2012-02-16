@@ -1,3 +1,10 @@
+2012-02-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_flush_early_job_log():
+	  - "with job ending before log disk writeable": Give Upstart a chance
+	    to run the job as sometimes we see the job pid in the output which
+	    causes the test to fail.
+
 2012-02-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* dbus/com.ubuntu.Upstart.xml:
