@@ -482,6 +482,8 @@ job_status (const void *  parent,
  * @job_class_name: Name of job class.
  *
  * Display usage of job class.
+ * 
+ * Returns: newly allocated string or NULL on raised error.
  **/
 char *
 job_usage (const void *parent, NihDBusProxy *job_class_proxy)

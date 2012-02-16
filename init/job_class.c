@@ -575,9 +575,11 @@ job_class_get_instance (JobClass        *class,
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
 			error_message = nih_strdup(NULL, error->message);
+			if (! error_message)
+				nih_return_system_error (-1);
 			if (class->usage) {
 				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
-					nih_error_raise_no_memory ();
+					nih_return_system_error (-1);
 				}
 			}
 
@@ -783,9 +785,11 @@ job_class_start (JobClass        *class,
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
 			error_message = nih_strdup(NULL, error->message);
+			if (! error_message)
+				nih_return_system_error (-1);
 			if (class->usage) {
 				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
-					nih_error_raise_no_memory ();
+					nih_return_system_error (-1);
 				}
 			}
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
