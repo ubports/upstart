@@ -12,7 +12,7 @@ upstart (1.4-0ubuntu8) precise; urgency=low
       to run the job as sometimes we see the job pid in the output which
       causes the test to fail.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 17 Feb 2012 14:33:45 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 17 Feb 2012 10:58:02 -0500
 
 upstart (1.4-0ubuntu7) precise; urgency=low
 
