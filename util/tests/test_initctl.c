@@ -11898,6 +11898,31 @@ test_flush_early_job_log (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 
+	/* Give Upstart a chance to respond */
+	{
+		int i   = 0;
+		int max = 5;
+		int ret;
+
+		for (i=0; i < max; ++i) {
+			nih_free (output);
+			cmd = nih_sprintf (NULL, "%s status %s 2>&1",
+					INITCTL_BINARY, "foo");
+			TEST_NE_P (cmd, NULL);
+
+			RUN_COMMAND (NULL, cmd, &output, &lines);
+			TEST_EQ (lines, 1);
+
+			ret = fnmatch ("foo stop/waiting", output[0], 0);
+
+			if (! ret) {
+				break;
+			}
+
+			sleep (1);
+		}
+	}
+
 	TEST_EQ (fnmatch ("foo stop/waiting", output[0], 0), 0);
 
 	/* Ensure no log file written */

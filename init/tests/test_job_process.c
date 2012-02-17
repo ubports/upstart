@@ -397,7 +397,7 @@ get_available_pty_count (void)
 void
 close_all_files (void)
 {
-	int i;
+	unsigned long i;
 	struct rlimit rlim;
 
 	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
@@ -432,6 +432,7 @@ test_run (void)
 	int              ok;
 	char             buffer[1024];
 	pid_t            pid;
+	siginfo_t        siginfo;
 
 	log_unflushed_init ();
 
@@ -3696,6 +3697,14 @@ test_run (void)
 	}
 
 	TEST_EQ (kill (pid, 0), 0);
+
+	/* Wait until the process is in a known state. This ensures that
+	 * when job_process_terminated() calls log_handle_unflushed(), 
+	 * the log object will _not_ get added to the unflushed list,
+	 * meaning it will get destroyed immediately.
+	 */
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
+
 	nih_child_poll ();
 
 	/* The process should now be dead */
@@ -3753,6 +3762,10 @@ test_run (void)
 				NULL)); 
 
 	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (job->log, NULL);
+	TEST_FREE_TAG (job);
+
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
@@ -3769,17 +3782,19 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	TEST_NE_P (job->log, NULL);
+	TEST_TRUE (nih_alloc_parent (job->log, job));
 
-	TEST_FREE_TAG (job);
-	TEST_FREE_TAG (job->log);
-
-	TEST_FORCE_WATCH_UPDATE ();
+	/* Wait until the process is in a known state. This ensures that
+	 * when job_process_terminated() calls log_handle_unflushed(), 
+	 * the log object will _not_ get added to the unflushed list,
+	 * meaning it will get destroyed immediately.
+	 */
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
 
 	nih_child_poll ();
 
 	/* Should have been destroyed now */
 	TEST_FREE (job);
-	TEST_FREE (job->log);
 
 	nih_free (class);
 	unlink (filename);
