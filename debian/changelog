@@ -1,3 +1,15 @@
+upstart (1.4-0ubuntu8) precise; urgency=low
+
+  * init/tests/test_job_process.c:
+    - close_all_files(): Correct type of index variable.
+    - test_run():
+      - "with single line command writing lots of data fast and exiting":
+        - add waitid() call to ensure log is not added to unflushed list.
+      - "with log object freed on process exit":
+        - add waitid() call to ensure log is not added to unflushed list.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 17 Feb 2012 10:10:12 +0000
+
 upstart (1.4-0ubuntu7) precise; urgency=low
 
   * debian/manpages/upstart-events.7: Added missing events 'container' and
