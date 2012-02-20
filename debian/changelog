@@ -1,3 +1,10 @@
+upstart (1.4-0ubuntu9) precise; urgency=low
+
+  * init/log.c:log_read_watch(): Set remote_closed for scenarios where error
+    handler never called.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 20 Feb 2012 21:00:30 +0000
+
 upstart (1.4-0ubuntu8) precise; urgency=low
 
   * init/tests/test_job_process.c:
