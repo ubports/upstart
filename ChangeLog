@@ -9,6 +9,7 @@
 	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
 	      fail.
 	    - Formatting.
+	* init/man/init.5: Add further pty details.
 
 2012-02-13  James Hunt  <james.hunt@ubuntu.com>
 

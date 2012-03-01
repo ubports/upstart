@@ -666,10 +666,17 @@ has sufficient space).
 
 Note that since
 .B log
-utilizes pseudo-ttys, it may be necessary to increase the number of
+utilizes pseudo-ttys, your kernel must support these. If it does not,
+the console value will be modified automatically to
+.BR none.
+Further, note that it may be necessary to increase the number of
 available pty devices; see
 .BR pty (7)
 for details.
+
+Under Linux, full Unix 98 pty support requires that the
+.I devpts
+filesystem be mounted.
 .RE
 .RE
 .sp 1
