@@ -511,6 +511,28 @@ Note that internal events (such as \fBstartup\fP(7) and
 .IP "\fB-w\fP, \fB\-\-warn\fP"
 If specified, treat \fIany\fP unknown jobs and events as errors.
 
+.RE
+.\"
+.TP
+.B usage
+.I JOB
+.RI [ KEY=VALUE ]...
+
+Show usage information an instance of the named
+.IR JOB
+defined with
+.BR usage
+stanza.
+
+For job with
+.BR usage
+stanza a line like the following is output, see
+.BR init (5)
+:
+
+.nf
+  Usage: tty DEV=ttyX - where X is console id
+.fi
 .\"
 .SH AUTHOR
 Written by Scott James Remnant
