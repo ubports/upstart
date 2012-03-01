@@ -569,23 +569,23 @@ job_class_get_instance (JobClass        *class,
 	name = environ_expand (NULL, class->instance, instance_env);
 	if (! name) {
 		NihError *error;
-		char *error_message;
+		nih_local char *error_message = NULL;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
-			error_message = nih_strdup(NULL, error->message);
+			error_message = nih_strdup (NULL, error->message);
 			if (! error_message)
 				nih_return_system_error (-1);
 			if (class->usage) {
-				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
+				if (! nih_strcat_sprintf (&error_message, NULL,
+							"\n%s: %s", _("Usage"), class->usage)) {
 					nih_return_system_error (-1);
 				}
 			}
 
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
 					      error_message);
-			nih_free (error_message);
 			nih_free (error);
 		}
 
@@ -779,22 +779,22 @@ job_class_start (JobClass        *class,
 	name = environ_expand (NULL, class->instance, start_env);
 	if (! name) {
 		NihError *error;
-		char *error_message;
+		nih_local char *error_message = NULL;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
-			error_message = nih_strdup(NULL, error->message);
+			error_message = nih_strdup (NULL, error->message);
 			if (! error_message)
 				nih_return_system_error (-1);
 			if (class->usage) {
-				if (! nih_strcat_sprintf(&error_message, NULL, "\n%s: %s", _("Usage"), class->usage)) {
+				if (! nih_strcat_sprintf (&error_message, NULL,
+							"\n%s: %s", _("Usage"), class->usage)) {
 					nih_return_system_error (-1);
 				}
 			}
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
 					      error_message);
-			nih_free (error_message);
 			nih_free (error);
 		}
 
