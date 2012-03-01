@@ -1,3 +1,15 @@
+2012-03-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_get_instance():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+	  - job_class_start():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+
 2012-02-13  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:
