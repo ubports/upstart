@@ -139,6 +139,13 @@ is to be acted upon.
 If the job is already running,
 .B start
 will return an error.
+
+When called from the
+.IR pre\-stop
+stanza of a job configuration,
+.B start
+may be called without argument to cancel the
+.B stop.
 .\"
 .TP
 .B stop
@@ -155,6 +162,13 @@ See
 for a description of the output format and
 .B start
 for a discussion on instances.
+
+When called from the
+.IR pre\-start
+stanza of a job configuration,
+.B stop
+may be called without an argument to cancel the
+.B start.
 .\"
 .TP
 .B restart
