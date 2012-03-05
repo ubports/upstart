@@ -1,3 +1,11 @@
+2012-03-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn(): If pty setup fails,
+	  log message and disable logging for job.
+	* init/man/init.5: Explain new behaviour should pty setup fail.
+	* init/tests/test_job_process.c: Updated disabled test
+	  "when no free ptys" for new behaviour.
+
 2012-03-01  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c:

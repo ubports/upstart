@@ -4735,6 +4735,10 @@ test_spawn (void)
 
 			pid = job_process_spawn (job, args, NULL, FALSE, -1);
 			TEST_LT (pid, 0);
+
+			/* Ensure logging disabled in failure scenarios */
+			TEST_EQ (class->console, CONSOLE_NONE);
+
 			err = nih_error_get ();
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);

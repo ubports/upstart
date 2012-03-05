@@ -454,11 +454,23 @@ job_process_spawn (Job          *job,
 
 		if (pty_master < 0) {
 			/* Give the user an indication that they need to
-			 * increase the available ptys. Any other scenario
-                         * suggests more serious trouble.
+			 * increase the available ptys.
+			 *
+			 * This error will also been seen when:
+			 * 
+			 * - the kernel does not support ptys.
+			 * - /dev/pts mounted, possibly due to an
+			 *   initramfs-less system.
                          */
 			if (errno == ENOENT)
-				nih_warn (_("No available ptys"));
+				nih_error (_("No available ptys"));
+
+			nih_error (_("Failed to create pty - disabling logging"));
+
+			/* Ensure that the job can still be started by
+			 * disabling logging.
+			 */
+			class->console = CONSOLE_NONE;
 
 			close (fds[0]);
 			close (fds[1]);
