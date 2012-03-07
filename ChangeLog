@@ -1,3 +1,21 @@
+2012-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_new(): Initialize log array.
+	* init/job.h: Change Log element to an array to handle scenario where
+	  job has multiple simultaneous processes running (LP: #940290).
+	* init/job_process.c:
+	  - job_process_run(): pass ProcessType to job_process_spawn().
+	  - job_process_spawn():
+	    - Now accepts a ProcessType.
+	    - Ensure existing matching process type log is destroyed before
+	      creating a new one.
+	  - job_process_terminated(): Update for log array.
+	* init/job_process.h: Updated prototype for job_process_spawn().
+	* init/tests/test_job.c: test_new(): Updated logic for log array.
+	* init/tests/test_job_process.c: test_run():
+	  - Updated logic for log array.
+	  - Added ProcessType to job_process_spawn() calls.
+
 2012-03-05  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_spawn(): If pty setup fails,
