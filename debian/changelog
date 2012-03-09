@@ -1,3 +1,13 @@
+upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
+
+  * debian/conf/failsafe.conf: instead of waiting for the 'runlevel' event
+    before considering failsafe done, stop this job as soon as we're
+    starting rc-sysinit; that way, any delays in /etc/rcS.d will not cause
+    confusing messages about networking delays when the network is not the
+    problem.  LP: #950662.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 09 Mar 2012 11:41:55 -0800
+
 upstart (1.4-0ubuntu8) precise; urgency=low
 
   * init/tests/test_job_process.c:
