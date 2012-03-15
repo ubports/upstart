@@ -1,3 +1,12 @@
+upstart (1.4-0ubuntu10) precise; urgency=low
+
+  * debian/conf/power-status-changed.conf: shut down on getting SIGPWR.
+    Unprivileged tasks can't send this signal.  In particular this will
+    allow clean shutdown of containers from the host.  (See
+    http://www.makelinux.net/man/7/P/power-status-changed)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 14 Mar 2012 21:46:29 -0500
+
 upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
 
   * debian/conf/failsafe.conf: instead of waiting for the 'runlevel' event
