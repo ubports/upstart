@@ -11,7 +11,17 @@ upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
   * init/log.c:log_read_watch(): Set remote_closed for scenarios where error
      handler never called. (LP: #935585)
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 16 Mar 2012 17:20:11 +0000
+  [ Serge Hally ]
+  * debian/conf/power-status-changed.conf: shut down on getting SIGPWR.
+    Unprivileged tasks can't send this signal.  In particular this will
+    allow clean shutdown of containers from the host. 
+    (See http://www.makelinux.net/man/7/P/power-status-changed)
+
+  [ Stéphane Graber ]
+  * Rename Serge's job to shutdown.conf to avoid a name conflict with the
+    event power-status-changed.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 16 Mar 2012 13:44:27 -0400
 
 upstart (1.4-0ubuntu8) precise; urgency=low
 
