@@ -1,12 +1,17 @@
 upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
 
+  [ Steve Langasek ]
   * debian/conf/failsafe.conf: instead of waiting for the 'runlevel' event
     before considering failsafe done, stop this job as soon as we're
     starting rc-sysinit; that way, any delays in /etc/rcS.d will not cause
     confusing messages about networking delays when the network is not the
-    problem.  LP: #950662.
+    problem. (LP: #950662)
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 09 Mar 2012 11:41:55 -0800
+  [ James Hunt ]
+  * init/log.c:log_read_watch(): Set remote_closed for scenarios where error
+     handler never called. (LP: #935585)
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 16 Mar 2012 17:20:11 +0000
 
 upstart (1.4-0ubuntu8) precise; urgency=low
 
