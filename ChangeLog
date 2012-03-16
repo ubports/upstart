@@ -1,3 +1,11 @@
+2012-03-16  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Steve Langasek <steve.langasek@ubuntu.com> ]
+	* init/tests/test_job_process:
+	  - close_all_files(): New function to ensure test environment
+	    has only expected fds open.
+	  - main(): Call close_all_files().
+
 2012-03-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job.c: job_new(): Initialize log array.

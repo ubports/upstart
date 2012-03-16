@@ -154,7 +154,7 @@ enum child_tests {
 static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
-
+static void close_all_files (void);
 
 /**
  * fd_valid:
@@ -389,6 +389,22 @@ get_available_pty_count (void)
 	fclose (f);
 
 	return max - nr;
+}
+
+/* Helper function to close all fds above 2, in case any have been leaked
+ * to us from the environment (and thence to the child process)
+ */
+static void
+close_all_files (void)
+{
+	unsigned long i;
+	struct rlimit rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return;
+
+	for (i = 3; i < rlim.rlim_cur; i++)
+		close(i);
 }
 
 /* XXX: Note that none of these tests attempts to test with a Session
@@ -8615,6 +8631,8 @@ main (int   argc,
 		child (atoi (argv[1]), argv[2]);
 		exit (1);
 	}
+
+	close_all_files (); 
 
 	job_class_init ();
 	nih_error_init ();
