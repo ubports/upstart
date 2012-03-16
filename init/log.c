@@ -685,6 +685,17 @@ log_read_watch (Log *log)
 			break;
 		}
 	}
+
+	/* Job process has ended and we've drained all the data the job
+	 * produced, so remote end must have closed.
+	 *
+	 * This cannot be handled entirely by log_io_error_handler()
+	 * since the job may produce some output prior to disks being
+	 * writeable, then end without producing further output.
+	 * In this scenario the error handler is never called.
+	 *
+	 */
+	log->remote_closed = 1;
 }
 
 /**

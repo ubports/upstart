@@ -40,6 +40,8 @@
 	    flushed _after_ the parent object has been destroyed.
 	  - log_clear_unflushed(): New function to clear the
 	    log_unflushed_files list by attempting to flush the data to disk.
+	  - log_read_watch(): Set remote_closed for scenarios where
+	    error handler never called. (LP: #935585)
 	* init/log.h:
 	  - Added new Log members: detached, remote_closed and open_errno.
 	  - Updated documentation.
