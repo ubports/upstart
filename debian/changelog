@@ -1,4 +1,4 @@
-upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
+upstart (1.4-0ubuntu9) precise; urgency=low
 
   [ Steve Langasek ]
   * debian/conf/failsafe.conf: instead of waiting for the 'runlevel' event
@@ -21,7 +21,7 @@ upstart (1.4-0ubuntu9) UNRELEASED; urgency=low
   * Rename Serge's job to shutdown.conf to avoid a name conflict with the
     event power-status-changed.
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 16 Mar 2012 13:44:27 -0400
+ -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 16 Mar 2012 13:48:04 -0400
 
 upstart (1.4-0ubuntu8) precise; urgency=low
 
