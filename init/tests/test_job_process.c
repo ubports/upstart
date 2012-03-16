@@ -147,6 +147,7 @@ enum child_tests {
 	TEST_PWD,
 	TEST_ENVIRONMENT,
 	TEST_OUTPUT,
+	TEST_OUTPUT_WITH_STOP,
 	TEST_SIGNALS,
 	TEST_FDS
 };
@@ -234,6 +235,16 @@ child (enum child_tests  test,
 		 */
 		fprintf(stdout, "stdout\n");
 		fprintf(stderr, "stderr\n");
+		break;
+	case TEST_OUTPUT_WITH_STOP:
+		fprintf (stdout, "started\n");
+		fflush (NULL);
+
+		/* wait for signal */
+		raise (SIGSTOP);
+
+		fprintf(stdout, "ended\n");
+		fflush (NULL);
 		break;
 	case TEST_SIGNALS:
 		/* Write signal stats for child process to stdout */
@@ -3833,6 +3844,120 @@ test_run (void)
 	}
 
 	/************************************************************/
+	TEST_FEATURE ("with multiple processes and log");
+
+	class = job_class_new (NULL, "aero", NULL);
+	TEST_NE_P (class, NULL);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	TEST_GT (sprintf (filename, "%s/aero.log", dirname), 0);
+
+	sprintf (function, "%d", TEST_OUTPUT_WITH_STOP);
+
+	/* Create a temporary filename for child() output. We don't care
+	 * about this file as we're interested in childs() stdout/stderr
+	 * output only.
+	 */
+	TEST_FILENAME (filebuf);
+
+	class->console = CONSOLE_LOG;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+			class->process[PROCESS_MAIN],
+			"%s %s %s",
+			argv0, function, filebuf);
+	class->process[PROCESS_MAIN]->script = FALSE;
+
+	sprintf (function, "%d", TEST_OUTPUT);
+
+	class->process[PROCESS_POST_START] = process_new (class);
+	class->process[PROCESS_POST_START]->command = nih_sprintf (
+			class->process[PROCESS_POST_START],
+			"%s %s %s",
+			argv0, function, filebuf);
+	class->process[PROCESS_POST_START]->script = FALSE;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
+
+	ret = job_process_run (job, PROCESS_MAIN);
+	TEST_EQ (ret, 0);
+
+	pid = job->pid[PROCESS_MAIN];
+	TEST_GT (pid, 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* initial output from main process */
+	TEST_FILE_EQ (output, "started\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	ret = job_process_run (job, PROCESS_POST_START);
+	TEST_EQ (ret, 0);
+
+	pid = job->pid[PROCESS_POST_START];
+	TEST_GT (pid, 0);
+
+	/* wait for post-start to finish */
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* initial output from main process, followed by all output from
+	 * post-start process.
+	 */
+	TEST_FILE_EQ (output, "started\r\n");
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	pid = job->pid[PROCESS_MAIN];
+
+	TEST_EQ (kill (pid, SIGCONT), 0);
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* wait for post-start to finish */
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	TEST_FORCE_WATCH_UPDATE ();
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	/* initial output from main process, followed by all output from
+	 * post-start process, followed by final data from main process.
+	 */
+	TEST_FILE_EQ (output, "started\r\n");
+	TEST_FILE_EQ (output, "stdout\r\n");
+	TEST_FILE_EQ (output, "stderr\r\n");
+	TEST_FILE_EQ (output, "ended\r\n");
+	TEST_FILE_END (output);
+
+	TEST_EQ (fclose (output), 0);
+
+	TEST_EQ (unlink (filebuf), 0);
+	TEST_EQ (unlink (filename), 0);
+
+	/************************************************************/
 	/* Final clean-up */
 
 	TEST_EQ (rmdir (dirname), 0);
@@ -3868,6 +3993,11 @@ test_spawn (void)
 	JobProcessError  *perr;
 	int               status;
 	struct stat       statbuf;
+
+	/* reset */
+	(void) umask (0);
+	TEST_FILENAME (dirname);       
+	TEST_EQ (mkdir (dirname, 0755), 0);
 
 	/* Override default location to ensure job output goes to a
 	 * writeable location
@@ -4393,6 +4523,112 @@ test_spawn (void)
 	unlink (filename);
 
 	nih_free (class);
+
+	/************************************************************/
+	TEST_FEATURE ("ensure multi process output logged");
+
+	TEST_FILENAME (dirname);       
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	class = job_class_new (NULL, "multiproc", NULL);
+	TEST_NE_P (class, NULL);
+
+	class->console = CONSOLE_LOG;
+
+	TEST_GT (sprintf (filename, "%s/multiproc.log", dirname), 0);
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	sprintf (function, "%d", TEST_OUTPUT_WITH_STOP);
+
+	/* Create a temporary filename for child() output. We don't care
+	 * about this file as we're interested in childs() stdout/stderr
+	 * output only.
+	 */
+	TEST_FILENAME (filebuf);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filebuf;
+	args[3] = NULL;
+
+	job->pid[PROCESS_MAIN] = job_process_spawn (job, args, NULL,
+			FALSE, -1, PROCESS_MAIN);
+	pid = job->pid[PROCESS_MAIN];
+	TEST_GT (pid, 0);
+
+	/* The main process is now running, but paused. It should have
+	 * produced some output so check that now.
+	 */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "started\r\n");
+	TEST_FILE_END (output);
+	TEST_EQ (fclose (output), 0);
+
+	sprintf (function, "%d", TEST_OUTPUT);
+
+	args[0] = argv0;
+	args[1] = function;
+	args[2] = filebuf;
+	args[3] = NULL;
+
+	job->pid[PROCESS_POST_START] = job_process_spawn (job, args, NULL,
+			FALSE, -1, PROCESS_POST_START);
+	pid = job->pid[PROCESS_POST_START];
+	TEST_GT (pid, 0);
+
+	/* wait for post-start process to end */
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* ensure log written */
+	nih_free (job->log[PROCESS_POST_START]);
+	job->log[PROCESS_POST_START] = NULL;
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "started\r\n"); /* from main process */
+	TEST_FILE_EQ (output, "stdout\r\n"); /* from post-start process */
+	TEST_FILE_EQ (output, "stderr\r\n"); /* from post-start process */
+	TEST_FILE_END (output);
+	fclose (output);
+
+	pid = job->pid[PROCESS_MAIN];
+	TEST_EQ (kill (pid, SIGCONT), 0);
+
+	/* wait for main process to end */
+	waitpid (pid, &status, 0);
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	/* ensure log written */
+	nih_free (job->log[PROCESS_MAIN]);
+	job->log[PROCESS_MAIN] = NULL;
+
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
+
+	TEST_FILE_EQ (output, "started\r\n"); /* from main process */
+	TEST_FILE_EQ (output, "stdout\r\n");  /* from post-start process */
+	TEST_FILE_EQ (output, "stderr\r\n");  /* from post-start process */
+	TEST_FILE_EQ (output, "ended\r\n");   /* from main process */
+	TEST_FILE_END (output);
+	fclose (output);
+
+	TEST_EQ (unlink (filebuf), 0);
+	TEST_EQ (unlink (filename), 0);
+
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
 	/************************************************************/
 	TEST_FEATURE ("simple test");

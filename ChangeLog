@@ -3,6 +3,15 @@
 	* init/tests/test_job_process:
 	  - Fixed multiple TEST_FAILED() typos
 	    ("unexpected" => unexpectedly").
+	* job_process_spawn(): Only display single message
+	  if pty setup fails. 
+	* init/man/init.5: Typo.
+	* init/tests/test_job_process:
+	  - child(): New TEST_OUTPUT_WITH_STOP test.
+	  - test_run(): New test "with multiple processes and log".
+	  - test_spawn():
+	    - umask reset.
+	    - New test "ensure multi processes output logged".
 
 	[ Steve Langasek <steve.langasek@ubuntu.com> ]
 	* init/tests/test_job_process:
