@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.5\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2012-03-01 11:24+0000\n"
+"POT-Creation-Date: 2012-03-16 20:58+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -83,6 +83,10 @@ msgstr ""
 
 #: init/control.c:743
 msgid "The log priority given was not recognised"
+msgstr ""
+
+#: init/control.c:792
+msgid "You do not have permission to notify disk is writeable"
 msgstr ""
 
 #: init/errors.h:60
@@ -171,97 +175,97 @@ msgstr ""
 msgid "Event failed"
 msgstr ""
 
-#: init/job.c:235
+#: init/job.c:246
 #, c-format
 msgid "%s goal changed from %s to %s"
 msgstr ""
 
-#: init/job.c:306
+#: init/job.c:317
 #, c-format
 msgid "%s state changed from %s to %s"
 msgstr ""
 
-#: init/job.c:725 init/job.c:763
+#: init/job.c:736 init/job.c:774
 msgid "Job failed to start"
 msgstr ""
 
-#: init/job.c:738 init/job.c:774
+#: init/job.c:749 init/job.c:785
 msgid "Job failed while stopping"
 msgstr ""
 
-#: init/job.c:750 init/job.c:785
+#: init/job.c:761 init/job.c:796
 msgid "Job failed to restart"
 msgstr ""
 
-#: init/job.c:979
+#: init/job.c:990
 msgid "stop"
 msgstr ""
 
-#: init/job.c:981
+#: init/job.c:992
 msgid "start"
 msgstr ""
 
-#: init/job.c:983
+#: init/job.c:994
 msgid "respawn"
 msgstr ""
 
-#: init/job.c:1028
+#: init/job.c:1039
 msgid "waiting"
 msgstr ""
 
-#: init/job.c:1030
+#: init/job.c:1041
 msgid "starting"
 msgstr ""
 
-#: init/job.c:1032 init/process.c:80
+#: init/job.c:1043 init/process.c:80
 msgid "pre-start"
 msgstr ""
 
-#: init/job.c:1034
+#: init/job.c:1045
 msgid "spawned"
 msgstr ""
 
-#: init/job.c:1036 init/process.c:82
+#: init/job.c:1047 init/process.c:82
 msgid "post-start"
 msgstr ""
 
-#: init/job.c:1038
+#: init/job.c:1049
 msgid "running"
 msgstr ""
 
-#: init/job.c:1040 init/process.c:84
+#: init/job.c:1051 init/process.c:84
 msgid "pre-stop"
 msgstr ""
 
-#: init/job.c:1042
+#: init/job.c:1053
 msgid "stopping"
 msgstr ""
 
-#: init/job.c:1044
+#: init/job.c:1055
 msgid "killed"
 msgstr ""
 
-#: init/job.c:1046 init/process.c:86
+#: init/job.c:1057 init/process.c:86
 msgid "post-stop"
 msgstr ""
 
-#: init/job.c:1129 init/job.c:1204 init/job.c:1280 init/job_class.c:754
+#: init/job.c:1140 init/job.c:1215 init/job.c:1291 init/job_class.c:754
 #: init/job_class.c:894 init/job_class.c:1029
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
 
-#: init/job.c:1137 init/job_class.c:818
+#: init/job.c:1148 init/job_class.c:818
 #, c-format
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1212 init/job.c:1288 init/job_class.c:948 init/job_class.c:1082
+#: init/job.c:1223 init/job.c:1299 init/job_class.c:948 init/job_class.c:1082
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
 
-#: init/job_class.c:581 init/job_class.c:791 util/initctl.c:1383
+#: init/job_class.c:582 init/job_class.c:792 util/initctl.c:1383
 msgid "Usage"
 msgstr ""
 
@@ -285,214 +289,218 @@ msgstr ""
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:461
-msgid "No available ptys"
+#: init/job_process.c:469
+msgid "Failed to create pty - disabling logging for job"
 msgstr ""
 
-#: init/job_process.c:503
+#: init/job_process.c:516
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:705
+#: init/job_process.c:718
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:1013
+#: init/job_process.c:1026
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:1018
+#: init/job_process.c:1031
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:1073
+#: init/job_process.c:1086
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:1078
+#: init/job_process.c:1091
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:1083
+#: init/job_process.c:1096
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:1088
+#: init/job_process.c:1101
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:1093
+#: init/job_process.c:1106
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:1098
+#: init/job_process.c:1111
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:1103
+#: init/job_process.c:1116
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:1108
+#: init/job_process.c:1121
 #, c-format
 msgid "unable to getpwnam: %s"
 msgstr ""
 
-#: init/job_process.c:1113
+#: init/job_process.c:1126
 #, c-format
 msgid "unable to getgrnam: %s"
 msgstr ""
 
-#: init/job_process.c:1118
+#: init/job_process.c:1131
 msgid "unable to find setuid user"
 msgstr ""
 
-#: init/job_process.c:1122
+#: init/job_process.c:1135
 msgid "unable to find setgid group"
 msgstr ""
 
-#: init/job_process.c:1126
+#: init/job_process.c:1139
 #, c-format
 msgid "unable to setuid: %s"
 msgstr ""
 
-#: init/job_process.c:1131
+#: init/job_process.c:1144
 #, c-format
 msgid "unable to setgid: %s"
 msgstr ""
 
-#: init/job_process.c:1136
+#: init/job_process.c:1149
 #, c-format
 msgid "unable to chown: %s"
 msgstr ""
 
-#: init/job_process.c:1141
+#: init/job_process.c:1154
 #, c-format
 msgid "unable to open pt master: %s"
 msgstr ""
 
-#: init/job_process.c:1146
+#: init/job_process.c:1159
 #, c-format
 msgid "unable to unlockpt: %s"
 msgstr ""
 
-#: init/job_process.c:1151
+#: init/job_process.c:1164
 #, c-format
 msgid "unable to get ptsname: %s"
 msgstr ""
 
-#: init/job_process.c:1156
+#: init/job_process.c:1169
 #, c-format
 msgid "unable to open pt slave: %s"
 msgstr ""
 
-#: init/job_process.c:1187 init/job_process.c:1237
+#: init/job_process.c:1200 init/job_process.c:1250
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1196 init/job_process.c:1246
+#: init/job_process.c:1209 init/job_process.c:1259
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1307
+#: init/job_process.c:1320
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1312
+#: init/job_process.c:1325
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1327
+#: init/job_process.c:1340
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1331
+#: init/job_process.c:1344
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1345
+#: init/job_process.c:1358
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1349
+#: init/job_process.c:1362
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1363
+#: init/job_process.c:1376
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1367
+#: init/job_process.c:1380
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1502
+#: init/job_process.c:1515
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1508
+#: init/job_process.c:1521
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1760
+#: init/job_process.c:1621
+msgid "Failed to add log to unflushed queue"
+msgstr ""
+
+#: init/job_process.c:1787
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1773 init/job_process.c:1968
+#: init/job_process.c:1800 init/job_process.c:1995
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1813 init/job_process.c:1904 init/job_process.c:1959
+#: init/job_process.c:1840 init/job_process.c:1931 init/job_process.c:1986
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1853
+#: init/job_process.c:1880
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1888
+#: init/job_process.c:1915
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1895
+#: init/job_process.c:1922
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:1954
+#: init/job_process.c:1981
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
 
-#: init/log.c:327
+#: init/log.c:350
 msgid "Failed to write to log file"
 msgstr ""
 
@@ -645,74 +653,74 @@ msgstr ""
 msgid "Invalid job class"
 msgstr ""
 
-#: util/initctl.c:2212
+#: util/initctl.c:2248
 msgid "unknown event"
 msgstr ""
 
-#: util/initctl.c:2216
+#: util/initctl.c:2252
 msgid "unknown job"
 msgstr ""
 
-#: util/initctl.c:2317
+#: util/initctl.c:2353
 msgid "use D-Bus session bus to connect to init daemon (for testing)"
 msgstr ""
 
-#: util/initctl.c:2319
+#: util/initctl.c:2355
 msgid "use D-Bus system bus to connect to init daemon"
 msgstr ""
 
-#: util/initctl.c:2321
+#: util/initctl.c:2357
 msgid "destination well-known name on D-Bus bus"
 msgstr ""
 
-#: util/initctl.c:2334
+#: util/initctl.c:2370
 msgid "do not wait for job to start before exiting"
 msgstr ""
 
-#: util/initctl.c:2346
+#: util/initctl.c:2382
 msgid "do not wait for job to stop before exiting"
 msgstr ""
 
-#: util/initctl.c:2358
+#: util/initctl.c:2394
 msgid "do not wait for job to restart before exiting"
 msgstr ""
 
-#: util/initctl.c:2397
+#: util/initctl.c:2433
 msgid "do not wait for event to finish before exiting"
 msgstr ""
 
-#: util/initctl.c:2438
+#: util/initctl.c:2474
 msgid ""
 "enumerate list of events and jobs causing job created from job config to "
 "start/stop"
 msgstr ""
 
-#: util/initctl.c:2451
+#: util/initctl.c:2487
 msgid "ignore specified list of events (comma-separated)"
 msgstr ""
 
-#: util/initctl.c:2453
+#: util/initctl.c:2489
 msgid "Generate warning for any unreachable events/jobs"
 msgstr ""
 
-#: util/initctl.c:2472
+#: util/initctl.c:2508
 msgid "Job"
 msgstr ""
 
-#: util/initctl.c:2479
+#: util/initctl.c:2515
 msgid "Event"
 msgstr ""
 
-#: util/initctl.c:2487 util/initctl.c:2499 util/initctl.c:2510
-#: util/initctl.c:2521 util/initctl.c:2528
+#: util/initctl.c:2523 util/initctl.c:2535 util/initctl.c:2546
+#: util/initctl.c:2557 util/initctl.c:2564
 msgid "JOB [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:2488
+#: util/initctl.c:2524
 msgid "Start job."
 msgstr ""
 
-#: util/initctl.c:2489
+#: util/initctl.c:2525
 msgid ""
 "JOB is the name of the job that is to be started, this may be followed by "
 "zero or more environment variables to be defined in the new job.\n"
@@ -722,11 +730,11 @@ msgid ""
 "an existing instance is already running."
 msgstr ""
 
-#: util/initctl.c:2500
+#: util/initctl.c:2536
 msgid "Stop job."
 msgstr ""
 
-#: util/initctl.c:2501
+#: util/initctl.c:2537
 msgid ""
 "JOB is the name of the job that is to be stopped, this may be followed by "
 "zero or more environment variables to be passed to the job's pre-stop and "
@@ -736,11 +744,11 @@ msgid ""
 "decide which of multiple instances will be stopped."
 msgstr ""
 
-#: util/initctl.c:2511
+#: util/initctl.c:2547
 msgid "Restart job."
 msgstr ""
 
-#: util/initctl.c:2512
+#: util/initctl.c:2548
 msgid ""
 "JOB is the name of the job that is to be restarted, this may be followed by "
 "zero or more environment variables to be defined in the job after "
@@ -750,66 +758,66 @@ msgid ""
 "decide which of multiple instances will be restarted."
 msgstr ""
 
-#: util/initctl.c:2522
+#: util/initctl.c:2558
 msgid "Send HUP signal to job."
 msgstr ""
 
-#: util/initctl.c:2523
+#: util/initctl.c:2559
 msgid ""
 "JOB is the name of the job that is to be sent the signal, this may be "
 "followed by zero or more environment variables to distinguish between job "
 "instances.\n"
 msgstr ""
 
-#: util/initctl.c:2529
+#: util/initctl.c:2565
 msgid "Query status of job."
 msgstr ""
 
-#: util/initctl.c:2530
+#: util/initctl.c:2566
 msgid ""
 "JOB is the name of the job that is to be queried, this may be followed by "
 "zero or more environment variables to distguish between job instances.\n"
 msgstr ""
 
-#: util/initctl.c:2536
+#: util/initctl.c:2572
 msgid "List known jobs."
 msgstr ""
 
-#: util/initctl.c:2537
+#: util/initctl.c:2573
 msgid "The known jobs and their current status will be output."
 msgstr ""
 
-#: util/initctl.c:2540
+#: util/initctl.c:2576
 msgid "EVENT [KEY=VALUE]..."
 msgstr ""
 
-#: util/initctl.c:2541
+#: util/initctl.c:2577
 msgid "Emit an event."
 msgstr ""
 
-#: util/initctl.c:2542
+#: util/initctl.c:2578
 msgid ""
 "EVENT is the name of an event the init daemon should emit, this may be "
 "followed by zero or more environment variables to be included in the event.\n"
 msgstr ""
 
-#: util/initctl.c:2548
+#: util/initctl.c:2584
 msgid "Reload the configuration of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2552
+#: util/initctl.c:2588
 msgid "Request the version of the init daemon."
 msgstr ""
 
-#: util/initctl.c:2555
+#: util/initctl.c:2591
 msgid "[PRIORITY]"
 msgstr ""
 
-#: util/initctl.c:2556
+#: util/initctl.c:2592
 msgid "Change the minimum priority of log messages from the init daemon"
 msgstr ""
 
-#: util/initctl.c:2558
+#: util/initctl.c:2594
 msgid ""
 "PRIORITY may be one of:\n"
 "  `debug' (messages useful for debugging upstart are logged, equivalent to --"
@@ -826,40 +834,50 @@ msgid ""
 "Without arguments, this outputs the current log priority."
 msgstr ""
 
-#: util/initctl.c:2575 util/initctl.c:2581
+#: util/initctl.c:2611 util/initctl.c:2617
 msgid "[CONF]"
 msgstr ""
 
-#: util/initctl.c:2576
+#: util/initctl.c:2612
 msgid "Show emits, start on and stop on details for job configurations."
 msgstr ""
 
-#: util/initctl.c:2577
+#: util/initctl.c:2613
 msgid ""
 "If CONF specified, show configuration details for single job configuration, "
 "else show details for all jobs configurations.\n"
 msgstr ""
 
-#: util/initctl.c:2582
+#: util/initctl.c:2618
 msgid "Check for unreachable jobs/event conditions."
 msgstr ""
 
-#: util/initctl.c:2583
+#: util/initctl.c:2619
 msgid ""
 "List all jobs and events which cannot be satisfied by currently available "
 "job configuration files"
 msgstr ""
 
-#: util/initctl.c:2587
+#: util/initctl.c:2623
 msgid "JOB"
 msgstr ""
 
-#: util/initctl.c:2588
+#: util/initctl.c:2624
 msgid "Show job usage message if available."
 msgstr ""
 
-#: util/initctl.c:2589
+#: util/initctl.c:2625
 msgid "JOB is the name of the job which usage is to be shown.\n"
+msgstr ""
+
+#: util/initctl.c:2629
+msgid "Inform Upstart that disk is now writeable."
+msgstr ""
+
+#: util/initctl.c:2630
+msgid ""
+"Run to ensure output from jobs ending before disk is writeable are flushed "
+"to disk"
 msgstr ""
 
 #: util/reboot.c:113

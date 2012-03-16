@@ -112,20 +112,20 @@ static int    ignored_events_setter (NihOption *option, const char *arg);
 #endif
 
 /* Prototypes for option and command functions */
-int start_action                (NihCommand *command, char * const *args);
-int stop_action                 (NihCommand *command, char * const *args);
-int restart_action              (NihCommand *command, char * const *args);
-int reload_action               (NihCommand *command, char * const *args);
-int status_action               (NihCommand *command, char * const *args);
-int list_action                 (NihCommand *command, char * const *args);
-int emit_action                 (NihCommand *command, char * const *args);
-int reload_configuration_action (NihCommand *command, char * const *args);
-int version_action              (NihCommand *command, char * const *args);
-int log_priority_action         (NihCommand *command, char * const *args);
-int show_config_action          (NihCommand *command, char * const *args);
-int check_config_action         (NihCommand *command, char * const *args);
-int usage_action                (NihCommand *command, char * const *args);
-
+int start_action                  (NihCommand *command, char * const *args);
+int stop_action                   (NihCommand *command, char * const *args);
+int restart_action                (NihCommand *command, char * const *args);
+int reload_action                 (NihCommand *command, char * const *args);
+int status_action                 (NihCommand *command, char * const *args);
+int list_action                   (NihCommand *command, char * const *args);
+int emit_action                   (NihCommand *command, char * const *args);
+int reload_configuration_action   (NihCommand *command, char * const *args);
+int version_action                (NihCommand *command, char * const *args);
+int log_priority_action           (NihCommand *command, char * const *args);
+int show_config_action            (NihCommand *command, char * const *args);
+int check_config_action           (NihCommand *command, char * const *args);
+int usage_action                  (NihCommand *command, char * const *args);
+int notify_disk_writeable_action  (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -1643,6 +1643,42 @@ check_config_action (NihCommand *command,
 	return ret ? 1 : 0;
 }
 
+/**
+ * notify_disk_writeable_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "notify-disk-writeable" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+notify_disk_writeable_action (NihCommand *command,
+		char * const *args)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	NihError *              err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_notify_disk_writeable_sync (NULL, upstart) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
 static void
 start_reply_handler (char **         job_path,
 		     NihDBusMessage *message,
@@ -2589,6 +2625,11 @@ static NihCommand commands[] = {
 	  N_("JOB is the name of the job which usage is to be shown.\n" ),
 	  NULL, usage_options, usage_action },
 
+	{ "notify-disk-writeable", NULL,
+	  N_("Inform Upstart that disk is now writeable."),
+	  N_("Run to ensure output from jobs ending before "
+			  "disk is writeable are flushed to disk"),
+	  NULL, NULL, notify_disk_writeable_action },
 
 	NIH_COMMAND_LAST
 };

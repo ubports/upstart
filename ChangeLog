@@ -12,6 +12,73 @@
 	  - test_spawn():
 	    - umask reset.
 	    - New test "ensure multi processes output logged".
+	* dbus/com.ubuntu.Upstart.xml:
+	  - added 'NotifyDiskWriteable' method.
+	* init/control.c:
+	  - control_notify_disk_writeable(): New function to flush early job log.
+	* init/job_process.c:
+	  - job_process_terminated(): Call log_handle_unflushed() to potentially
+	    add log object to unflushed list (the early job log) in certain
+	    scenarios.
+	* init/log.c:
+	  - log_flushed: bool indicating successful flush of early job log.
+	  - log_unflushed_files: The "early job log" list.
+	  - log_new(): Call log_unflushed_init() and initialize new log members.
+	  - log_flush(): Only call log_read_watch() conditionally now.
+	  - log_io_reader(): More careful consideration of errno by
+	    using saved value from log member.
+	  - log_io_error_handler(): Set remote_closed for the benefit of
+	    log_flushed() (to avoid flushing multiple times).
+	  - log_file_open: Now saves errno value from open(2).
+	  - log_read_watch(): Removed log->unflushed->len assert since it was
+	    erroneous: even if unflushed data exists, it will be written in
+	    order when log_io_reader() calls log_file_write().
+	  - log_unflushed_init(): New function to initialise the
+	    log_unflushed_files list.
+	  - log_handle_unflushed(): New function that potentially adds log
+	    object to the log_unflushed_files list to allow the data to be
+	    flushed _after_ the parent object has been destroyed.
+	  - log_clear_unflushed(): New function to clear the
+	    log_unflushed_files list by attempting to flush the data to disk.
+	* init/log.h:
+	  - Added new Log members: detached, remote_closed and open_errno.
+	  - Updated documentation.
+	  - extern for log_unflushed_files.
+	  - Added prototypes for new functions: log_handle_unflushed(),
+	    log_clear_unflushed() and log_unflushed_init().
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - Call log_unflushed_init().
+	    - Corrected grammar in error messages for "ensure sane fds" tests.
+	    - "with single line command writing fast and exiting": Call
+	      nih_child_add_watch().
+	    - added waitid() calls to ensure log data not added to
+	      unflushed list.
+	  - test_spawn():
+	    - Call log_unflushed_init().
+	    - Corrected grammar in error messages for "ensure sane fds" tests.
+	    - Added TEST_ALLOC_SAFE() to "simple test" to ensure
+	      destructors run correctly.
+	    - "read single null byte with 'console log'": Call
+	      log_handle_unflushed() and added missing free.
+	    - "read data from forked process": Call
+	      log_handle_unflushed().
+	* init/tests/test_log.c: 
+	  - Updated documentation.
+	  - Added calls to log_unflushed_init().
+	  - "ensure logger flushes cached data on request": New test
+	    for log_handle_unflushed().
+	* util/initctl.c:
+	  - notify_disk_writeable_action(): New function to notify
+	    Upstart that the disk is writeable.
+	  - commands: Added new command "notify-disk-writeable".
+	* util/man/initctl.8: Updated for new notify-disk-writeable command.
+	* util/tests/test_initctl.c:
+	  - STOP_UPSTART(): Check return from kill(2).
+	  - test_show_config(): Adding missing rmdir(2).
+	  - test_check_config(): Adding missing rmdir(2).
+	  - test_notify_disk_writeable(): New function embodying new test
+	    "with job ending before log disk writeable".
 
 	[ Steve Langasek <steve.langasek@ubuntu.com> ]
 	* init/tests/test_job_process:

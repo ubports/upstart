@@ -444,6 +444,9 @@ test_run (void)
 	char             buffer[1024];
 	pid_t            pid;
 	int              i;
+	siginfo_t        siginfo;
+
+	log_unflushed_init ();
 
 	TEST_FUNCTION ("job_process_run");
 
@@ -1186,7 +1189,7 @@ test_run (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -1253,7 +1256,7 @@ test_run (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -1320,7 +1323,7 @@ test_run (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -1387,7 +1390,7 @@ test_run (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -3564,6 +3567,15 @@ test_run (void)
 			TEST_CMD_ECHO);
 	class->process[PROCESS_MAIN]->script = FALSE;
 
+	/* XXX: Manually add the class so job_process_find() works */
+	nih_hash_add (job_classes, &class->entry);
+
+	NIH_MUST (nih_child_add_watch (NULL,
+				-1,
+				NIH_CHILD_ALL,
+				job_process_handler,
+				NULL)); 
+
 	job = job_new (class, "");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
@@ -3695,6 +3707,14 @@ test_run (void)
 	}
 
 	TEST_EQ (kill (pid, 0), 0);
+
+	/* Wait until the process is in a known state. This ensures that
+	 * when job_process_terminated() calls log_handle_unflushed(), 
+	 * the log object will _not_ get added to the unflushed list,
+	 * meaning it will get destroyed immediately.
+	 */
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
+
 	nih_child_poll ();
 
 	/* The process should now be dead */
@@ -3785,7 +3805,12 @@ test_run (void)
 	TEST_FREE_TAG (job);
 	TEST_FREE_TAG (job->log);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	/* Wait until the process is in a known state. This ensures that
+	 * when job_process_terminated() calls log_handle_unflushed(), 
+	 * the log object will _not_ get added to the unflushed list,
+	 * meaning it will get destroyed immediately.
+	 */
+	waitid (P_PID, pid, &siginfo, WEXITED | WNOWAIT);
 
 	nih_child_poll ();
 
@@ -3993,6 +4018,9 @@ test_spawn (void)
 	JobProcessError  *perr;
 	int               status;
 	struct stat       statbuf;
+	int               ret;
+
+	log_unflushed_init ();
 
 	/* reset */
 	(void) umask (0);
@@ -4457,7 +4485,7 @@ test_spawn (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -4511,7 +4539,7 @@ test_spawn (void)
 			/* 0, 1, 2 */
 			if (fd < 3) {
 				if (! valid)
-					TEST_FAILED ("fd %d is unexpected invalid", fd);
+					TEST_FAILED ("fd %d is unexpectedly invalid", fd);
 			} else {
 				if (valid)
 					TEST_FAILED ("fd %d is unexpectedly valid", fd);
@@ -4640,10 +4668,10 @@ test_spawn (void)
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test", NULL);
+			class = job_class_new (NULL, "simple-test", NULL);
 			TEST_NE_P (class, NULL);
 
-			TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+			TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
 			job = job_new (class, "");
 			TEST_NE_P (job, NULL);
 
@@ -4664,15 +4692,20 @@ test_spawn (void)
 		pid = job_process_spawn (job, args_array, NULL, FALSE, -1, PROCESS_MAIN);
 
 		if (test_alloc_failed) {
+			TEST_LT (pid, 0);
 			err = nih_error_get ();
 			TEST_NE_P (err, NULL);
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);
-			TEST_LT (pid, 0);
 		} else {
 			TEST_GT (pid, 0);
 			TEST_EQ (unlink (script), 0);
 			unlink (filename);
+		}
+
+		TEST_ALLOC_SAFE {
+			/* May alloc space if there is log data */
+			nih_free (class);
 		}
 	}
 
@@ -4691,10 +4724,10 @@ test_spawn (void)
 	 */
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
-	class = job_class_new (NULL, "test", NULL);
+	class = job_class_new (NULL, "with-single-line-script-and-console-log", NULL);
 	TEST_NE_P (class, NULL);
 
-	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	TEST_GT (sprintf (filename, "%s/with-single-line-script-and-console-log.log", dirname), 0);
 	job = job_new (class, "");
 	TEST_NE_P (job, NULL);
 
@@ -4745,10 +4778,10 @@ test_spawn (void)
 
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
-	class = job_class_new (NULL, "test", NULL);
+	class = job_class_new (NULL, "with-multi-line-script-and-console-log", NULL);
 	TEST_NE_P (class, NULL);
 
-	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	TEST_GT (sprintf (filename, "%s/with-multi-line-script-and-console-log.log", dirname), 0);
 	job = job_new (class, "");
 	TEST_NE_P (job, NULL);
 
@@ -4801,10 +4834,10 @@ test_spawn (void)
 
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
-	class = job_class_new (NULL, "test", NULL);
+	class = job_class_new (NULL, "read-single-null-bytes-with-console-log", NULL);
 	TEST_NE_P (class, NULL);
 
-	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	TEST_GT (sprintf (filename, "%s/read-single-null-bytes-with-console-log.log", dirname), 0);
 	job = job_new (class, "");
 	TEST_NE_P (job, NULL);
 
@@ -4821,7 +4854,8 @@ test_spawn (void)
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
 
-	TEST_FORCE_WATCH_UPDATE ();
+	ret = log_handle_unflushed (job->log, job->log[PROCESS_MAIN]);
+	TEST_EQ (ret, 1);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -4838,6 +4872,7 @@ test_spawn (void)
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
 	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("read data from forked process");
@@ -4848,10 +4883,10 @@ test_spawn (void)
 
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
-	class = job_class_new (NULL, "test", NULL);
+	class = job_class_new (NULL, "read-data-from-forked-process", NULL);
 	TEST_NE_P (class, NULL);
 
-	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+	TEST_GT (sprintf (filename, "%s/read-data-from-forked-process.log", dirname), 0);
 	job = job_new (class, "");
 	TEST_NE_P (job, NULL);
 
@@ -4872,11 +4907,17 @@ test_spawn (void)
 
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 0);
+
+	ret = log_handle_unflushed (job->log, job->log[PROCESS_MAIN]);
+	TEST_EQ (ret, 1);
 
 	TEST_FORCE_WATCH_UPDATE ();
 
 	/* This will eventually call the log destructor */
 	nih_free (class);
+
+	TEST_EQ (stat (filename, &statbuf), 0);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -8221,7 +8262,7 @@ test_handler (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
-		/* Now carray on with the test */
+		/* Now carry on with the test */
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
