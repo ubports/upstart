@@ -1178,7 +1178,7 @@ test_run (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}
@@ -1245,7 +1245,7 @@ test_run (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}
@@ -1312,7 +1312,7 @@ test_run (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}
@@ -1379,7 +1379,7 @@ test_run (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}
@@ -4330,7 +4330,7 @@ test_spawn (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}
@@ -4384,7 +4384,7 @@ test_spawn (void)
 					TEST_FAILED ("fd %d is unexpected invalid", fd);
 			} else {
 				if (valid)
-					TEST_FAILED ("fd %d is unexpected valid", fd);
+					TEST_FAILED ("fd %d is unexpectedly valid", fd);
 			}
 		}
 	}

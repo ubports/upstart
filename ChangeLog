@@ -1,5 +1,9 @@
 2012-03-16  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/tests/test_job_process:
+	  - Fixed multiple TEST_FAILED() typos
+	    ("unexpected" => unexpectedly").
+
 	[ Steve Langasek <steve.langasek@ubuntu.com> ]
 	* init/tests/test_job_process:
 	  - close_all_files(): New function to ensure test environment
