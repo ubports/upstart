@@ -1,3 +1,9 @@
+2012-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Changelog: Release entry.
+	* configure.ac: Bump year.
+	* NEWS: Release 1.5.
+
 2012-03-16  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_job_process:

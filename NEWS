@@ -1,4 +1,20 @@
-1.5  xxxx-xx-xx ""
+1.5  2012-03-22 "Birdsong"
+
+	* Lots of "console log" improvements (and new tests).
+
+	* New 'early logging' facility which allows jobs that end before the
+	  log disk is writeable to have their output peristed to disk when the disk
+	  later becomes writeable.
+	
+	* Upstart is now able to detect jobs which leak file
+	  descriptors: a message is generated when run with debug enabled
+	  ('--debug' / "initctl log-priority debug").
+	
+	* New "usage" stanza which allows instance jobs to display a usage
+	  message explaining how job should be started. The usage is displayed
+	  when the user has not specified the correct variables to allow the job
+	  to be started, or when the user queries the usage using
+	  "initctl usage <job>".
 
 1.4  2011-12-13 "Let them speak"
 
