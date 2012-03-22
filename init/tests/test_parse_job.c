@@ -8197,6 +8197,122 @@ test_stanza_setgid (void)
 	nih_free (err);
 }
 
+void
+test_stanza_usage (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_usage");
+
+	/* Check that a usage stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "usage \"stanza usage test message\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->usage, job);
+		TEST_EQ_STR (job->usage, "stanza usage test message");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple usage stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "usage \"stanza usage original\"\n");
+	strcat (buf, "usage \"stanza usage test message\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->usage, job);
+		TEST_EQ_STR (job->usage, "stanza usage test message");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a usage stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "usage\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a usage stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "usage stanza usage test message\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -8245,6 +8361,7 @@ main (int   argc,
 	test_stanza_chdir ();
 	test_stanza_setuid ();
 	test_stanza_setgid ();
+	test_stanza_usage ();
 
 	return 0;
 }

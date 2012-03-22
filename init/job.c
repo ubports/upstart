@@ -135,6 +135,19 @@ job_new (JobClass   *class,
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
 
+	/* Each job process needs its own log object to ensure sane
+	 * behaviour: consider a post-start that starts and ends
+	 * before the main process ends: it will be reaped (and its log
+	 * flushed) before the main process has a chance to have its log
+	 * drained.
+	 */
+	job->log = nih_alloc (job, sizeof (Log *) * PROCESS_LAST);
+	if (! job->log)
+		goto error;
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		job->log[i] = NULL;
+
 	job->blocker = NULL;
 	nih_list_init (&job->blocking);
 
@@ -150,8 +163,6 @@ job_new (JobClass   *class,
 
 	job->trace_forks = 0;
 	job->trace_state = TRACE_NONE;
-
-	job->log = NULL;
 
 	nih_hash_add (class->instances, &job->entry);
 

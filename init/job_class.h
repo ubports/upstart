@@ -163,6 +163,7 @@ typedef enum console_type {
  * @setuid: user name to drop to before starting process,
  * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
+ * @usage: usage text - how to control job
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -217,6 +218,8 @@ typedef struct job_class {
 
 	int             deleted;
 	int             debug;
+
+	char           *usage;
 } JobClass;
 
 
@@ -299,6 +302,9 @@ int         job_class_get_stop_on          (JobClass *class,
 int         job_class_get_emits	           (JobClass *class,
 					    NihDBusMessage *message,
 					    char ***emits);
+int         job_class_get_usage	           (JobClass *class,
+					    NihDBusMessage *message,
+					    char **usage);
 
 ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));

@@ -280,8 +280,8 @@ job_process_run (Job         *job,
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = job_process_spawn (job, argv,
-						       env, trace, fds[0])) < 0) {
+	while ((job->pid[process] = job_process_spawn (job, argv, env,
+					trace, fds[0], process)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -360,7 +360,8 @@ job_process_run (Job         *job,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
  * @trace: whether to trace this process,
- * @script_fd: script file descriptor.
+ * @script_fd: script file descriptor,
+ * @process: job process to spawn.
  *
  * This function spawns a new process using the class details in @job to set up
  * the environment for it; the process is always a session and process group
@@ -395,7 +396,8 @@ job_process_spawn (Job          *job,
 		   char * const  argv[],
 		   char * const *env,
 		   int           trace,
-		   int           script_fd)
+		   int           script_fd,
+		   ProcessType   process)
 {
 	sigset_t        child_set, orig_set;
 	pid_t           pid;
@@ -415,6 +417,8 @@ job_process_spawn (Job          *job,
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
+	nih_assert (job->log != NULL);
+	nih_assert (process < PROCESS_LAST);
 
 	class = job->class;
 
@@ -438,6 +442,15 @@ job_process_spawn (Job          *job,
 	if (class->console == CONSOLE_LOG) {
 		NihError *err;
 
+		/* Ensure log destroyed for previous matching job process
+		 * (occurs when job restarted but previous process has not
+		 * yet been reaped).
+		 */
+		if (job->log[process]) {
+			nih_free (job->log[process]);
+			job->log[process] = NULL;
+		}
+
 		log_path = job_process_log_path (job, 0);
 
 		if (! log_path) {
@@ -453,21 +466,26 @@ job_process_spawn (Job          *job,
 		pty_master = posix_openpt (O_RDWR | O_NOCTTY);
 
 		if (pty_master < 0) {
-			/* Give the user an indication that they need to
-			 * increase the available ptys. Any other scenario
-                         * suggests more serious trouble.
-                         */
-			if (errno == ENOENT)
-				nih_warn (_("No available ptys"));
+			nih_error (_("Failed to create pty - disabling logging for job"));
+
+			/* Ensure that the job can still be started by
+			 * disabling logging.
+			 */
+			class->console = CONSOLE_NONE;
 
 			close (fds[0]);
 			close (fds[1]);
 			nih_return_system_error (-1);
 		}
 
+		/* Stop any process created _before_ the log object below is
+		 * freed from inheriting this fd.
+		 */
+		nih_io_set_cloexec (pty_master);
+
 		/* pty_master will be closed by log_destroy() */
-		job->log = log_new (job, log_path, pty_master, 0);
-		if (! job->log) {
+		job->log[process] = log_new (job->log, log_path, pty_master, 0);
+		if (! job->log[process]) {
 			close (pty_master);
 			close (fds[0]);
 			close (fds[1]);
@@ -481,6 +499,13 @@ job_process_spawn (Job          *job,
 	 */
 	sigfillset (&child_set);
 	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
+
+	/* Ensure that any lingering data in stdio buffers is flushed
+	 * to avoid the child getting a copy of it.
+	 * If not done, CONSOLE_LOG jobs may end up with unexpected data
+	 * in their logs if we run with for example '--debug'.
+	 */
+	fflush (NULL);
 
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
@@ -497,8 +522,13 @@ job_process_spawn (Job          *job,
 
 		/* Read error from the pipe, return if one is raised */
 		if (job_process_error_read (fds[0]) < 0) {
-			if (class->console == CONSOLE_LOG)
-				close (pty_master);
+			if (class->console == CONSOLE_LOG) {
+				/* Ensure the pty_master watch gets
+				 * removed and the fd closed.
+				 */
+				nih_free (job->log[process]);
+				job->log[process] = NULL;
+			}
 			close (fds[0]);
 			return -1;
 		}
@@ -514,8 +544,10 @@ job_process_spawn (Job          *job,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[0]);
 		close (fds[1]);
-		if (class->console == CONSOLE_LOG)
-			close (pty_master);
+		if (class->console == CONSOLE_LOG) {
+			nih_free (job->log[process]);
+			job->log[process] = NULL;
+		}
 		return -1;
 	}
 
@@ -535,40 +567,40 @@ job_process_spawn (Job          *job,
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
 
-	job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
-
 	if (class->console == CONSOLE_LOG) {
 		struct sigaction act;
+		struct sigaction ignore;
+
+		job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
 
 		/* Child is the slave, so won't need this */
 		nih_io_set_cloexec (pty_master);
 
-		/* Save old handler as grantpt disallows child handler
-		 * to be in effect
+		/* Temporarily disable child handler as grantpt(3) disallows one
+		 * being in effect when called.
 		 */
-		if (sigaction (SIGCHLD, NULL, &act) < 0) {
-			close (pty_master);
+		ignore.sa_handler = SIG_DFL;
+		ignore.sa_flags = 0;
+		sigemptyset (&ignore.sa_mask);
+
+		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
 		if (grantpt (pty_master) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
-		/* Restore handler */
+		/* Restore child handler */
 		if (sigaction (SIGCHLD, &act, NULL) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
 		}
 
 		if (unlockpt (pty_master) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_UNLOCKPT, 0);
 		}
 
 		if (ptsname_r (pty_master, pts_name, sizeof(pts_name)) < 0) {
-			close (pty_master);
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_PTSNAME, 0);
 		}
 
@@ -801,11 +833,12 @@ job_process_spawn (Job          *job,
 	 * session jobs and jobs with a chroot stanza.
 	 */
 	if (class->setuid) {
+		struct passwd *pwd;
 		/* Without resetting errno, it's impossible to
 		 * distinguish between a non-existent user and and
 		 * error during lookup */
 		errno = 0;
-		struct passwd *pwd = getpwnam (class->setuid);
+		pwd = getpwnam (class->setuid);
 		if (! pwd) {
 			if (errno != 0) {
 				nih_error_raise_system ();
@@ -823,8 +856,9 @@ job_process_spawn (Job          *job,
 	}
 
 	if (class->setgid) {
+		struct group *grp;
 		errno = 0;
-		struct group *grp = getgrnam (class->setgid);
+		grp = getgrnam (class->setgid);
 		if (! grp) {
 			if (errno != 0) {
 				nih_error_raise_system ();
@@ -1567,6 +1601,32 @@ job_process_terminated (Job         *job,
 		nih_unref (job->kill_timer, job);
 		job->kill_timer = NULL;
 		job->kill_process = -1;
+	}
+
+	if (job->class->console == CONSOLE_LOG && job->log[process]) {
+		int  ret;
+
+		/* It is imperative that we free the log at this stage to ensure
+		 * that jobs which respawn have their log written _now_
+		 * (and not just when the overall Job object is freed at
+		 * some distant future point).
+		 */
+		ret = log_handle_unflushed (job->log, job->log[process]);
+
+		if (ret != 0) {
+			if (ret < 0) {
+				/* Any lingering data will now be lost in what
+				 * is probably a low-memory scenario.
+				 */
+				nih_warn (_("Failed to add log to unflushed queue"));
+			}
+			nih_free (job->log[process]);
+		}
+
+		/* Either the log has been freed, or it needs to be
+		 * severed from its parent job fully.
+		 */
+		job->log[process] = NULL;
 	}
 
 	/* Find existing utmp entry for the process pid */

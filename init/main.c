@@ -780,7 +780,7 @@ out:
  * NihOption setter function to handle selection of default console
  * type.
  *
- * Returns 1 on success, -1 on invalid console type.
+ * Returns 0 on success, -1 on invalid console type.
  **/
 static int
 console_type_setter (NihOption *option, const char *arg)
@@ -794,5 +794,5 @@ console_type_setter (NihOption *option, const char *arg)
 		 return -1;
 	 }
 
-	 return 1;
+	 return 0;
 }

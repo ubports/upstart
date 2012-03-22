@@ -225,6 +225,11 @@ static int stanza_manual      (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+static int stanza_usage       (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+
 
 
 /**
@@ -265,6 +270,7 @@ static NihConfigStanza stanzas[] = {
 	{ "setgid",      (NihConfigHandler)stanza_setgid      },
 	{ "debug",       (NihConfigHandler)stanza_debug       },
 	{ "manual",      (NihConfigHandler)stanza_manual      },
+	{ "usage",       (NihConfigHandler)stanza_usage       },
 
 	NIH_CONFIG_LAST
 };
@@ -2614,6 +2620,43 @@ stanza_setgid (JobClass        *class,
 
 	class->setgid = nih_config_next_arg (class, file, len, pos, lineno);
 	if (! class->setgid)
+		return -1;
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * stanza_usage:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a usage stanza from @file, extracting a single argument
+ * containing a usage message.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_usage (JobClass        *class,
+	      NihConfigStanza *stanza,
+	      const char      *file,
+	      size_t           len,
+	      size_t          *pos,
+	      size_t          *lineno)
+{
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	if (class->usage)
+		nih_unref (class->usage, class);
+
+	class->usage = nih_config_next_arg (class, file, len, pos, lineno);
+	if (! class->usage)
 		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
