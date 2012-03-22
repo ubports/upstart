@@ -67,6 +67,7 @@
     <property name="description" type="s" access="read" />
     <property name="author" type="s" access="read" />
     <property name="version" type="s" access="read" />
+    <property name="usage" type="s" access="read" />
 
     <!-- Information about a job's relationship with Events -->
     <property name="start_on" type="aas" access="read" />

@@ -1,7 +1,7 @@
 # English translations for upstart package.
-# Copyright (C) 2011 Canonical Ltd.
+# Copyright (C) 2012 Canonical Ltd.
 # This file is distributed under the same license as the upstart package.
-# Automatically generated, 2011.
+# Automatically generated, 2012.
 #
 # All this catalog "translates" are quotation characters.
 # The msgids must be ASCII and therefore cannot contain real quotation
@@ -27,10 +27,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.4\n"
+"Project-Id-Version: upstart 1.5\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
 "POT-Creation-Date: 2011-12-14 11:53+0000\n"
-"PO-Revision-Date: 2011-12-14 11:53+0000\n"
+"PO-Revision-Date: 2012-03-22 11:02+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -1264,3 +1264,34 @@ msgstr "Could not send socket event"
 #: extra/upstart-socket-bridge.c:642
 msgid "Error emitting socket event"
 msgstr "Error emitting socket event"
+
+#~ msgid "You do not have permission to notify disk is writeable"
+#~ msgstr "You do not have permission to notify disk is writeable"
+
+#~ msgid "Usage"
+#~ msgstr "Usage"
+
+#~ msgid "Failed to create pty - disabling logging for job"
+#~ msgstr "Failed to create pty - disabling logging for job"
+
+#~ msgid "Failed to add log to unflushed queue"
+#~ msgstr "Failed to add log to unflushed queue"
+
+#~ msgid "JOB"
+#~ msgstr "JOB"
+
+#~ msgid "Show job usage message if available."
+#~ msgstr "Show job usage message if available."
+
+#~ msgid "JOB is the name of the job which usage is to be shown.\n"
+#~ msgstr "JOB is the name of the job which usage is to be shown.\n"
+
+#~ msgid "Inform Upstart that disk is now writeable."
+#~ msgstr "Inform Upstart that disk is now writeable."
+
+#~ msgid ""
+#~ "Run to ensure output from jobs ending before disk is writeable are "
+#~ "flushed to disk"
+#~ msgstr ""
+#~ "Run to ensure output from jobs ending before disk is writeable are "
+#~ "flushed to disk"

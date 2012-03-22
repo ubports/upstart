@@ -251,6 +251,7 @@ extern int emit_action                 (NihCommand *command, char * const *args)
 extern int reload_configuration_action (NihCommand *command, char * const *args);
 extern int version_action              (NihCommand *command, char * const *args);
 extern int log_priority_action         (NihCommand *command, char * const *args);
+extern int usage_action                (NihCommand *command, char * const *args);
 
 
 static int my_connect_handler_called = FALSE;
@@ -11846,7 +11847,7 @@ test_check_config (void)
 }
 
 void
-test_flush_early_job_log (void)
+test_notify_disk_writeable (void)
 {
 	char             confdir_name[PATH_MAX];
 	char             logdir_name[PATH_MAX];
@@ -11876,7 +11877,7 @@ test_flush_early_job_log (void)
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir_name, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir_name, 1), 0);
 
-	TEST_FUNCTION ("flush-early-job-log");
+	TEST_FUNCTION ("notify-disk-writeable");
 
 	TEST_FEATURE ("with job ending before log disk writeable");
 
@@ -11934,7 +11935,7 @@ test_flush_early_job_log (void)
 	/* Ensure again that no log file written */
 	TEST_LT (stat (logfile_name, &statbuf), 0);
 
-	cmd = nih_sprintf (NULL, "%s flush-early-job-log 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s notify-disk-writeable 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 0);
@@ -14513,6 +14514,104 @@ test_log_priority_action (void)
 }
 
 
+void
+test_usage (void)
+{
+	char             dirname[PATH_MAX];
+	nih_local char  *cmd;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid    = 0;
+	char           **output;
+	size_t           lines;
+	FILE            *out;
+	FILE            *err;
+	NihCommand       command;
+	char            *args[2];
+	int              ret = 0;
+
+	TEST_GROUP ("usage");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+	START_UPSTART (upstart_pid);
+
+	TEST_FEATURE ("no usage");
+	CREATE_FILE (dirname, "foo.conf",
+			"author \"foo\"\n"
+			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "Usage: ");
+	TEST_EQ (lines, 1);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("with usage");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"usage \"this is usage\"");
+
+	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], "Usage: this is usage");
+	TEST_EQ (lines, 1);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+	/*******************************************************************/
+
+	TEST_FEATURE ("failed status with usage");
+
+	CREATE_FILE (dirname, "foo.conf",
+			"instance $FOO\n"
+			"usage \"this is usage\"");
+
+	memset (&command, 0, sizeof command);
+	args[0] = "foo";
+	args[1] = NULL;
+
+	out = tmpfile ();
+	err = tmpfile ();
+
+	TEST_DIVERT_STDOUT (out) {
+		TEST_DIVERT_STDERR (err) {
+			ret = status_action (&command, args);
+		}
+	}
+	rewind (out);
+	rewind (err);
+
+	TEST_GT (ret, 0);
+
+	TEST_FILE_END (out);
+	TEST_FILE_RESET (out);
+
+	TEST_FILE_EQ (err, "test: Unknown parameter: FOO\n");
+	TEST_FILE_EQ (err, "Usage: this is usage\n");
+	TEST_FILE_END (err);
+	TEST_FILE_RESET (err);
+
+	DELETE_FILE (dirname, "foo.conf");
+
+
+	STOP_UPSTART (upstart_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
+}
+
+
 /**
  * in_chroot:
  *
@@ -14583,17 +14682,18 @@ main (int   argc,
 	test_reload_configuration_action ();
 	test_version_action ();
 	test_log_priority_action ();
+	test_usage ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"
 				"WARNING: not running show-config, "
-				"check-config & flush-early-job-log tests within chroot "
+				"check-config & notify-disk-writeable tests within chroot "
 				"as no D-Bus, or D-Bus not configured (lp:#728988)"
 				"\n\n");
 	} else {
 		test_show_config ();
 		test_check_config ();
-		test_flush_early_job_log ();
+		test_notify_disk_writeable ();
 	}
 
 	return 0;

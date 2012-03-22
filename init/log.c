@@ -329,7 +329,7 @@ log_io_reader (Log *log, NihIo *io, const char *buf, size_t len)
 
 	ret = log_file_open (log);
 
-	if (ret  < 0) {
+	if (ret < 0) {
 		if (log->open_errno != ENOSPC) {
 			/* Add new data to unflushed buffer */
 			if (nih_io_buffer_push (log->unflushed, buf, len) < 0)

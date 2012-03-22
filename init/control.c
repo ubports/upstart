@@ -762,11 +762,11 @@ control_handle_bus_type (void)
 		nih_debug ("Using session bus");
 }
 /**
- * control_flush_early_job_log:
+ * control_notify_disk_writeable:
  * @data: not used,
  * @message: D-Bus connection and message received,
  *
- * Implements the FlushEarlyJobLog method of the
+ * Implements the NotifyDiskWriteable method of the
  * com.ubuntu.Upstart interface.
  *
  * Called to flush the job logs for all jobs that ended before the log
@@ -775,7 +775,7 @@ control_handle_bus_type (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_flush_early_job_log (void   *data,
+control_notify_disk_writeable (void   *data,
 		     NihDBusMessage *message)
 {
 	int       ret;
@@ -789,7 +789,7 @@ control_flush_early_job_log (void   *data,
 	if (session && session->user) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to flush the job log"));
+			_("You do not have permission to notify disk is writeable"));
 		return -1;
 	}
 

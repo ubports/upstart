@@ -519,17 +519,40 @@ If specified, treat \fIany\fP unknown jobs and events as errors.
 .RE
 .\"
 .TP
-.B flush\-early\-job\-log
-
-Forces the
+.B notify\-disk\-writeable
+Notify the
+.BR init (8)
+daemon that the disk is now writeable. This currently causes the
 .BR init (8)
 daemon to flush its internal cache of \(aqearly job\(aq output data.
 An early job is any job which
 .I finishes
 before the log disk becomes writeable. If job logging is not disabled,
-this command should be called once when the log disk becomes writeable
+this command should be called once the log disk becomes writeable
 to ensure that output from all early jobs is flushed. If the data is
-written successfully, the internal cache is deleted.
+written successfully to disk, the internal cache is deleted.
+.RE
+.\"
+.TP
+.B usage
+.I JOB
+.RI [ KEY=VALUE ]...
+
+Show usage information an instance of the named
+.IR JOB
+defined with
+.BR usage
+stanza.
+
+For job with
+.BR usage
+stanza a line like the following is output, see
+.BR init (5)
+:
+
+.nf
+  Usage: tty DEV=ttyX - where X is console id
+.fi
 .\"
 .SH AUTHOR
 Written by Scott James Remnant

@@ -63,6 +63,9 @@ NihDBusProxy *upstart_open (const void *parent)
 char *        job_status   (const void *parent,
 			    NihDBusProxy *job_class, NihDBusProxy *job)
 	__attribute__ ((warn_unused_result, malloc));
+char *        job_usage    (const void *parent,
+			    NihDBusProxy *job_class)
+	__attribute__ ((warn_unused_result, malloc));
 
 /* Prototypes for static functions */
 static void   start_reply_handler (char **job_path, NihDBusMessage *message,
@@ -109,19 +112,20 @@ static int    ignored_events_setter (NihOption *option, const char *arg);
 #endif
 
 /* Prototypes for option and command functions */
-int start_action                (NihCommand *command, char * const *args);
-int stop_action                 (NihCommand *command, char * const *args);
-int restart_action              (NihCommand *command, char * const *args);
-int reload_action               (NihCommand *command, char * const *args);
-int status_action               (NihCommand *command, char * const *args);
-int list_action                 (NihCommand *command, char * const *args);
-int emit_action                 (NihCommand *command, char * const *args);
-int reload_configuration_action (NihCommand *command, char * const *args);
-int version_action              (NihCommand *command, char * const *args);
-int log_priority_action         (NihCommand *command, char * const *args);
-int show_config_action          (NihCommand *command, char * const *args);
-int check_config_action         (NihCommand *command, char * const *args);
-int flush_early_job_log_action  (NihCommand *command, char * const *args);
+int start_action                  (NihCommand *command, char * const *args);
+int stop_action                   (NihCommand *command, char * const *args);
+int restart_action                (NihCommand *command, char * const *args);
+int reload_action                 (NihCommand *command, char * const *args);
+int status_action                 (NihCommand *command, char * const *args);
+int list_action                   (NihCommand *command, char * const *args);
+int emit_action                   (NihCommand *command, char * const *args);
+int reload_configuration_action   (NihCommand *command, char * const *args);
+int version_action                (NihCommand *command, char * const *args);
+int log_priority_action           (NihCommand *command, char * const *args);
+int show_config_action            (NihCommand *command, char * const *args);
+int check_config_action           (NihCommand *command, char * const *args);
+int usage_action                  (NihCommand *command, char * const *args);
+int notify_disk_writeable_action  (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -471,6 +475,29 @@ job_status (const void *  parent,
 	return str;
 }
 
+/**
+ * job_usage:
+ * @parent: parent object,
+ * @job_class_proxy: D-Bus proxy for job class,
+ * @job_class_name: Name of job class.
+ *
+ * Display usage of job class.
+ * 
+ * Returns: newly allocated string or NULL on raised error.
+ **/
+char *
+job_usage (const void *parent, NihDBusProxy *job_class_proxy)
+{
+	char             *usage = NULL;
+
+	nih_assert (job_class_proxy);
+
+	if (job_class_get_usage_sync (parent, job_class_proxy, &usage) < 0) {
+		return NULL;
+	}
+
+	return usage;
+}
 
 /**
  * start_action:
@@ -1290,6 +1317,83 @@ error:
 }
 
 /**
+ * usage_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "usage" command.
+ *
+ * Returns: command exit usage.
+ **/
+int
+usage_action (NihCommand *  command,
+	       char * const *args)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	const char *            upstart_job = NULL;
+	const char *            upstart_instance = NULL;
+	nih_local char *        job_class_name = NULL;
+	nih_local char *        job_class_path = NULL;
+	nih_local NihDBusProxy *job_class = NULL;
+	nih_local char *        job_path = NULL;
+	nih_local NihDBusProxy *job = NULL;
+	nih_local char *        usage = NULL;
+	NihError *              err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (args[0]) {
+		upstart_job = args[0];
+	} else {
+		upstart_job = getenv ("UPSTART_JOB");
+		upstart_instance = getenv ("UPSTART_INSTANCE");
+
+		if (! (upstart_job && upstart_instance)) {
+			fprintf (stderr, _("%s: missing job name\n"), program_name);
+			nih_main_suggest_help ();
+			return 1;
+		}
+	}
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	/* Obtain a proxy to the job */
+	if (upstart_get_job_by_name_sync (NULL, upstart, upstart_job,
+					  &job_class_path) < 0)
+		goto error;
+
+	job_class = nih_dbus_proxy_new (NULL, upstart->connection,
+					upstart->name, job_class_path,
+					NULL, NULL);
+	if (! job_class)
+		goto error;
+
+	job_class->auto_start = FALSE;
+
+	if (job_class_get_name_sync (NULL, job_class, &job_class_name) < 0)
+		goto error;
+
+	usage = job_usage (NULL, job_class);
+	if (! usage)
+		goto error;
+
+	nih_message ("%s: %s", _("Usage"), usage);
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+
+/**
  * emit_action:
  * @command: NihCommand invoked,
  * @args: command-line arguments.
@@ -1540,16 +1644,16 @@ check_config_action (NihCommand *command,
 }
 
 /**
- * flush_early_job_log_action:
+ * notify_disk_writeable_action:
  * @command: NihCommand invoked,
  * @args: command-line arguments.
  *
- * This function is called for the "flush-early-job-log" command.
+ * This function is called for the "notify-disk-writeable" command.
  *
  * Returns: command exit status.
  **/
 int
-flush_early_job_log_action (NihCommand *command,
+notify_disk_writeable_action (NihCommand *command,
 		char * const *args)
 {
 	nih_local NihDBusProxy *upstart = NULL;
@@ -1562,7 +1666,7 @@ flush_early_job_log_action (NihCommand *command,
 	if (! upstart)
 		return 1;
 
-	if (upstart_flush_early_job_log_sync (NULL, upstart) < 0)
+	if (upstart_notify_disk_writeable_sync (NULL, upstart) < 0)
 		goto error;
 
 	return 0;
@@ -2386,6 +2490,16 @@ NihOption check_config_options[] = {
 	  NULL, NULL, &check_config_warn, NULL },
 	NIH_OPTION_LAST
 };
+
+/**
+ * usage_options:
+ *
+ * Command-line options accepted for the usage command.
+ **/
+NihOption usage_options[] = {
+	NIH_OPTION_LAST
+};
+
 /**
  * job_group:
  *
@@ -2506,12 +2620,16 @@ static NihCommand commands[] = {
 	     "currently available job configuration files"),
 	  NULL, check_config_options, check_config_action },
 
-	{ "flush-early-job-log", NULL,
-	  N_("Flush job log for early ending jobs."),
+	{ "usage",  N_("JOB"),
+	  N_("Show job usage message if available."),
+	  N_("JOB is the name of the job which usage is to be shown.\n" ),
+	  NULL, usage_options, usage_action },
+
+	{ "notify-disk-writeable", NULL,
+	  N_("Inform Upstart that disk is now writeable."),
 	  N_("Run to ensure output from jobs ending before "
 			  "disk is writeable are flushed to disk"),
-	  NULL, NULL, flush_early_job_log_action },
-
+	  NULL, NULL, notify_disk_writeable_action },
 
 	NIH_COMMAND_LAST
 };

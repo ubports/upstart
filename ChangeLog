@@ -1,21 +1,43 @@
-2012-02-14  James Hunt  <james.hunt@ubuntu.com>
+2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Begin new release.
+	* configure.ac: Bump version to 1.6.
+
+2012-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Changelog: Release entry.
+	* configure.ac: Bump year.
+	* NEWS: Release 1.5.
+
+2012-03-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_job_process:
+	  - Fixed multiple TEST_FAILED() typos
+	    ("unexpected" => unexpectedly").
+	* job_process_spawn(): Only display single message
+	  if pty setup fails. 
+	* init/man/init.5: Typo.
+	* init/tests/test_job_process:
+	  - child(): New TEST_OUTPUT_WITH_STOP test.
+	  - test_run(): New test "with multiple processes and log".
+	  - test_spawn():
+	    - umask reset.
+	    - New test "ensure multi processes output logged".
 	* dbus/com.ubuntu.Upstart.xml:
-	  - added 'FlushEarlyJobLog' method.
+	  - added 'NotifyDiskWriteable' method.
 	* init/control.c:
-	  - control_flush_early_job_log(): New function to flush early job log.
+	  - control_notify_disk_writeable(): New function to flush early job log.
 	* init/job_process.c:
 	  - job_process_terminated(): Call log_handle_unflushed() to potentially
 	    add log object to unflushed list (the early job log) in certain
 	    scenarios.
 	* init/log.c:
 	  - log_flushed: bool indicating successful flush of early job log.
-	  - log_unflushed_files: the "early job log" list.
+	  - log_unflushed_files: The "early job log" list.
 	  - log_new(): Call log_unflushed_init() and initialize new log members.
-	  - log_flush():
-	    - Only call log_read_watch() conditionally now.
-	    - Update for new log_file_open() return value.
-	  - log_io_reader(): Update for new log_file_open() return value.
+	  - log_flush(): Only call log_read_watch() conditionally now.
+	  - log_io_reader(): More careful consideration of errno by
+	    using saved value from log member.
 	  - log_io_error_handler(): Set remote_closed for the benefit of
 	    log_flushed() (to avoid flushing multiple times).
 	  - log_file_open: Now saves errno value from open(2).
@@ -29,9 +51,12 @@
 	    flushed _after_ the parent object has been destroyed.
 	  - log_clear_unflushed(): New function to clear the
 	    log_unflushed_files list by attempting to flush the data to disk.
+	  - log_read_watch(): Set remote_closed for scenarios where
+	    error handler never called. (LP: #935585)
 	* init/log.h:
 	  - Added new Log members: detached, remote_closed and open_errno.
 	  - Updated documentation.
+	  - extern for log_unflushed_files.
 	  - Added prototypes for new functions: log_handle_unflushed(),
 	    log_clear_unflushed() and log_unflushed_init().
 	* init/tests/test_job_process.c:
@@ -40,36 +65,78 @@
 	    - Corrected grammar in error messages for "ensure sane fds" tests.
 	    - "with single line command writing fast and exiting": Call
 	      nih_child_add_watch().
+	    - added waitid() calls to ensure log data not added to
+	      unflushed list.
 	  - test_spawn():
 	    - Call log_unflushed_init().
-	    - "simple test": More memorable log file name, added call
-	      to log_handle_unflushed(), added missing nih_free().
-	    - "with multi-line script and 'console log'": More memorable log
-	      file name.
-	    - "with single-line script and 'console log'": More memorable log file
-	      name.
-	    - "read single null bytes with 'console log'": More memorable log
-	      file name, call log_handle_unflushed(), added missing nih_free().
-	* init/tests/test_log.c:
-	  - Comments.
-	  - test_log_new(): Call log_unflushed_init().
-	    - "object checks with uid 0": Add extra checks.
-	    - "writing a new log file with uid 0": Call log_handle_unflushed()
-	      and associated checks.
-	    - New test "ensure logger flushes cached data on request"
-	    - "ensure log written when directory created accessible with uid 0":
-	      - Call log_handle_unflushed().
+	    - Corrected grammar in error messages for "ensure sane fds" tests.
+	    - Added TEST_ALLOC_SAFE() to "simple test" to ensure
+	      destructors run correctly.
+	    - "read single null byte with 'console log'": Call
+	      log_handle_unflushed() and added missing free.
+	    - "read data from forked process": Call
+	      log_handle_unflushed().
+	* init/tests/test_log.c: 
+	  - Updated documentation.
+	  - Added calls to log_unflushed_init().
+	  - "ensure logger flushes cached data on request": New test
+	    for log_handle_unflushed().
 	* util/initctl.c:
-	  - flush_early_job_log_action(): New function to flush the early job
-	    log.
-	  - commands: Added new command flush-early-job-log.
-	* util/man/initctl.8: Updated for new flush-early-job-log command.
+	  - notify_disk_writeable_action(): New function to notify
+	    Upstart that the disk is writeable.
+	  - commands: Added new command "notify-disk-writeable".
+	* util/man/initctl.8: Updated for new notify-disk-writeable command.
 	* util/tests/test_initctl.c:
 	  - STOP_UPSTART(): Check return from kill(2).
 	  - test_show_config(): Adding missing rmdir(2).
 	  - test_check_config(): Adding missing rmdir(2).
-	  - test_flush_early_job_log(): New function embodying new test
+	  - test_notify_disk_writeable(): New function embodying new test
 	    "with job ending before log disk writeable".
+
+	[ Steve Langasek <steve.langasek@ubuntu.com> ]
+	* init/tests/test_job_process:
+	  - close_all_files(): New function to ensure test environment
+	    has only expected fds open.
+	  - main(): Call close_all_files().
+
+2012-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_new(): Initialize log array.
+	* init/job.h: Change Log element to an array to handle scenario where
+	  job has multiple simultaneous processes running (LP: #940290).
+	* init/job_process.c:
+	  - job_process_run(): pass ProcessType to job_process_spawn().
+	  - job_process_spawn():
+	    - Now accepts a ProcessType.
+	    - Ensure existing matching process type log is destroyed before
+	      creating a new one.
+	  - job_process_terminated(): Update for log array.
+	* init/job_process.h: Updated prototype for job_process_spawn().
+	* init/tests/test_job.c: test_new(): Updated logic for log array.
+	* init/tests/test_job_process.c: test_run():
+	  - Updated logic for log array.
+	  - Added ProcessType to job_process_spawn() calls.
+
+2012-03-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn(): If pty setup fails,
+	  log message and disable logging for job.
+	* init/man/init.5: Explain new behaviour should pty setup fail.
+	* init/tests/test_job_process.c: Updated disabled test
+	  "when no free ptys" for new behaviour.
+
+2012-03-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_get_instance():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+	  - job_class_start():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+	* init/man/init.5: Add further pty details.
 
 2012-02-13  James Hunt  <james.hunt@ubuntu.com>
 
@@ -229,6 +296,11 @@
 
 2011-12-13  James Hunt  <james.hunt@ubuntu.com>
 
+	* configure.ac: Bump version to 1.5
+	* NEWS: Begin new release
+
+2011-12-13  James Hunt  <james.hunt@ubuntu.com>
+
 	* NEWS: Release 1.4
 	* configure.ac (NIH_COPYRIGHT): Update
 
@@ -380,6 +452,14 @@
 	  "console log".
 	* util/tests/test_user_sessions.sh: Added tests for job logging
 	  to ensure no unexpected output recorded for user jobs.
+
+2011-11-16  Petr Lautrbach <plautrba@redhat.com>
+	* init/parse_job.c, init/job_class.c, init/job_class.h: Added "usage"
+	stanza which is used by initctl command.
+	* init/tests/test_parse_job.c: Tests for "usage" stanza
+	* init/man/init.5: "usage" stanza documentation.
+	* util/initctl.c, util/man/initctl.8: Added "inictl usage" command.
+	* util/tests/test_initctl.c: Tests for ""inictl usage" command.
 
 2011-08-11  Scott James Remnant  <keybuk@google.com>
 

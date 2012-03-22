@@ -147,7 +147,11 @@ test_new (void)
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
 
-		TEST_EQ_P (job->log, NULL);
+		TEST_NE_P (job->log, NULL);
+		TEST_ALLOC_SIZE (job->log, sizeof (Log *) * PROCESS_LAST);
+		for (i = 0; i < PROCESS_LAST; i++) {
+			TEST_EQ_P (job->log[i], NULL);
+		}
 
 		event_operator_reset (job->stop_on);
 

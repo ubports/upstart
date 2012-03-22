@@ -57,7 +57,7 @@
       <arg name="file" type="h" direction="in" />
     </method>
 
-    <method name="FlushEarlyJobLog">
+    <method name="NotifyDiskWriteable">
     </method>
 
     <!-- Basic information about Upstart -->

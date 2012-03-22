@@ -125,7 +125,8 @@ NIH_BEGIN_EXTERN
 int    job_process_run     (Job *job, ProcessType process);
 
 pid_t  job_process_spawn   (Job *job, char * const argv[],
-			    char * const *env, int trace, int script_fd)
+			    char * const *env, int trace, int script_fd,
+			    ProcessType   process)
 	__attribute__ ((warn_unused_result));
 
 void   job_process_kill    (Job *job, ProcessType process);

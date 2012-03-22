@@ -630,8 +630,6 @@ test_log_new (void)
 
 	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
 
-	//TEST_FORCE_WATCH_UPDATE ();
-
 	/* Again, ensure no log file written */
 	TEST_LT (stat (filename, &statbuf), 0);
 
