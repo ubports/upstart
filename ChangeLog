@@ -1,5 +1,10 @@
 2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Begin new release.
+	* configure.ac: Bump version to 1.6.
+
+2012-03-22  James Hunt  <james.hunt@ubuntu.com>
+
 	* Changelog: Release entry.
 	* configure.ac: Bump year.
 	* NEWS: Release 1.5.
