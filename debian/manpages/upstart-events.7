@@ -56,7 +56,8 @@ Ref@Event@Type@Emit@Time@Note
   @desktop\-shutdown@H@D@> \fBX\fP(7) session ended@O
   @device\-not\-ready@H@M@> (2)@N
   @drm\-device\-added@S@U@> (5)@C
- 7@\fBfilesystem\fP@S@M@After last (1)@D
+  @failsafe\-boot@S@X@> (7) and local IF@S
+7@\fBfilesystem\fP@S@M@After last (1)@D
   @graphics\-device\-added@S@U@> (5)@C
   @\fBkeyboard\-request\fP(7)@S@A@> (5)@E
   @\fBlocal\-filesystems\fP(7)@S@M@> (6)@
@@ -70,6 +71,7 @@ Ref@Event@Type@Emit@Time@Note
   @net\-device\-up@S@F,N@> (3)@C
   @not\-container@S@C@> \fI/run\fP mounted@Q
   @\fBpower\-\%status\-\%changed\fP(7)@S@I@> (5)@I
+  @recovery@S@G@Boot (<5)@R
   @\fBremote\-\%filesystems\fP(7)@S@M@> (6)@
   @\fBrunlevel\fP(7)@M@T@> (7) + (8)@
   @\fBsocket\fP(7)@S@S@> socket connection@
@@ -137,6 +139,7 @@ B@\fBdbus\-daemon\fP(1)@Run with "\fI\-\-activation=upstart"\fP
 C@container\-detect job@
 D@Display Manager@e.g. lightdm/gdm/kdm/xdm.
 F@\fBifup\fP(8) or \fBifdown\fP(8)@See \fI/etc/network/\fP.
+G@bootloader or initramfs@
 I@\fBinit\fP(8)@
 M@\fBmountall\fP(8)@
 N@network\-interface job@
@@ -144,6 +147,7 @@ S@\fBupstart\-socket\-bridge\fP(8)@
 T@\fBtelinit\fP(8), \fBshutdown\fP(8)@
 U@\fBupstart\-udev\-bridge\fP(8)@
 V@System V init system@
+X@failsafe job@
 .TE
 .po \n[old_po]
 .in \n[old_in]
@@ -211,6 +215,17 @@ T}
 Q@T{
 Either \(aqcontainer\(aq or \(aqnot-container\(aq is emitted (depending
 on the environment), but not both.
+T}
+R@T{
+Emitted by either the initramfs or bootloader (for example grub) as the \fIinitial\fP
+event (rather than \fBstartup\fP(7)) to denote the system has booted into
+recovery mode. If recovery was successful, the standard \fBstartup\fP(7)
+event is \fIthen\fP emitted, allowing the system to boot as normal.
+T}
+S@T{
+Emitted to indicate the system has failed to boot within the expected
+time. This event will trigger other jobs to forcibly attempt to bring
+the system into a usable state.
 T}
 .TE
 .po \n[old_po]

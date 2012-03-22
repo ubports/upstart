@@ -3,6 +3,8 @@ upstart (1.5-0ubuntu1) precise; urgency=low
   * New upstream 1.5 release.
   * debian/conf/failsafe.conf: Added missing "emits" which breaks
     'initctl check-config'.
+  * debian/manpages/upstart-events.7: Added 'failsafe-boot' and
+    'recovery' events.
 
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 22 Mar 2012 13:50:31 +0000
 
