@@ -1,6 +1,9 @@
 upstart (1.5-0ubuntu1) precise; urgency=low
 
   * New upstream 1.5 release.
+    - fix boot failure when /dev/pts is not mounted before upstart starts.
+      LP: #936667.
+    - fix a file descriptor leak on job restarts.  LP: #940290.
   * debian/conf/failsafe.conf: Added missing "emits" which breaks
     'initctl check-config'.
   * debian/manpages/upstart-events.7: Added 'failsafe-boot' and
