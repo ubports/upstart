@@ -1,5 +1,6 @@
 upstart (1.5-0ubuntu1) precise; urgency=low
 
+  * FFe.  LP: #962124.
   * New upstream 1.5 release.
     - fix boot failure when /dev/pts is not mounted before upstart starts.
       LP: #936667.
