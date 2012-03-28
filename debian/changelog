@@ -1,3 +1,10 @@
+upstart (1.5-0ubuntu3) precise; urgency=low
+
+  * debian/manpages/upstart-events.7: Correct emitter for
+    "static-network-up" event.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 28 Mar 2012 11:59:56 +0100
+
 upstart (1.5-0ubuntu2) precise; urgency=low
 
   * debian/conf/flush-early-job-log.conf: Change initctl command from
