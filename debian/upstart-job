@@ -37,6 +37,8 @@ fi
 $ECHO "Rather than invoking init scripts through /etc/init.d, use the service(8)"
 $ECHO "utility, e.g. service $INITSCRIPT $COMMAND"
 
+initctl show-config -e "$JOB"|grep -q '^  start on' || DISABLED=1
+
 case $COMMAND in
 status)
     $ECHO
@@ -55,6 +57,8 @@ start|stop)
         exit 0
     elif [ -n "$RUNNING" ] && [ "$COMMAND" = "start" ]; then
         exit 0
+    elif [ -n "$DISABLED" ] && [ "$COMMAND" = "start" ]; then
+        exit 0
     fi
     $COMMAND "$JOB"
     ;;
@@ -68,6 +72,13 @@ restart)
     fi
     if [ -n "$RUNNING" ] ; then
         stop "$JOB"
+    fi
+    # If the job is disabled and is not currently running, the job is
+    # not restarted. However, if the job is disabled but has been forced into the
+    # running state, we *do* stop and restart it since this is expected behaviour
+    # for the admin who forced the start.
+    if [ -n "$DISABLED" ] && [ -z "$RUNNING" ]; then
+        exit 0
     fi
     start "$JOB"
     ;;

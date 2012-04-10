@@ -1,3 +1,13 @@
+upstart (1.5-0ubuntu4) precise; urgency=low
+
+  * debian/upstart-job: Add in handling for disabled jobs:
+    - Do not restart a job if disabled, unless job was forcibly started.
+    - Do stop a disabled job that was forcibly started.
+    Resolves issue where 'invoke-rc.d restart' erroneously started disabled
+    jobs on package upgrade (LP: #974147)
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 10 Apr 2012 09:19:03 +0100
+
 upstart (1.5-0ubuntu3) precise; urgency=low
 
   * debian/manpages/upstart-events.7: Correct emitter for
