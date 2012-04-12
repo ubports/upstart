@@ -1,7 +1,8 @@
 upstart (1.5-0ubuntu4) precise; urgency=low
 
-  * debian/apparmor-profile-load: don't run in a container.  This can hopefully
-    be removed in precise, after stacked profiles are supported.  (LP: #978297)
+  * debian/apparmor-profile-load: don't run in a container. This can
+    hopefully be removed after stacked profiles are supported and
+    used by lxc. (LP: #978297)
 
  -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 10 Apr 2012 14:55:41 -0500
 
