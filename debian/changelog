@@ -2,6 +2,8 @@ upstart (1.5-0ubuntu6) precise; urgency=low
 
   * debian/upstart-job: Only attempt to handle disabled jobs if the running
     version of Upstart supports such a query (LP: #985755, #984474).
+  * debian/manpages/upstart-events.7: Fixed typo and corrected reference to
+    'kill signal' stanza. 
 
  -- James Hunt <james.hunt@ubuntu.com>  Fri, 20 Apr 2012 09:01:37 +0100
 

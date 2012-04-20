@@ -322,7 +322,7 @@ and
 events are emitted with appropriate variables set denoting the error.
 .\"
 .IP \n+[step] 3
-Assuming the pre\-start did not fail or did not called "stop", the main
+Assuming the pre\-start did not fail or did not call "stop", the main
 process is spawned.
 .\"
 .IP \n+[step] 3
@@ -397,8 +397,8 @@ The main process is stopped:
 .af step2 i
 .IP \n[step2] 3
 The signal specified by the
-.B kill
-stanza is sent to the process group of the main process.
+.B kill signal
+stanza is sent to the process group of the main process
 (such that all processes belonging to the jobs main process are killed).
 By default this signal is
 .BR SIGTERM "."
