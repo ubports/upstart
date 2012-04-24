@@ -244,22 +244,13 @@ main (int   argc,
 		 * resetting it to sane defaults unless we're inheriting from another
 		 * init process which we know left it in a sane state.
 		 */
-		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0) {
-			NihError *err;
-	
+		if (system_setup_console (CONSOLE_NONE, (! restart)) < 0) {
 			err = nih_error_get ();
-			nih_warn ("%s: %s", _("Unable to initialize console, will try /dev/null"),
-				  err->message);
+			nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
+				   err->message);
 			nih_free (err);
 	
-			if (system_setup_console (CONSOLE_NONE, FALSE) < 0) {
-				err = nih_error_get ();
-				nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
-					   err->message);
-				nih_free (err);
-	
-				exit (1);
-			}
+			exit (1);
 		}
 
 		/* Set the PATH environment variable */
