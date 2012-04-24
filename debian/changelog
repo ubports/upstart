@@ -1,4 +1,4 @@
-upstart (1.5-0ubuntu6) precise; urgency=low
+upstart (1.5-0ubuntu6) precise-proposed; urgency=low
 
   * debian/upstart-job: Only attempt to handle disabled jobs if the running
     version of Upstart supports such a query (LP: #985755, #984474).
