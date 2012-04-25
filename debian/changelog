@@ -7,6 +7,12 @@ upstart (1.5-0ubuntu6) UNRELEASED; urgency=low
     settings just makes trouble (such as turning echo back on when it
     shouldn't be).  LP: #876626.
 
+  [ James Hunt ]
+  * debian/upstart-job: Only attempt to handle disabled jobs if the running
+    version of Upstart supports such a query (LP: #985755, #984474).
+  * debian/manpages/upstart-events.7: Fixed typo and corrected reference to
+    'kill signal' stanza. 
+
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 19 Apr 2012 21:06:24 -0700
 
 upstart (1.5-0ubuntu5) precise; urgency=low

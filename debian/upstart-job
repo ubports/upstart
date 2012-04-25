@@ -37,7 +37,26 @@ fi
 $ECHO "Rather than invoking init scripts through /etc/init.d, use the service(8)"
 $ECHO "utility, e.g. service $INITSCRIPT $COMMAND"
 
-initctl show-config -e "$JOB"|grep -q '^  start on' || DISABLED=1
+# Only check if jobs are disabled if the currently _running_ version of
+# Upstart (which may be older than the latest _installed_ version)
+# supports such a query.
+#
+# This check is necessary to handle the scenario when upgrading from a
+# release without the 'show-config' command (introduced in
+# Upstart for Ubuntu version 0.9.7) since without this check, all
+# installed packages with associated Upstart jobs would be considered
+# disabled.
+#
+# Once Upstart can maintain state on re-exec, this change can be
+# dropped (since the currently running version of Upstart will always
+# match the latest installed version).
+
+UPSTART_VERSION_RUNNING=$(initctl version|awk '{print $3}'|tr -d ')')
+
+if dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 0.9.7
+then
+    initctl show-config -e "$JOB"|grep -q '^  start on' || DISABLED=1
+fi
 
 case $COMMAND in
 status)
