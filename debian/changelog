@@ -1,4 +1,4 @@
-upstart (1.5-0ubuntu6) UNRELEASED; urgency=low
+upstart (1.5-0ubuntu6) precise-proposed; urgency=low
 
   * debian/upstart.logrotate: don't create empty files after rotation;
     upstart will automatically create new log files for jobs as needed.
@@ -13,7 +13,7 @@ upstart (1.5-0ubuntu6) UNRELEASED; urgency=low
   * debian/manpages/upstart-events.7: Fixed typo and corrected reference to
     'kill signal' stanza. 
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 19 Apr 2012 21:06:24 -0700
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 25 Apr 2012 13:23:34 -0700
 
 upstart (1.5-0ubuntu5) precise; urgency=low
 
