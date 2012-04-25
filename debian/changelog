@@ -2,6 +2,10 @@ upstart (1.5-0ubuntu6) UNRELEASED; urgency=low
 
   * debian/upstart.logrotate: don't create empty files after rotation;
     upstart will automatically create new log files for jobs as needed.
+  * init/main.c: restore the fix for bug #540256; we know the console setup
+    is taken care of by plymouth in Ubuntu, so upstart changing the console
+    settings just makes trouble (such as turning echo back on when it
+    shouldn't be).  LP: #876626.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 19 Apr 2012 21:06:24 -0700
 
