@@ -245,6 +245,7 @@ main (int   argc,
 		 * init process which we know left it in a sane state.
 		 */
 		if (system_setup_console (CONSOLE_NONE, (! restart)) < 0) {
+			NihError *err;
 			err = nih_error_get ();
 			nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
 				   err->message);
