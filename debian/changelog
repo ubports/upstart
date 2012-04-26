@@ -1,8 +1,8 @@
-upstart (1.5-0ubuntu7) UNRELEASED; urgency=low
+upstart (1.5-0ubuntu7) precise-proposed; urgency=low
 
   * Correct a build failure from the previous upload.
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 26 Apr 2012 07:47:54 -0700
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 26 Apr 2012 07:48:17 -0700
 
 upstart (1.5-0ubuntu6) precise-proposed; urgency=low
 
