@@ -65,6 +65,9 @@
 #ifndef DEBUG
 static int  logger_kmsg     (NihLogLevel priority, const char *message);
 static void crash_handler   (int signum);
+#endif /* DEBUG */
+static void term_handler    (void *data, NihSignal *signal);
+#ifndef DEBUG
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
@@ -356,6 +359,13 @@ main (int   argc,
 		/* SIGUSR1 instructs us to reconnect to D-Bus */
 		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+
+		/* SIGTERM instructs us to re-exec ourselves; this should be the
+		 * last in the list to ensure that all other signals are handled
+		 * before a SIGTERM.
+		 */
+		nih_signal_set_handler (SIGTERM, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 	}
 #endif /* DEBUG */
 
@@ -630,7 +640,60 @@ crash_handler (int signum)
 	/* Goodbye, cruel world. */
 	exit (signum);
 }
+#endif
 
+/**
+ * term_handler:
+ * @data: unused,
+ * @signal: signal caught.
+ *
+ * This is called when we receive the TERM signal, which instructs us
+ * to reexec ourselves.
+ **/
+static void
+term_handler (void      *data,
+	      NihSignal *signal)
+{
+	NihError   *err;
+	const char *loglevel;
+	sigset_t    mask, oldmask;
+
+	nih_assert (argv0 != NULL);
+	nih_assert (signal != NULL);
+
+	nih_warn (_("Re-executing %s"), argv0);
+
+	/* Block signals while we work.  We're the last signal handler
+	 * installed so this should mean that they're all handled now.
+	 *
+	 * The child must make sure that it unblocks these again when
+	 * it's ready.
+	 */
+	sigfillset (&mask);
+	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	/* Argument list */
+	if (nih_log_priority <= NIH_LOG_DEBUG) {
+		loglevel = "--debug";
+	} else if (nih_log_priority <= NIH_LOG_INFO) {
+		loglevel = "--verbose";
+	} else if (nih_log_priority >= NIH_LOG_ERROR) {
+		loglevel = "--error";
+	} else {
+		loglevel = NULL;
+	}
+	execl (argv0, argv0, "--restart", loglevel, NULL);
+	nih_error_raise_system ();
+
+	err = nih_error_get ();
+	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
+	nih_free (err);
+
+	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+}
+
+
+#ifndef DEBUG
 /**
  * cad_handler:
  * @data: unused,
