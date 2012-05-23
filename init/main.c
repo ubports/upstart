@@ -149,7 +149,8 @@ static NihOption options[] = {
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+	{ 0, "restart", N_("flag a re-exec has occured"),
+		NULL, NULL, &restart, NULL },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },

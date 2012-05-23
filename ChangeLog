@@ -2,6 +2,7 @@
 
 	* init/main.c: Add in "bare" re-exec handling from Ubuntu
 	  branch.
+	* init/main.c: Unhide "restart" option.
 
 2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
