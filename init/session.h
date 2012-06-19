@@ -27,6 +27,7 @@
 
 #include <nih-dbus/dbus_message.h>
 
+#include <json.h>
 
 /**
  * Session:
@@ -77,12 +78,30 @@ NIH_BEGIN_EXTERN
 
 extern NihList *sessions;
 
-void     session_init      (void);
+void           session_init        (void);
 
-Session *session_new       (const void *parent, const char *chroot, uid_t user)
+Session      * session_new         (const void *parent, const char *chroot, uid_t user)
 	__attribute__ ((malloc, warn_unused_result));
 
-Session *session_from_dbus (const void *parent, NihDBusMessage *message);
+Session      * session_from_dbus   (const void *parent, NihDBusMessage *message);
+
+json_object  * session_serialise   (const Session *session)
+	__attribute__ ((warn_unused_result));
+
+json_object  * session_serialise_all   (void)
+	__attribute__ ((warn_unused_result));
+
+int            session_deserialise     (json_object *json, Session *session)
+	__attribute__ ((warn_unused_result));
+
+int            session_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int            session_get_index (const Session *session)
+	__attribute__ ((warn_unused_result));
+
+Session *      session_from_index (int idx)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

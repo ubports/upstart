@@ -54,6 +54,7 @@
 #include "conf.h"
 #include "control.h"
 #include "errors.h"
+#include "state.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -61,6 +62,8 @@
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
+static void  control_clear_cloexec  (void);
+static void  control_bus_flush      (void);
 
 /**
  * use_session_bus:
@@ -806,3 +809,145 @@ control_notify_disk_writeable (void   *data,
 
 	return 0;
 }
+
+/**
+ * control_get_connection_fd:
+ *
+ * Obtain the file descriptor associated with control_bus.
+ *
+ * Returns: file descriptor, or -1 on error.
+ **/
+int
+control_get_connection_fd (void)
+{
+	int fd;
+
+	if (! dbus_connection_get_unix_fd (control_bus, &fd))
+		return -1;
+
+	return fd;
+}
+
+/**
+ * control_clear_cloexec:
+ *
+ * Clear the close-on-exec flag for the D-Bus control bus.
+ *
+ * Required to ensure D-Bus connections are maintained across a re-exec
+ * since the default is for D-Bus to mark all fds close-on-exec.
+ **/
+static void
+control_clear_cloexec (void)
+{
+	int    fd;
+
+	nih_assert (control_bus);
+
+	if (! dbus_connection_get_unix_fd (control_bus, &fd))
+		return;
+
+	if (state_toggle_cloexec (fd, FALSE) < 0)
+		nih_warn (_("Failed to clear control server CLOEXEC flag"));
+}
+
+/**
+ * control_bus_flush:
+ *
+ * Drain any remaining messages in the D-Bus queue.
+ **/
+static void
+control_bus_flush (void)
+{
+	nih_assert (control_bus != NULL);
+
+	while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
+		;
+}
+
+/**
+ * control_prepare_reexec:
+ *
+ * Prepare for a re-exec by allowing the bus connection to be retained
+ * over re-exec and clearing all queued messages.
+ **/
+void
+control_prepare_reexec (void)
+{
+	control_bus_flush ();
+	control_clear_cloexec ();
+}
+
+
+
+/* FIXME: TEST/DEBUG only */
+#if 1
+/**
+ * control_serialise:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @json: output string returned to client.
+ *
+ * Convert internal state to JSON string.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_serialise (void            *data,
+		NihDBusMessage  *message,
+		char           **json)
+{
+	nih_assert (message != NULL);
+	nih_assert (json != NULL);
+
+	*json = state_to_string ();
+
+	if (! *json)
+		goto error;
+
+	nih_ref (*json, message);
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+			_("Out of Memory"));
+	return -1;
+}
+
+/**
+ * control_deserialise:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @json: JSON string to be deserialised.
+ *
+ * Convert JSON string to internal state.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_deserialise (void            *data,
+		NihDBusMessage  *message,
+		char           *json)
+{
+	int    ret;
+	nih_assert (message != NULL);
+	nih_assert (json != NULL);
+
+	nih_message ("%s:%d: read string '%s'", __func__, __LINE__, json);
+
+	ret = state_from_string (json);
+
+	if (ret < 0)
+		goto error;
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+			_("Out of Memory"));
+	return -1;
+}
+
+#endif

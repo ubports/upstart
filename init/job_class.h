@@ -293,6 +293,12 @@ int         job_class_get_version          (JobClass *class,
 					    char **version)
 	__attribute__ ((warn_unused_result));
 
+int
+job_class_get_stop_on_str (JobClass  *class,
+			   void      *parent,
+		       	   char   ****stop_on)
+	__attribute__ ((warn_unused_result));
+
 int         job_class_get_start_on         (JobClass *class,
 					    NihDBusMessage *message,
 					    char ****start_on);
@@ -307,6 +313,19 @@ int         job_class_get_usage	           (JobClass *class,
 					    char **usage);
 
 ConsoleType job_class_console_type         (const char *console)
+	__attribute__ ((warn_unused_result));
+
+json_object * job_class_serialise (const JobClass *class)
+	__attribute__ ((warn_unused_result));
+
+json_object * job_class_serialise_all (void)
+	__attribute__ ((warn_unused_result));
+
+int
+job_class_deserialise (json_object *json, JobClass *class)
+	__attribute__ ((warn_unused_result));
+
+int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

@@ -52,14 +52,22 @@
 #include "blocked.h"
 #include "conf.h"
 #include "control.h"
+#include "parse_job.h"
 
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
+#include <json.h>
 
 /* Prototypes for static functions */
-static void job_class_add    (JobClass *class);
-static int  job_class_remove (JobClass *class, const Session *session);
+static void  job_class_add    (JobClass *class);
+static int   job_class_remove (JobClass *class, const Session *session);
+
+static char *job_class_collapse_env (char **env)
+	__attribute__ ((warn_unused_result));
+
+static char *job_class_collapse_condition (EventOperator *condition)
+	__attribute__ ((warn_unused_result));
 
 /**
  * default_console:
@@ -1327,6 +1335,66 @@ job_class_get_start_on (JobClass *      class,
 	return 0;
 }
 
+int
+job_class_get_stop_on_str (JobClass  *class,
+			   void      *parent,
+		       	   char   ****stop_on)
+{
+	size_t len = 0;
+
+	nih_assert (class != NULL);
+	nih_assert (parent != NULL);
+	nih_assert (stop_on != NULL);
+
+	*stop_on = nih_alloc (parent, sizeof (char ***));
+	if (! *stop_on)
+		nih_return_no_memory_error (-1);
+
+	len = 0;
+	(*stop_on)[len] = NULL;
+
+	if (class->stop_on) {
+		NIH_TREE_FOREACH_POST (&class->stop_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			*stop_on = nih_realloc (*stop_on, parent,
+						 sizeof (char ***) * (len + 2));
+			if (! *stop_on)
+				nih_return_no_memory_error (-1);
+
+			(*stop_on)[len] = nih_str_array_new (*stop_on);
+			if (! (*stop_on)[len])
+				nih_return_no_memory_error (-1);
+
+			switch (oper->type) {
+			case EVENT_OR:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/OR"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_AND:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/AND"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_MATCH:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, oper->name))
+					nih_return_no_memory_error (-1);
+				if (oper->env)
+					if (! nih_str_array_append (&(*stop_on)[len], *stop_on,
+								    NULL, oper->env))
+						nih_return_no_memory_error (-1);
+				break;
+			}
+
+			(*stop_on)[++len] = NULL;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * job_class_get_stop_on:
  * @class: class to obtain events from,
@@ -1351,6 +1419,8 @@ job_class_get_stop_on (JobClass *      class,
 		       NihDBusMessage *message,
 		       char ****       stop_on)
 {
+	int ret;
+#if 0
 	size_t len = 0;
 
 	nih_assert (class != NULL);
@@ -1404,6 +1474,54 @@ job_class_get_stop_on (JobClass *      class,
 	}
 
 	return 0;
+#endif
+	ret = job_class_get_stop_on_str (class, message, stop_on);
+
+#if 0
+	{
+		char ***s;
+
+		for (s=*stop_on; s && *s; s++) {
+			nih_message ("stop_on: '%s'", **s);
+		}
+	}
+#endif
+	{
+		char ***s;
+		char  **c;
+		char  **list;
+		json_object *json;
+
+		list = nih_str_array_new (message);
+		if (! list)
+			nih_return_system_error (-1);
+
+		for (s=*stop_on; s && *s; ++s) {
+			for (c = *s; c && *c; c++) {
+				nih_message ("XXX: c='%s'", *c);
+				nih_assert (nih_str_array_add (&list, NULL, NULL, *c));
+
+				json = state_serialize_str_array (c);
+				if (!json ) {
+					nih_message ("XXX: state_serialize_str_array failed");
+					nih_return_no_memory_error (-1);
+				}
+
+				nih_message ("YYY: json='%s'", json_object_to_json_string (json));
+				json_object_put (json);
+			}
+		}
+
+		for (c = list; c && *c; ++c) {
+			nih_message ("ZZZ: list: '%s'", *c);
+
+		}
+
+
+
+	}
+
+	return ret;
 }
 
 /**
@@ -1499,4 +1617,587 @@ job_class_get_usage (JobClass *      class,
 	}
 
 	return 0;
+}
+
+
+/**
+ * job_class_serialise:
+ * @class: job class to serialise.
+ *
+ * Convert @class int a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON serialised JobClass object, or NULL on error.
+ **/
+json_object *
+job_class_serialise (const JobClass *class)
+{
+	json_object      *json;
+	json_object      *session;
+	json_object      *env;
+	json_object      *export;
+	json_object      *emits;
+	json_object      *normalexit;
+	json_object      *jstart_on;
+	json_object      *jstop_on;
+	nih_local char   *start_on = NULL;
+	nih_local char   *stop_on = NULL;
+	int               session_index;
+
+
+	/* FIXME: */
+#if 0
+	json_object  *instances;
+
+	json_object  *process;
+	json_object  *limits;
+#endif
+
+	nih_assert (class);
+
+	job_class_init ();
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	session_index = session_get_index (class->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_var_full (json, "session", session_index, int, session))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, name))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, path))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, instance))
+		goto error;
+
+	/* FIXME: instances */
+
+	if (! state_set_json_string_var (json, class, description))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, author))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, version))
+		goto error;
+
+	env = class->env
+		? state_serialize_str_array (class->env)
+		: json_object_new_array ();
+
+	if (! env)
+		goto error;
+	json_object_object_add (json, "env", env);
+
+	export = class->export
+		? state_serialize_str_array (class->export)
+		: json_object_new_array ();
+
+	if (! export)
+		goto error;
+	json_object_object_add (json, "export", export);
+
+	/* set "start/stop on" in the JSON even if no condition specified.
+	 */
+	/* FIXME: why bother? */
+	start_on = class->start_on
+		? job_class_collapse_condition (class->start_on)
+		: NIH_MUST (nih_strdup (NULL, ""));
+	if (! start_on)
+		goto error;
+
+	nih_message ("%s:%d: start_on='%s'", __func__, __LINE__, start_on);
+
+	if (! state_set_json_var_full (json, "start_on", start_on, string, jstart_on)) {
+		nih_free (start_on);
+		goto error;
+	}
+
+	stop_on = class->stop_on
+		? job_class_collapse_condition (class->stop_on)
+		: NIH_MUST (nih_strdup (NULL, ""));
+	if (! stop_on)
+		goto error;
+
+	nih_message ("XXX: stop_on='%s'", stop_on);
+
+	if (! state_set_json_var_full (json, "stop_on", stop_on, string, jstop_on)) {
+		nih_free (stop_on);
+		goto error;
+	}
+
+	emits = class->emits
+		? state_serialize_str_array (class->emits)
+		: json_object_new_array ();
+
+	if (! emits)
+		goto error;
+	json_object_object_add (json, "emits", emits);
+
+	/* FIXME: process */
+
+	if (! state_set_json_var (json, class, expect, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, task, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, kill_timeout, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, kill_signal, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, respawn, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, respawn_limit, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, respawn_interval, int))
+		goto error;
+
+	normalexit = class->normalexit_len
+		? state_serialize_int_array (class->normalexit,
+					     class->normalexit_len)
+		: json_object_new_array ();
+	if (! normalexit)
+		goto error;
+
+	json_object_object_add (json, "normalexit", normalexit);
+
+	if (! state_set_json_var (json, class, console, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, umask, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, nice, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, oom_score_adj, int))
+		goto error;
+
+	/* FIXME: limits */
+
+	if (! state_set_json_string_var (json, class, chroot))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, chdir))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, setuid))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, setgid))
+		goto error;
+
+	if (! state_set_json_var (json, class, deleted, int))
+		goto error;
+
+	if (! state_set_json_var (json, class, debug, int))
+		goto error;
+
+	if (! state_set_json_string_var (json, class, usage))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_class_serialise_all:
+ *
+ * Convert existing Session objects to JSON representation.
+ *
+ * Returns: JSON object containing array of JobClasses, or NULL on error.
+ **/
+json_object *
+job_class_serialise_all (void)
+{
+	json_object *json;
+
+	job_class_init ();
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		json_object  *jclass;
+		JobClass     *class = (JobClass *)iter;
+
+		jclass = job_class_serialise (class);
+
+		if (! jclass)
+			goto error;
+
+		json_object_array_add (json, jclass);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_class_deserialise:
+ * @json: JSON serialised JobClass object to deserialise,
+ * @class: job class.
+ *
+ * Convert @json into @class.
+ *
+ * Note that @class will only be a partial JobClass since not all
+ * structure elements are encoded in the JSON.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_deserialise (json_object *json, JobClass *class)
+{
+	json_object    *json_start_on;
+	json_object    *json_stop_on;
+	json_object    *json_session;
+	json_object    *json_name;
+	json_object    *json_path;
+	json_object    *json_description;
+	json_object    *json_author;
+	json_object    *json_version;
+	int             session_index;
+	const char     *name;
+	const char     *path;
+	const char     *description;
+	const char     *author;
+	const char     *version;
+
+
+	nih_assert (json);
+	nih_assert (class);
+
+	if (json_object_get_type (json) != json_type_object)
+		goto error;
+
+	if (! state_get_json_string_var (json, "name", json_name, name))
+			goto error;
+	class->name = NIH_MUST (nih_strdup (class, name));
+
+	if (! state_get_json_string_var (json, "path", json_path, path))
+			goto error;
+	class->path = NIH_MUST (nih_strdup (class, path));
+
+	if (! state_get_json_string_var (json, "description", json_description, description))
+			goto error;
+	class->description = NIH_MUST (nih_strdup (class, description));
+
+	if (! state_get_json_string_var (json, "author", json_author, author))
+			goto error;
+	class->author = NIH_MUST (nih_strdup (class, author));
+
+	if (! state_get_json_string_var (json, "version", json_version, version))
+			goto error;
+	class->version = NIH_MUST (nih_strdup (class, version));
+
+	/* start and stop conditions are optional */
+	if (json_object_object_get (json, "start_on")) {
+		const char  *start_on = NULL;
+
+		if (! state_get_json_string_var (json, "start_on", json_start_on, start_on))
+			goto error;
+
+		nih_message ("%s:%d: json-parsed     start_on='%s'", __func__, __LINE__, start_on);
+
+		if (*start_on) {
+			class->start_on = parse_on_simple (class, "start", start_on);
+			if (! class->start_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s: %s",
+						_("BUG: parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+
+#if 1
+			nih_message ("%s:%d: parse_on-parsed start_on='%s'",
+					__func__, __LINE__,
+					job_class_collapse_condition (class->start_on));
+#endif
+
+
+		}
+	}
+
+	if (json_object_object_get (json, "stop_on")) {
+		const char  *stop_on = NULL;
+
+		if (! state_get_json_string_var (json, "stop_on", json_stop_on, stop_on))
+			goto error;
+
+		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
+
+		if (*stop_on) {
+			class->stop_on = parse_on_simple (class, "stop", stop_on);
+			if (! class->stop_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s: %s",
+						_("BUG: parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+
+#if 1
+			nih_message ("%s:%d: stop_on='%s'",
+					__func__, __LINE__,
+					job_class_collapse_condition (class->stop_on));
+#endif
+
+		}
+
+	}
+
+	if (! state_get_json_simple_var (json, "session", int, json_session, session_index))
+			goto error;
+
+	/* can't check return value here (as all values are legitimate) */
+	class->session = session_from_index (session_index);
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * job_class_deserialise_all:
+ *
+ * @json: root of json serialised state.
+ *
+ * Convert JSON representation of JobClasses back into JobClass objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_deserialise_all (json_object *json)
+{
+	json_object         *jclasses;
+	JobClass            *class;
+	int                  ret;
+
+	nih_assert (json);
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	jclasses = json_object_object_get (json, "job_classes");
+
+	if (! jclasses)
+			goto error;
+
+	if (json_object_get_type (jclasses) != json_type_array)
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (jclasses); i++) {
+		nih_local JobClass *partial = NULL;
+		json_object        *jclass;
+
+		/* FIXME */
+		nih_message ("XXX: found job class");
+
+		jclass = json_object_array_get_idx (jclasses, i);
+		if (json_object_get_type (jclass) != json_type_object)
+			goto error;
+
+		/* Create an empty template */
+		partial = NIH_MUST (nih_new (NULL, JobClass));
+
+		ret = job_class_deserialise (jclass, partial);
+		if (ret < 0)
+			goto error;
+
+		/* FIXME */
+		nih_message ("class[%d]: name='%s'", i, partial->name);
+
+		class = NIH_MUST (job_class_new (NULL, partial->name, NULL));
+		class->session = partial->session;
+	}
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * job_class_collapsed_env:
+ *
+ * @env: string array.
+ *
+ * Convert @env into a flattened string, quoting values as required.
+ *
+ * Returns: newly-allocated flattened string representing @env on
+ * success, or NULL on error.
+ **/
+static char *
+job_class_collapse_env (char **env)
+{
+	char   *p;
+	char   *flattened;
+	char  **elem;
+
+	nih_assert (env);
+
+	if (! env)
+		return NULL;
+
+	/* Start with a string we can append to */
+	flattened = NIH_MUST (nih_strdup (NULL, ""));
+
+	for (elem = env; elem && *elem; ++elem) {
+		p = strchr (*elem, '=');
+
+		/* If an environment variable contains an equals and whitespace
+		 * in the value part, quote the value.
+		 */
+		if (p && strpbrk (p, " \t")) {
+			/* append name and equals */
+			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %.*s",
+						(int)((p - *elem) + 1), *elem));
+			p++;
+
+			/* add quoted value */
+			if (p) {
+				NIH_MUST (nih_strcat_sprintf (&flattened, NULL, "\"%s\"",
+							p));
+			}
+		} else {
+			/* either a simple 'name' environment variable,
+			 * or a name/value pair without space in the
+			 * value part.
+			 */
+			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %s", *elem));
+		}
+
+	}
+
+	return flattened;
+}
+
+/**
+ * job_class_collapse_condition:
+ *
+ * @condition: start on/stop on condition.
+ *
+ * Collapsed condition will be fully bracketed. Note that as such it may
+ * not be lexicographically identical to the original expression that
+ * resulted in @condition, but it will be logically identical.
+ *
+ * Returns: newly-allocated flattened string representing @condition
+ * on success, or NULL on error.
+ **/
+static char *
+job_class_collapse_condition (EventOperator *condition)
+{
+	/* count of number of closing brackets to insert at end
+	 * of tree traversal.
+	 */
+	int right_parens = 0;
+
+	char *str = NULL;
+
+	nih_assert (condition);
+
+	/* Start with a string we can append to */
+	str = NIH_MUST (nih_strdup (NULL, ""));
+
+	NIH_TREE_FOREACH (&condition->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		switch (oper->type) {
+		case EVENT_OR: 
+		case EVENT_AND:
+			{
+				right_parens++;
+				NIH_MUST (nih_strcat_sprintf (&str, NULL, " %s ",
+							oper->type == EVENT_OR ? "or" : "and"));
+				break;
+			}
+		case EVENT_MATCH:
+			{
+				char *b, *e;
+				char *env = NULL;
+
+				if (! oper->node.parent) {
+					/* condition comprises a single event */
+					b = e = "";
+				} else if (oper->node.parent->left == &oper->node) {
+					b = "(";
+					e = "";
+				} else {
+					b = "";
+					e = ")";
+				}
+
+				if (oper->env)
+					env = job_class_collapse_env (oper->env);
+
+#if 0
+				nih_message ("XXX: job_class_collapse_env returned: '%s'",
+						env ? env : "");
+
+				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s%s%s",
+							b, oper->name,
+							oper->env ? env : "", e));
+#endif
+				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s",
+							b, oper->name));
+				if (env)
+					NIH_MUST (nih_strcat (&str, NULL, env));
+
+				NIH_MUST (nih_strcat (&str, NULL, e));
+
+				if (env)
+					nih_free (env);
+			}
+			break;
+
+		}
+
+	}
+	right_parens--;
+
+	for (int i = 0; i < right_parens; ++i) {
+		NIH_MUST (nih_strcat (&str, NULL, ")"));
+	}
+
+	return str;
 }

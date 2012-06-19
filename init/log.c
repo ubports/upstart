@@ -393,7 +393,7 @@ log_io_error_handler (Log *log, NihIo *io)
  *
  * Opens log file associated with @log if not already open.
  *
- * Returns 0 on success, -1 on failure.
+ * Returns: 0 on success, -1 on failure.
  **/
 static int
 log_file_open (Log *log)
@@ -505,7 +505,7 @@ log_file_open (Log *log)
  *   a corrupted log file should space later become
  *   available.
  *
- * Returns 0 on success, -1 on failure.
+ * Returns: 0 on success, -1 on failure.
  **/
 static int
 log_file_write (Log *log, const char *buf, size_t len)

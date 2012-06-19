@@ -32,6 +32,9 @@ PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 
+# json_tokener_parse_verbose() required to detect invalid JSON (!)
+PKG_CHECK_MODULES([JSON], [json >= 0.10])
+
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
 # Checks for header files.

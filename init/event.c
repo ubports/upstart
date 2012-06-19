@@ -501,3 +501,268 @@ event_finished (Event *event)
 
 	nih_free (event);
 }
+
+/**
+ * event_serialise:
+ * @event: event to serialise.
+ *
+ * Convert @event into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON serialised Event object, or NULL on error.
+ **/
+json_object *
+event_serialise (const Event *event)
+{
+	json_object  *json;
+	json_object  *jsession;
+	json_object  *jenv;
+	int           session_index;
+
+	nih_assert (event);
+	nih_assert (event->name);
+
+	event_init ();
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_string_var (json, event, name))
+		goto error;
+
+	session_index = session_get_index (event->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_var_full (json, "session", session_index, int, jsession))
+		goto error;
+
+	if (! state_set_json_var (json, event, fd, int))
+		goto error;
+
+	jenv = event->env
+		? state_serialize_str_array (event->env)
+		: json_object_new_array ();
+
+	if (! jenv)
+		goto error;
+	json_object_object_add (json, "env", jenv);
+
+	/* FIXME:
+	 *
+	 * need to add:
+	 *
+	 * event->blocking!!
+	 */
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * event_serialise_all:
+ *
+ * Convert existing Event objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Events, or NULL on error.
+ **/
+json_object *
+event_serialise_all (void)
+{
+	json_object *json;
+
+	event_init ();
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+#if 0
+	json_object *json;
+	json_object *jevent_name;
+	json_object *jevent_env;
+	json_object *jevent_fd;
+#endif
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event        *event = (Event *)iter;
+		json_object  *jevent;
+
+		jevent = event_serialise (event);
+
+		if (! jevent)
+			goto error;
+
+		json_object_array_add (json, jevent);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * event_deserialise:
+ * @json: JSON serialised Event object to deserialise,
+ * @event: event object that will be filled with deserialised data.
+ *
+ * Convert @json into @event.
+ *
+ * Note that @event will only be a partial Event since not all
+ * structure elements are encoded in the JSON.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+event_deserialise (json_object *json, Event *event)
+{
+	json_object        *json_name;
+	json_object        *json_session;
+	json_object        *json_env;
+	json_object        *json_fd;
+	const char         *name = NULL;
+	size_t              env_len = 0;
+	int                 session_index;
+
+	nih_assert (json);
+	nih_assert (event);
+
+	if (json_object_get_type (json) != json_type_object)
+		goto error;
+
+	if (! state_get_json_string_var (json, "name", json_name, name))
+			goto error;
+
+	event->name = NIH_MUST (nih_strdup (event, name));
+
+	if (! state_get_json_simple_var (json, "fd", int, json_fd, event->fd))
+			goto error;
+
+	if (! state_get_json_simple_var (json, "session", int, json_session, session_index))
+			goto error;
+
+	/* can't check return value here (as all values are legitimate) */
+	event->session = session_from_index (session_index);
+
+	if (! state_get_json_var (json, "env", array, json_env))
+			goto error;
+
+	event->env = state_deserialize_str_array (event, json_env);
+	if (! event->env)
+		goto error;
+
+#if 0
+	if (json_object_array_length (json_env))
+		event->env = NIH_MUST (nih_str_array_new (NULL));
+
+	/* handle the events environment variables */
+	for (int i = 0; i < json_object_array_length (json_env); i++) {
+		json_object  *jenv_var;
+		const char   *env_var;
+
+		jenv_var = json_object_array_get_idx (json_env, i);
+		if (json_object_get_type (jenv_var) != json_type_string)
+			goto error;
+
+		env_var = json_object_get_string (jenv_var);
+		if (! env_var)
+			goto error;
+
+		/* FIXME: parent correct? */
+		NIH_MUST (environ_add (&event->env, NULL, &env_len, TRUE, env_var));
+		nih_message ("XXX: found env var '%s' in event", env_var);
+	}
+#endif
+
+	nih_message ("event: name='%s', fd=%d, session=%d, env_len=%d", event->name, event->fd,
+			session_index, (int)env_len);
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * event_deserialise_all:
+ *
+ * @json: root of JSON serialised state.
+ *
+ * Convert JSON representation of events back into Event objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+event_deserialise_all (json_object *json)
+{
+	json_object      *jevents;
+	nih_local Event  *partial = NULL;
+	Event            *event;
+	int               ret;
+
+	nih_assert (json);
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	event_init ();
+
+	/* FIXME: enable for final build */
+#if PRODUCTION_BUILD
+	nih_assert (NIH_LIST_EMPTY (events));
+#else
+	nih_warn ("XXX: WARNING: NIH_LIST_EMPTY(events) check disabled");
+#endif
+	jevents = json_object_object_get (json, "events");
+
+	if (! jevents)
+		goto error;
+
+	if (json_object_get_type (jevents) != json_type_array)
+		goto error;
+
+	/* Create an empty template */
+	partial = NIH_MUST (nih_new (NULL, Event));
+
+	for (int i = 0; i < json_object_array_length (jevents); i++) {
+		json_object   *jevent;
+
+		/* FIXME */
+		nih_message ("XXX: found event ");
+
+		jevent = json_object_array_get_idx (jevents, i);
+		if (json_object_get_type (jevent) != json_type_object)
+			goto error;
+
+		ret = event_deserialise (jevent, partial);
+		if (ret < 0)
+			goto error;
+
+		/* FIXME */
+		nih_message ("event[%d]: name='%s', fd=%d",
+				i, partial->name, partial->fd);
+
+		/* Create a new event */
+		event = NIH_MUST (event_new (NULL, partial->name, partial->env));
+
+		event->session = partial->session;
+	}
+
+	return 0;
+
+error:
+	return -1;
+}

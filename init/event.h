@@ -24,7 +24,9 @@
 #include <nih/list.h>
 
 #include "session.h"
+#include "state.h"
 
+#include <json.h>
 
 /**
  * EventProgress:
@@ -92,6 +94,18 @@ void   event_block   (Event *event);
 void   event_unblock (Event *event);
 
 void   event_poll    (void);
+
+json_object  * event_serialise (const Event *event)
+	__attribute__ ((warn_unused_result));
+
+json_object  * event_serialise_all (void)
+	__attribute__ ((warn_unused_result));
+
+int            event_deserialise (json_object *json, Event *event)
+	__attribute__ ((warn_unused_result));
+
+int            event_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

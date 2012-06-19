@@ -66,8 +66,7 @@ int disable_sessions = FALSE;
 
 
 /* Prototypes for static functions */
-static void session_create_conf_source (Session *sesson);
-
+static void session_create_conf_source (Session *sesson, int deserialised);
 
 /**
  * session_init:
@@ -273,7 +272,7 @@ session_from_dbus (const void     *parent,
 		}
 
 		if (! session->conf_path)
-			session_create_conf_source (session);
+			session_create_conf_source (session, FALSE);
 
 		return session;
 	}
@@ -282,46 +281,54 @@ session_from_dbus (const void     *parent,
 	/* Didn't find one, make a new one */
 	session = NIH_MUST (session_new (parent, unix_process_id ? root : NULL,
 					 unix_user));
-	session_create_conf_source (session);
+	session_create_conf_source (session, FALSE);
 
 	return session;
 }
 
 /**
  * session_create_conf_source:
- * @session: Session.
+ * @session: Session,
+ * @deserialised: TRUE if ConfSource is to be created from a deserialised
+ * session object.
  *
- * Create a new ConfSouce object and associate the specified session
+ * Create a new ConfSource object and associate the specified Session
  * with it.
  **/
 static void
-session_create_conf_source (Session *session)
+session_create_conf_source (Session *session, int deserialised)
 {
 	ConfSource *source;
 
 	nih_assert (session != NULL);
-	nih_assert (session->conf_path == NULL);
+	nih_assert (deserialised
+			? session->conf_path != NULL
+			: session->conf_path == NULL);
 
-	if (session->chroot)
-		session->conf_path = NIH_MUST (nih_strdup (NULL, session->chroot));
-	if (session->user) {
-		struct passwd *pwd;
+	session_init ();
 
-		pwd = getpwuid (session->user);
-		if (! pwd) {
-			nih_error ("%d: %s: %s", session->user,
-				   _("Unable to lookup home directory"),
-				   strerror (errno));
+	if (! deserialised) {
+		if (session->chroot)
+			session->conf_path = NIH_MUST (nih_strdup (NULL, session->chroot));
+		if (session->user) {
+			struct passwd *pwd;
 
-			nih_free (session->conf_path);
-			session->conf_path = NULL;
-			return;
+			pwd = getpwuid (session->user);
+			if (! pwd) {
+				nih_error ("%d: %s: %s", session->user,
+						_("Unable to lookup home directory"),
+						strerror (errno));
+
+				nih_free (session->conf_path);
+				session->conf_path = NULL;
+				return;
+			}
+
+			NIH_MUST (nih_strcat_sprintf (&session->conf_path, NULL, "%s/%s",
+						pwd->pw_dir, USERCONFDIR));
+		} else {
+			NIH_MUST (nih_strcat (&session->conf_path, NULL, CONFDIR));
 		}
-
-		NIH_MUST (nih_strcat_sprintf (&session->conf_path, NULL, "%s/%s",
-					      pwd->pw_dir, USERCONFDIR));
-	} else {
-		NIH_MUST (nih_strcat (&session->conf_path, NULL, CONFDIR));
 	}
 
 	source = NIH_MUST (conf_source_new (session, session->conf_path,
@@ -343,4 +350,333 @@ session_create_conf_source (Session *session)
 		session->conf_path = NULL;
 		return;
 	}
+}
+
+/**
+ * session_serialise:
+ * @session: session to serialise.
+ *
+ * Convert @session into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON serialised Session object, or NULL on error.
+ **/
+json_object *
+session_serialise (const Session *session)
+{
+	json_object  *json;
+	json_object  *chroot;
+	json_object  *user;
+	json_object  *conf_path;
+
+	/* FIXME: have to be able to encode for NULL session */
+	//nih_assert (session);
+
+	session_init ();
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	chroot = json_object_new_string (
+			session
+			? session->chroot
+				? session->chroot
+				: ""
+			: "");
+
+	if (! chroot)
+		goto error;
+
+	json_object_object_add (json, "chroot", chroot);
+
+	user = json_object_new_int ((int)(session ? session->user : 0));
+	if (! user)
+		goto error;
+
+	json_object_object_add (json, "user", user);
+
+	conf_path = json_object_new_string (session
+			? session->conf_path
+				? session->conf_path
+				: ""
+			: "");
+	if (! conf_path)
+		goto error;
+	json_object_object_add (json, "conf_path", conf_path);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+
+}
+
+/**
+ * session_serialise_all:
+ *
+ * Convert existing Session objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Sessions, or NULL on error.
+ **/
+json_object *
+session_serialise_all (void)
+{
+	json_object  *json;
+	json_object  *jsession;
+
+	session_init ();
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	/* Add the null session first */
+	jsession = session_serialise (NULL);
+	if (! jsession)
+		goto error;
+
+	if (json_object_array_add (json, jsession) < 0)
+		goto error;
+
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session      *session = (Session *)iter;
+
+		jsession = session_serialise (session);
+
+		if (! jsession)
+			goto error;
+
+		if (json_object_array_add (json, jsession) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * session_deserialise:
+ * @json: JSON serialised Session object to deserialise.
+ * @session: session object that will be filled with deserialised data.
+ *
+ * Deserialise @json into @session.
+ *
+ * Note that @session will only be a partial Session since not all
+ * structure elements are encoded in the JSON.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+session_deserialise (json_object *json, Session *session)
+{
+	json_object   *jchroot;
+	json_object   *juser;
+	json_object   *jconf_path;
+	const char    *chroot;
+	const char    *conf_path;
+
+	nih_assert (json);
+	nih_assert (session);
+
+	if (json_object_get_type (json) != json_type_object)
+		goto error;
+
+	jchroot = json_object_object_get (json, "chroot");
+	if (! jchroot)
+		goto error;
+
+	if (json_object_get_type (jchroot) != json_type_string)
+		goto error;
+
+	juser = json_object_object_get (json, "user");
+	if (! juser)
+		goto error;
+
+	if (json_object_get_type (juser) != json_type_int)
+		goto error;
+
+	jconf_path = json_object_object_get (json, "conf_path");
+	if (! jconf_path)
+		goto error;
+
+	chroot = json_object_get_string (jchroot);
+	if (! chroot)
+		goto error;
+	session->chroot = NIH_MUST (nih_strdup (session, chroot));
+
+	conf_path = json_object_get_string (jconf_path);
+	if (! conf_path) {
+		nih_free (session->chroot);
+		goto error;
+	}
+
+	session->conf_path = NIH_MUST (nih_strdup (NULL, conf_path));
+
+	session->user = (uid_t)json_object_get_int (juser);
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * session_deserialise_all:
+ *
+ * @json: root of json serialised state.
+ *
+ * Convert json representation of sessions back into Session objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+session_deserialise_all (json_object *json)
+{
+	json_object        *jsessions;
+	Session            *session;
+	nih_local Session  *partial = NULL;
+	int                 ret;
+
+	nih_assert (json);
+
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
+
+	session_init ();
+
+	/* FIXME: enable for final build */
+#if PRODUCTION_BUILD
+	nih_assert (NIH_LIST_EMPTY (sessions));
+#else
+	nih_warn ("XXX: WARNING: NIH_LIST_EMPTY(sessions) check disabled");
+#endif
+
+	jsessions = json_object_object_get (json, "sessions");
+
+	if (! jsessions)
+		goto error;
+
+	if (json_object_get_type (jsessions) != json_type_array)
+		goto error;
+
+	/* Create an empty template */
+	partial = NIH_MUST (nih_new (NULL, Session));
+
+	for (int i = 0; i < json_object_array_length (jsessions); i++) {
+		json_object   *jsession;
+
+		nih_message ("%s:%d: found session", __func__, __LINE__);
+
+		jsession = json_object_array_get_idx (jsessions, i);
+		if (json_object_get_type (jsession) != json_type_object)
+			goto error;
+
+		ret = session_deserialise (jsession, partial);
+		if (ret < 0)
+			goto error;
+
+		nih_message ("session[%d]: chroot='%s', user=%d, conf_path='%s'",
+				i, partial->chroot, partial->user, partial->conf_path);
+
+#if 0
+		/* Something went wrong */
+		if (! partial->chroot && ! partial->user && ! partial->conf_path)
+			goto error;
+#endif
+
+		if (! *partial->chroot && ! partial->user && ! *partial->conf_path) {
+			/* Ignore the "NULL session" which is represented
+			 * by NULL, not an "empty session" internally.
+			 */
+			continue;
+		}
+
+		/* Create a new session and associated ConfSource */
+		session = NIH_MUST (session_new (NULL, partial->chroot, partial->user));
+		session->conf_path = NIH_MUST (nih_strdup (session, partial->conf_path));
+		session_create_conf_source (session, TRUE);
+	}
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * session_get_index:
+ *
+ * @session: session.
+ *
+ * Determine JSON-serialised array index for specified @session.
+ *
+ * Returns: zero-based array index for @session, or -1 on error.
+ **/
+int
+session_get_index (const Session *session)
+{
+	int i;
+
+	/* Handle NULL session */
+	if (! session)
+		return 0;
+
+	/* Sessions are serialised in order, so just return the list
+	 * index.
+	 */
+	i = 1;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *s = (Session *)iter;
+
+		if (s == session)
+			return i;
+
+		++i;
+	}
+
+	return -1;
+}
+
+/**
+ * session_from_index:
+ *
+ * @idx: zero-based index.
+ *
+ * Lookup session by index number.
+ *
+ * Returns: Session (which may be the NULL session).
+ **/
+Session *
+session_from_index (int idx)
+{
+	int       i;
+	Session  *session;
+
+	nih_assert (idx >= 0);
+
+	/* NULL session */
+	if (! idx)
+		return NULL;
+
+	i = 1;
+	NIH_LIST_FOREACH (sessions, iter) {
+		session = (Session *)iter;
+
+		if (i == idx)
+			return session;
+	}
+
+	nih_assert_not_reached ();
 }
