@@ -1996,6 +1996,7 @@ error:
 }
 #endif
 
+/* FIXME: document */
 JobClass *
 job_class_deserialise (json_object *json)
 {
@@ -2004,16 +2005,29 @@ job_class_deserialise (json_object *json)
 	json_object    *json_session;
 	json_object    *json_name;
 	json_object    *json_path;
+	json_object    *json_instance;
 	json_object    *json_description;
 	json_object    *json_author;
 	json_object    *json_version;
 	const char     *name;
 	const char     *path;
+	const char     *instance;
 	const char     *description;
 	const char     *author;
 	const char     *version;
 	JobClass       *partial;
 	int             session_index;
+
+	/* FIXME: TODO:
+	 *
+	 * instances
+	 * env
+	 * export
+	 * emits
+	 * process
+	 * expect
+	 * etc....
+	 */
 
 	nih_assert (json);
 
@@ -2031,6 +2045,10 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_string_var (json, "path", json_path, path))
 			goto error;
 	partial->path = NIH_MUST (nih_strdup (partial, path));
+
+	if (! state_get_json_string_var (json, "instance", json_instance, instance))
+			goto error;
+	partial->instance = NIH_MUST (nih_strdup (partial, instance));
 
 	if (! state_get_json_string_var (json, "description", json_description, description))
 			goto error;
@@ -2223,6 +2241,7 @@ job_class_deserialise_all (json_object *json)
 		 * partial value differs from the default set by
 		 * job_class_new()
 		 */
+		/*FIXME: GOT TO HERE: crashing! */
 		if (partial->instance && *partial->instance) {
 			nih_free (class->instance);
 
