@@ -356,7 +356,9 @@ session_create_conf_source (Session *session, int deserialised)
  * session_serialise:
  * @session: session to serialise.
  *
- * Convert @session into a JSON representation for serialisation.
+ * Convert @session (which may be the NULL session) into a
+ * JSON representation for serialisation.
+ *
  * Caller must free returned value using json_object_put().
  *
  * Returns: JSON serialised Session object, or NULL on error.
@@ -368,9 +370,6 @@ session_serialise (const Session *session)
 	json_object  *chroot;
 	json_object  *user;
 	json_object  *conf_path;
-
-	/* FIXME: have to be able to encode for NULL session */
-	//nih_assert (session);
 
 	session_init ();
 
@@ -479,50 +478,32 @@ error:
 int
 session_deserialise (json_object *json, Session *session)
 {
-	json_object   *jchroot;
-	json_object   *juser;
-	json_object   *jconf_path;
+	json_object   *json_chroot;
+	json_object   *json_user;
+	json_object   *json_conf_path;
 	const char    *chroot;
 	const char    *conf_path;
 
 	nih_assert (json);
 	nih_assert (session);
 
-	if (json_object_get_type (json) != json_type_object)
+	if (! state_check_type (json, object))
 		goto error;
 
-	jchroot = json_object_object_get (json, "chroot");
-	if (! jchroot)
-		goto error;
+	/* Allocate memory after extracting all fields to simplify error
+	 * logic
+	 */
+	if (! state_get_json_string_var (json, "chroot", json_chroot, chroot))
+			goto error;
 
-	if (json_object_get_type (jchroot) != json_type_string)
-		goto error;
+	if (! state_get_json_simple_var (json, "user", int, json_user, session->user))
+			goto error;
 
-	juser = json_object_object_get (json, "user");
-	if (! juser)
-		goto error;
+	if (! state_get_json_string_var (json, "conf_path", json_conf_path, conf_path))
+			goto error;
 
-	if (json_object_get_type (juser) != json_type_int)
-		goto error;
-
-	jconf_path = json_object_object_get (json, "conf_path");
-	if (! jconf_path)
-		goto error;
-
-	chroot = json_object_get_string (jchroot);
-	if (! chroot)
-		goto error;
 	session->chroot = NIH_MUST (nih_strdup (session, chroot));
-
-	conf_path = json_object_get_string (jconf_path);
-	if (! conf_path) {
-		nih_free (session->chroot);
-		goto error;
-	}
-
-	session->conf_path = NIH_MUST (nih_strdup (NULL, conf_path));
-
-	session->user = (uid_t)json_object_get_int (juser);
+	session->conf_path = NIH_MUST (nih_strdup (session, conf_path));
 
 	return 0;
 
@@ -568,7 +549,7 @@ session_deserialise_all (json_object *json)
 	if (! jsessions)
 		goto error;
 
-	if (json_object_get_type (jsessions) != json_type_array)
+	if (! state_check_type (jsessions, array))
 		goto error;
 
 	/* Create an empty template */
@@ -580,7 +561,7 @@ session_deserialise_all (json_object *json)
 		nih_message ("%s:%d: found session", __func__, __LINE__);
 
 		jsession = json_object_array_get_idx (jsessions, i);
-		if (json_object_get_type (jsession) != json_type_object)
+		if (! state_check_type (jsession, object))
 			goto error;
 
 		ret = session_deserialise (jsession, partial);

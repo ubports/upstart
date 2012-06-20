@@ -316,10 +316,10 @@ ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 
 json_object * job_class_serialise (const JobClass *class)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 json_object * job_class_serialise_all (void)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 int
 job_class_deserialise (json_object *json, JobClass *class)

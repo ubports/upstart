@@ -1891,7 +1891,7 @@ job_class_deserialise (json_object *json, JobClass *class)
 	nih_assert (json);
 	nih_assert (class);
 
-	if (json_object_get_type (json) != json_type_object)
+	if (! state_check_type (json, object))
 		goto error;
 
 	if (! state_get_json_string_var (json, "name", json_name, name))
@@ -2023,7 +2023,7 @@ job_class_deserialise_all (json_object *json)
 	if (! jclasses)
 			goto error;
 
-	if (json_object_get_type (jclasses) != json_type_array)
+	if (! state_check_type (jclasses, array))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (jclasses); i++) {
@@ -2034,7 +2034,7 @@ job_class_deserialise_all (json_object *json)
 		nih_message ("XXX: found job class");
 
 		jclass = json_object_array_get_idx (jclasses, i);
-		if (json_object_get_type (jclass) != json_type_object)
+		if (! state_check_type (jclass, object))
 			goto error;
 
 		/* Create an empty template */

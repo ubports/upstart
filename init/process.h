@@ -22,6 +22,7 @@
 
 #include <nih/macros.h>
 
+#include <json.h>
 
 /**
  * ProcessType:
@@ -65,7 +66,17 @@ Process *   process_new       (const void *parent)
 
 const char *process_name      (ProcessType process)
 	__attribute__ ((const));
-ProcessType process_from_name (const char *process);
+
+json_object *
+process_serialise (const Process *process)
+	__attribute__ ((warn_unused_result, malloc));
+
+ProcessType process_from_name (const char *process)
+	__attribute__ ((warn_unused_result));
+
+int
+process_deserialise (json_object *json, Process *process)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

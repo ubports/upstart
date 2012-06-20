@@ -86,10 +86,10 @@ Session      * session_new         (const void *parent, const char *chroot, uid_
 Session      * session_from_dbus   (const void *parent, NihDBusMessage *message);
 
 json_object  * session_serialise   (const Session *session)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 json_object  * session_serialise_all   (void)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 int            session_deserialise     (json_object *json, Session *session)
 	__attribute__ ((warn_unused_result));

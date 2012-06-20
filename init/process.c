@@ -29,8 +29,10 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/logging.h>
+#include <nih/string.h>
 
 #include "process.h"
+#include "state.h"
 
 
 /**
@@ -115,4 +117,76 @@ process_from_name (const char *process)
 	} else {
 		return -1;
 	}
+}
+
+/**
+ * process_serialise:
+ * @process: process to serialise.
+ *
+ * Convert @process into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON serialised Process object, or NULL on error.
+ **/
+json_object *
+process_serialise (const Process *process)
+{
+	json_object  *json;
+
+	nih_assert (process);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_var (json, process, script, int))
+		goto error;
+
+	if (! state_set_json_string_var (json, process, command))
+		goto error;
+
+error:
+	json_object_put (json);
+	return NULL;
+
+}
+
+/**
+ * process_deserialise:
+ * @json: JSON serialised Process object to deserialise,
+ * @process: process object that will be filled with deserialised data.
+ *
+ * Convert @json into @process.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+process_deserialise (json_object *json, Process *process)
+{
+	json_object   *json_script;
+	json_object   *json_command;
+	const char    *command;
+
+	nih_assert (json);
+	nih_assert (process);
+
+	if (! state_check_type (json, object))
+		goto error;
+
+	if (! state_get_json_simple_var (json, "script", int, json_script, process->script))
+			goto error;
+
+	if (! state_get_json_string_var (json, "command", json_command, command))
+			goto error;
+	process->command = NIH_MUST (nih_strdup (process, command));
+
+	/* FIXME */
+#if 1
+	nih_message ("process: script=%d, command='%s'", process->script, process->command);
+#endif
+
+	return 0;
+
+error:
+	return -1;
 }

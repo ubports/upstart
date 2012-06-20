@@ -631,19 +631,18 @@ event_deserialise (json_object *json, Event *event)
 	json_object        *json_session;
 	json_object        *json_env;
 	json_object        *json_fd;
-	const char         *name = NULL;
+	const char         *name;
 	size_t              env_len = 0;
 	int                 session_index;
 
 	nih_assert (json);
 	nih_assert (event);
 
-	if (json_object_get_type (json) != json_type_object)
+	if (! state_check_type (json, object))
 		goto error;
 
 	if (! state_get_json_string_var (json, "name", json_name, name))
 			goto error;
-
 	event->name = NIH_MUST (nih_strdup (event, name));
 
 	if (! state_get_json_simple_var (json, "fd", int, json_fd, event->fd))
@@ -662,31 +661,11 @@ event_deserialise (json_object *json, Event *event)
 	if (! event->env)
 		goto error;
 
-#if 0
-	if (json_object_array_length (json_env))
-		event->env = NIH_MUST (nih_str_array_new (NULL));
-
-	/* handle the events environment variables */
-	for (int i = 0; i < json_object_array_length (json_env); i++) {
-		json_object  *jenv_var;
-		const char   *env_var;
-
-		jenv_var = json_object_array_get_idx (json_env, i);
-		if (json_object_get_type (jenv_var) != json_type_string)
-			goto error;
-
-		env_var = json_object_get_string (jenv_var);
-		if (! env_var)
-			goto error;
-
-		/* FIXME: parent correct? */
-		NIH_MUST (environ_add (&event->env, NULL, &env_len, TRUE, env_var));
-		nih_message ("XXX: found env var '%s' in event", env_var);
-	}
-#endif
-
+#if 1
+	/* FIXME */
 	nih_message ("event: name='%s', fd=%d, session=%d, env_len=%d", event->name, event->fd,
 			session_index, (int)env_len);
+#endif
 
 	return 0;
 
@@ -731,7 +710,7 @@ event_deserialise_all (json_object *json)
 	if (! jevents)
 		goto error;
 
-	if (json_object_get_type (jevents) != json_type_array)
+	if (! state_check_type (jevents, array))
 		goto error;
 
 	/* Create an empty template */
@@ -744,7 +723,7 @@ event_deserialise_all (json_object *json)
 		nih_message ("XXX: found event ");
 
 		jevent = json_object_array_get_idx (jevents, i);
-		if (json_object_get_type (jevent) != json_type_object)
+		if (! state_check_type (jevent, object))
 			goto error;
 
 		ret = event_deserialise (jevent, partial);

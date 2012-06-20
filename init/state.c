@@ -331,7 +331,7 @@ state_read_objects (int fd)
 	if (! json)
 		return -1;
 
-	if (json_object_get_type(json) != json_type_object) {
+	if (! state_check_type (json, object)) {
 		json_object_put (json);
 		return -1;
 	}
@@ -476,7 +476,7 @@ state_from_string (const char *state)
 		return ret;
 	}
 
-	if (json_object_get_type(json) != json_type_object)
+	if (! state_check_type (json, object))
 		goto out;
 
 	if (session_deserialise_all (json) < 0)
@@ -537,7 +537,7 @@ state_get_session_idx (const Session *session)
 		if (! jname)
 			goto error;
 
-		name = json_object_get_string (jname);
+		//name = json_object_get_string (jname);
 		if (! name)
 			goto error;
 
@@ -663,7 +663,7 @@ state_deserialize_str_array (void *parent, json_object *json)
 	nih_assert (parent);
 	nih_assert (json);
 
-	if (json_object_get_type (json) != json_type_array)
+	if (! state_check_type (json, array))
 		goto error;
 
 	array = NIH_MUST (nih_str_array_new (parent));
@@ -673,7 +673,7 @@ state_deserialize_str_array (void *parent, json_object *json)
 		const char   *env_var;
 
 		jenv_var = json_object_array_get_idx (json, i);
-		if (json_object_get_type (jenv_var) != json_type_string)
+		if (! state_check_type (jenv_var, string))
 			goto error;
 
 		env_var = json_object_get_string (jenv_var);

@@ -56,6 +56,17 @@
 #define STATE_WAIT_SECS 3
 
 /**
+ * state_check_type:
+ *
+ * @object: JSON object,
+ * @type: type of JSON primitive.
+ *
+ * Returns: TRUE if type of @object is @type, else FALSE.
+ **/
+#define state_check_type(object, type) \
+	(json_object_get_type (object) == json_type_ ## type)
+
+/**
  * state_get_json_var:
  *
  * @json: json_object pointer,
@@ -70,14 +81,14 @@
  **/
 #define state_get_json_var(json, name, type, json_var) \
 (! (!(json_var = json_object_object_get (json, name)) || \
-    json_object_get_type (json_var) != json_type_ ## type))
+    state_check_type (json_var, type)))
 
 /**
  * state_set_json_var:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be serialised,
- * @name: name of element withing @object to be serialised,
+ * @name: name of element within @object to be serialised,
  * @type: JSON type for field to be added.
  *
  * Returns: TRUE on success, or FALSE on error.
@@ -118,6 +129,7 @@
 /**
  * state_get_json_string_var:
  *
+ * @parent: parent object for new string (parent of @var),
  * @json: json_object pointer,
  * @name: string name to search for in @json,
  * @json_var: name of json_object variable that will store value,
@@ -129,6 +141,9 @@
  * Query @json, setting @json_var to be the JSON value of @name where
  * @json_var is of type @type and then setting @var to be the string
  * value of @json_var.
+ *
+ * Caller must not free @var on successfull completion of this macro,
+ * and should copy memory @var is set to.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/

@@ -96,10 +96,10 @@ void   event_unblock (Event *event);
 void   event_poll    (void);
 
 json_object  * event_serialise (const Event *event)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 json_object  * event_serialise_all (void)
-	__attribute__ ((warn_unused_result));
+	__attribute__ ((warn_unused_result, malloc));
 
 int            event_deserialise (json_object *json, Event *event)
 	__attribute__ ((warn_unused_result));
