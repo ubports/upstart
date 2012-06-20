@@ -89,7 +89,7 @@ session_init (void)
  *
  * Create a new session.
  *
- * Return new Session, or NULL on error.
+ * Returns: new Session, or NULL on error.
  **/
 Session *
 session_new (const void *parent,
@@ -136,7 +136,7 @@ session_new (const void *parent,
  *
  * Create a new session, based on the specified D-Bus message.
  *
- * Return new Session, or NULL on error.
+ * Returns: new Session, or NULL on error.
  **/
 Session *
 session_from_dbus (const void     *parent,
@@ -423,7 +423,7 @@ json_object *
 session_serialise_all (void)
 {
 	json_object  *json;
-	json_object  *jsession;
+	json_object  *json_session;
 
 	session_init ();
 
@@ -437,22 +437,22 @@ session_serialise_all (void)
 		return NULL;
 
 	/* Add the null session first */
-	jsession = session_serialise (NULL);
-	if (! jsession)
+	json_session = session_serialise (NULL);
+	if (! json_session)
 		goto error;
 
-	if (json_object_array_add (json, jsession) < 0)
+	if (json_object_array_add (json, json_session) < 0)
 		goto error;
 
 	NIH_LIST_FOREACH (sessions, iter) {
 		Session      *session = (Session *)iter;
 
-		jsession = session_serialise (session);
+		json_session = session_serialise (session);
 
-		if (! jsession)
+		if (! json_session)
 			goto error;
 
-		if (json_object_array_add (json, jsession) < 0)
+		if (json_object_array_add (json, json_session) < 0)
 			goto error;
 	}
 
@@ -465,50 +465,71 @@ error:
 
 /**
  * session_deserialise:
- * @json: JSON serialised Session object to deserialise.
- * @session: session object that will be filled with deserialised data.
+ * @json: JSON-serialised Session object to deserialise.
  *
- * Deserialise @json into @session.
+ * Convert @json into a partial Session object.
  *
- * Note that @session will only be a partial Session since not all
+ * Note that the object returned is not a true Session since not all
  * structure elements are encoded in the JSON.
  *
- * Returns: 0 on success, -1 on error.
+ * Returns: partial Session object, or NULL on error.
  **/
-int
-session_deserialise (json_object *json, Session *session)
+Session *
+session_deserialise (json_object *json)
 {
 	json_object   *json_chroot;
 	json_object   *json_user;
 	json_object   *json_conf_path;
 	const char    *chroot;
 	const char    *conf_path;
+	Session       *partial;
 
 	nih_assert (json);
-	nih_assert (session);
 
 	if (! state_check_type (json, object))
-		goto error;
+		return NULL;
 
-	/* Allocate memory after extracting all fields to simplify error
-	 * logic
-	 */
+	partial = nih_new (NULL, Session);
+	if (! partial)
+		return NULL;
+
+#if 1
+	{
+#if 1
+		if (! state_get_json_var (json, "chroot", string, json_chroot))
+			nih_message ("XXX: state_get_json_var failed");
+#endif
+		nih_message ("XXX: chroot type: %d",
+				state_check_type (json_chroot, string));
+
+		json_chroot = json_object_object_get (json, "chroot");
+		nih_message ("XXX: json_object_object_get returned %p", json_chroot);
+
+
+		chroot = json_object_get_string (json_chroot);
+		nih_message ("XXX: json_object_get_string returned (%p) '%s'", chroot, chroot);
+
+		if (! strcmp ("", chroot))
+				nih_message ("XXX: chroot is 1 byte string");
+	}
+#endif
+
 	if (! state_get_json_string_var (json, "chroot", json_chroot, chroot))
 			goto error;
+	partial->chroot = NIH_MUST (nih_strdup (partial, chroot));
 
-	if (! state_get_json_simple_var (json, "user", int, json_user, session->user))
+	if (! state_get_json_simple_var (json, "user", int, json_user, partial->user))
 			goto error;
 
 	if (! state_get_json_string_var (json, "conf_path", json_conf_path, conf_path))
 			goto error;
+	partial->conf_path = NIH_MUST (nih_strdup (partial, conf_path));
 
-	session->chroot = NIH_MUST (nih_strdup (session, chroot));
-	session->conf_path = NIH_MUST (nih_strdup (session, conf_path));
-
-	return 0;
+	return partial;
 
 error:
-	return -1;
+	nih_free (partial);
+	return NULL;
 }
 
 /**
@@ -523,10 +544,9 @@ error:
 int
 session_deserialise_all (json_object *json)
 {
-	json_object        *jsessions;
+	json_object        *json_sessions;
 	Session            *session;
 	nih_local Session  *partial = NULL;
-	int                 ret;
 
 	nih_assert (json);
 
@@ -544,38 +564,29 @@ session_deserialise_all (json_object *json)
 	nih_warn ("XXX: WARNING: NIH_LIST_EMPTY(sessions) check disabled");
 #endif
 
-	jsessions = json_object_object_get (json, "sessions");
+	json_sessions = json_object_object_get (json, "sessions");
 
-	if (! jsessions)
+	if (! json_sessions)
 		goto error;
 
-	if (! state_check_type (jsessions, array))
+	if (! state_check_type (json_sessions, array))
 		goto error;
 
-	/* Create an empty template */
-	partial = NIH_MUST (nih_new (NULL, Session));
-
-	for (int i = 0; i < json_object_array_length (jsessions); i++) {
-		json_object   *jsession;
+	for (int i = 0; i < json_object_array_length (json_sessions); i++) {
+		json_object   *json_session;
 
 		nih_message ("%s:%d: found session", __func__, __LINE__);
 
-		jsession = json_object_array_get_idx (jsessions, i);
-		if (! state_check_type (jsession, object))
+		json_session = json_object_array_get_idx (json_sessions, i);
+		if (! state_check_type (json_session, object))
 			goto error;
 
-		ret = session_deserialise (jsession, partial);
-		if (ret < 0)
+		partial = session_deserialise (json_session);
+		if (! partial)
 			goto error;
 
 		nih_message ("session[%d]: chroot='%s', user=%d, conf_path='%s'",
 				i, partial->chroot, partial->user, partial->conf_path);
-
-#if 0
-		/* Something went wrong */
-		if (! partial->chroot && ! partial->user && ! partial->conf_path)
-			goto error;
-#endif
 
 		if (! *partial->chroot && ! partial->user && ! *partial->conf_path) {
 			/* Ignore the "NULL session" which is represented

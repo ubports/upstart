@@ -153,25 +153,36 @@ error:
 
 /**
  * process_deserialise:
- * @json: JSON serialised Process object to deserialise,
- * @process: process object that will be filled with deserialised data.
+ * @json: JSON-serialised Process object to deserialise.
  *
- * Convert @json into @process.
+ * Convert @json into a Process object.
  *
- * Returns: 0 on success, -1 on error.
+ * Caller must manually nih_ref() returned object to a parent object.
+ *
+ * Returns: Process object, or NULL on error.
  **/
-int
-process_deserialise (json_object *json, Process *process)
+
+/* FIXME: should we just make this the same as the other partial
+ * objects for consistency?
+ */
+Process *
+process_deserialise (json_object *json)
 {
 	json_object   *json_script;
 	json_object   *json_command;
 	const char    *command;
+	Process       *process;
 
 	nih_assert (json);
-	nih_assert (process);
 
+#if 1
+	/* FIXME */
+	nih_message ("%s:%d:", __func__, __LINE__);
+#endif
 	if (! state_check_type (json, object))
 		goto error;
+
+	process = NIH_MUST (process_new (NULL));
 
 	if (! state_get_json_simple_var (json, "script", int, json_script, process->script))
 			goto error;
@@ -185,8 +196,9 @@ process_deserialise (json_object *json, Process *process)
 	nih_message ("process: script=%d, command='%s'", process->script, process->command);
 #endif
 
-	return 0;
+	return process;
 
 error:
-	return -1;
+	nih_free (process);
+	return NULL;
 }

@@ -80,8 +80,8 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_var(json, name, type, json_var) \
-(! (!(json_var = json_object_object_get (json, name)) || \
-    state_check_type (json_var, type)))
+	((json_var = json_object_object_get (json, name)) && \
+	  state_check_type (json_var, type))
 
 /**
  * state_set_json_var:
@@ -142,7 +142,7 @@
  * @json_var is of type @type and then setting @var to be the string
  * value of @json_var.
  *
- * Caller must not free @var on successfull completion of this macro,
+ * Caller must not free @var on successful completion of this macro,
  * and should copy memory @var is set to.
  *
  * Returns: TRUE on success, or FALSE on error.
@@ -175,6 +175,30 @@
 #define state_get_json_simple_var(json, name, type, json_var, var) \
 	(state_get_json_var (json, name, type, json_var) && \
 	 ((var = json_object_get_ ## type (json_var)) || 1==1))
+
+#define state_partial_copy(parent, source, name) \
+	(parent->name = source->name)
+
+/**
+ * state_partial_copy_string:
+ *
+ * @parent: parent object for new string (parent of @var),
+ * @source: object that is a partial object of the same type as @parent,
+ * @name: string element in @source that is to be copied to @parent.
+ *
+ * Copy string @name from within @source to @parent.
+ *
+ * After the call, @parents version of @source contains a copy of
+ * that from @source (which may be NULL if the version in @source
+ * is either NULL or the null string).
+ *
+ * Returns: nothing.
+ **/
+#define state_partial_copy_string(parent, source, name) \
+	({typeof (source->name) _name = source->name; \
+	 	parent->name = _name && *(_name) \
+	 	? NIH_MUST (nih_strdup (parent, _name)) \
+	 	: NULL;})
 
 NIH_BEGIN_EXTERN
 

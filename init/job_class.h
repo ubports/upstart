@@ -321,9 +321,9 @@ json_object * job_class_serialise (const JobClass *class)
 json_object * job_class_serialise_all (void)
 	__attribute__ ((warn_unused_result, malloc));
 
-int
-job_class_deserialise (json_object *json, JobClass *class)
-	__attribute__ ((warn_unused_result));
+JobClass *
+job_class_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
 
 int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
