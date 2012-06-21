@@ -361,7 +361,7 @@ session_create_conf_source (Session *session, int deserialised)
  *
  * Caller must free returned value using json_object_put().
  *
- * Returns: JSON serialised Session object, or NULL on error.
+ * Returns: JSON-serialised Session object, or NULL on error.
  **/
 json_object *
 session_serialise (const Session *session)
@@ -535,9 +535,9 @@ error:
 /**
  * session_deserialise_all:
  *
- * @json: root of json serialised state.
+ * @json: root of JSON-serialised state.
  *
- * Convert json representation of sessions back into Session objects.
+ * Convert JSON representation of sessions back into Session objects.
  *
  * Returns: 0 on success, -1 on error.
  **/
@@ -575,7 +575,10 @@ session_deserialise_all (json_object *json)
 	for (int i = 0; i < json_object_array_length (json_sessions); i++) {
 		json_object   *json_session;
 
+		/* FIXME */
+#if 1
 		nih_message ("%s:%d: found session", __func__, __LINE__);
+#endif
 
 		json_session = json_object_array_get_idx (json_sessions, i);
 		if (! state_check_type (json_session, object))
@@ -585,8 +588,11 @@ session_deserialise_all (json_object *json)
 		if (! partial)
 			goto error;
 
+		/* FIXME */
+#if 1
 		nih_message ("session[%d]: chroot='%s', user=%d, conf_path='%s'",
 				i, partial->chroot, partial->user, partial->conf_path);
+#endif
 
 		if (! *partial->chroot && ! partial->user && ! *partial->conf_path) {
 			/* Ignore the "NULL session" which is represented

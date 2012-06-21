@@ -509,7 +509,7 @@ event_finished (Event *event)
  * Convert @event into a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
- * Returns: JSON serialised Event object, or NULL on error.
+ * Returns: JSON-serialised Event object, or NULL on error.
  **/
 json_object *
 event_serialise (const Event *event)
@@ -673,7 +673,7 @@ error:
 /**
  * event_deserialise_all:
  *
- * @json: root of JSON serialised state.
+ * @json: root of JSON-serialised state.
  *
  * Convert JSON representation of events back into Event objects.
  *

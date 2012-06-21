@@ -69,7 +69,11 @@ const char *process_name      (ProcessType process)
 
 json_object *
 process_serialise (const Process *process)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object *
+process_serialise_all (const Process * const * const processes)
+	__attribute__ ((malloc, warn_unused_result));
 
 ProcessType process_from_name (const char *process)
 	__attribute__ ((warn_unused_result));
@@ -77,6 +81,11 @@ ProcessType process_from_name (const char *process)
 Process *
 process_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
+
+int
+process_deserialise_all (json_object *json, const void *parent,
+		Process ***processes)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

@@ -126,7 +126,7 @@ process_from_name (const char *process)
  * Convert @process into a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
- * Returns: JSON serialised Process object, or NULL on error.
+ * Returns: JSON-serialised Process object, or NULL on error.
  **/
 json_object *
 process_serialise (const Process *process)
@@ -145,10 +145,50 @@ process_serialise (const Process *process)
 	if (! state_set_json_string_var (json, process, command))
 		goto error;
 
+	return json;
+
 error:
 	json_object_put (json);
 	return NULL;
 
+}
+
+/** process_serialise_all:
+ *
+ * @processes: array of Processes.
+ *
+ * Convert array of Process objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Processes, or NULL on error.
+ */
+json_object *
+process_serialise_all (const Process * const * const processes)
+{
+	json_object *json;
+	json_object *json_process;
+
+	nih_assert (processes);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		if (! processes[i])
+			break;
+
+		json_process = process_serialise (processes[i]);
+		if (! json_process)
+			goto error;
+		if (json_object_array_add (json, json_process) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
 }
 
 /**
@@ -162,9 +202,11 @@ error:
  * Returns: Process object, or NULL on error.
  **/
 
+#if 1
 /* FIXME: should we just make this the same as the other partial
  * objects for consistency?
  */
+#endif
 Process *
 process_deserialise (json_object *json)
 {
@@ -201,4 +243,61 @@ process_deserialise (json_object *json)
 error:
 	nih_free (process);
 	return NULL;
+}
+
+/**
+ * process_deserialise_all:
+ *
+ * @json: root of JSON-serialised state,
+ * @parent: parent of @processes,
+ * @processes: pre-allocated pointer array to hold Process array.
+ *
+ * Convert JSON representation of processes back into
+ * an array of Process objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+process_deserialise_all (json_object *json, const void *parent, Process ***processes)
+{
+	json_object        *json_processes;
+	Process            *process;
+	nih_local Process  *partial = NULL;
+	int                 i;
+
+	nih_assert (json);
+	nih_assert (parent);
+
+	json_processes = json_object_object_get (json, "process");
+
+	if (! json_processes)
+		goto error;
+
+	if (! state_check_type (json_processes, array))
+		goto error;
+
+	/* FIXME: Simplify? */
+	for (i = 0, process = (*processes)[0];
+		i < json_object_array_length (json_processes);
+		i++, process++) {
+		json_object *json_process;
+
+		nih_assert (i <= PROCESS_LAST);
+
+		json_process = json_object_array_get_idx (json_processes, i);
+		if (! state_check_type (json_process, object))
+			goto error;
+
+		partial = process_deserialise (json_process);
+		if (! partial)
+			goto error;
+		process = NIH_MUST (process_new (parent));
+		process->command = NIH_MUST (nih_strdup	(process, partial->command));
+		process->script = partial->script;
+	}
+
+	return 0;
+
+error:
+	return -1;
 }

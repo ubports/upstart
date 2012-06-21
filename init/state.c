@@ -2,7 +2,7 @@
  *
  * state.c - serialisation and deserialisation support.
  *
- * Copyright © � 2012 Canonical Ltd.
+ * Copyright © 2012 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -505,7 +505,7 @@ out:
  *
  * @session: session.
  *
- * Determine JSON serialised array index for specified @session.
+ * Determine JSON-serialised array index for specified @session.
  *
  * Returns: zero-based array index for @session, or -1 on error.
  **/

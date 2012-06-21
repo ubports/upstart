@@ -1627,7 +1627,7 @@ job_class_get_usage (JobClass *      class,
  * Convert @class int a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
- * Returns: JSON serialised JobClass object, or NULL on error.
+ * Returns: JSON-serialised JobClass object, or NULL on error.
  **/
 json_object *
 job_class_serialise (const JobClass *class)
@@ -1637,6 +1637,7 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_env;
 	json_object      *json_export;
 	json_object      *json_emits;
+	json_object      *json_processes;
 	json_object      *json_normalexit;
 	json_object      *json_start_on;
 	json_object      *json_stop_on;
@@ -1649,7 +1650,6 @@ job_class_serialise (const JobClass *class)
 #if 0
 	json_object  *json_instances;
 
-	json_object  *json_process;
 	json_object  *json_limits;
 #endif
 
@@ -1741,7 +1741,11 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "emits", json_emits);
 
-	/* FIXME: process */
+	json_processes = process_serialise_all (
+			(const Process const * const * const)class->process);
+	if (! json_processes)
+		goto error;
+	json_object_object_add (json, "process", json_processes);
 
 	if (! state_set_json_var (json, class, expect, int))
 		goto error;
@@ -2149,7 +2153,7 @@ error:
 /**
  * job_class_deserialise_all:
  *
- * @json: root of json serialised state.
+ * @json: root of JSON-serialised state.
  *
  * Convert JSON representation of JobClasses back into JobClass objects.
  *
@@ -2236,6 +2240,9 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy (class, partial, oom_score_adj);
 		state_partial_copy (class, partial, deleted);
 		state_partial_copy (class, partial, debug);
+
+		if (process_deserialise_all (json_class, class, &class->process) < 0) {
+		}
 
 		/* instance must have a value, but only set it if the
 		 * partial value differs from the default set by

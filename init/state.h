@@ -1,6 +1,19 @@
+/* Thoughts:
+ *
+ * - should we only serialise settings that have a value? (This might
+ *   simplify logic for scenarios where a new Upstart that deserialises
+ *   data from an old Upstart doesn't find some expected values).
+ *
+ * - clear up strategy around failure - if we fail to
+ *   serialise/deserialise any data, do we revert to stateless re-exec?
+ *   (tied to above).
+ *
+ * - 
+ */
+
 /* upstart
  *
- * Copyright © � 2012 Canonical Ltd.
+ * Copyright © 2012 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -95,7 +108,7 @@
  **/
 #define state_set_json_var(json, object, name, type) \
 	({json_object *json_var = json_object_new_ ## type ((type)(object)->name); \
-	 json_object_object_add (json, #name, json_var); json_var; })
+	 if (json_var) json_object_object_add (json, #name, json_var); json_var; })
 
 /**
  * state_set_json_var:
@@ -108,8 +121,10 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_string_var(json, object, name) \
-	({json_object *json_var = json_object_new_string ((char *)(object)->name ? object->name : ""); \
-	 json_object_object_add (json, #name, json_var); json_var; })
+	({json_object *json_var = \
+	 json_object_new_string (object->name ? object->name : ""); \
+	 if (json_var) json_object_object_add (json, #name, json_var); \
+	 json_var; })
 
 /**
  * state_set_json_var_full:
@@ -124,7 +139,7 @@
  **/
 #define state_set_json_var_full(json, name, value, type, json_var) \
 	({json_var = json_object_new_ ## type (value); \
-	 json_object_object_add (json, name, json_var); json_var; })
+	 if (json_var) json_object_object_add (json, name, json_var); json_var; })
 
 /**
  * state_get_json_string_var:
