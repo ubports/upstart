@@ -809,6 +809,9 @@ state_rlimit_serialise_all (const struct rlimit * const * const rlimits)
 		return NULL;
 
 	for (int i = 0; i < RLIMIT_NLIMITS; i++) {
+		/* We must encode a blank entry for missing array elements
+		 * to ensure correct deserialisation.
+		 */
 		json_rlimit = state_rlimit_serialise (rlimits[i]
 				? rlimits[i] : &dummy);
 		if (! json_rlimit)

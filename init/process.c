@@ -167,6 +167,7 @@ process_serialise_all (const Process * const * const processes)
 {
 	json_object *json;
 	json_object *json_process;
+	Process      dummy = { 0, "" };
 
 	nih_assert (processes);
 
@@ -175,13 +176,10 @@ process_serialise_all (const Process * const * const processes)
 		return NULL;
 
 	for (int i = 0; i < PROCESS_LAST; i++) {
-#if 1
-		/* FIXME: should we encode NULL processes for missing array entries ? */
-#endif
-		if (! processes[i])
-			break;
-
-		json_process = process_serialise (processes[i]);
+		/* We must encode a blank entry for missing array elements
+		 * to ensure correct deserialisation.
+		 */
+		json_process = process_serialise (processes[i] ? processes[i] : &dummy);
 		if (! json_process)
 			goto error;
 		if (json_object_array_add (json, json_process) < 0)

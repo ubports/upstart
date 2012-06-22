@@ -1,5 +1,6 @@
 /* FIXME: TODO: Thoughts:
  *
+ * - create meta header!!
  * - encode/decode jobs
  * - encode/decode rlimits
  * - resolve event circular dependency
