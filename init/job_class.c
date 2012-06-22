@@ -1641,6 +1641,7 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_normalexit;
 	json_object      *json_start_on;
 	json_object      *json_stop_on;
+	json_object      *json_limits;
 	nih_local char   *start_on = NULL;
 	nih_local char   *stop_on = NULL;
 	int               session_index;
@@ -1650,7 +1651,6 @@ job_class_serialise (const JobClass *class)
 #if 0
 	json_object  *json_instances;
 
-	json_object  *json_limits;
 #endif
 
 	nih_assert (class);
@@ -1789,7 +1789,10 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_var (json, class, oom_score_adj, int))
 		goto error;
 
-	/* FIXME: limits */
+	json_limits = state_rlimit_serialise_all ((const struct rlimit * const * const)class->limits);
+	if (! json_limits)
+		goto error;
+	json_object_object_add (json, "limits", json_limits);
 
 	if (! state_set_json_string_var (json, class, chroot))
 		goto error;

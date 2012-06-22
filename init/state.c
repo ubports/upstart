@@ -739,3 +739,130 @@ error:
 	json_object_put (json);
 	return NULL;
 }
+
+/**
+ * state_rlimit_serialise:
+ * @limit: rlimit to serialise.
+ *
+ * Convert @limit into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised rlimit structure, or NULL on error.
+ **/
+json_object *
+state_rlimit_serialise (const struct rlimit *rlimit)
+{
+	json_object    *json;
+	nih_local char *buffer = NULL;
+	json_object    *json_rlim_cur;
+	json_object    *json_rlim_max;
+
+	nih_assert (rlimit);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_cur);
+	if (! buffer)
+		goto error;
+
+	if (! state_set_json_var_full (json, "rlim_cur",
+				buffer, string, json_rlim_cur))
+		goto error;
+
+	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_max);
+	if (! buffer)
+		goto error;
+
+	if (! state_set_json_var_full (json, "rlim_max",
+				buffer, string, json_rlim_max))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * state_rlimit_serialise_all:
+ *
+ * @rlimits: array of rlimit structures.
+ *
+ * Convert array of rlimit structures to JSON representation.
+ *
+ * Returns: JSON object containing array of rlimits, or NULL on error.
+ */
+json_object *
+state_rlimit_serialise_all (const struct rlimit * const * const rlimits)
+{
+	json_object    *json;
+	json_object    *json_rlimit;
+	struct rlimit   dummy = { 0x0, 0x0 };
+
+	nih_assert (rlimits);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	for (int i = 0; i < RLIMIT_NLIMITS; i++) {
+		json_rlimit = state_rlimit_serialise (rlimits[i]
+				? rlimits[i] : &dummy);
+		if (! json_rlimit)
+			goto error;
+		if (json_object_array_add (json, json_rlimit) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * state_rlimit_deserialise:
+ *
+ * @json: JSON-serialised rlimit structure to deserialise.
+ *
+ * Convert @json into an rlimit structure.
+ *
+ * Caller must manually nih_ref() returned object to a parent object.
+ *
+ * Returns: struct rlimit, or NULL on error.
+ **/
+struct rlimit *
+state_rlimit_deserialise (json_object *json)
+{
+	nih_assert (json);
+
+	return NULL;
+}
+
+/**
+ * state_rlimit_deserialise_all:
+ *
+ * @json: root of JSON-serialised state,
+ * @parent: parent of @,
+ * @limits: pre-allocated pointer array to hold rlimits array.
+ *
+ * Convert JSON representation of rlimits back into
+ * an array of rlimit structures.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+state_rlimit_deserialise_all (json_object *json, const void *parent,
+			      struct rlimit **limits)
+{
+	nih_assert (json);
+	nih_assert (parent);
+	nih_assert (limits);
+
+	return -1;
+}

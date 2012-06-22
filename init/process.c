@@ -153,7 +153,8 @@ error:
 
 }
 
-/** process_serialise_all:
+/**
+ * process_serialise_all:
  *
  * @processes: array of Processes.
  *
@@ -174,6 +175,9 @@ process_serialise_all (const Process * const * const processes)
 		return NULL;
 
 	for (int i = 0; i < PROCESS_LAST; i++) {
+#if 1
+		/* FIXME: should we encode NULL processes for missing array entries ? */
+#endif
 		if (! processes[i])
 			break;
 
@@ -217,10 +221,6 @@ process_deserialise (json_object *json)
 
 	nih_assert (json);
 
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
 	if (! state_check_type (json, object))
 		goto error;
 
@@ -232,11 +232,6 @@ process_deserialise (json_object *json)
 	if (! state_get_json_string_var (json, "command", json_command, command))
 			goto error;
 	process->command = NIH_MUST (nih_strdup (process, command));
-
-	/* FIXME */
-#if 1
-	nih_message ("process: script=%d, command='%s'", process->script, process->command);
-#endif
 
 	return process;
 

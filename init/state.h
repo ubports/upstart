@@ -1,4 +1,8 @@
-/* Thoughts:
+/* FIXME: TODO: Thoughts:
+ *
+ * - encode/decode jobs
+ * - encode/decode rlimits
+ * - resolve event circular dependency
  *
  * - should we only serialise settings that have a value? (This might
  *   simplify logic for scenarios where a new Upstart that deserialises
@@ -8,7 +12,53 @@
  *   serialise/deserialise any data, do we revert to stateless re-exec?
  *   (tied to above).
  *
- * - 
+ * - we are not being consistent wrt calling NIH_MUST() - resolve!!
+ */
+
+/*
+ *--------------------------------------------------------------------
+ * = Design =
+ *
+ * == Serialisation ==
+ *
+ * - Each object provides a <object_>_serialise() function which
+ *   converts a single object into a JSON-representation.
+ *
+ * - Each object provides a <object_>_serialise_all() function which
+ *   converts all objects from their appropriate list/hash/tree into a
+ *   JSON array representation.
+ *
+ * == Deserialisation ==
+ *
+ * - Each object provides a <object_>_deserialise() function which
+ *   converts a single JSON-representation of an object back into an
+ *   internal object.
+ *
+ * - Each object provides a <object_>_deserialise_all() function which
+ *   converts all objects either back into a list/hash/tree (by
+ *   calling <object>_new() as appropriate), or back into some object
+ *   type that can then be attached to another object (for example
+ *   process_deserialise_all() converts a JSON array of processes back
+ *   into an array of Process objects which are then hooked onto a
+ *   JobClass object).
+ *
+ * Note that objects returned by <object_>_deserialise() are generally
+ * _partial_ objects: they are not true objects since they have not
+ * been constructed. They are like templates for the real objects with
+ * those elements filled in that the JSON encodes.
+ *
+ * Each partial object needs to be converted into a real object by:
+ *
+ * - creating an instance of that object (using <object_>_new()).
+ * - copying the element data from the partial object back into the real
+ *   object.
+ *
+ * These steps happens in <object_>_deserialise_all(). It is rather
+ * tedious but does ensure that the resultant object is "sane". It
+ * is also essential since the JSON representation of most objects does
+ * _NOT_ encode all information about an object (for example the JSON
+ * encoding for an Event does not encode 'blockers' and 'blocking').
+ *--------------------------------------------------------------------
  */
 
 /* upstart
@@ -33,6 +83,9 @@
 #ifndef INIT_STATE_H
 #define INIT_STATE_H
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #include <nih/macros.h>
 #include <nih/alloc.h>
 
@@ -49,6 +102,8 @@
 #define STATE_VERSION_MIN 1
 #endif
 
+/* FIXME */
+#if 1
 /**
  * STATE_VERSION:
  *
@@ -67,6 +122,7 @@
  * must either have got into trouble or not support stateful re-exec.
  **/
 #define STATE_WAIT_SECS 3
+#endif
 
 /**
  * state_check_type:
@@ -265,7 +321,24 @@ state_serialize_int_array (int *array, int count)
 
 char **
 state_deserialize_str_array (void *parent, json_object *json)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object *
+state_rlimit_serialise (const struct rlimit *rlimit)
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object *
+state_rlimit_serialise_all (const struct rlimit * const * const rlimits)
+	__attribute__ ((malloc, warn_unused_result));
+
+struct rlimit *
+state_rlimit_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
+int 
+state_rlimit_deserialise_all (json_object *json, const void *parent,
+			      struct rlimit **rlimits)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 
