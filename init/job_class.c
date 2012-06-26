@@ -1633,14 +1633,11 @@ json_object *
 job_class_serialise (const JobClass *class)
 {
 	json_object      *json;
-	json_object      *json_session;
 	json_object      *json_env;
 	json_object      *json_export;
 	json_object      *json_emits;
 	json_object      *json_processes;
 	json_object      *json_normalexit;
-	json_object      *json_start_on;
-	json_object      *json_stop_on;
 	json_object      *json_limits;
 	nih_local char   *start_on = NULL;
 	nih_local char   *stop_on = NULL;
@@ -1665,27 +1662,27 @@ job_class_serialise (const JobClass *class)
 	if (session_index < 0)
 		goto error;
 
-	if (! state_set_json_var_full (json, "session", session_index, int, json_session))
+	if (! state_set_json_var_full (json, "session", session_index, int))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, name))
+	if (! state_set_json_string_var_from_obj (json, class, name))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, path))
+	if (! state_set_json_string_var_from_obj (json, class, path))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, instance))
+	if (! state_set_json_string_var_from_obj (json, class, instance))
 		goto error;
 
 	/* FIXME: instances */
 
-	if (! state_set_json_string_var (json, class, description))
+	if (! state_set_json_string_var_from_obj (json, class, description))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, author))
+	if (! state_set_json_string_var_from_obj (json, class, author))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, version))
+	if (! state_set_json_string_var_from_obj (json, class, version))
 		goto error;
 
 	json_env = class->env
@@ -1715,7 +1712,7 @@ job_class_serialise (const JobClass *class)
 
 	nih_message ("%s:%d: start_on='%s'", __func__, __LINE__, start_on);
 
-	if (! state_set_json_var_full (json, "start_on", start_on, string, json_start_on)) {
+	if (! state_set_json_var_full (json, "start_on", start_on, string)) {
 		nih_free (start_on);
 		goto error;
 	}
@@ -1728,7 +1725,7 @@ job_class_serialise (const JobClass *class)
 
 	nih_message ("XXX: stop_on='%s'", stop_on);
 
-	if (! state_set_json_var_full (json, "stop_on", stop_on, string, json_stop_on)) {
+	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
 		nih_free (stop_on);
 		goto error;
 	}
@@ -1747,25 +1744,25 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "process", json_processes);
 
-	if (! state_set_json_var (json, class, expect, int))
+	if (! state_set_json_num_var_from_obj (json, class, expect, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, task, int))
+	if (! state_set_json_num_var_from_obj (json, class, task, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, kill_timeout, int))
+	if (! state_set_json_num_var_from_obj (json, class, kill_timeout, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, kill_signal, int))
+	if (! state_set_json_num_var_from_obj (json, class, kill_signal, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, respawn, int))
+	if (! state_set_json_num_var_from_obj (json, class, respawn, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, respawn_limit, int))
+	if (! state_set_json_num_var_from_obj (json, class, respawn_limit, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, respawn_interval, int))
+	if (! state_set_json_num_var_from_obj (json, class, respawn_interval, int))
 		goto error;
 
 	json_normalexit = class->normalexit_len
@@ -1777,42 +1774,42 @@ job_class_serialise (const JobClass *class)
 
 	json_object_object_add (json, "normalexit", json_normalexit);
 
-	if (! state_set_json_var (json, class, console, int))
+	if (! state_set_json_num_var_from_obj (json, class, console, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, umask, int))
+	if (! state_set_json_num_var_from_obj (json, class, umask, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, nice, int))
+	if (! state_set_json_num_var_from_obj (json, class, nice, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, oom_score_adj, int))
+	if (! state_set_json_num_var_from_obj (json, class, oom_score_adj, int))
 		goto error;
 
-	json_limits = state_rlimit_serialise_all ((const struct rlimit * const * const)class->limits);
+	json_limits = state_rlimit_serialise_all (class->limits);
 	if (! json_limits)
 		goto error;
 	json_object_object_add (json, "limits", json_limits);
 
-	if (! state_set_json_string_var (json, class, chroot))
+	if (! state_set_json_string_var_from_obj (json, class, chroot))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, chdir))
+	if (! state_set_json_string_var_from_obj (json, class, chdir))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, setuid))
+	if (! state_set_json_string_var_from_obj (json, class, setuid))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, setgid))
+	if (! state_set_json_string_var_from_obj (json, class, setgid))
 		goto error;
 
-	if (! state_set_json_var (json, class, deleted, int))
+	if (! state_set_json_num_var_from_obj (json, class, deleted, int))
 		goto error;
 
-	if (! state_set_json_var (json, class, debug, int))
+	if (! state_set_json_num_var_from_obj (json, class, debug, int))
 		goto error;
 
-	if (! state_set_json_string_var (json, class, usage))
+	if (! state_set_json_string_var_from_obj (json, class, usage))
 		goto error;
 
 	return json;
@@ -1868,154 +1865,17 @@ error:
  * job_class_deserialise:
  * @json: JSON-serialised JobClass object to deserialise.
  *
- * Convert @json into a partial JobClass object.
- *
- * Note that @class will only be a partial JobClass since not all
+ * Note that the object returned is not a true JobClass since not all
  * structure elements are encoded in the JSON.
  *
- * Returns: Process object, or NULL on error.
+ * Returns: partial JobClass object, or NULL on error.
  **/
-#if 0
-int
-job_class_deserialise (json_object *json, JobClass *class)
-{
-	json_object    *json_start_on;
-	json_object    *json_stop_on;
-	json_object    *json_session;
-	json_object    *json_name;
-	json_object    *json_path;
-	json_object    *json_description;
-	json_object    *json_author;
-	json_object    *json_version;
-	int             session_index;
-	const char     *name;
-	const char     *path;
-	const char     *description;
-	const char     *author;
-	const char     *version;
-
-
-	nih_assert (json);
-	nih_assert (class);
-
-	if (! state_check_type (json, object))
-		goto error;
-
-	if (! state_get_json_string_var (json, "name", json_name, name))
-			goto error;
-	class->name = NIH_MUST (nih_strdup (class, name));
-
-	if (! state_get_json_string_var (json, "path", json_path, path))
-			goto error;
-	class->path = NIH_MUST (nih_strdup (class, path));
-
-	if (! state_get_json_string_var (json, "description", json_description, description))
-			goto error;
-	class->description = NIH_MUST (nih_strdup (class, description));
-
-	if (! state_get_json_string_var (json, "author", json_author, author))
-			goto error;
-	class->author = NIH_MUST (nih_strdup (class, author));
-
-	if (! state_get_json_string_var (json, "version", json_version, version))
-			goto error;
-	class->version = NIH_MUST (nih_strdup (class, version));
-
-	/* start and stop conditions are optional */
-	if (json_object_object_get (json, "start_on")) {
-		const char  *start_on = NULL;
-
-		if (! state_get_json_string_var (json, "start_on", json_start_on, start_on))
-			goto error;
-
-		nih_message ("%s:%d: json-parsed     start_on='%s'", __func__, __LINE__, start_on);
-
-		if (*start_on) {
-			class->start_on = parse_on_simple (class, "start", start_on);
-			if (! class->start_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s: %s",
-						_("BUG: parse error"),
-						err->message);
-
-				nih_free (err);
-
-				goto error;
-			}
-
-#if 1
-			nih_message ("%s:%d: parse_on-parsed start_on='%s'",
-					__func__, __LINE__,
-					job_class_collapse_condition (class->start_on));
-#endif
-
-
-		}
-	}
-
-	if (json_object_object_get (json, "stop_on")) {
-		const char  *stop_on = NULL;
-
-		if (! state_get_json_string_var (json, "stop_on", json_stop_on, stop_on))
-			goto error;
-
-		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
-
-		if (*stop_on) {
-			class->stop_on = parse_on_simple (class, "stop", stop_on);
-			if (! class->stop_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s: %s",
-						_("BUG: parse error"),
-						err->message);
-
-				nih_free (err);
-
-				goto error;
-			}
-
-#if 1
-			nih_message ("%s:%d: stop_on='%s'",
-					__func__, __LINE__,
-					job_class_collapse_condition (class->stop_on));
-#endif
-
-		}
-
-	}
-
-	if (! state_get_json_simple_var (json, "session", int, json_session, session_index))
-			goto error;
-
-	/* can't check return value here (as all values are legitimate) */
-	class->session = session_from_index (session_index);
-
-	return 0;
-
-error:
-	return -1;
-}
-#endif
-
-/* FIXME: document */
 JobClass *
 job_class_deserialise (json_object *json)
 {
-	json_object    *json_start_on;
-	json_object    *json_stop_on;
-	json_object    *json_session;
-	json_object    *json_name;
-	json_object    *json_path;
-	json_object    *json_instance;
-	json_object    *json_description;
-	json_object    *json_author;
-	json_object    *json_version;
+	json_object    *json_env;
+	json_object    *json_export;
+	json_object    *json_emits;
 	const char     *name;
 	const char     *path;
 	const char     *instance;
@@ -2028,9 +1888,6 @@ job_class_deserialise (json_object *json)
 	/* FIXME: TODO:
 	 *
 	 * instances
-	 * env
-	 * export
-	 * emits
 	 * process
 	 * expect
 	 * etc....
@@ -2045,37 +1902,55 @@ job_class_deserialise (json_object *json)
 	if (! partial)
 		return NULL;
 
-	if (! state_get_json_string_var (json, "name", json_name, name))
+	memset (partial, '\0', sizeof (JobClass));
+
+	if (! state_get_json_string_var (json, "name", name))
 			goto error;
 	partial->name = NIH_MUST (nih_strdup (partial, name));
 
-	if (! state_get_json_string_var (json, "path", json_path, path))
+	if (! state_get_json_string_var (json, "path", path))
 			goto error;
 	partial->path = NIH_MUST (nih_strdup (partial, path));
 
-	if (! state_get_json_string_var (json, "instance", json_instance, instance))
+	if (! state_get_json_string_var (json, "instance", instance))
 			goto error;
 	partial->instance = NIH_MUST (nih_strdup (partial, instance));
 
-	if (! state_get_json_string_var (json, "description", json_description, description))
+	/* FIXME: instances */
+
+	if (! state_get_json_string_var (json, "description", description))
 			goto error;
 	partial->description = description && *description
 		? NIH_MUST (nih_strdup (partial, description))
 		: NULL;
 
-	if (! state_get_json_string_var (json, "author", json_author, author))
+	if (! state_get_json_string_var (json, "author", author))
 			goto error;
 	partial->author = NIH_MUST (nih_strdup (partial, author));
 
-	if (! state_get_json_string_var (json, "version", json_version, version))
+	if (! state_get_json_string_var (json, "version", version))
 			goto error;
 	partial->version = NIH_MUST (nih_strdup (partial, version));
+
+	if (! state_get_json_var_full (json, "env", array, json_env))
+			goto error;
+
+	partial->env = state_deserialize_str_array (partial, json_env);
+	if (! partial->env)
+		goto error;
+
+	if (! state_get_json_var_full (json, "export", array, json_export))
+		goto error;
+
+	partial->export = state_deserialize_str_array (partial, json_export);
+	if (! partial->export)
+		goto error;
 
 	/* start and stop conditions are optional */
 	if (json_object_object_get (json, "start_on")) {
 		const char  *start_on = NULL;
 
-		if (! state_get_json_string_var (json, "start_on", json_start_on, start_on))
+		if (! state_get_json_string_var (json, "start_on", start_on))
 			goto error;
 
 		nih_message ("%s:%d: json-parsed     start_on='%s'", __func__, __LINE__, start_on);
@@ -2109,7 +1984,7 @@ job_class_deserialise (json_object *json)
 	if (json_object_object_get (json, "stop_on")) {
 		const char  *stop_on = NULL;
 
-		if (! state_get_json_string_var (json, "stop_on", json_stop_on, stop_on))
+		if (! state_get_json_string_var (json, "stop_on", stop_on))
 			goto error;
 
 		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
@@ -2140,7 +2015,22 @@ job_class_deserialise (json_object *json)
 
 	}
 
-	if (! state_get_json_simple_var (json, "session", int, json_session, session_index))
+	if (! state_get_json_var_full (json, "emits", array, json_emits))
+			goto error;
+
+	partial->emits = state_deserialize_str_array (partial, json_emits);
+	if (! partial->emits)
+		goto error;
+
+	/* FIXME: process */
+
+	if (! state_get_json_num_var (json, "expect", int, partial->expect))
+			goto error;
+
+	if (! state_get_json_num_var (json, "task", int, partial->task))
+			goto error;
+
+	if (! state_get_json_num_var (json, "session", int, session_index))
 			goto error;
 
 	/* can't check return value here (as all values are legitimate) */
@@ -2184,8 +2074,8 @@ job_class_deserialise_all (json_object *json)
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		nih_local JobClass *partial = NULL;
-		json_object        *json_class;
+		json_object  *json_class;
+		nih_local JobClass  *partial = NULL;
 
 		/* FIXME */
 		nih_message ("XXX: found job class");
@@ -2209,11 +2099,8 @@ job_class_deserialise_all (json_object *json)
 		/* FIXME: TODO
 		 *
 		 *   instances
-		 *   env
-		 *   export
 		 *   start_on
 		 *   stop_on
-		 *   emits
 		 *   process
 		 *   normalexit
 		 *   normalexit_len
@@ -2244,14 +2131,25 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy (class, partial, deleted);
 		state_partial_copy (class, partial, debug);
 
-		if (process_deserialise_all (json_class, class, &class->process) < 0) {
-		}
+		class->env = nih_str_array_copy (class, NULL, partial->env);
+		if (! class->env)
+			goto error;
+
+		class->export = nih_str_array_copy (class, NULL, partial->export);
+		if (! class->export)
+			goto error;
+
+		class->emits = nih_str_array_copy (class, NULL, partial->emits);
+		if (! class->emits)
+			goto error;
+
+		if (process_deserialise_all (json_class, class, &class->process) < 0)
+			goto error;
 
 		/* instance must have a value, but only set it if the
 		 * partial value differs from the default set by
-		 * job_class_new()
+		 * job_class_new().
 		 */
-		/*FIXME: GOT TO HERE: crashing! */
 		if (partial->instance && *partial->instance) {
 			nih_free (class->instance);
 

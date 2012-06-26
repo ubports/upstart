@@ -1,6 +1,9 @@
 /* FIXME: TODO: Thoughts:
  *
- * - create meta header!!
+ * - XXX: audit memory management for all *_deserialise() and
+ *   XXX: *_deserialise_all() functions!!
+ * - create meta header and encode/decode code!!
+ *
  * - encode/decode jobs
  * - encode/decode rlimits
  * - resolve event circular dependency
@@ -14,6 +17,8 @@
  *   (tied to above).
  *
  * - we are not being consistent wrt calling NIH_MUST() - resolve!!
+ *
+ * - XXX: write tests!
  */
 
 /*
@@ -129,19 +134,19 @@
  * state_check_type:
  *
  * @object: JSON object,
- * @type: type of JSON primitive.
+ * @type: type of JSON primitive (without prefix).
  *
  * Returns: TRUE if type of @object is @type, else FALSE.
  **/
 #define state_check_type(object, type) \
 	(json_object_get_type (object) == json_type_ ## type)
 
-/**
- * state_get_json_var:
+/*
+ * state_get_json_var_full:
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
- * @type: type of JSON primitive,
+ * @type: type of JSON primitive (without prefix),
  * @json_var: name of json_object variable that will store value.
  *
  * Query @json, setting @json_var to be the JSON value of @name where
@@ -149,105 +154,111 @@
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_var(json, name, type, json_var) \
+#define state_get_json_var_full(json, name, type, json_var) \
 	((json_var = json_object_object_get (json, name)) && \
 	  state_check_type (json_var, type))
 
 /**
- * state_set_json_var:
+ * state_get_json_num_var:
  *
  * @json: json_object pointer,
- * @object: pointer to internal object that is to be serialised,
- * @name: name of element within @object to be serialised,
- * @type: JSON type for field to be added.
+ * @name: string name to search for in @json,
+ * @type: type of @json_var (without prefix),
+ * @var: variable of type @type to set to value encoded in @json.
+ *
+ * Specialisation of state_get_json_var_full() that works for JSON
+ * types int, boolean, and double.
+ *
+ * Note that a distinct macro is required for non-string types since
+ * unlike strings they can legitimately have the value of zero.
+ *
+ * Query @json, setting @var to value of @name in @json.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_set_json_var(json, object, name, type) \
-	({json_object *json_var = json_object_new_ ## type ((type)(object)->name); \
-	 if (json_var) json_object_object_add (json, #name, json_var); json_var; })
-
-/**
- * state_set_json_var:
- *
- * @json: json_object pointer,
- * @object: pointer to internal object that is to be serialised,
- * @name: name of element withing @object to be serialised,
- * @type: JSON type for field to be added.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_set_json_string_var(json, object, name) \
-	({json_object *json_var = \
-	 json_object_new_string (object->name ? object->name : ""); \
-	 if (json_var) json_object_object_add (json, #name, json_var); \
-	 json_var; })
-
-/**
- * state_set_json_var_full:
- *
- * @json: json_object pointer,
- * @name: string name for a field to add to @json,
- * @value: value of @name,
- * @type: JSON type for field to be added,
- * @json_var: name of json_object variable that will store value @value.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_set_json_var_full(json, name, value, type, json_var) \
-	({json_var = json_object_new_ ## type (value); \
-	 if (json_var) json_object_object_add (json, name, json_var); json_var; })
+#define state_get_json_num_var(json, name, type, var) \
+	({json_object *json_var = NULL; \
+	 int ret = state_get_json_var_full (json, name, type, json_var); \
+	 if (json_var) var = json_object_get_ ## type (json_var); json_var && ret;})
 
 /**
  * state_get_json_string_var:
  *
- * @parent: parent object for new string (parent of @var),
  * @json: json_object pointer,
  * @name: string name to search for in @json,
- * @json_var: name of json_object variable that will store value,
  * @var: string variable to set to value of @json_var.
  *
- * Specialisation of state_get_json_var() that works for the JSON string
+ * Specialisation of state_get_json_var_full() that works for the JSON string
  * type.
  *
- * Query @json, setting @json_var to be the JSON value of @name where
- * @json_var is of type @type and then setting @var to be the string
- * value of @json_var.
+ * Query @json, setting @var to be string value of @name.
  *
  * Caller must not free @var on successful completion of this macro,
  * and should copy memory @var is set to.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_string_var(json, name, json_var, var) \
-	(state_get_json_var (json, name, string, json_var) && \
-	 (var = json_object_get_string (json_var)))
+#define state_get_json_string_var(json, name, var) \
+	({json_object *json_var; \
+	state_get_json_var_full (json, name, string, json_var) && \
+	 (var = json_object_get_string (json_var));})
 
 /**
- * state_get_json_simple_var:
+ * state_set_json_var_full:
  *
  * @json: json_object pointer,
- * @name: string name to search for in @json,
- * @type: type of @json_var,
- * @json_var: name of json_object variable that will store value,
- * @var: variable of type @type to set to value of @json_var.
+ * @name: string name to add as key in @json,
+ * @value: value corresponding to @name,
+ * @type: JSON type (without prefix) representing type of @value,
  *
- * Specialisation of state_get_json_var() that works for JSON
- * types int, boolean, and double.
- *
- * Note that a distinct macro is required for non-string types since
- * unlike strings they can legitimately have the value of zero.
- *
- * Query @json, setting @json_var to be the JSON value of @name where
- * @json_var is of type @type and then setting @var to the value
- * of @json_var.
+ * Add @value to @json with name @name and type @type.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_simple_var(json, name, type, json_var, var) \
-	(state_get_json_var (json, name, type, json_var) && \
-	 ((var = json_object_get_ ## type (json_var)) || 1==1))
+#define state_set_json_var_full(json, name, value, type) \
+	({json_object *json_var = json_object_new_ ## type (value); \
+	 if (json_var) json_object_object_add (json, name, json_var); json_var; })
 
+/**
+ * state_set_json_num_var_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of element within @object to be serialised,
+ * @type: JSON type (without prefix) for field to be added.
+ *
+ * Add value of numeric entity @name in object @object to
+ * @json with stringified @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_num_var_from_obj(json, object, name, type) \
+	({json_object *json_var = json_object_new_ ## type ((type)(object)->name); \
+	 if (json_var) json_object_object_add (json, #name, json_var); json_var; })
+
+/**
+ * state_set_json_string_var_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of element withing @object to be serialised,
+ * @type: JSON type (without prefix) for field to be added.
+ *
+ * Add stringified @name to @json taking the value from the
+ * @object element of name @name.
+ *
+ * String specialisation that can also handle NULL strings (by encoding
+ * them with a nul string value).
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_string_var_from_obj(json, object, name) \
+	({json_object *json_var = \
+	 json_object_new_string (object->name ? object->name : ""); \
+	 if (json_var) json_object_object_add (json, #name, json_var); \
+	 json_var; })
+
+/* FIXME: document */
 #define state_partial_copy(parent, source, name) \
 	(parent->name = source->name)
 
@@ -329,7 +340,7 @@ state_rlimit_serialise (const struct rlimit *rlimit)
 	__attribute__ ((malloc, warn_unused_result));
 
 json_object *
-state_rlimit_serialise_all (const struct rlimit * const * const rlimits)
+state_rlimit_serialise_all (struct rlimit * const *rlimits)
 	__attribute__ ((malloc, warn_unused_result));
 
 struct rlimit *
@@ -338,7 +349,7 @@ state_rlimit_deserialise (json_object *json)
 
 int 
 state_rlimit_deserialise_all (json_object *json, const void *parent,
-			      struct rlimit **rlimits)
+			      struct rlimit *(*rlimits)[])
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

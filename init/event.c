@@ -515,7 +515,6 @@ json_object *
 event_serialise (const Event *event)
 {
 	json_object  *json;
-	json_object  *json_session;
 	json_object  *json_env;
 	int           session_index;
 
@@ -528,17 +527,17 @@ event_serialise (const Event *event)
 	if (! json)
 		return NULL;
 
-	if (! state_set_json_string_var (json, event, name))
+	if (! state_set_json_string_var_from_obj (json, event, name))
 		goto error;
 
 	session_index = session_get_index (event->session);
 	if (session_index < 0)
 		goto error;
 
-	if (! state_set_json_var_full (json, "session", session_index, int, json_session))
+	if (! state_set_json_var_full (json, "session", session_index, int))
 		goto error;
 
-	if (! state_set_json_var (json, event, fd, int))
+	if (! state_set_json_num_var_from_obj (json, event, fd, int))
 		goto error;
 
 	json_env = event->env
@@ -626,10 +625,7 @@ error:
 Event *
 event_deserialise (json_object *json)
 {
-	json_object        *json_name;
-	json_object        *json_session;
 	json_object        *json_env;
-	json_object        *json_fd;
 	const char         *name;
 	int                 session_index;
 	Event              *partial;
@@ -643,20 +639,22 @@ event_deserialise (json_object *json)
 	if (! partial)
 		return NULL;
 
-	if (! state_get_json_string_var (json, "name", json_name, name))
+	memset (partial, '\0', sizeof (Event));
+
+	if (! state_get_json_string_var (json, "name", name))
 			goto error;
 	partial->name = NIH_MUST (nih_strdup (partial, name));
 
-	if (! state_get_json_simple_var (json, "fd", int, json_fd, partial->fd))
+	if (! state_get_json_num_var (json, "fd", int, partial->fd))
 			goto error;
 
-	if (! state_get_json_simple_var (json, "session", int, json_session, session_index))
+	if (! state_get_json_num_var (json, "session", int, session_index))
 			goto error;
 
 	/* can't check return value here (as all values are legitimate) */
 	partial->session = session_from_index (session_index);
 
-	if (! state_get_json_var (json, "env", array, json_env))
+	if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
 	partial->env = state_deserialize_str_array (partial, json_env);

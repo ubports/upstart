@@ -754,8 +754,6 @@ state_rlimit_serialise (const struct rlimit *rlimit)
 {
 	json_object    *json;
 	nih_local char *buffer = NULL;
-	json_object    *json_rlim_cur;
-	json_object    *json_rlim_max;
 
 	nih_assert (rlimit);
 
@@ -767,16 +765,14 @@ state_rlimit_serialise (const struct rlimit *rlimit)
 	if (! buffer)
 		goto error;
 
-	if (! state_set_json_var_full (json, "rlim_cur",
-				buffer, string, json_rlim_cur))
+	if (! state_set_json_var_full (json, "rlim_cur", buffer, string))
 		goto error;
 
 	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_max);
 	if (! buffer)
 		goto error;
 
-	if (! state_set_json_var_full (json, "rlim_max",
-				buffer, string, json_rlim_max))
+	if (! state_set_json_var_full (json, "rlim_max", buffer, string))
 		goto error;
 
 	return json;
@@ -796,7 +792,7 @@ error:
  * Returns: JSON object containing array of rlimits, or NULL on error.
  */
 json_object *
-state_rlimit_serialise_all (const struct rlimit * const * const rlimits)
+state_rlimit_serialise_all (struct rlimit * const *rlimits)
 {
 	json_object    *json;
 	json_object    *json_rlimit;
@@ -842,8 +838,42 @@ error:
 struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
+	struct rlimit  *rlimit;
+	const char     *rlim_cur;
+	const char     *rlim_max;
+	char           *endptr;
+
 	nih_assert (json);
 
+	if (! state_check_type (json, object))
+		goto error;
+
+	rlimit = nih_new (NULL, struct rlimit);
+	if (! rlimit)
+		return NULL;
+
+	memset (rlimit, '\0', sizeof (struct rlimit));
+
+	if (! state_get_json_string_var (json, "rlim_cur", rlim_cur))
+		goto error;
+
+	errno = 0;
+	rlimit->rlim_cur = strtoul (rlim_cur, &endptr, 16);
+	if (errno || *endptr)
+		goto error;
+
+	if (! state_get_json_string_var (json, "rlim_max", rlim_max))
+		goto error;
+
+	errno = 0;
+	rlimit->rlim_max = strtoul (rlim_max, &endptr, 16);
+	if (errno || *endptr)
+		goto error;
+
+	return rlimit;
+
+error:
+	nih_free (rlimit);
 	return NULL;
 }
 
@@ -861,11 +891,47 @@ state_rlimit_deserialise (json_object *json)
  **/
 int
 state_rlimit_deserialise_all (json_object *json, const void *parent,
-			      struct rlimit **limits)
+			      struct rlimit *(*rlimits)[])
 {
+	json_object        *json_limits;
+	int                 i;
+
 	nih_assert (json);
 	nih_assert (parent);
-	nih_assert (limits);
+	nih_assert (rlimits);
+
+	json_limits = json_object_object_get (json, "limits");
+
+	if (! json_limits)
+		goto error;
+
+	if (! state_check_type (json_limits, array))
+		goto error;
+
+	for (i = 0; i < json_object_array_length (json_limits); i++) {
+		json_object *json_rlimit;
+
+		nih_assert (i <= RLIMIT_NLIMITS);
+
+		json_rlimit = json_object_array_get_idx (json_limits, i);
+		if (! state_check_type (json_rlimit, object))
+			goto error;
+
+		(*rlimits)[i] = state_rlimit_deserialise (json_rlimit);
+		if (! (*rlimits)[i])
+			goto error;
+	}
+
+	return 0;
+
+error:
+	/* FIXME: trace alloc path to see if this is necessary, and if
+	 * so add it for all equivalent functions!
+	 */
+#if 0
+	while (i--)
+		nih_free (rlimits[i]);
+#endif
 
 	return -1;
 }

@@ -477,9 +477,6 @@ error:
 Session *
 session_deserialise (json_object *json)
 {
-	json_object   *json_chroot;
-	json_object   *json_user;
-	json_object   *json_conf_path;
 	const char    *chroot;
 	const char    *conf_path;
 	Session       *partial;
@@ -493,35 +490,16 @@ session_deserialise (json_object *json)
 	if (! partial)
 		return NULL;
 
-#if 1
-	{
-#if 1
-		if (! state_get_json_var (json, "chroot", string, json_chroot))
-			nih_message ("XXX: state_get_json_var failed");
-#endif
-		nih_message ("XXX: chroot type: %d",
-				state_check_type (json_chroot, string));
+	memset (partial, '\0', sizeof (Session));
 
-		json_chroot = json_object_object_get (json, "chroot");
-		nih_message ("XXX: json_object_object_get returned %p", json_chroot);
-
-
-		chroot = json_object_get_string (json_chroot);
-		nih_message ("XXX: json_object_get_string returned (%p) '%s'", chroot, chroot);
-
-		if (! strcmp ("", chroot))
-				nih_message ("XXX: chroot is 1 byte string");
-	}
-#endif
-
-	if (! state_get_json_string_var (json, "chroot", json_chroot, chroot))
+	if (! state_get_json_string_var (json, "chroot", chroot))
 			goto error;
 	partial->chroot = NIH_MUST (nih_strdup (partial, chroot));
 
-	if (! state_get_json_simple_var (json, "user", int, json_user, partial->user))
+	if (! state_get_json_num_var (json, "user", int, partial->user))
 			goto error;
 
-	if (! state_get_json_string_var (json, "conf_path", json_conf_path, conf_path))
+	if (! state_get_json_string_var (json, "conf_path", conf_path))
 			goto error;
 	partial->conf_path = NIH_MUST (nih_strdup (partial, conf_path));
 

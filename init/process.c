@@ -139,10 +139,10 @@ process_serialise (const Process *process)
 	if (! json)
 		return NULL;
 
-	if (! state_set_json_var (json, process, script, int))
+	if (! state_set_json_num_var_from_obj (json, process, script, int))
 		goto error;
 
-	if (! state_set_json_string_var (json, process, command))
+	if (! state_set_json_string_var_from_obj (json, process, command))
 		goto error;
 
 	return json;
@@ -212,8 +212,6 @@ error:
 Process *
 process_deserialise (json_object *json)
 {
-	json_object   *json_script;
-	json_object   *json_command;
 	const char    *command;
 	Process       *process;
 
@@ -224,10 +222,12 @@ process_deserialise (json_object *json)
 
 	process = NIH_MUST (process_new (NULL));
 
-	if (! state_get_json_simple_var (json, "script", int, json_script, process->script))
+	memset (process, '\0', sizeof (Process));
+
+	if (! state_get_json_num_var (json, "script", int, process->script))
 			goto error;
 
-	if (! state_get_json_string_var (json, "command", json_command, command))
+	if (! state_get_json_string_var (json, "command", command))
 			goto error;
 	process->command = NIH_MUST (nih_strdup (process, command));
 
