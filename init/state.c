@@ -39,6 +39,12 @@
 #include "job_class.h"
 #include "environ.h"
 
+
+/* FIXME */
+#if 1
+#include "nih_iterators.h"
+#endif
+
 json_object  *json_sessions = NULL;
 json_object  *json_events = NULL;
 json_object  *json_job_classes = NULL;
@@ -310,12 +316,12 @@ state_read_objects (int fd)
 	if (! buf)
 		return -1;
 
-	if (nih_io_buffer_resize (buffer, sizeof(buf)) < 0)
+	if (nih_io_buffer_resize (buffer, sizeof (buf)) < 0)
 		return -1;
 
 	while (TRUE) {
 
-		ret = read (fd, buf, sizeof(buf));
+		ret = read (fd, buf, sizeof (buf));
 		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
 			return -1;
 
@@ -476,6 +482,18 @@ state_from_string (const char *state)
 		return ret;
 	}
 
+#if 0
+	/* FIXME */
+	{
+		nih_message ("XXX: freeing conf_sources");
+		nih_free (conf_sources);
+	}
+#endif
+
+#if 1
+		extern NihList *conf_sources;
+#endif
+
 	if (! state_check_type (json, object))
 		goto out;
 
@@ -487,6 +505,9 @@ state_from_string (const char *state)
 
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
+
+	nih_message ("job_classes=%d", nih_hash_count (job_classes));
+	nih_message ("conf_sources=%d", nih_list_count (conf_sources));
 
 	ret = 0;
 
@@ -810,8 +831,10 @@ state_rlimit_serialise_all (struct rlimit * const *rlimits)
 		 */
 		json_rlimit = state_rlimit_serialise (rlimits[i]
 				? rlimits[i] : &dummy);
+
 		if (! json_rlimit)
 			goto error;
+
 		if (json_object_array_add (json, json_rlimit) < 0)
 			goto error;
 	}

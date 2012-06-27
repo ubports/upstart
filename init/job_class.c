@@ -1877,7 +1877,7 @@ job_class_deserialise (json_object *json)
 	json_object    *json_export;
 	json_object    *json_emits;
 	const char     *name;
-	const char     *path;
+	//const char     *path;
 	const char     *instance;
 	const char     *description;
 	const char     *author;
@@ -1908,9 +1908,13 @@ job_class_deserialise (json_object *json)
 			goto error;
 	partial->name = NIH_MUST (nih_strdup (partial, name));
 
+#if 0
 	if (! state_get_json_string_var (json, "path", path))
 			goto error;
 	partial->path = NIH_MUST (nih_strdup (partial, path));
+#endif
+	if (! state_get_json_string_var_to_obj (json, partial, path))
+		goto error;
 
 	if (! state_get_json_string_var (json, "instance", instance))
 			goto error;
@@ -2024,10 +2028,16 @@ job_class_deserialise (json_object *json)
 
 	/* FIXME: process */
 
-	if (! state_get_json_num_var (json, "expect", int, partial->expect))
+	if (! state_get_json_num_var_to_obj (json, partial, expect, int))
 			goto error;
 
-	if (! state_get_json_num_var (json, "task", int, partial->task))
+	if (! state_get_json_num_var_to_obj (json, partial, task, int))
+			goto error;
+
+	if (! state_get_json_num_var_to_obj (json, partial, kill_timeout, int))
+			goto error;
+
+	if (! state_get_json_num_var_to_obj (json, partial, kill_signal, int))
 			goto error;
 
 	if (! state_get_json_num_var (json, "session", int, session_index))
@@ -2099,12 +2109,10 @@ job_class_deserialise_all (json_object *json)
 		/* FIXME: TODO
 		 *
 		 *   instances
-		 *   start_on
-		 *   stop_on
-		 *   process
+		 *   XXX: start_on
+		 *   XXX: stop_on
 		 *   normalexit
 		 *   normalexit_len
-		 *   rlimits
 		 */
 		nih_error ("FIXME: need to finish JobClass deserialisation");
 
@@ -2131,16 +2139,16 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy (class, partial, deleted);
 		state_partial_copy (class, partial, debug);
 
-		class->env = nih_str_array_copy (class, NULL, partial->env);
-		if (! class->env)
+		if (state_rlimit_deserialise_all (json_class, class, &class->limits) < 0)
 			goto error;
 
-		class->export = nih_str_array_copy (class, NULL, partial->export);
-		if (! class->export)
+		if (! state_copy_str_array_to_obj (class, partial, env))
 			goto error;
 
-		class->emits = nih_str_array_copy (class, NULL, partial->emits);
-		if (! class->emits)
+		if (! state_copy_str_array_to_obj (class, partial, export))
+			goto error;
+
+		if (! state_copy_str_array_to_obj (class, partial, emits))
 			goto error;
 
 		if (process_deserialise_all (json_class, class, &class->process) < 0)

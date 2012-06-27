@@ -179,9 +179,13 @@ process_serialise_all (const Process * const * const processes)
 		/* We must encode a blank entry for missing array elements
 		 * to ensure correct deserialisation.
 		 */
-		json_process = process_serialise (processes[i] ? processes[i] : &dummy);
+		json_process = process_serialise (processes[i]
+				? processes[i]
+				: &dummy);
+
 		if (! json_process)
 			goto error;
+
 		if (json_object_array_add (json, json_process) < 0)
 			goto error;
 	}
@@ -212,8 +216,7 @@ error:
 Process *
 process_deserialise (json_object *json)
 {
-	const char    *command;
-	Process       *process;
+	Process  *process;
 
 	nih_assert (json);
 
@@ -224,12 +227,11 @@ process_deserialise (json_object *json)
 
 	memset (process, '\0', sizeof (Process));
 
-	if (! state_get_json_num_var (json, "script", int, process->script))
+	if (! state_get_json_num_var_to_obj (json, process, script, int))
 			goto error;
 
-	if (! state_get_json_string_var (json, "command", command))
-			goto error;
-	process->command = NIH_MUST (nih_strdup (process, command));
+	if (! state_get_json_string_var_to_obj (json, process, command))
+		goto error;
 
 	return process;
 

@@ -477,8 +477,6 @@ error:
 Session *
 session_deserialise (json_object *json)
 {
-	const char    *chroot;
-	const char    *conf_path;
 	Session       *partial;
 
 	nih_assert (json);
@@ -492,16 +490,14 @@ session_deserialise (json_object *json)
 
 	memset (partial, '\0', sizeof (Session));
 
-	if (! state_get_json_string_var (json, "chroot", chroot))
-			goto error;
-	partial->chroot = NIH_MUST (nih_strdup (partial, chroot));
+	if (! state_get_json_string_var_to_obj (json, partial, chroot))
+		goto error;
 
-	if (! state_get_json_num_var (json, "user", int, partial->user))
+	if (! state_get_json_num_var_to_obj (json, partial, user, int))
 			goto error;
 
-	if (! state_get_json_string_var (json, "conf_path", conf_path))
+	if (! state_get_json_string_var_to_obj (json, partial, conf_path))
 			goto error;
-	partial->conf_path = NIH_MUST (nih_strdup (partial, conf_path));
 
 	return partial;
 

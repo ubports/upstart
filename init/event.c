@@ -626,9 +626,8 @@ Event *
 event_deserialise (json_object *json)
 {
 	json_object        *json_env;
-	const char         *name;
-	int                 session_index;
 	Event              *partial;
+	int                 session_index;
 
 	nih_assert (json);
 
@@ -641,11 +640,10 @@ event_deserialise (json_object *json)
 
 	memset (partial, '\0', sizeof (Event));
 
-	if (! state_get_json_string_var (json, "name", name))
+	if (! state_get_json_string_var_to_obj (json, partial, name))
 			goto error;
-	partial->name = NIH_MUST (nih_strdup (partial, name));
 
-	if (! state_get_json_num_var (json, "fd", int, partial->fd))
+	if (! state_get_json_num_var_to_obj (json, partial, fd, int))
 			goto error;
 
 	if (! state_get_json_num_var (json, "session", int, session_index))

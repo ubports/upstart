@@ -35,6 +35,7 @@ dist_man_MANS = \
 sbin_PROGRAMS = init
 
 init_SOURCES = \
+	nih_iterators.c nih_iterators.h \
 	main.c \
 	paths.h \
 	events.h \

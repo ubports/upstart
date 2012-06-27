@@ -1,7 +1,10 @@
 /* FIXME: TODO: Thoughts:
  *
+ * - remove all PRODUCTION_BUILD macros and adopt production flow.
+ *
  * - XXX: audit memory management for all *_deserialise() and
  *   XXX: *_deserialise_all() functions!!
+ *
  * - create meta header and encode/decode code!!
  *
  * - encode/decode jobs
@@ -182,6 +185,24 @@
 	 if (json_var) var = json_object_get_ ## type (json_var); json_var && ret;})
 
 /**
+ * state_get_json_num_var_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of numeric element within @object to be deserialised,
+ *
+ * Extract stringified @name from @json and set numeric element named
+ * @name in @object to its value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_num_var_to_obj(json, object, name, type) \
+	({json_object *json_var = NULL; \
+	 int ret = state_get_json_var_full (json, #name, type, json_var); \
+	 if (json_var) object->name = json_object_get_ ## type (json_var); \
+	 json_var && ret;})
+
+/**
  * state_get_json_string_var:
  *
  * @json: json_object pointer,
@@ -202,6 +223,27 @@
 	({json_object *json_var; \
 	state_get_json_var_full (json, name, string, json_var) && \
 	 (var = json_object_get_string (json_var));})
+
+
+/**
+ * state_get_json_string_var_to_obj;
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised,
+ *
+ * Extract stringified @name from @json and set string element named
+ * @name in @object to a newly allocated string copy.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_string_var_to_obj(json, object, name) \
+	({json_object *json_var; \
+	 const char *value = NULL; \
+	 state_get_json_var_full (json, #name, string, json_var) && \
+	 (value = json_object_get_string (json_var)) \
+	 && (object->name = nih_strdup (object, value));})
+
 
 /**
  * state_set_json_var_full:
@@ -262,6 +304,19 @@
 #define state_partial_copy(parent, source, name) \
 	(parent->name = source->name)
 
+/**
+ * state_copy_str_array_to_obj:
+ *
+ * @to: object to copy @array to,
+ * @from: object from which to copy from,
+ * @array: name of string array element in @from to copy.
+ *
+ * Copy string array @array from @from to @to.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_copy_str_array_to_obj(to, from, element) \
+	(to->element = nih_str_array_copy (to, NULL, from->element))
 /**
  * state_partial_copy_string:
  *
