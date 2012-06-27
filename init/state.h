@@ -300,9 +300,45 @@
 	 if (json_var) json_object_object_add (json, #name, json_var); \
 	 json_var; })
 
-/* FIXME: document */
-#define state_partial_copy(parent, source, name) \
+/**
+ * state_partial_copy_int:
+ *
+ * @to: object to assign @name to,
+ * @from: object from which to take value from,
+ * @name: name of integer element in @from to assign to @to.
+ *
+ * Copy integer value of @name element from @from to @to.
+ *
+ * Trivial, but removes any risk of incorrect assignment due to
+ * "name mixups".
+ *
+ * Returns: value of @name.
+ *
+ **/
+#define state_partial_copy_int(parent, source, name) \
 	(parent->name = source->name)
+
+/**
+ * state_partial_copy_string:
+ *
+ * @parent: parent object for new string (parent of @var),
+ * @source: object that is a partial object of the same type as @parent,
+ * @name: string element in @source that is to be copied to @parent.
+ *
+ * Copy string @name from within @source to @parent.
+ *
+ * After the call, @parents version of @source contains a copy of
+ * that from @source (which may be NULL if the version in @source
+ * is either NULL or the null string).
+ *
+ * Returns: TRUE on success always.
+ **/
+#define state_partial_copy_string(parent, source, name) \
+	({typeof (source->name) _name = source->name; \
+	 	parent->name = _name && *(_name) \
+	 	? NIH_MUST (nih_strdup (parent, _name)) \
+	 	: NULL;})
+
 
 /**
  * state_copy_str_array_to_obj:
@@ -317,26 +353,6 @@
  **/
 #define state_copy_str_array_to_obj(to, from, element) \
 	(to->element = nih_str_array_copy (to, NULL, from->element))
-/**
- * state_partial_copy_string:
- *
- * @parent: parent object for new string (parent of @var),
- * @source: object that is a partial object of the same type as @parent,
- * @name: string element in @source that is to be copied to @parent.
- *
- * Copy string @name from within @source to @parent.
- *
- * After the call, @parents version of @source contains a copy of
- * that from @source (which may be NULL if the version in @source
- * is either NULL or the null string).
- *
- * Returns: nothing.
- **/
-#define state_partial_copy_string(parent, source, name) \
-	({typeof (source->name) _name = source->name; \
-	 	parent->name = _name && *(_name) \
-	 	? NIH_MUST (nih_strdup (parent, _name)) \
-	 	: NULL;})
 
 NIH_BEGIN_EXTERN
 

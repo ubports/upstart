@@ -490,8 +490,27 @@ state_from_string (const char *state)
 	}
 #endif
 
+	/* FIXME */
 #if 1
-		extern NihList *conf_sources;
+	extern NihList *conf_sources;
+	extern NihList *control_conns;
+
+	nih_message ("#-----------------------------------------");
+	nih_message ("DEBUG:PRE:hash: job_classes=%d",
+			job_classes ? nih_hash_count (job_classes) : 0);
+
+	nih_message ("DEBUG:PRE:list: sessions=%d",
+			sessions ? nih_list_count (sessions) : 0);
+
+	nih_message ("DEBUG:PRE:list: events=%d",
+			events ? nih_list_count (events) : 0);
+
+	nih_message ("DEBUG:PRE:list: conf_sources=%d",
+			conf_sources ? nih_list_count (conf_sources) : 0);
+
+	nih_message ("DEBUG:PRE:list: control_conns=%d",
+			control_conns ? nih_list_count (control_conns) : 0);
+	nih_message ("#-----------------------------------------");
 #endif
 
 	if (! state_check_type (json, object))
@@ -506,8 +525,16 @@ state_from_string (const char *state)
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
 
-	nih_message ("job_classes=%d", nih_hash_count (job_classes));
-	nih_message ("conf_sources=%d", nih_list_count (conf_sources));
+/* FIXME */
+#if 1
+	nih_message ("#-----------------------------------------");
+	nih_message ("DEBUG:POST:hash: job_classes=%d", nih_hash_count (job_classes));
+	nih_message ("DEBUG:POST:list: sessions=%d", nih_list_count (sessions));
+	nih_message ("DEBUG:POST:list: events=%d", nih_list_count (events));
+	nih_message ("DEBUG:POST:list: conf_sources=%d", nih_list_count (conf_sources));
+	nih_message ("DEBUG:POST:list: control_conns=%d", nih_list_count (control_conns));
+	nih_message ("#-----------------------------------------");
+#endif
 
 	ret = 0;
 

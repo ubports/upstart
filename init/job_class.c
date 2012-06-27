@@ -60,7 +60,6 @@
 #include <json.h>
 
 /* Prototypes for static functions */
-static void  job_class_add    (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
 static char *job_class_collapse_env (char **env)
@@ -345,7 +344,7 @@ job_class_reconsider (JobClass *class)
  * Adds @class to the hash table and registers it with all current D-Bus
  * connections.  @class may be NULL.
  **/
-static void
+void
 job_class_add (JobClass *class)
 {
 	control_init ();
@@ -2104,6 +2103,12 @@ job_class_deserialise_all (json_object *json)
 		class = NIH_MUST (job_class_new (NULL, partial->name, partial->session));
 
 		/* job_class_new() sets path */
+		/* FIXME:
+		 *
+		 *             serialised path='/com/ubuntu/Upstart/jobs/1000/bang'
+		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
+		 *
+		 */
 		nih_assert (! strcmp (class->path, partial->path));
 
 		/* FIXME: TODO
@@ -2125,19 +2130,19 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy_string (class, partial, setgid);
 		state_partial_copy_string (class, partial, usage);
 
-		state_partial_copy (class, partial, expect);
-		state_partial_copy (class, partial, task);
-		state_partial_copy (class, partial, kill_timeout);
-		state_partial_copy (class, partial, kill_signal);
-		state_partial_copy (class, partial, respawn);
-		state_partial_copy (class, partial, respawn_limit);
-		state_partial_copy (class, partial, respawn_interval);
-		state_partial_copy (class, partial, console);
-		state_partial_copy (class, partial, umask);
-		state_partial_copy (class, partial, nice);
-		state_partial_copy (class, partial, oom_score_adj);
-		state_partial_copy (class, partial, deleted);
-		state_partial_copy (class, partial, debug);
+		state_partial_copy_int (class, partial, expect);
+		state_partial_copy_int (class, partial, task);
+		state_partial_copy_int (class, partial, kill_timeout);
+		state_partial_copy_int (class, partial, kill_signal);
+		state_partial_copy_int (class, partial, respawn);
+		state_partial_copy_int (class, partial, respawn_limit);
+		state_partial_copy_int (class, partial, respawn_interval);
+		state_partial_copy_int (class, partial, console);
+		state_partial_copy_int (class, partial, umask);
+		state_partial_copy_int (class, partial, nice);
+		state_partial_copy_int (class, partial, oom_score_adj);
+		state_partial_copy_int (class, partial, deleted);
+		state_partial_copy_int (class, partial, debug);
 
 		if (state_rlimit_deserialise_all (json_class, class, &class->limits) < 0)
 			goto error;
@@ -2163,6 +2168,11 @@ job_class_deserialise_all (json_object *json)
 
 			class->instance = NIH_MUST (nih_strdup (class, partial->instance));
 		}
+
+		nih_message ("class=%p, session=%p", class, class->session);
+
+		/* Force class to be known */
+		job_class_add (class);
 	}
 
 	return 0;
