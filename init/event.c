@@ -2,7 +2,7 @@
  *
  * event.c - event queue and handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 
 
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -87,11 +88,11 @@ event_init (void)
  * array of environment variables in KEY=VALUE form.  @env will be referenced
  * by the new event.  After calling this function, you should never use
  * nih_free() to free @env and instead use nih_unref() or nih_discard() if
- * you longer need to use it.
+ * you no longer need to use it.
  *
  * When the event reaches the top of the queue, it is taken off and placed
  * into the handling queue.  It is not removed from that queue until there
- * are no longer anything referencing it.
+ * are no remaining references to it.
  *
  * The event is created with nothing blocking it.  Be sure to call
  * event_block() otherwise it will be automatically freed next time
@@ -122,6 +123,9 @@ event_new (const void  *parent,
 		return NULL;
 
 	nih_list_init (&event->entry);
+
+	event->session = NULL;
+	event->fd = -1;
 
 	event->progress = EVENT_PENDING;
 	event->failed = FALSE;
@@ -156,7 +160,7 @@ event_new (const void  *parent,
 
 /**
  * event_block:
- * @emission: event to block.
+ * @event: event to block.
  *
  * This function should be called by jobs that wish to hold a reference on
  * the event and block it from finishing.
@@ -293,6 +297,13 @@ event_pending_handle_jobs (Event *event)
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
+		/* Only affect jobs within the same session as the event
+		 * unless the event has no session, in which case do them
+		 * all.
+		 */
+		if (event->session && (class->session != event->session))
+			continue;
+
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
 		 * to be killed, the stop script then the start script to be
@@ -393,7 +404,15 @@ event_pending_handle_jobs (Event *event)
 				job->start_env = env;
 				nih_ref (job->start_env, job);
 
+				nih_discard (env);
+				env = NULL;
+
 				job_finished (job, FALSE);
+
+				NIH_MUST (event_operator_fds (class->start_on, job,
+							      &job->fds, &job->num_fds,
+							      &job->start_env, &len,
+							      "UPSTART_FDS"));
 
 				event_operator_events (job->class->start_on,
 						       job, &job->blocking);
@@ -459,6 +478,8 @@ event_finished (Event *event)
 		nih_free  (blocked);
 	}
 
+	close (event->fd);
+
 	if (event->failed) {
 		char *name;
 
@@ -470,6 +491,7 @@ event_finished (Event *event)
 			failed = NIH_MUST (nih_sprintf (NULL, "%s/failed",
 							event->name));
 			new_event = NIH_MUST (event_new (NULL, failed, NULL));
+			new_event->session = event->session;
 
 			if (event->env)
 				new_event->env = NIH_MUST (nih_str_array_copy (

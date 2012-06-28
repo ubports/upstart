@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,7 @@
 
 #include "process.h"
 #include "event_operator.h"
+#include "session.h"
 
 
 /**
@@ -55,15 +56,75 @@ typedef enum expect_type {
  * ConsoleType:
  *
  * This is used to identify how a job would like its standard input, output
- * and error file descriptors arranged.  The options are to have these
- * mapped to /dev/null, the console device (without being or being the owning
- * process) or to the logging daemon.
+ * and error file descriptors arranged.  The options are:
+ * - CONSOLE_NONE: to have these all mapped to /dev/null,
+ * - CONSOLE_OUTPUT: the console device (non-owning process),
+ * - CONSOLE_OWNER: the console device (owning process),
+ * - CONSOLE_LOG: stdin is mapped to /dev/null and standard output and error
+ *   are redirected to the built-in logger (this is the default).
  **/
 typedef enum console_type {
 	CONSOLE_NONE,
 	CONSOLE_OUTPUT,
-	CONSOLE_OWNER
+	CONSOLE_OWNER,
+	CONSOLE_LOG
 } ConsoleType;
+
+
+/**
+ * JOB_DEFAULT_KILL_TIMEOUT:
+ *
+ * The default length of time to wait after sending a process the TERM
+ * signal before sending the KILL signal if it hasn't terminated.
+ **/
+#define JOB_DEFAULT_KILL_TIMEOUT 5
+
+/**
+ * JOB_DEFAULT_RESPAWN_LIMIT:
+ *
+ * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
+ * we permit a process to respawn before stoping it
+ **/
+#define JOB_DEFAULT_RESPAWN_LIMIT 10
+
+/**
+ * JOB_DEFAULT_RESPAWN_INTERVAL:
+ *
+ * The default number of seconds before resetting the respawn timer.
+ **/
+#define JOB_DEFAULT_RESPAWN_INTERVAL 5
+
+/**
+ * JOB_DEFAULT_UMASK:
+ *
+ * The default file creation mark for processes.
+ **/
+#define JOB_DEFAULT_UMASK 022
+
+/**
+ * JOB_DEFAULT_NICE:
+ *
+ * The default nice level for processes.
+ **/
+#define JOB_DEFAULT_NICE 0
+
+/**
+ * JOB_DEFAULT_OOM_SCORE_ADJ:
+ *
+ * The default OOM score adjustment for processes.
+ **/
+#define JOB_DEFAULT_OOM_SCORE_ADJ 0
+
+/**
+ * JOB_DEFAULT_ENVIRONMENT:
+ *
+ * Environment variables to always copy from our own environment, these
+ * can be overriden in the job definition or by events since they have the
+ * lowest priority.
+ **/
+#define JOB_DEFAULT_ENVIRONMENT \
+	"PATH",			\
+	"TERM"
 
 
 /**
@@ -71,6 +132,7 @@ typedef enum console_type {
  * @entry: list header,
  * @name: unique name,
  * @path: path of D-Bus object,
+ * @session: attached session,
  * @instance: pattern to uniquely identify multiple instances,
  * @instances: hash table of active instances,
  * @description: description; intended for humans,
@@ -85,6 +147,7 @@ typedef enum console_type {
  * @expect: what to expect before entering the next state after spawned,
  * @task: start requests are not unblocked until instances have finished,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
+ * @kill_signal: first signal to send (usually SIGTERM),
  * @respawn: instances should be restarted if main process fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -93,11 +156,14 @@ typedef enum console_type {
  * @console: how to arrange processes' stdin/out/err file descriptors,
  * @umask: file mode creation mask,
  * @nice: process priority,
- * @oom_adj: OOM killer adjustment,
+ * @oom_score_adj: OOM killer score adjustment,
  * @limits: resource limits indexed by resource,
  * @chroot: root directory of process (implies @chdir if not set),
  * @chdir: working directory of process,
+ * @setuid: user name to drop to before starting process,
+ * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
+ * @usage: usage text - how to control job
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -109,6 +175,7 @@ typedef struct job_class {
 
 	char           *name;
 	char           *path;
+	Session *       session;
 
 	char           *instance;
 	NihHash        *instances;
@@ -129,6 +196,7 @@ typedef struct job_class {
 	int             task;
 
 	time_t          kill_timeout;
+	int		kill_signal;
 
 	int             respawn;
 	int             respawn_limit;
@@ -141,12 +209,17 @@ typedef struct job_class {
 
 	mode_t          umask;
 	int             nice;
-	int             oom_adj;
+	int             oom_score_adj;
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char           *chroot;
 	char           *chdir;
+	char           *setuid;
+	char           *setgid;
 
 	int             deleted;
+	int             debug;
+
+	char           *usage;
 } JobClass;
 
 
@@ -158,7 +231,8 @@ extern NihHash *job_classes;
 void        job_class_init                 (void);
 
 JobClass  * job_class_new                  (const void *parent,
-					    const char *name)
+					    const char *name,
+					    Session *session)
 	__attribute__ ((warn_unused_result, malloc));
 
 int         job_class_consider             (JobClass *class);
@@ -217,6 +291,22 @@ int         job_class_get_author           (JobClass *class,
 int         job_class_get_version          (JobClass *class,
 					    NihDBusMessage *message,
 					    char **version)
+	__attribute__ ((warn_unused_result));
+
+int         job_class_get_start_on         (JobClass *class,
+					    NihDBusMessage *message,
+					    char ****start_on);
+int         job_class_get_stop_on          (JobClass *class,
+					    NihDBusMessage *message,
+					    char ****stop_on);
+int         job_class_get_emits	           (JobClass *class,
+					    NihDBusMessage *message,
+					    char ***emits);
+int         job_class_get_usage	           (JobClass *class,
+					    NihDBusMessage *message,
+					    char **usage);
+
+ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

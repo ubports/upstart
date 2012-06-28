@@ -368,7 +368,7 @@ event_operator_match (EventOperator *oper,
  * @env: NULL-terminated array of environment variables for expansion.
  *
  * Handles the emission of @event, matching it against EVENT_MATCH nodes in
- * the EventOperator tree rooted at @oper, and updating the values of other
+ * the EventOperator tree rooted at @root, and updating the values of other
  * nodes to match.
  *
  * @env is optional, and may be NULL; if given it should be a NULL-terminated
@@ -380,10 +380,10 @@ event_operator_match (EventOperator *oper,
  * using event_operator_reset().
  *
  * Note that this returns to indicate whether a successful match was made;
- * you should also check the value of @oper to make sure you react to this,
+ * you should also check the value of @root to make sure you react to this,
  * as that still may be FALSE.
  *
- * Returns: TRUE if @event matched an entry in the tree under @oper, FALSE
+ * Returns: TRUE if @event matched an entry in the tree under @root, FALSE
  * otherwise.
  **/
 int
@@ -550,6 +550,65 @@ event_operator_environment (EventOperator   *root,
 			return NULL;
 
 	return *env;
+}
+
+int *
+event_operator_fds (EventOperator *root,
+		    const void *parent,
+		    int **fds,
+		    size_t *num_fds,
+		    char          ***env,
+		    size_t          *len,
+		    const char      *key)
+{
+	nih_local char *evlist = NULL;
+
+	nih_assert (root != NULL);
+	nih_assert (fds != NULL);
+	nih_assert (num_fds != NULL);
+	nih_assert (env != NULL);
+	nih_assert (len != NULL);
+	nih_assert (key != NULL);
+
+	/* Initialise the event list variable with the name given. */
+	evlist = nih_sprintf (NULL, "%s=", key);
+	if (! evlist)
+		return NULL;
+
+	*num_fds = 0;
+	NIH_TREE_FOREACH_FULL (&root->node, iter,
+			       (NihTreeFilter)event_operator_filter, NULL) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		if (oper->type != EVENT_MATCH)
+			continue;
+
+		nih_assert (oper->event != NULL);
+
+		if (oper->event->fd >= 0) {
+			*fds = nih_realloc (*fds, parent, sizeof (int) * (*num_fds + 1));
+			if (! *fds)
+				return NULL;
+
+			(*fds)[(*num_fds)++] = oper->event->fd;
+
+			if (evlist[strlen (evlist) - 1] != '=') {
+				if (! nih_strcat_sprintf (&evlist, NULL, " %d",
+							  oper->event->fd))
+					return NULL;
+			} else {
+				if (! nih_strcat_sprintf (&evlist, NULL, "%d",
+							  oper->event->fd))
+					return NULL;
+			}
+		}
+	}
+
+	if (*num_fds)
+		if (! environ_add (env, parent, len, TRUE, evlist))
+			return NULL;
+
+	return (void *)1;
 }
 
 /**

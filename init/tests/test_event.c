@@ -233,7 +233,8 @@ test_pending (void)
 		TEST_ALLOC_SAFE {
 			event = event_new (NULL, "test", NULL);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
@@ -292,7 +293,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->start_on = event_operator_new (
@@ -327,7 +329,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->start_on = event_operator_new (
@@ -386,7 +389,8 @@ test_pending_handle_jobs (void)
 			TEST_FREE_TAG (event1);
 			TEST_FREE_TAG (event2);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			assert (nih_str_array_add (&(class->env), class,
@@ -502,7 +506,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event2);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			assert (nih_str_array_add (&(class->env), class,
@@ -628,7 +633,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event2);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			assert (nih_str_array_add (&(class->env), class,
@@ -796,7 +802,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event2);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			assert (nih_str_array_add (&(class->env), class,
@@ -921,7 +928,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->instance = "$FRODO";
 			class->task = TRUE;
 
@@ -1000,7 +1008,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->instance = "$FRODO";
 			class->task = TRUE;
 
@@ -1084,7 +1093,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->instance = "$TIPPLE";
 			class->task = TRUE;
 
@@ -1127,7 +1137,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1175,7 +1186,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1250,7 +1262,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1329,7 +1342,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1439,7 +1453,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1527,7 +1542,8 @@ test_pending_handle_jobs (void)
 
 			TEST_FREE_TAG (event1);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->task = TRUE;
 
 			class->process[PROCESS_POST_STOP] = process_new (class);
@@ -1623,7 +1639,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -1657,7 +1674,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -1699,7 +1717,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class->process);
 			class->process[PROCESS_MAIN]->command = "echo";
 
@@ -1740,7 +1759,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 
 			job = job_new (class, "");
 			job->goal = JOB_STOP;
@@ -1773,7 +1793,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 
 			job = job_new (class, "");
 			job->goal = JOB_START;
@@ -1804,7 +1825,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 
 			job = job_new (class, "");
 			job->goal = JOB_STOP;
@@ -1846,7 +1868,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 
 			job = job_new (class, "");
 			job->goal = JOB_START;
@@ -1889,7 +1912,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_POST_STOP] = process_new (class);
 			class->process[PROCESS_POST_STOP]->command = "echo";
 
@@ -1934,7 +1958,8 @@ test_finished (void)
 
 			TEST_FREE_TAG (event);
 
-			class = job_class_new (NULL, "foo");
+			class = job_class_new (NULL, "foo", NULL);
+			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_START] = process_new (class);
 			class->process[PROCESS_PRE_START]->command = "echo";
 
@@ -1974,6 +1999,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 	test_block ();
 	test_unblock ();

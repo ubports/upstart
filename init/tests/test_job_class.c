@@ -2,7 +2,7 @@
  *
  * test_job_class.c - test suite for init/job_class.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -65,7 +65,7 @@ test_new (void)
 {
 	JobClass *class;
 	int       i;
-
+	       
 	/* Check that we can create a new JobClass structure; the structure
 	 * should be allocated with nih_alloc but not placed in the jobs
 	 * hash.
@@ -74,8 +74,7 @@ test_new (void)
 	job_class_init ();
 
 	TEST_ALLOC_FAIL {
-		class = job_class_new (NULL, "test");
-
+		class = job_class_new (NULL, "test", NULL);
 		if (test_alloc_failed) {
 			TEST_EQ_P (class, NULL);
 			continue;
@@ -120,6 +119,7 @@ test_new (void)
 		TEST_EQ (class->task, FALSE);
 
 		TEST_EQ (class->kill_timeout, 5);
+		TEST_EQ (class->kill_signal, SIGTERM);
 
 		TEST_EQ (class->respawn, FALSE);
 		TEST_EQ (class->respawn_limit, 10);
@@ -128,17 +128,21 @@ test_new (void)
 		TEST_EQ_P (class->normalexit, NULL);
 		TEST_EQ (class->normalexit_len, 0);
 
-		TEST_EQ (class->console, CONSOLE_NONE);
+		TEST_EQ (class->console, CONSOLE_LOG);
 
 		TEST_EQ (class->umask, 022);
 		TEST_EQ (class->nice, 0);
-		TEST_EQ (class->oom_adj, 0);
+		TEST_EQ (class->oom_score_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
 			TEST_EQ_P (class->limits[i], NULL);
 
 		TEST_EQ_P (class->chroot, NULL);
 		TEST_EQ_P (class->chdir, NULL);
+
+		TEST_EQ_P (class->setuid, NULL);
+		TEST_EQ_P (class->setgid, NULL);
+
 		TEST_FALSE (class->deleted);
 
 		nih_free (class);
@@ -178,15 +182,18 @@ test_consider (void)
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
-	class1 = file1->job = job_class_new (NULL, "frodo");
+	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
+	class1->console = CONSOLE_NONE;
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
-	class2 = file2->job = job_class_new (NULL, "bilbo");
+	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
+	class2->console = CONSOLE_NONE;
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
-	class3 = file3->job = job_class_new (NULL, "frodo");
+	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
+	class3->console = CONSOLE_NONE;
 
 
 	control_init ();
@@ -379,7 +386,8 @@ test_consider (void)
 	 * becomes the hash table member.
 	 */
 	TEST_FEATURE ("with replacable registered class and not best class");
-	class4 = job_class_new (NULL, "frodo");
+	class4 = job_class_new (NULL, "frodo", NULL);
+	class4->console = CONSOLE_NONE;
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -477,15 +485,18 @@ test_reconsider (void)
 	source2 = conf_source_new (NULL, "/tmp/bar", CONF_JOB_DIR);
 
 	file1 = conf_file_new (source2, "/tmp/bar/frodo");
-	class1 = file1->job = job_class_new (NULL, "frodo");
+	class1 = file1->job = job_class_new (NULL, "frodo", NULL);
+	class1->console = CONSOLE_NONE;
 
 	file2 = conf_file_new (source2, "/tmp/bar/bilbo");
-	class2 = file2->job = job_class_new (NULL, "bilbo");
+	class2 = file2->job = job_class_new (NULL, "bilbo", NULL);
+	class2->console = CONSOLE_NONE;
 
 	source3 = conf_source_new (NULL, "/tmp/baz", CONF_JOB_DIR);
 
 	file3 = conf_file_new (source3, "/tmp/baz/frodo");
-	class3 = file3->job = job_class_new (NULL, "frodo");
+	class3 = file3->job = job_class_new (NULL, "frodo", NULL);
+	class3->console = CONSOLE_NONE;
 
 
 	control_init ();
@@ -718,7 +729,8 @@ test_reconsider (void)
 	nih_free (source2);
 	nih_free (source1);
 
-	class4 = job_class_new (NULL, "frodo");
+	class4 = job_class_new (NULL, "frodo", NULL);
+	class4->console = CONSOLE_NONE;
 	nih_hash_add (job_classes, &class4->entry);
 	job_class_register (class4, conn, FALSE);
 
@@ -787,7 +799,8 @@ test_register (void)
 	 * announce it.
 	 */
 	TEST_FEATURE ("with signal emission");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -824,7 +837,8 @@ test_register (void)
 	 * by emitting a signal immediately afterwards.
 	 */
 	TEST_FEATURE ("without signal emission");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -857,7 +871,6 @@ test_register (void)
 	dbus_message_unref (message);
 
 	nih_free (class);
-
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -893,7 +906,8 @@ test_unregister (void)
 	assert (! dbus_error_is_set (&dbus_error));
 
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	assert (dbus_connection_get_object_path_data (conn, class->path,
 						      (void **)&object));
@@ -929,7 +943,6 @@ test_unregister (void)
 
 	nih_free (class);
 
-
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
 	TEST_DBUS_END (dbus_pid);
@@ -951,7 +964,8 @@ test_environment (void)
 	 * just have the built-ins in the returned environment.
 	 */
 	TEST_FEATURE ("with no configured environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	TEST_ALLOC_FAIL {
 		env = job_class_environment (NULL, class, &len);
@@ -981,7 +995,8 @@ test_environment (void)
 	 * will have those appended to the environment as well as the builtins.
 	 */
 	TEST_FEATURE ("with configured environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1018,7 +1033,8 @@ test_environment (void)
 	/* Check that configured environment override built-ins.
 	 */
 	TEST_FEATURE ("with configuration overriding built-ins");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	class->env = nih_str_array_new (class);
 	assert (nih_str_array_add (&(class->env), class, NULL, "FOO=BAR"));
@@ -1066,7 +1082,6 @@ test_get_instance (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_class_get_instance");
 	nih_error_init ();
 
@@ -1077,7 +1092,8 @@ test_get_instance (void)
 	TEST_FEATURE ("with running job");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			job = job_new (class, "");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -1114,7 +1130,8 @@ test_get_instance (void)
 	/* Check that if there's no such instance, a D-Bus error is raised.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	message = nih_new (NULL, NihDBusMessage);
 	message->connection = NULL;
@@ -1145,7 +1162,8 @@ test_get_instance (void)
 	TEST_FEATURE ("with environment");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->instance = "$FOO";
 
 			job = job_new (class, "wibble");
@@ -1189,7 +1207,8 @@ test_get_instance (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -1232,7 +1251,8 @@ test_get_instance_by_name (void)
 	TEST_FUNCTION ("job_class_get_instance_by_name");
 	nih_error_init ();
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 
 	/* Check that when given a known instance name, the path to that
@@ -1362,7 +1382,8 @@ test_get_all_instances (void)
 	nih_error_init ();
 	job_class_init ();
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 
 	/* Check that paths for each of the active instances are returned
@@ -1459,7 +1480,6 @@ test_get_all_instances (void)
 		nih_free (message);
 	}
 
-
 	nih_free (class);
 }
 
@@ -1481,7 +1501,6 @@ test_start (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_class_start");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -1497,7 +1516,8 @@ test_start (void)
 	 * the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with new job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1588,7 +1608,8 @@ test_start (void)
 	 * immediately and the job not blocked.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1668,7 +1689,8 @@ test_start (void)
 	 * it through to running, the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -1769,7 +1791,8 @@ test_start (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with starting job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -1825,7 +1848,8 @@ test_start (void)
 	 * when it's starting.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	method = dbus_message_new_method_call (
@@ -1926,7 +1950,8 @@ test_start (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -1948,7 +1973,7 @@ test_start (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_start (class, message, env, TRUE);
 
@@ -1971,7 +1996,6 @@ test_start (void)
 	TEST_HASH_EMPTY (class->instances);
 
 	nih_free (class);
-
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -1998,7 +2022,6 @@ test_stop (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_class_stop");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -2014,7 +2037,8 @@ test_stop (void)
 	 * will be sent to the sender.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2097,7 +2121,8 @@ test_stop (void)
 	 * and no blocking entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2167,7 +2192,8 @@ test_stop (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2222,7 +2248,8 @@ test_stop (void)
 	 * immediately.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2271,7 +2298,8 @@ test_stop (void)
 	 * for the pre-stop script.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2360,7 +2388,8 @@ test_stop (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2386,7 +2415,7 @@ test_stop (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_stop (class, message, env, TRUE);
 
@@ -2407,7 +2436,6 @@ test_stop (void)
 	nih_free (dbus_error);
 
 	nih_free (class);
-
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -2435,7 +2463,6 @@ test_restart (void)
 	NihError        *error;
 	NihDBusError    *dbus_error;
 
-
 	TEST_FUNCTION ("job_class_restart");
 	nih_error_init ();
 	nih_main_loop_init ();
@@ -2451,7 +2478,8 @@ test_restart (void)
 	 * through to waiting, the reply will be sent to the sender.
 	 */
 	TEST_FEATURE ("with running job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2548,7 +2576,8 @@ test_restart (void)
 	 * entry created.
 	 */
 	TEST_FEATURE ("with no wait");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2629,7 +2658,8 @@ test_restart (void)
 	 * a D-Bus error is raised immediately.
 	 */
 	TEST_FEATURE ("with stopping job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_STOP;
@@ -2684,7 +2714,8 @@ test_restart (void)
 	 * immediately.
 	 */
 	TEST_FEATURE ("with unknown job");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 
 	method = dbus_message_new_method_call (
 		dbus_bus_get_unique_name (conn),
@@ -2733,7 +2764,8 @@ test_restart (void)
 	 * when it's starting again.
 	 */
 	TEST_FEATURE ("with environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	class->instance = "$FOO";
 
 	job = job_new (class, "wibble");
@@ -2846,7 +2878,8 @@ test_restart (void)
 	 * is returned.
 	 */
 	TEST_FEATURE ("with invalid environment");
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
 	job->goal = JOB_START;
@@ -2872,7 +2905,7 @@ test_restart (void)
 	TEST_FREE_TAG (message);
 
 	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=wibble"));
+	assert (nih_str_array_add (&env, message, NULL, "FOO"));
 
 	ret = job_class_restart (class, message, env, TRUE);
 
@@ -2893,7 +2926,6 @@ test_restart (void)
 	nih_free (dbus_error);
 
 	nih_free (class);
-
 
 	TEST_DBUS_CLOSE (conn);
 	TEST_DBUS_CLOSE (client_conn);
@@ -2923,7 +2955,8 @@ test_get_name (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -2975,7 +3008,8 @@ test_get_description (void)
 	TEST_FEATURE ("with description");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->description = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3015,7 +3049,8 @@ test_get_description (void)
 	TEST_FEATURE ("with no description");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3067,7 +3102,8 @@ test_get_author (void)
 	TEST_FEATURE ("with author");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->author = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3107,7 +3143,8 @@ test_get_author (void)
 	TEST_FEATURE ("with no author");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3159,7 +3196,8 @@ test_get_version (void)
 	TEST_FEATURE ("with version");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 			class->version = nih_strdup (class, "a test job");
 
 			message = nih_new (NULL, NihDBusMessage);
@@ -3199,7 +3237,8 @@ test_get_version (void)
 	TEST_FEATURE ("with no version");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			class = job_class_new (NULL, "test");
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
 
 			message = nih_new (NULL, NihDBusMessage);
 			message->connection = NULL;
@@ -3232,11 +3271,429 @@ test_get_version (void)
 	}
 }
 
+void
+test_get_start_on (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	EventOperator  *oper = NULL;
+	EventOperator  *and_oper = NULL;
+	NihError       *error;
+	char         ***start_on;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_start_on");
+
+	/* Check that the job's start_on tree is returned as a flattened
+	 * array of string arrays, as a child of the message.
+	 */
+	TEST_FEATURE ("with event tree");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+
+			class->start_on = event_operator_new (
+				class, EVENT_OR, NULL, NULL);
+
+			and_oper = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+			nih_tree_add (&class->start_on->node, &and_oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "foo", NULL);
+			oper->env = nih_str_array_new (oper);
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "omnomnom"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "ABER=crombie"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "HOBBIT=frodo"));
+
+			nih_tree_add (&class->start_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->start_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		start_on = NULL;
+
+		ret = job_class_get_start_on (class, message, &start_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (start_on, message);
+		TEST_ALLOC_SIZE (start_on, sizeof (char **) * 6);
+
+		TEST_ALLOC_SIZE (start_on[0], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[0][0], "wibble");
+		TEST_EQ_P (start_on[0][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[1], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[1][0], "wobble");
+		TEST_EQ_P (start_on[1][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[2], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[2][0], "/AND");
+		TEST_EQ_P (start_on[2][1], NULL);
+
+		TEST_ALLOC_SIZE (start_on[3], sizeof (char *) * 5);
+		TEST_EQ_STR (start_on[3][0], "foo");
+		TEST_EQ_STR (start_on[3][1], "omnomnom");
+		TEST_EQ_STR (start_on[3][2], "ABER=crombie");
+		TEST_EQ_STR (start_on[3][3], "HOBBIT=frodo");
+		TEST_EQ_P (start_on[3][4], NULL);
+
+		TEST_ALLOC_SIZE (start_on[4], sizeof (char *) * 2);
+		TEST_EQ_STR (start_on[4][0], "/OR");
+		TEST_EQ_P (start_on[4][1], NULL);
+
+		TEST_EQ_P (start_on[5], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned when the job has no
+	 * start_on operator tree.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		start_on = NULL;
+
+		ret = job_class_get_start_on (class, message, &start_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (start_on, message);
+		TEST_ALLOC_SIZE (start_on, sizeof (char **));
+		TEST_EQ_P (start_on[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_stop_on (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	EventOperator  *oper = NULL;
+	EventOperator  *and_oper = NULL;
+	NihError       *error;
+	char         ***stop_on;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_stop_on");
+
+	/* Check that the job's stop_on tree is returned as a flattened
+	 * array of string arrays, as a child of the message.
+	 */
+	TEST_FEATURE ("with event tree");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+
+			class->stop_on = event_operator_new (
+				class, EVENT_OR, NULL, NULL);
+
+			and_oper = event_operator_new (
+				class, EVENT_AND, NULL, NULL);
+			nih_tree_add (&class->stop_on->node, &and_oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "foo", NULL);
+			oper->env = nih_str_array_new (oper);
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "omnomnom"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "ABER=crombie"));
+			NIH_MUST (nih_str_array_add (&oper->env, oper, NULL, "HOBBIT=frodo"));
+
+			nih_tree_add (&class->stop_on->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "wibble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_LEFT);
+
+			oper = event_operator_new (
+				class->stop_on, EVENT_MATCH, "wobble", NULL);
+			nih_tree_add (&and_oper->node, &oper->node,
+				      NIH_TREE_RIGHT);
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		stop_on = NULL;
+
+		ret = job_class_get_stop_on (class, message, &stop_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (stop_on, message);
+		TEST_ALLOC_SIZE (stop_on, sizeof (char **) * 6);
+
+		TEST_ALLOC_SIZE (stop_on[0], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[0][0], "wibble");
+		TEST_EQ_P (stop_on[0][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[1], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[1][0], "wobble");
+		TEST_EQ_P (stop_on[1][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[2], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[2][0], "/AND");
+		TEST_EQ_P (stop_on[2][1], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[3], sizeof (char *) * 5);
+		TEST_EQ_STR (stop_on[3][0], "foo");
+		TEST_EQ_STR (stop_on[3][1], "omnomnom");
+		TEST_EQ_STR (stop_on[3][2], "ABER=crombie");
+		TEST_EQ_STR (stop_on[3][3], "HOBBIT=frodo");
+		TEST_EQ_P (stop_on[3][4], NULL);
+
+		TEST_ALLOC_SIZE (stop_on[4], sizeof (char *) * 2);
+		TEST_EQ_STR (stop_on[4][0], "/OR");
+		TEST_EQ_P (stop_on[4][1], NULL);
+
+		TEST_EQ_P (stop_on[5], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned when the job has no
+	 * stop_on operator tree.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		stop_on = NULL;
+
+		ret = job_class_get_stop_on (class, message, &stop_on);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (stop_on, message);
+		TEST_ALLOC_SIZE (stop_on, sizeof (char **));
+		TEST_EQ_P (stop_on[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
+void
+test_get_emits (void)
+{
+	NihDBusMessage *message = NULL;
+	JobClass       *class = NULL;
+	NihError       *error;
+	char          **emits;
+	int             ret;
+
+	TEST_FUNCTION ("job_class_get_emits");
+
+	/* Check that an array of strings is returned from the property
+	 * as a child of the message when the job declares that it emits
+	 * extra events.
+	 */
+	TEST_FEATURE ("with events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+			class->emits = nih_str_array_new (class);
+
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "foo"));
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "bar"));
+			NIH_MUST (nih_str_array_add (&class->emits, class, NULL, "baz"));
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		emits = NULL;
+
+		ret = job_class_get_emits (class, message, &emits);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (emits, message);
+		TEST_ALLOC_SIZE (emits, sizeof (char *) * 4);
+		TEST_EQ_STR (emits[0], "foo");
+		TEST_EQ_STR (emits[1], "bar");
+		TEST_EQ_STR (emits[2], "baz");
+		TEST_EQ_P (emits[3], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+
+
+	/* Check that an empty array is returned from the property
+	 * as a child of the message when the job doesn't declare
+	 * any particular emitted events.
+	 */
+	TEST_FEATURE ("with no events");
+	nih_error_init ();
+	job_class_init ();
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->console = CONSOLE_NONE;
+
+			message = nih_new (NULL, NihDBusMessage);
+			message->connection = NULL;
+			message->message = NULL;
+		}
+
+		emits = NULL;
+
+		ret = job_class_get_emits (class, message, &emits);
+
+		if (test_alloc_failed) {
+			TEST_LT (ret, 0);
+
+			error = nih_error_get ();
+			TEST_EQ (error->number, ENOMEM);
+			nih_free (error);
+
+			nih_free (message);
+			nih_free (class);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_ALLOC_PARENT (emits, message);
+		TEST_ALLOC_SIZE (emits, sizeof (char *));
+		TEST_EQ_P (emits[0], NULL);
+
+		nih_free (message);
+		nih_free (class);
+	}
+}
+
 
 int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_new ();
 	test_consider ();
 	test_reconsider ();
@@ -3256,6 +3713,9 @@ main (int   argc,
 	test_get_description ();
 	test_get_author ();
 	test_get_version ();
+	test_get_start_on ();
+	test_get_stop_on ();
+	test_get_emits ();
 
 	return 0;
 }

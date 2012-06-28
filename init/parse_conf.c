@@ -74,6 +74,12 @@ parse_conf (ConfFile   *conffile,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
+	/* If we update 'stanzas' to allow content in init.conf, this
+	 * function must be updated in a similar manner to parse_job()
+	 * to handle overrides files.
+	 */
+	nih_assert (sizeof(stanzas) / sizeof(stanzas[0]) == 1);
+
 	if (nih_config_parse_file (file, len, pos, lineno,
 				   stanzas, conffile) < 0)
 		return -1;

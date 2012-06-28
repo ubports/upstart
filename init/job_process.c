@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -23,12 +23,15 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+/* Required for pty handling */
+#define _XOPEN_SOURCE   600
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/ptrace.h>
 #include <sys/resource.h>
+#include <sys/ioctl.h>
 
 #include <time.h>
 #include <errno.h>
@@ -38,6 +41,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <utmp.h>
+#include <utmpx.h>
+#include <pwd.h>
+#include <libgen.h>
+#include <termios.h>
+#include <grp.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -46,6 +55,7 @@
 #include <nih/io.h>
 #include <nih/logging.h>
 #include <nih/error.h>
+#include <nih-dbus/dbus_util.h>
 
 #include "paths.h"
 #include "system.h"
@@ -79,6 +89,13 @@ typedef struct job_process_wire_error {
 	int                 errnum;
 } JobProcessWireError;
 
+/**
+ * log_dir:
+ *
+ * Full path to directory where job logs are written.
+ *
+ **/
+char *log_dir = NULL;
 
 /* Prototypes for static functions */
 static void job_process_error_abort     (int fd, JobProcessErrorType type,
@@ -86,7 +103,17 @@ static void job_process_error_abort     (int fd, JobProcessErrorType type,
 	__attribute__ ((noreturn));
 static int  job_process_error_read      (int fd)
 	__attribute__ ((warn_unused_result));
+static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd);
 
+/**
+ * disable_job_logging:
+ *
+ * If TRUE, do not log any job output.
+ *
+ **/
+int disable_job_logging = 0;
+
+/* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
 static void job_process_terminated      (Job *job, ProcessType process,
 					 int status);
@@ -114,7 +141,7 @@ static void job_process_trace_exec      (Job *job, ProcessType process);
  * characters within the command member, in which case it is executed
  * directly using exec after splitting on whitespace.
  *
- * When exectued with the shell, if the command (which may be an entire
+ * When executed with the shell, if the command (which may be an entire
  * script) is reasonably small (less than 1KB) it is passed to the
  * shell using the POSIX-specified -c option.  Otherwise the shell is told
  * to read commands from one of the special /proc/self/fd/NN devices and NihIo
@@ -142,7 +169,8 @@ job_process_run (Job         *job,
 	nih_local char  *script = NULL;
 	char           **e;
 	size_t           argc, envc;
-	int              error = FALSE, fds[2], trace = FALSE, shell = FALSE;
+	int              fds[2] = { -1, -1 };
+	int              error = FALSE, trace = FALSE, shell = FALSE;
 
 	nih_assert (job != NULL);
 
@@ -205,12 +233,9 @@ job_process_run (Job         *job,
 
 			shell = TRUE;
 
-			/* FIXME actually always want it to be /proc/self/fd/3 and
-			 * dup2() in the child to make it that way ... no way
-			 * of passing that yet
-			 */
 			cmd = NIH_MUST (nih_sprintf (argv, "%s/%d",
-						     "/proc/self/fd", fds[0]));
+						     "/proc/self/fd",
+						     JOB_PROCESS_SCRIPT_FD));
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
@@ -255,8 +280,8 @@ job_process_run (Job         *job,
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = job_process_spawn (job->class, argv,
-						       env, trace)) < 0) {
+	while ((job->pid[process] = job_process_spawn (job, argv, env,
+					trace, fds[0], process)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -313,6 +338,14 @@ job_process_run (Job         *job,
 			nih_free (err);
 		}
 
+		/* We're feeding using a pipe, which has a file descriptor
+		 * on the child end even though it open()s it again using
+		 * a path. Instruct the shell to close this extra fd and
+		 * not to leak it.
+		 */
+		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n",
+					 JOB_PROCESS_SCRIPT_FD));
+
 		NIH_ZERO (nih_io_write (io, script, strlen (script)));
 		nih_io_shutdown (io);
 	}
@@ -323,24 +356,29 @@ job_process_run (Job         *job,
 
 /**
  * job_process_spawn:
- * @class: job class of process to be spawned,
+ * @job: job of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
- * @trace: whether to trace this process.
+ * @trace: whether to trace this process,
+ * @script_fd: script file descriptor,
+ * @process: job process to spawn.
  *
- * This function spawns a new process using the @class details to set up the
- * environment for it; the process is always a session and process group
+ * This function spawns a new process using the class details in @job to set up
+ * the environment for it; the process is always a session and process group
  * leader as we never want anything in our own group.
  *
  * The process to be executed is given in the @argv array which is passed
  * directly to execvp(), so should be in the same NULL-terminated form with
  * the first argument containing the path or filename of the binary.  The
- * PATH environment in @class will be searched.
+ * PATH environment in the @job's associated class will be searched.
  *
  * If @trace is TRUE, the process will be traced with ptrace and this will
  * cause the process to be stopped when the exec() call is made.  You must
  * wait for this and then may use it to set options before continuing the
  * process.
+ *
+ * If @script_fd is not -1, this file descriptor is dup()d to the special fd 9
+ * (moving any other out of the way if necessary).
  *
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and that the process is watched,
@@ -354,24 +392,106 @@ job_process_run (Job         *job,
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-job_process_spawn (JobClass     *class,
+job_process_spawn (Job          *job,
 		   char * const  argv[],
 		   char * const *env,
-		   int           trace)
+		   int           trace,
+		   int           script_fd,
+		   ProcessType   process)
 {
-	sigset_t  child_set, orig_set;
-	pid_t     pid;
-	int       i, fds[2];
-	char      filename[PATH_MAX];
-	FILE     *fd;
+	sigset_t        child_set, orig_set;
+	pid_t           pid;
+	int             i, fds[2];
+	int             pty_master = -1;
+	int             pty_slave = -1;
+	char            pts_name[PATH_MAX];
+	char            filename[PATH_MAX];
+	FILE           *fd;
+	int             user_job = FALSE;
+	nih_local char *user_dir = NULL;
+	nih_local char *log_path = NULL;
+	JobClass       *class;
+	uid_t           job_setuid = -1;
+	gid_t           job_setgid = -1;
+
+
+	nih_assert (job != NULL);
+	nih_assert (job->class != NULL);
+	nih_assert (job->log != NULL);
+	nih_assert (process < PROCESS_LAST);
+
+	class = job->class;
 
 	nih_assert (class != NULL);
+
+	if (class && class->session && class->session->user)
+		user_job = TRUE;
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
 	 */
 	if (pipe (fds) < 0)
 		nih_return_system_error (-1);
+
+	/* Logging of user job output is not currently possible */
+	if (class->console == CONSOLE_LOG) {
+		if (disable_job_logging || user_job)
+			class->console = CONSOLE_NONE;
+	}
+
+	if (class->console == CONSOLE_LOG) {
+		NihError *err;
+
+		/* Ensure log destroyed for previous matching job process
+		 * (occurs when job restarted but previous process has not
+		 * yet been reaped).
+		 */
+		if (job->log[process]) {
+			nih_free (job->log[process]);
+			job->log[process] = NULL;
+		}
+
+		log_path = job_process_log_path (job, 0);
+
+		if (! log_path) {
+			/* Consume and re-raise */
+			err = nih_error_get ();
+			nih_assert (err->number == ENOMEM);
+			nih_free (err);
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_no_memory_error(-1);
+		}
+
+		pty_master = posix_openpt (O_RDWR | O_NOCTTY);
+
+		if (pty_master < 0) {
+			nih_error (_("Failed to create pty - disabling logging for job"));
+
+			/* Ensure that the job can still be started by
+			 * disabling logging.
+			 */
+			class->console = CONSOLE_NONE;
+
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_system_error (-1);
+		}
+
+		/* Stop any process created _before_ the log object below is
+		 * freed from inheriting this fd.
+		 */
+		nih_io_set_cloexec (pty_master);
+
+		/* pty_master will be closed by log_destroy() */
+		job->log[process] = log_new (job->log, log_path, pty_master, 0);
+		if (! job->log[process]) {
+			close (pty_master);
+			close (fds[0]);
+			close (fds[1]);
+			nih_return_system_error (-1);
+		}
+	}
 
 	/* Block all signals while we fork to avoid the child process running
 	 * our own signal handlers before we've reset them all back to the
@@ -380,20 +500,42 @@ job_process_spawn (JobClass     *class,
 	sigfillset (&child_set);
 	sigprocmask (SIG_BLOCK, &child_set, &orig_set);
 
+	/* Ensure that any lingering data in stdio buffers is flushed
+	 * to avoid the child getting a copy of it.
+	 * If not done, CONSOLE_LOG jobs may end up with unexpected data
+	 * in their logs if we run with for example '--debug'.
+	 */
+	fflush (NULL);
+
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
 	 */
 	pid = fork ();
 	if (pid > 0) {
+		if (class->debug) {
+			nih_info (_("Pausing %s (%d) [pre-exec] for debug"),
+			  class->name, pid);
+		}
+
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
 		/* Read error from the pipe, return if one is raised */
 		if (job_process_error_read (fds[0]) < 0) {
+			if (class->console == CONSOLE_LOG) {
+				/* Ensure the pty_master watch gets
+				 * removed and the fd closed.
+				 */
+				nih_free (job->log[process]);
+				job->log[process] = NULL;
+			}
 			close (fds[0]);
 			return -1;
 		}
 
+		/* Note that pts_master is closed automatically in the parent when the
+		 * log object is destroyed.
+		 */
 		close (fds[0]);
 		return pid;
 	} else if (pid < 0) {
@@ -402,9 +544,12 @@ job_process_spawn (JobClass     *class,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[0]);
 		close (fds[1]);
+		if (class->console == CONSOLE_LOG) {
+			nih_free (job->log[process]);
+			job->log[process] = NULL;
+		}
 		return -1;
 	}
-
 
 	/* We're now in the child process.
 	 *
@@ -418,20 +563,182 @@ job_process_spawn (JobClass     *class,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
+
+	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
+
+	if (class->console == CONSOLE_LOG) {
+		struct sigaction act;
+		struct sigaction ignore;
+
+		job_process_remap_fd (&pty_master, JOB_PROCESS_SCRIPT_FD, fds[1]);
+
+		/* Child is the slave, so won't need this */
+		nih_io_set_cloexec (pty_master);
+
+		/* Temporarily disable child handler as grantpt(3) disallows one
+		 * being in effect when called.
+		 */
+		ignore.sa_handler = SIG_DFL;
+		ignore.sa_flags = 0;
+		sigemptyset (&ignore.sa_mask);
+
+		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		if (grantpt (pty_master) < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		/* Restore child handler */
+		if (sigaction (SIGCHLD, &act, NULL) < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+		}
+
+		if (unlockpt (pty_master) < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_UNLOCKPT, 0);
+		}
+
+		if (ptsname_r (pty_master, pts_name, sizeof(pts_name)) < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_PTSNAME, 0);
+		}
+
+		pty_slave = open (pts_name, O_RDWR | O_NOCTTY);
+
+		if (pty_slave < 0) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_SLAVE, 0);
+		}
+
+		job_process_remap_fd (&pty_slave, JOB_PROCESS_SCRIPT_FD, fds[1]);
+	}
+
+	/* Move the script fd to special fd 9; the only gotcha is if that
+	 * would be our error descriptor, but that's handled above.
+	 */
+	if ((script_fd != -1) && (script_fd != JOB_PROCESS_SCRIPT_FD)) {
+		int tmp = dup2 (script_fd, JOB_PROCESS_SCRIPT_FD);
+		if (tmp < 0)
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		close (script_fd);
+		script_fd = tmp;
+	}
 
 	/* Become the leader of a new session and process group, shedding
 	 * any controlling tty (which we shouldn't have had anyway).
 	 */
 	setsid ();
 
+	/* Set the process environment from the function paramters. */
+	environ = (char **)env;
+
+	/* Handle unprivileged user job by dropping privileges to
+	 * their level as soon as possible to avoid privilege
+	 * escalations when we set resource limits.
+	 */
+	if (user_job) {
+		uid_t uid = class->session->user;
+		struct passwd *pw = NULL;
+
+		/* D-Bus does not expose a public API call to allow
+		 * us to query a users primary group.
+		 * _dbus_user_info_fill_uid () seems to exist for this
+		 * purpose, but is a "secret" API. It is unclear why
+		 * D-Bus neglects the gid when it allows the uid
+		 * to be queried directly.
+		 *
+		 * Our only recourse is to disallow user sessions in a
+		 * chroot and assume that all other user sessions
+		 * originate from the local system. In this way, we can
+		 * bypass D-Bus and use getpwuid ().
+		 */
+
+		if (class->session->chroot) {
+			/* We cannot determine the group id of the user
+			 * session in the chroot via D-Bus, so disallow
+			 * all jobs in such an environment.
+			 */
+			nih_return_error (-1, EPERM, "user jobs not supported in chroots");
+		}
+
+		pw = getpwuid (uid);
+
+		if (!pw)
+			nih_return_system_error (-1);
+
+		nih_assert (pw->pw_uid == uid);
+
+		if (! pw->pw_dir) {
+			nih_local char *message = NIH_MUST (nih_sprintf (NULL,
+						"no home directory for user with uid %d",
+						uid));
+
+			nih_return_error (-1, ENOENT, message);
+
+		}
+
+		/* Note we don't use NIH_MUST since this could result in a
+		 * DoS for a (low priority) user job in low-memory scenarios.
+		 */
+		user_dir = nih_strdup (NULL, pw->pw_dir);
+
+		if (! user_dir)
+			nih_return_no_memory_error (-1);
+
+		/* Ensure the file associated with fd 9
+		 * (/proc/self/fd/9) is owned by the user we're about to
+		 * become to avoid EPERM.
+		 */
+		if (script_fd != -1 && fchown (script_fd, pw->pw_uid, pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
+		}
+
+		if (pw->pw_gid && setgid (pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
+		}
+
+		if (pw->pw_uid && setuid (pw->pw_uid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+		}
+	}
+
 	/* Set the standard file descriptors to an output of our chosing;
 	 * any other open descriptor must be intended for the child, or have
 	 * the FD_CLOEXEC flag so it's automatically closed when we exec()
 	 * later.
 	 */
-	if (system_setup_console (class->console, FALSE) < 0)
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	if (system_setup_console (class->console, FALSE) < 0) {
+		if (class->console == CONSOLE_OUTPUT) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_warn (_("Failed to open system console: %s"),
+				  err->message);
+			nih_free (err);
+
+			if (system_setup_console (CONSOLE_NONE, FALSE) < 0)
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+		} else
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CONSOLE, 0);
+	}
+
+	if (class->console == CONSOLE_LOG) {
+		/* Redirect stdout and stderr to the logger fd */
+		if (dup2 (pty_slave, STDOUT_FILENO) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		}
+
+		if (dup2 (pty_slave, STDERR_FILENO) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		}
+
+		close (pty_slave);
+	}
 
 	/* Set resource limits for the process, skipping over any that
 	 * aren't set in the job class such that they inherit from
@@ -448,9 +755,6 @@ job_process_spawn (JobClass     *class,
 		}
 	}
 
-	/* Set the process environment from the function paramters. */
-	environ = (char **)env;
-
 	/* Set the file mode creation mask; this is one of the few operations
 	 * that can never fail.
 	 */
@@ -466,21 +770,39 @@ job_process_spawn (JobClass     *class,
 
 	/* Adjust the process OOM killer priority.
 	 */
-	if (class->oom_adj) {
+	if (class->oom_score_adj != JOB_DEFAULT_OOM_SCORE_ADJ) {
+		int oom_value;
 		snprintf (filename, sizeof (filename),
-			  "/proc/%d/oom_adj", getpid ());
-
+			  "/proc/%d/oom_score_adj", getpid ());
+		oom_value = class->oom_score_adj;
 		fd = fopen (filename, "w");
+		if ((! fd) && (errno == ENOENT)) {
+			snprintf (filename, sizeof (filename),
+				  "/proc/%d/oom_adj", getpid ());
+			oom_value = (class->oom_score_adj
+				     * ((class->oom_score_adj < 0) ? 17 : 15)) / 1000;
+			fd = fopen (filename, "w");
+		}
 		if (! fd) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 		} else {
-			fprintf (fd, "%d\n", class->oom_adj);
+			fprintf (fd, "%d\n", oom_value);
 
 			if (fclose (fd)) {
 				nih_error_raise_system ();
 				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
 			}
+		}
+	}
+
+	/* Handle changing a chroot session job prior to dealing with
+	 * the 'chroot' stanza.
+	 */
+	if (class->session && class->session->chroot) {
+		if (chroot (class->session->chroot) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHROOT, 0);
 		}
 	}
 
@@ -500,11 +822,73 @@ job_process_spawn (JobClass     *class,
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (class->chdir ? class->chdir : "/") < 0) {
+	if (chdir (class->chdir ? class->chdir : user_job ? user_dir : "/") < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
 	}
 
+	/* Change the user and group of the process to the one
+	 * configured in the job. We must wait until now to lookup the
+	 * UID and GID from the names to accommodate both chroot
+	 * session jobs and jobs with a chroot stanza.
+	 */
+	if (class->setuid) {
+		struct passwd *pwd;
+		/* Without resetting errno, it's impossible to
+		 * distinguish between a non-existent user and and
+		 * error during lookup */
+		errno = 0;
+		pwd = getpwnam (class->setuid);
+		if (! pwd) {
+			if (errno != 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWNAM, 0);
+			} else {
+				nih_error_raise (JOB_PROCESS_INVALID_SETUID,
+						 JOB_PROCESS_INVALID_SETUID_STR);
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETUID, 0);
+			}
+		}
+
+		job_setuid = pwd->pw_uid;
+		/* This will be overridden if setgid is also set: */
+		job_setgid = pwd->pw_gid;
+	}
+
+	if (class->setgid) {
+		struct group *grp;
+		errno = 0;
+		grp = getgrnam (class->setgid);
+		if (! grp) {
+			if (errno != 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRNAM, 0);
+			} else {
+				nih_error_raise (JOB_PROCESS_INVALID_SETGID,
+						 JOB_PROCESS_INVALID_SETGID_STR);
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETGID, 0);
+			}
+		}
+
+		job_setgid = grp->gr_gid;
+	}
+
+	if (script_fd != -1 &&
+	    (job_setuid != (uid_t) -1 || job_setgid != (gid_t) -1) &&
+	    fchown (script_fd, job_setuid, job_setgid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
+	}
+
+	if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
+	}
+
+	if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
+		nih_error_raise_system ();
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+	}
 
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
@@ -512,6 +896,23 @@ job_process_spawn (JobClass     *class,
 	 */
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
+
+	/* Notes:
+	 *
+	 * - we can't use pause() here since there would then be no way to
+	 *   resume the process without killing it.
+	 *
+	 * - we have to close the pipe back to the parent since if we don't,
+	 *   the parent hangs until the STOP is cleared. Although this may be
+	 *   acceptable for normal operation, this causes the test suite to
+	 *   fail. Note that closing the pipe means from this point onwards,
+	 *   the parent cannot know the true outcome of the spawn: that
+	 *   responsibility lies with the debugger.
+	 */
+	if (class->debug) {
+		close (fds[1]);
+		raise (SIGSTOP);
+	}
 
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {
@@ -620,6 +1021,11 @@ job_process_error_read (int fd)
 	err->error.number = JOB_PROCESS_ERROR;
 
 	switch (err->type) {
+	case JOB_PROCESS_ERROR_DUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to move script fd: %s"),
+				  strerror (err->errnum)));
+		break;
 	case JOB_PROCESS_ERROR_CONSOLE:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to open console: %s"),
@@ -710,6 +1116,59 @@ job_process_error_read (int fd)
 				  err, _("unable to execute: %s"),
 				  strerror (err->errnum)));
 		break;
+	case JOB_PROCESS_ERROR_GETPWNAM:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getpwnam: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_GETGRNAM:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getgrnam: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_BAD_SETUID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to find setuid user")));
+		break;
+	case JOB_PROCESS_ERROR_BAD_SETGID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to find setgid group")));
+		break;
+	case JOB_PROCESS_ERROR_SETUID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setuid: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_SETGID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setgid: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CHOWN:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to chown: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_OPENPT_MASTER:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to open pt master: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_UNLOCKPT:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to unlockpt: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_PTSNAME:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to get ptsname: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_OPENPT_SLAVE:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to open pt slave: %s"),
+				  strerror (err->errnum)));
+		break;
 	default:
 		nih_assert_not_reached ();
 	}
@@ -725,9 +1184,9 @@ job_process_error_read (int fd)
  * @process: process to be killed.
  *
  * This function forces a @job to leave its current state by sending
- * @process the TERM signal, and maybe later the KILL signal.  The actual
- * state changes are performed by job_child_reaper when the process
- * has actually terminated.
+ * @process the "kill signal" defined signal (TERM by default), and maybe
+ * later the KILL signal.  The actual state changes are performed by
+ * job_child_reaper when the process has actually terminated.
  **/
 void
 job_process_kill (Job         *job,
@@ -738,15 +1197,17 @@ job_process_kill (Job         *job,
 	nih_assert (job->kill_timer == NULL);
 	nih_assert (job->kill_process = -1);
 
-	nih_info (_("Sending TERM signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  nih_signal_to_name (job->class->kill_signal),
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], FALSE) < 0) {
+	if (system_kill (job->pid[process], job->class->kill_signal) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send TERM signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  nih_signal_to_name (job->class->kill_signal),
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);
@@ -786,15 +1247,17 @@ job_process_kill_timer (Job      *job,
 	job->kill_timer = NULL;
 	job->kill_process = -1;
 
-	nih_info (_("Sending KILL signal to %s %s process (%d)"),
+	nih_info (_("Sending %s signal to %s %s process (%d)"),
+		  "KILL",
 		  job_name (job), process_name (process), job->pid[process]);
 
-	if (system_kill (job->pid[process], TRUE) < 0) {
+	if (system_kill (job->pid[process], SIGKILL) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
 		if (err->number != ESRCH)
-			nih_warn (_("Failed to send KILL signal to %s %s process (%d): %s"),
+			nih_warn (_("Failed to send %s signal to %s %s process (%d): %s"),
+				  "KILL",
 				  job_name (job), process_name (process),
 				  job->pid[process], err->message);
 		nih_free (err);
@@ -824,6 +1287,7 @@ job_process_handler (void           *data,
 {
 	Job         *job;
 	ProcessType  process;
+	NihLogLevel  priority;
 	const char  *sig;
 
 	nih_assert (pid > 0);
@@ -832,10 +1296,20 @@ job_process_handler (void           *data,
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
 	 */
-	nih_debug ("Ignored event %x (%d) for process %d", event, status, pid);
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
+
+	/* Check the job's normal exit clauses to see whether this is a failure
+	 * worth warning about.
+	 */
+	priority = NIH_LOG_WARN;
+	for (size_t i = 0; i < job->class->normalexit_len; i++) {
+		if (job->class->normalexit[i] == status) {
+			priority = NIH_LOG_INFO;
+			break;
+		}
+	}
 
 	switch (event) {
 	case NIH_CHILD_EXITED:
@@ -843,10 +1317,10 @@ job_process_handler (void           *data,
 		 * normally (zero) or with a non-zero status.
 		 */
 		if (status) {
-			nih_warn (_("%s %s process (%d) "
-				    "terminated with status %d"),
-				  job_name (job), process_name (process),
-				  pid, status);
+			nih_log_message (priority, _("%s %s process (%d) "
+						     "terminated with status %d"),
+					 job_name (job), process_name (process),
+					 pid, status);
 		} else {
 			nih_info (_("%s %s process (%d) exited normally"),
 				  job_name (job), process_name (process), pid);
@@ -863,9 +1337,9 @@ job_process_handler (void           *data,
 		 */
 		sig = nih_signal_to_name (status);
 		if (sig) {
-			nih_warn (_("%s %s process (%d) killed by %s signal"),
-				  job_name (job), process_name (process),
-				  pid, sig);
+			nih_log_message (priority, _("%s %s process (%d) killed by %s signal"),
+					 job_name (job), process_name (process),
+					 pid, sig);
 		} else {
 			nih_warn (_("%s %s process (%d) killed by signal %d"),
 				  job_name (job), process_name (process),
@@ -965,6 +1439,8 @@ job_process_terminated (Job         *job,
 			int          status)
 {
 	int failed = FALSE, stop = FALSE, state = TRUE;
+	struct utmpx *utmptr;
+	struct timeval tv;
 
 	nih_assert (job != NULL);
 
@@ -1126,6 +1602,58 @@ job_process_terminated (Job         *job,
 		job->kill_timer = NULL;
 		job->kill_process = -1;
 	}
+
+	if (job->class->console == CONSOLE_LOG && job->log[process]) {
+		int  ret;
+
+		/* It is imperative that we free the log at this stage to ensure
+		 * that jobs which respawn have their log written _now_
+		 * (and not just when the overall Job object is freed at
+		 * some distant future point).
+		 */
+		ret = log_handle_unflushed (job->log, job->log[process]);
+
+		if (ret != 0) {
+			if (ret < 0) {
+				/* Any lingering data will now be lost in what
+				 * is probably a low-memory scenario.
+				 */
+				nih_warn (_("Failed to add log to unflushed queue"));
+			}
+			nih_free (job->log[process]);
+		}
+
+		/* Either the log has been freed, or it needs to be
+		 * severed from its parent job fully.
+		 */
+		job->log[process] = NULL;
+	}
+
+	/* Find existing utmp entry for the process pid */
+	setutxent();
+	while ((utmptr = getutxent()) != NULL) {
+		if (utmptr->ut_pid == job->pid[process]) {
+			/* set type and clean ut_user, ut_host,
+			 * ut_time as described in utmp(5)
+			 */
+			utmptr->ut_type = DEAD_PROCESS;
+			memset(utmptr->ut_user, 0, UT_NAMESIZE);
+			memset(utmptr->ut_host, 0, UT_HOSTSIZE);
+			utmptr->ut_time = 0;
+			/* Update existing utmp file. */
+			pututxline(utmptr);
+
+			/* set ut_time for log */
+			gettimeofday(&tv, NULL);
+			utmptr->ut_tv.tv_sec = tv.tv_sec;
+			utmptr->ut_tv.tv_usec = tv.tv_usec;
+			/* Write wtmp entry */
+			updwtmpx (_PATH_WTMP, utmptr);
+
+			break;
+		}
+	}
+	endutxent();
 
 	/* Clear the process pid field */
 	job->pid[process] = 0;
@@ -1509,4 +2037,133 @@ job_process_find (pid_t        pid,
 	}
 
 	return NULL;
+}
+
+/**
+ * job_process_log_path:
+ *
+ * @job: Job,
+ * @user_job: TRUE if @job refers to a non-root job, else FALSE.
+ *
+ * Determine full path to on-disk log file for specified @job.
+ *
+ * This differs depending on whether the job is a system job or a user job.
+ * Instance names are appended to the log name.
+ *
+ * Returns: newly allocated log path string, or NULL on raised error.
+ **/
+char *
+job_process_log_path (Job *job, int user_job)
+{
+	JobClass        *class = NULL;
+	char            *log_path = NULL;
+	nih_local char  *dir = NULL;
+	nih_local char  *class_name = NULL;
+	char            *p;
+
+	nih_assert (job);
+	nih_assert (job->class);
+
+	/* Logging of user job output not currently supported */
+	nih_assert (user_job == 0);
+
+	class = job->class;
+
+	nih_assert (class->name);
+
+	/* Override, primarily for tests */
+	if (getenv (LOGDIR_ENV)) {
+		dir = nih_strdup (NULL, getenv (LOGDIR_ENV));
+		nih_debug ("Using alternative directory '%s' for logs", dir);
+	} else {
+		dir = nih_strdup (NULL, log_dir ? log_dir : JOB_LOGDIR);
+	}
+
+	if (! dir)
+		nih_return_no_memory_error (NULL);
+
+	class_name = nih_strdup (NULL, class->name);
+
+	if (! class_name)
+		nih_return_no_memory_error (NULL);
+
+	/* Remap slashes since we write all logs to the
+	 * same directory.
+	 */
+	p = class_name;
+
+	while (*p) {
+		if (*p == JOB_PROCESS_LOG_REMAP_FROM_CHAR)
+			*p = JOB_PROCESS_LOG_REMAP_TO_CHAR;
+		p++;
+	}
+
+	/* Handle jobs with multiple instances */
+	if (job->name && *job->name) {
+		nih_local char *instance_name = NULL;
+
+		instance_name = nih_strdup (NULL, job->name);
+		if (! instance_name)
+			nih_return_no_memory_error (NULL);
+
+		p = instance_name;
+
+		while (*p) {
+			if (*p == JOB_PROCESS_LOG_REMAP_FROM_CHAR)
+				*p = JOB_PROCESS_LOG_REMAP_TO_CHAR;
+			p++;
+		}
+
+
+		log_path = nih_sprintf (NULL, "%s/%s-%s%s",
+					dir,
+					class_name,
+					instance_name,
+					JOB_PROCESS_LOG_FILE_EXT);
+	} else {
+		log_path = nih_sprintf (NULL, "%s/%s%s",
+					dir,
+					class_name,
+					JOB_PROCESS_LOG_FILE_EXT);
+	}
+
+	if (! log_path)
+		nih_return_no_memory_error (NULL);
+
+	return log_path;
+}
+
+/**
+ * job_process_remap_fd:
+ *
+ * @fd: pointer to fd to potentially remap,
+ * @reserved_fd: reserved fd value,
+ * @error_fd: fd to report errors on,
+ *
+ * Remap @fd to a new value iff it has the same value as @reserved_fd.
+ *
+ * Errors are reported via @error_fd and are fatal.
+ *
+ * Notes:
+ *
+ * - File descriptor flags are not retained.
+ * - It is permissible for @error_fd to have the same value as @fd.
+ **/
+static void
+job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
+{
+	int new = -1;
+
+	nih_assert (fd);
+	nih_assert (reserved_fd);
+	nih_assert (error_fd);
+
+	if (*fd != reserved_fd)
+		return;
+
+	new = dup (*fd);
+	if (new < 0)
+		job_process_error_abort (error_fd, JOB_PROCESS_ERROR_DUP, 0);
+	close (*fd);
+	*fd = new;
 }
