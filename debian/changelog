@@ -1,3 +1,9 @@
+upstart (0.6.6-2) unstable; urgency=low
+
+  * New maintainer. Closes: #624440.
+
+ -- Scott James Remnant <scott@netsplit.com>  Thu, 28 Apr 2011 14:33:39 -0700
+
 upstart (0.6.6-1) unstable; urgency=low
 
   * New upstream release.
