@@ -21,7 +21,6 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -38,6 +37,10 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
 
 #include <linux/kd.h>
 
@@ -171,6 +174,25 @@ main (int   argc,
 {
 	char **args;
 	int    ret;
+#ifdef HAVE_SELINUX
+	int    enforce = 0;
+
+	if (getenv ("SELINUX_INIT") == NULL) {
+		putenv ("SELINUX_INIT=YES");
+		if (selinux_init_load_policy (&enforce) == 0 ) {
+			execv (argv[0], argv);
+		} else {
+			if (enforce > 0) {
+				/* SELinux in enforcing mode but load_policy
+				 * failed. At this point, we probably can't
+				 * open /dev/console, so log() won't work.
+				 */
+				fprintf (stderr, "Unable to load SELinux Policy. Machine is in enforcing mode. Halting now.\n");
+				exit (1);
+			}
+		}
+	}
+#endif /* HAVE_SELINUX */
 
 	argv0 = argv[0];
 	nih_main_init (argv0);

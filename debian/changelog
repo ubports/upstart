@@ -19,6 +19,8 @@ upstart (1.5-1) UNRELEASED; urgency=low
   * Add /var/log/upstart directory and logrotate support.
   * Don't re-exec init on upgrade, we don't currently support stateful
     re-exec.
+  * Switch to source format 1.0 for consistency with Ubuntu and for sane(r)
+    VCS handling.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
 

@@ -5,7 +5,8 @@ initconfdir = $(sysconfdir)/init
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
-	$(DBUS_CFLAGS)
+	$(DBUS_CFLAGS) \
+	$(SELINUX_CFLAGS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -62,6 +63,7 @@ init_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
+	$(SELINUX_LIBS) \
 	-lrt
 
 
