@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [0.6.6], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2010 Canonical Ltd.]])
+AC_INIT([upstart], [1.5], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2012 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -30,6 +30,9 @@ NIH_WITH_LOCAL_LIBNIH
 PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
+PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
+
+AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h])
@@ -64,6 +67,7 @@ NIH_LINKER_OPTIMISATIONS
 
 AC_CONFIG_FILES([ Makefile intl/Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
-		  doc/Makefile contrib/Makefile po/Makefile.in ])
+		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
+		  scripts/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

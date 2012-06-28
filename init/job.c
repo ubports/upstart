@@ -2,7 +2,7 @@
  *
  * job.c - core state machine of tasks and services
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,7 @@
 #include "events.h"
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "job_process.h"
@@ -99,8 +100,14 @@ job_new (JobClass   *class,
 
 	job->class = class;
 
-	job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
-				   class->name, job->name, NULL);
+	if (job->class->session && job->class->session->chroot) {
+		/* JobClass already contains a valid D-Bus path prefix for the job */
+		job->path = nih_dbus_path (job, class->path, job->name, NULL);
+	} else {
+		job->path = nih_dbus_path (job, DBUS_PATH_UPSTART, "jobs",
+				class->name, job->name, NULL);
+	}
+
 	if (! job->path)
 		goto error;
 
@@ -118,12 +125,28 @@ job_new (JobClass   *class,
 			goto error;
 	}
 
+	job->fds = NULL;
+	job->num_fds = 0;
+
 	job->pid = nih_alloc (job, sizeof (pid_t) * PROCESS_LAST);
 	if (! job->pid)
 		goto error;
 
 	for (i = 0; i < PROCESS_LAST; i++)
 		job->pid[i] = 0;
+
+	/* Each job process needs its own log object to ensure sane
+	 * behaviour: consider a post-start that starts and ends
+	 * before the main process ends: it will be reaped (and its log
+	 * flushed) before the main process has a chance to have its log
+	 * drained.
+	 */
+	job->log = nih_alloc (job, sizeof (Log *) * PROCESS_LAST);
+	if (! job->log)
+		goto error;
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		job->log[i] = NULL;
 
 	job->blocker = NULL;
 	nih_list_init (&job->blocking);
@@ -225,6 +248,15 @@ job_change_goal (Job     *job,
 
 	job->goal = goal;
 
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_goal_changed (
+				conn, job->path,
+				job_goal_name (job->goal)));
+	}
+
 
 	/* Normally whatever process or event is associated with the state
 	 * will finish naturally, so all we need do is change the goal and
@@ -287,6 +319,15 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
+
+		NIH_LIST_FOREACH (control_conns, iter) {
+			NihListEntry   *entry = (NihListEntry *)iter;
+			DBusConnection *conn = (DBusConnection *)entry->data;
+
+			NIH_ZERO (job_emit_state_changed (
+					conn, job->path,
+					job_state_name (job->state)));
+		}
 
 		/* Perform whatever action is necessary to enter the new
 		 * state, such as executing a process or emitting an event.
@@ -648,6 +689,13 @@ job_failed (Job         *job,
 	job->failed_process = process;
 	job->exit_status = status;
 
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_failed (conn, job->path, status));
+	}
+
 	job_finished (job, TRUE);
 }
 
@@ -881,6 +929,7 @@ job_emit_event (Job *job)
 	}
 
 	event = NIH_MUST (event_new (NULL, name, env));
+	event->session = job->class->session;
 
 	if (block) {
 		Blocked *blocked;
@@ -1077,10 +1126,21 @@ job_start (Job             *job,
 	   NihDBusMessage  *message,
 	   int              wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_START) {
 		nih_dbus_error_raise_printf (
@@ -1141,10 +1201,21 @@ job_stop (Job            *job,
 	  NihDBusMessage *message,
 	  int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (
@@ -1206,10 +1277,21 @@ job_restart (Job            *job,
 	     NihDBusMessage *message,
 	     int             wait)
 {
+	Session *session;
 	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
 
 	if (job->goal == JOB_STOP) {
 		nih_dbus_error_raise_printf (

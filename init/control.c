@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,8 +25,10 @@
 
 #include <dbus/dbus.h>
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -46,6 +48,7 @@
 #include "dbus/upstart.h"
 
 #include "environ.h"
+#include "session.h"
 #include "job_class.h"
 #include "blocked.h"
 #include "conf.h"
@@ -54,12 +57,19 @@
 
 #include "com.ubuntu.Upstart.h"
 
-
 /* Prototypes for static functions */
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
 
+/**
+ * use_session_bus:
+ *
+ * If TRUE, connect to the D-Bus session bus rather than the system bus.
+ *
+ * Used for testing.
+ **/
+int use_session_bus = FALSE;
 
 /**
  * control_server_address:
@@ -78,7 +88,7 @@ DBusServer *control_server = NULL;
 /**
  * control_bus:
  *
- * Open connection to D-Bus system bus.  The connection may be opened with
+ * Open connection to a D-Bus bus.  The connection may be opened with
  * control_bus_open() and if lost will become NULL.
  **/
 DBusConnection *control_bus = NULL;
@@ -86,7 +96,7 @@ DBusConnection *control_bus = NULL;
 /**
  * control_conns:
  *
- * Open control connections, including the connection to the D-Bus system
+ * Open control connections, including the connection to a D-Bus
  * bus and any private client connections.
  **/
 NihList *control_conns = NULL;
@@ -190,8 +200,9 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
- * Open a connection to the D-Bus system bus and store it in the control_bus
- * global.  The connection is handled automatically in the main loop.
+ * Open a connection to the appropriate D-Bus bus and store it in the
+ * control_bus global. The connection is handled automatically
+ * in the main loop.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -207,10 +218,13 @@ control_bus_open (void)
 
 	control_init ();
 
+	control_handle_bus_type ();
+
 	/* Connect to the D-Bus System Bus and hook everything up into
 	 * our own main loop automatically.
 	 */
-	conn = nih_dbus_bus (DBUS_BUS_SYSTEM, control_disconnected);
+	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+			     control_disconnected);
 	if (! conn)
 		return -1;
 
@@ -382,7 +396,9 @@ control_get_job_by_name (void            *data,
 			 const char      *name,
 			 char           **job)
 {
-	JobClass *class;
+	Session  *session;
+	JobClass *class = NULL;
+	JobClass *global_class = NULL;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
@@ -397,8 +413,30 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
-	/* Lookup the job and copy its path into the reply */
-	class = (JobClass *)nih_hash_lookup (job_classes, name);
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Lookup the job */
+	class = (JobClass *)nih_hash_search (job_classes, name, NULL);
+
+	while (class && (class->session != session)) {
+
+		/* Found a match in the global session which may be used
+		 * later if no matching user session job exists.
+		 */
+		if ((! class->session) && (session && ! session->chroot))
+			global_class = class;
+
+		class = (JobClass *)nih_hash_search (job_classes, name,
+				&class->entry);
+	}
+
+	/* If no job with the given name exists in the appropriate
+	 * session, look in the global namespace (aka the NULL session).
+	 */ 
+	if (! class)
+		class = global_class;
+
 	if (! class) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.UnknownJob",
@@ -406,6 +444,7 @@ control_get_job_by_name (void            *data,
 		return -1;
 	}
 
+	/* Copy the path */
 	*job = nih_strdup (message, class->path);
 	if (! *job)
 		nih_return_system_error (-1);
@@ -432,6 +471,7 @@ control_get_all_jobs (void             *data,
 		      NihDBusMessage   *message,
 		      char           ***jobs)
 {
+	Session *session;
 	char   **list;
 	size_t   len;
 
@@ -445,8 +485,15 @@ control_get_all_jobs (void             *data,
 	if (! list)
 		nih_return_system_error (-1);
 
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
+
+		if ((class->session || (session && session->chroot))
+		    && (class->session != session))
+			continue;
 
 		if (! nih_str_array_add (&list, message, &len,
 					 class->path)) {
@@ -462,13 +509,24 @@ control_get_all_jobs (void             *data,
 }
 
 
+int
+control_emit_event (void            *data,
+		    NihDBusMessage  *message,
+		    const char      *name,
+		    char * const    *env,
+		    int              wait)
+{
+	return control_emit_event_with_file (data, message, name, env, wait, -1);
+}
+
 /**
- * control_emit_event:
+ * control_emit_event_with_file:
  * @data: not used,
  * @message: D-Bus connection and message received,
  * @name: name of event to emit,
  * @env: environment of environment,
- * @wait: whether to wait for event completion before returning.
+ * @wait: whether to wait for event completion before returning,
+ * @file: file descriptor.
  *
  * Implements the top half of the EmitEvent method of the com.ubuntu.Upstart
  * interface, the bottom half may be found in event_finished().
@@ -488,11 +546,12 @@ control_get_all_jobs (void             *data,
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_emit_event (void            *data,
-		    NihDBusMessage  *message,
-		    const char      *name,
-		    char * const    *env,
-		    int              wait)
+control_emit_event_with_file (void            *data,
+			      NihDBusMessage  *message,
+			      const char      *name,
+			      char * const    *env,
+			      int              wait,
+			      int              file)
 {
 	Event   *event;
 	Blocked *blocked;
@@ -505,6 +564,7 @@ control_emit_event (void            *data,
 	if (! strlen (name)) {
 		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
 					     _("Name may not be empty string"));
+		close (file);
 		return -1;
 	}
 
@@ -512,19 +572,36 @@ control_emit_event (void            *data,
 	if (! environ_all_valid (env)) {
 		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
 					     _("Env must be KEY=VALUE pairs"));
+		close (file);
 		return -1;
 	}
 
 	/* Make the event and block the message on it */
 	event = event_new (NULL, name, (char **)env);
-	if (! event)
-		nih_return_system_error (-1);
+	if (! event) {
+		nih_error_raise_system ();
+		close (file);
+		return -1;
+	}
+
+	event->fd = file;
+	if (event->fd >= 0) {
+		long flags;
+
+		flags = fcntl (event->fd, F_GETFD);
+		flags &= ~FD_CLOEXEC;
+		fcntl (event->fd, F_SETFD, flags);
+	}
+
+	/* Obtain the session */
+	event->session = session_from_dbus (NULL, message);
 
 	if (wait) {
 		blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
 		if (! blocked) {
 			nih_error_raise_system ();
 			nih_free (event);
+			close (file);
 			return -1;
 		}
 
@@ -664,6 +741,66 @@ control_set_log_priority (void *          data,
 	} else {
 		nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
 				      _("The log priority given was not recognised"));
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * control_handle_bus_type:
+ *
+ * Determine D-Bus bus type to connect to.
+ **/
+void
+control_handle_bus_type (void)
+{
+	if (getenv (USE_SESSION_BUS_ENV))
+		use_session_bus = TRUE;
+
+	if (use_session_bus)
+		nih_debug ("Using session bus");
+}
+/**
+ * control_notify_disk_writeable:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ *
+ * Implements the NotifyDiskWriteable method of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to flush the job logs for all jobs that ended before the log
+ * disk became writeable.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_notify_disk_writeable (void   *data,
+		     NihDBusMessage *message)
+{
+	int       ret;
+	Session  *session;
+
+	nih_assert (message != NULL);
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	if (session && session->user) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to notify disk is writeable"));
+		return -1;
+	}
+
+	/* "nop" when run from a chroot */
+	if (session && session->chroot)
+		return 0;
+
+	ret = log_clear_unflushed ();
+
+	if (ret < 0) {
+		nih_error_raise_system ();
 		return -1;
 	}
 

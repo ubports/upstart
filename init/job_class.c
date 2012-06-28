@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,12 +26,14 @@
 
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/hash.h>
+#include <nih/tree.h>
 #include <nih/logging.h>
 
 #include <nih-dbus/dbus_error.h>
@@ -43,6 +45,7 @@
 
 #include "environ.h"
 #include "process.h"
+#include "session.h"
 #include "job_class.h"
 #include "job.h"
 #include "event_operator.h"
@@ -54,52 +57,18 @@
 #include "com.ubuntu.Upstart.Job.h"
 
 
-/**
- * JOB_DEFAULT_KILL_TIMEOUT:
- *
- * The default length of time to wait after sending a process the TERM
- * signal before sending the KILL signal if it hasn't terminated.
- **/
-#define JOB_DEFAULT_KILL_TIMEOUT 5
-
-/**
- * JOB_DEFAULT_RESPAWN_LIMIT:
- *
- * The default number of times in JOB_DEFAULT_RESPAWN_INTERVAL seconds that
- * we permit a process to respawn before stoping it
- **/
-#define JOB_DEFAULT_RESPAWN_LIMIT 10
-
-/**
- * JOB_DEFAULT_RESPAWN_INTERVAL:
- *
- * The default number of seconds before resetting the respawn timer.
- **/
-#define JOB_DEFAULT_RESPAWN_INTERVAL 5
-
-/**
- * JOB_DEFAULT_UMASK:
- *
- * The default file creation mark for processes.
- **/
-#define JOB_DEFAULT_UMASK 022
-
-/**
- * JOB_DEFAULT_ENVIRONMENT:
- *
- * Environment variables to always copy from our own environment, these
- * can be overriden in the job definition or by events since they have the
- * lowest priority.
- **/
-#define JOB_DEFAULT_ENVIRONMENT \
-	"PATH",			\
-	"TERM"
-
-
 /* Prototypes for static functions */
 static void job_class_add    (JobClass *class);
-static int  job_class_remove (JobClass *class);
+static int  job_class_remove (JobClass *class, const Session *session);
 
+/**
+ * default_console:
+ *
+ * If a job does not specify a value for the 'console' stanza, use this value.
+ *
+ * Only used if value is >= 0;
+ **/
+int default_console = -1;
 
 /**
  * job_classes:
@@ -126,13 +95,15 @@ job_class_init (void)
 
 /**
  * job_class_new:
- * @parent: parent for new job class,
- * @name: name of new job class.
  *
- * Allocates and returns a new JobClass structure with the @name given.
- * It will not be automatically added to the job classes table, it is up
- * to the caller to ensure this is done using job_class_register() once
- * the class has been set up.
+ * @parent: parent for new job class,
+ * @name: name of new job class,
+ * @session: session.
+ *
+ * Allocates and returns a new JobClass structure with the given @name
+ * and @session. It will not be automatically added to the job classes
+ * table, it is up to the caller to ensure this is done using
+ * job_class_register() once the class has been set up.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned job class.  When all parents
@@ -143,7 +114,8 @@ job_class_init (void)
  **/
 JobClass *
 job_class_new (const void *parent,
-	       const char *name)
+	       const char *name,
+	       Session    *session)
 {
 	JobClass *class;
 	int       i;
@@ -163,8 +135,41 @@ job_class_new (const void *parent,
 	if (! class->name)
 		goto error;
 
-	class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-				     class->name, NULL);
+	class->session = session;
+	if (class->session
+	    && class->session->chroot
+	    && class->session->user) {
+		nih_local char *uid = NULL;
+
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session->chroot, uid,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->chroot) {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     session->chroot,
+					     class->name, NULL);
+
+	} else if (class->session
+		   && class->session->user) {
+		nih_local char *uid = NULL;
+
+		uid = nih_sprintf (NULL, "%d", class->session->user);
+		if (! uid)
+			goto error;
+
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     uid, class->name, NULL);
+
+	} else {
+		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
+					     class->name, NULL);
+	}
 	if (! class->path)
 		goto error;
 
@@ -198,6 +203,7 @@ job_class_new (const void *parent,
 	class->task = FALSE;
 
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+	class->kill_signal = SIGTERM;
 
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
@@ -206,11 +212,11 @@ job_class_new (const void *parent,
 	class->normalexit = NULL;
 	class->normalexit_len = 0;
 
-	class->console = CONSOLE_NONE;
+	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
 	class->umask = JOB_DEFAULT_UMASK;
-	class->nice = 0;
-	class->oom_adj = 0;
+	class->nice = JOB_DEFAULT_NICE;
+	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
 		class->limits[i] = NULL;
@@ -218,7 +224,13 @@ job_class_new (const void *parent,
 	class->chroot = NULL;
 	class->chdir = NULL;
 
+	class->setuid = NULL;
+	class->setgid = NULL;
+
 	class->deleted = FALSE;
+	class->debug   = FALSE;
+
+	class->usage = NULL;
 
 	return class;
 
@@ -241,19 +253,27 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 	nih_assert (best != NULL);
+	nih_assert (best->session == class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered != best) {
 		if (registered)
-			if (! job_class_remove (registered))
+			if (! job_class_remove (registered, class->session))
 				return FALSE;
 
 		job_class_add (best);
@@ -278,18 +298,25 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered, *best;
+	JobClass *registered = NULL, *best = NULL;
 
 	nih_assert (class != NULL);
 
 	job_class_init ();
 
-	best = conf_select_job (class->name);
+	best = conf_select_job (class->name, class->session);
 
-	registered = (JobClass *)nih_hash_lookup (job_classes, class->name);
+	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != class->session)
+	{
+		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	}
+
 	if (registered == class) {
 		if (class != best) {
-			if (! job_class_remove (class))
+			if (! job_class_remove (class, class->session))
 				return FALSE;
 
 			job_class_add (best);
@@ -330,18 +357,23 @@ job_class_add (JobClass *class)
 
 /**
  * job_class_remove:
- * @class: class to remove.
+ * @class: class to remove,
+ * @session: Session of @class.
  *
  * Removes @class from the hash table and unregisters it from all current
  * D-Bus connections.
  *
  * Returns: TRUE if class could be unregistered, FALSE if there are
- * active instances that prevent unregistration.
+ * active instances that prevent unregistration, or if @session
+ * does not match the session associated with @class.
  **/
 static int
-job_class_remove (JobClass *class)
+job_class_remove (JobClass *class, const Session *session)
 {
 	nih_assert (class != NULL);
+
+	if (class->session != session)
+		return FALSE;
 
 	control_init ();
 
@@ -537,12 +569,23 @@ job_class_get_instance (JobClass        *class,
 	name = environ_expand (NULL, class->instance, instance_env);
 	if (! name) {
 		NihError *error;
+		nih_local char *error_message = NULL;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
+			error_message = nih_strdup (NULL, error->message);
+			if (! error_message)
+				nih_return_system_error (-1);
+			if (class->usage) {
+				if (! nih_strcat_sprintf (&error_message, NULL,
+							"\n%s: %s", _("Usage"), class->usage)) {
+					nih_return_system_error (-1);
+				}
+			}
+
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      error->message);
+					      error_message);
 			nih_free (error);
 		}
 
@@ -692,6 +735,7 @@ job_class_start (JobClass        *class,
 		 char * const    *env,
 		 int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **start_env = NULL;
@@ -701,6 +745,16 @@ job_class_start (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -725,12 +779,22 @@ job_class_start (JobClass        *class,
 	name = environ_expand (NULL, class->instance, start_env);
 	if (! name) {
 		NihError *error;
+		nih_local char *error_message = NULL;
 
 		error = nih_error_get ();
 		if (error->number != ENOMEM) {
 			error = nih_error_steal ();
+			error_message = nih_strdup (NULL, error->message);
+			if (! error_message)
+				nih_return_system_error (-1);
+			if (class->usage) {
+				if (! nih_strcat_sprintf (&error_message, NULL,
+							"\n%s: %s", _("Usage"), class->usage)) {
+					nih_return_system_error (-1);
+				}
+			}
 			nih_dbus_error_raise (DBUS_ERROR_INVALID_ARGS,
-					      error->message);
+					      error_message);
 			nih_free (error);
 		}
 
@@ -811,6 +875,7 @@ job_class_stop (JobClass       *class,
 		char * const   *env,
 		int             wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **stop_env = NULL;
@@ -820,6 +885,16 @@ job_class_stop (JobClass       *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -935,6 +1010,7 @@ job_class_restart (JobClass        *class,
 		   char * const    *env,
 		   int              wait)
 {
+	Session         *session;
 	Blocked         *blocked = NULL;
 	Job             *job;
 	nih_local char **restart_env = NULL;
@@ -944,6 +1020,16 @@ job_class_restart (JobClass        *class,
 	nih_assert (class != NULL);
 	nih_assert (message != NULL);
 	nih_assert (env != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -1156,6 +1242,260 @@ job_class_get_version (JobClass        *class,
 		*version = nih_strdup (message, "");
 		if (! *version)
 			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}
+
+
+/**
+ * job_class_get_start_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @start_on: pointer for reply array.
+ *
+ * Implements the get method for the start_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will start jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_start_on (JobClass *      class,
+			NihDBusMessage *message,
+			char ****       start_on)
+{
+	size_t len = 0;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (start_on != NULL);
+
+	*start_on = nih_alloc (message, sizeof (char ***));
+	if (! *start_on)
+		nih_return_no_memory_error (-1);
+
+	len = 0;
+	(*start_on)[len] = NULL;
+
+	if (class->start_on) {
+		NIH_TREE_FOREACH_POST (&class->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			*start_on = nih_realloc (*start_on, message,
+						 sizeof (char ***) * (len + 2));
+			if (! *start_on)
+				nih_return_no_memory_error (-1);
+
+			(*start_on)[len] = nih_str_array_new (*start_on);
+			if (! (*start_on)[len])
+				nih_return_no_memory_error (-1);
+
+			switch (oper->type) {
+			case EVENT_OR:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, "/OR"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_AND:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, "/AND"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_MATCH:
+				if (! nih_str_array_add (&(*start_on)[len], *start_on,
+							 NULL, oper->name))
+					nih_return_no_memory_error (-1);
+				if (oper->env)
+					if (! nih_str_array_append (&(*start_on)[len], *start_on,
+								    NULL, oper->env))
+						nih_return_no_memory_error (-1);
+				break;
+			}
+
+			(*start_on)[++len] = NULL;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_stop_on:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @stop_on: pointer for reply array.
+ *
+ * Implements the get method for the stop_on property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the set of events that will stop jobs of the given
+ * @class, this is returned as an array of the event tree flattened into
+ * reverse polish form.
+ *
+ * Each array element is an array of strings representing the events,
+ * or a single element containing "/OR" or "/AND" to represent the
+ * operators.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_stop_on (JobClass *      class,
+		       NihDBusMessage *message,
+		       char ****       stop_on)
+{
+	size_t len = 0;
+
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (stop_on != NULL);
+
+	*stop_on = nih_alloc (message, sizeof (char ***));
+	if (! *stop_on)
+		nih_return_no_memory_error (-1);
+
+	len = 0;
+	(*stop_on)[len] = NULL;
+
+	if (class->stop_on) {
+		NIH_TREE_FOREACH_POST (&class->stop_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			*stop_on = nih_realloc (*stop_on, message,
+						 sizeof (char ***) * (len + 2));
+			if (! *stop_on)
+				nih_return_no_memory_error (-1);
+
+			(*stop_on)[len] = nih_str_array_new (*stop_on);
+			if (! (*stop_on)[len])
+				nih_return_no_memory_error (-1);
+
+			switch (oper->type) {
+			case EVENT_OR:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/OR"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_AND:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, "/AND"))
+					nih_return_no_memory_error (-1);
+				break;
+			case EVENT_MATCH:
+				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
+							 NULL, oper->name))
+					nih_return_no_memory_error (-1);
+				if (oper->env)
+					if (! nih_str_array_append (&(*stop_on)[len], *stop_on,
+								    NULL, oper->env))
+						nih_return_no_memory_error (-1);
+				break;
+			}
+
+			(*stop_on)[++len] = NULL;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_get_emits:
+ * @class: class to obtain events from,
+ * @message: D-Bus connection and message received,
+ * @emits: pointer for reply array.
+ *
+ * Implements the get method for the emits property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the list of additional events of the given @class
+ * which will be stored as an array in @emits.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_emits (JobClass *      class,
+		     NihDBusMessage *message,
+		     char ***        emits)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (emits != NULL);
+
+	if (class->emits) {
+		*emits = nih_str_array_copy (message, NULL, class->emits);
+		if (! *emits)
+			nih_return_no_memory_error (-1);
+	} else {
+		*emits = nih_str_array_new (message);
+		if (! *emits)
+			nih_return_no_memory_error (-1);
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_console_type:
+ * @console: string representing console type.
+ *
+ * Returns: ConsoleType equivalent of @string, or -1 on invalid @console.
+ **/
+ConsoleType
+job_class_console_type (const char *console)
+{
+	if (! strcmp (console, "none")) {
+		return CONSOLE_NONE;
+	} else if (! strcmp (console, "output")) {
+		return CONSOLE_OUTPUT;
+	} else if (! strcmp (console, "owner")) {
+		return CONSOLE_OWNER;
+	} else if (! strcmp (console, "log")) {
+		return CONSOLE_LOG;
+	}
+
+	return (ConsoleType)-1;
+}
+
+/**
+ * job_class_get_usage:
+ * @class: class to obtain usage from,
+ * @message: D-Bus connection and message received,
+ * @usage: pointer for reply string.
+ *
+ * Implements the get method for the usage property of the
+ * com.ubuntu.Upstart.Job interface.
+ *
+ * Called to obtain the usage of the given @class
+ * which will be stored as an string in @usage.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_class_get_usage (JobClass *      class,
+		     NihDBusMessage *message,
+		     char **        usage)
+{
+	nih_assert (class != NULL);
+	nih_assert (message != NULL);
+	nih_assert (usage != NULL);
+
+	if (class->usage) {
+		*usage = nih_strdup (message, class->usage);
+		}
+	else {
+		*usage = nih_strdup (message, "");
+	}
+
+	if (! *usage) {
+		nih_return_no_memory_error (-1);
 	}
 
 	return 0;

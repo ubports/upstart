@@ -233,10 +233,10 @@ test_server_connect (void)
 	 * new connection has them automatically registered.
 	 */
 	TEST_FEATURE ("with existing jobs");
-	class1 = job_class_new (NULL, "foo");
+	class1 = job_class_new (NULL, "foo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bar");
+	class2 = job_class_new (NULL, "bar", NULL);
 	job1 = job_new (class2, "test1");
 	job2 = job_new (class2, "test2");
 	nih_hash_add (job_classes, &class2->entry);
@@ -332,7 +332,6 @@ test_server_connect (void)
 
 	nih_free (class1);
 	nih_free (class2);
-
 
 	control_server_close ();
 
@@ -534,10 +533,10 @@ test_bus_open (void)
 	refuse_registration = FALSE;
 	server_conn = NULL;
 
-	class1 = job_class_new (NULL, "foo");
+	class1 = job_class_new (NULL, "foo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bar");
+	class2 = job_class_new (NULL, "bar", NULL);
 	job1 = job_new (class2, "test1");
 	job2 = job_new (class2, "test2");
 	nih_hash_add (job_classes, &class2->entry);
@@ -932,8 +931,11 @@ test_reload_configuration (void)
 
 	strcpy (filename, dirname);
 	strcat (filename, "/baz");
-	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
+	/* XXX: note that this will generate an error message when this
+	 * test runs sine "/baz" does not exist as a directory.
+	 */
+	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
 	message = nih_new (NULL, NihDBusMessage);
 	message->connection = NULL;
@@ -986,7 +988,7 @@ test_get_job_by_name (void)
 	nih_error_init ();
 	job_class_init ();
 
-	class = job_class_new (NULL, "test");
+	class = job_class_new (NULL, "test", NULL);
 	nih_hash_add (job_classes, &class->entry);
 
 
@@ -1101,13 +1103,13 @@ test_get_all_jobs (void)
 	 * in an array allocated as a child of the message structure.
 	 */
 	TEST_FEATURE ("with registered jobs");
-	class1 = job_class_new (NULL, "frodo");
+	class1 = job_class_new (NULL, "frodo", NULL);
 	nih_hash_add (job_classes, &class1->entry);
 
-	class2 = job_class_new (NULL, "bilbo");
+	class2 = job_class_new (NULL, "bilbo", NULL);
 	nih_hash_add (job_classes, &class2->entry);
 
-	class3 = job_class_new (NULL, "sauron");
+	class3 = job_class_new (NULL, "sauron", NULL);
 	nih_hash_add (job_classes, &class3->entry);
 
 	TEST_ALLOC_FAIL {
@@ -1600,44 +1602,6 @@ test_emit_event (void)
 
 	env = nih_str_array_new (message);
 	assert (nih_str_array_add (&env, message, NULL, "FOO_BAR"));
-
-	ret = control_emit_event (NULL, message, "test", env, TRUE);
-
-	TEST_LT (ret, 0);
-
-	dbus_error = (NihDBusError *)nih_error_get ();
-	TEST_ALLOC_SIZE (dbus_error, sizeof (NihDBusError));
-	TEST_EQ (dbus_error->number, NIH_DBUS_ERROR);
-	TEST_EQ_STR (dbus_error->name, DBUS_ERROR_INVALID_ARGS);
-	nih_free (dbus_error);
-
-	nih_free (message);
-	dbus_message_unref (method);
-
-
-	/* Check that if an entry in the environment list has an invalid name,
-	 * an error is returned immediately.
-	 */
-	TEST_FEATURE ("with invalid name in environment list");
-	method = dbus_message_new_method_call (
-		dbus_bus_get_unique_name (conn),
-		DBUS_PATH_UPSTART,
-		DBUS_INTERFACE_UPSTART,
-		"EmitEvent");
-
-	dbus_connection_send (client_conn, method, &serial);
-	dbus_connection_flush (client_conn);
-	dbus_message_unref (method);
-
-	TEST_DBUS_MESSAGE (conn, method);
-	assert (dbus_message_get_serial (method) == serial);
-
-	message = nih_new (NULL, NihDBusMessage);
-	message->connection = conn;
-	message->message = method;
-
-	env = nih_str_array_new (message);
-	assert (nih_str_array_add (&env, message, NULL, "FOO BAR=BAZ"));
 
 	ret = control_emit_event (NULL, message, "test", env, TRUE);
 
@@ -2217,6 +2181,9 @@ int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_server_open ();
 	test_server_connect ();
 	test_server_close ();

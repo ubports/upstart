@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -32,12 +32,46 @@
 
 
 /**
+ * JOB_PROCESS_SCRIPT_FD:
+ *
+ * The special fd used to pass the script to the shell process, this can be
+ * anything from 3-9 (0-2 are stdin/out/err, 10 and above aren't guaranteed
+ * by POSIX).
+ **/
+#define JOB_PROCESS_SCRIPT_FD 9
+
+/**
+ * JOB_PROCESS_LOG_REMAP_FROM_CHAR:
+ * JOB_PROCESS_LOG_REMAP_TO_CHAR:
+ *
+ * All logs are written to a single directory so any jobs containing
+ * slashes must be remapped.
+ **/
+#ifndef JOB_PROCESS_LOG_REMAP_FROM_CHAR
+#define JOB_PROCESS_LOG_REMAP_FROM_CHAR  '/'
+#endif
+#ifndef JOB_PROCESS_LOG_REMAP_TO_CHAR
+#define JOB_PROCESS_LOG_REMAP_TO_CHAR    '_'
+#endif
+
+/**
+ * JOB_PROCESS_LOG_FILE_EXT:
+ *
+ * Extension for log files.
+ **/
+#ifndef JOB_PROCESS_LOG_FILE_EXT
+#define JOB_PROCESS_LOG_FILE_EXT ".log"
+#endif
+
+
+/**
  * JobProcessErrorType:
  *
  * These constants represent the different steps of process spawning that
  * can produce an error.
  **/
 typedef enum job_process_error_type {
+	JOB_PROCESS_ERROR_DUP,
 	JOB_PROCESS_ERROR_CONSOLE,
 	JOB_PROCESS_ERROR_RLIMIT,
 	JOB_PROCESS_ERROR_PRIORITY,
@@ -45,7 +79,18 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_CHROOT,
 	JOB_PROCESS_ERROR_CHDIR,
 	JOB_PROCESS_ERROR_PTRACE,
-	JOB_PROCESS_ERROR_EXEC
+	JOB_PROCESS_ERROR_EXEC,
+	JOB_PROCESS_ERROR_GETPWNAM,
+	JOB_PROCESS_ERROR_GETGRNAM,
+	JOB_PROCESS_ERROR_BAD_SETUID,
+	JOB_PROCESS_ERROR_BAD_SETGID,
+	JOB_PROCESS_ERROR_SETUID,
+	JOB_PROCESS_ERROR_SETGID,
+	JOB_PROCESS_ERROR_CHOWN,
+	JOB_PROCESS_ERROR_OPENPT_MASTER,
+	JOB_PROCESS_ERROR_UNLOCKPT,
+	JOB_PROCESS_ERROR_PTSNAME,
+	JOB_PROCESS_ERROR_OPENPT_SLAVE
 } JobProcessErrorType;
 
 /**
@@ -79,8 +124,9 @@ NIH_BEGIN_EXTERN
 
 int    job_process_run     (Job *job, ProcessType process);
 
-pid_t  job_process_spawn   (JobClass *class, char * const argv[],
-			    char * const *env, int trace)
+pid_t  job_process_spawn   (Job *job, char * const argv[],
+			    char * const *env, int trace, int script_fd,
+			    ProcessType   process)
 	__attribute__ ((warn_unused_result));
 
 void   job_process_kill    (Job *job, ProcessType process);
@@ -88,7 +134,10 @@ void   job_process_kill    (Job *job, ProcessType process);
 void   job_process_handler (void *ptr, pid_t pid,
 			    NihChildEvents event, int status);
 
-Job   *job_process_find    (pid_t pid, ProcessType *process);
+Job   *job_process_find     (pid_t pid, ProcessType *process);
+
+char  *job_process_log_path (Job *job, int user_job)
+	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
 

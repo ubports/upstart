@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,18 @@
 
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_message.h>
+
+/**
+ * USE_SESSION_BUS_ENV:
+ *
+ * If this environment variable is set to any value, connect to
+ * D-Bus session bus rather than the system bus.
+ *
+ * Used for testing.
+ **/
+#ifndef USE_SESSION_BUS_ENV
+#define USE_SESSION_BUS_ENV "UPSTART_USE_SESSION_BUS"
+#endif
 
 
 NIH_BEGIN_EXTERN
@@ -60,6 +72,10 @@ int  control_emit_event           (void *data, NihDBusMessage *message,
 				   const char *name, char * const *env,
 				   int wait)
 	__attribute__ ((warn_unused_result));
+int  control_emit_event_with_file (void *data, NihDBusMessage *message,
+				   const char *name, char * const *env,
+				   int wait, int file)
+	__attribute__ ((warn_unused_result));
 
 int  control_get_version          (void *data, NihDBusMessage *message,
 				   char **version)
@@ -71,6 +87,8 @@ int  control_get_log_priority     (void *data, NihDBusMessage *message,
 int  control_set_log_priority     (void *data, NihDBusMessage *message,
 				   const char *log_priority)
 	__attribute__ ((warn_unused_result));
+
+void control_handle_bus_type      (void);
 
 NIH_END_EXTERN
 

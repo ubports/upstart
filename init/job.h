@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,6 +34,7 @@
 
 #include "job_class.h"
 #include "event_operator.h"
+#include "log.h"
 
 #include "com.ubuntu.Upstart.Instance.h"
 
@@ -113,7 +114,8 @@ typedef enum trace_state {
  * @respawn_time: time job was first respawned,
  * @respawn_count: number of respawns since @respawn_time,
  * @trace_forks: number of forks traced,
- * @trace_state: state of trace.
+ * @trace_state: state of trace,
+ * @log: pointer to array of log objects for handling job output.
  *
  * This structure holds the state of an active job instance being tracked
  * by the init daemon, the configuration details of the job are available
@@ -134,6 +136,9 @@ typedef struct job {
 	char          **stop_env;
 	EventOperator  *stop_on;
 
+	int *fds;
+	size_t num_fds;
+
 	pid_t          *pid;
 	Event          *blocker;
 	NihList         blocking;
@@ -150,6 +155,7 @@ typedef struct job {
 
 	int             trace_forks;
 	TraceState      trace_state;
+	Log           **log;
 } Job;
 
 

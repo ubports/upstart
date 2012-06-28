@@ -2,7 +2,7 @@
  *
  * test_parse_job.c - test suite for init/parse_job.c
  *
- * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -64,7 +64,7 @@ test_parse_job (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -110,7 +110,7 @@ test_parse_job (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -128,6 +128,45 @@ test_parse_job (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 		TEST_EQ_P (job->process[PROCESS_MAIN], NULL);
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with non-NULL update parameter (override)");
+	{
+		JobClass *tmp = NULL;
+
+		strcpy (buf, "start on starting\n");
+		strcat (buf, "author \"me\"\n");
+
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				&pos, &lineno);
+
+		TEST_NE_P (job, NULL);
+		TEST_EQ_STR (job->author, "me");
+		TEST_NE_P (job->start_on, NULL);
+
+		strcat (buf, "author \"you\"\n");
+		strcat (buf, "manual\n");
+		strcat (buf, "description \"my description\"\n");
+
+		pos = 0;
+		lineno = 1;
+  		tmp = parse_job (NULL, NULL, job, "test", buf, strlen (buf),
+				&pos, &lineno);
+		TEST_NE_P (tmp, NULL);
+
+		/* if passed a job, the same object should be returned.
+		 */
+		TEST_EQ_P (tmp, job);
+
+		TEST_EQ_STR (tmp->author, "you");
+		TEST_EQ_P (tmp->start_on, NULL);
+		TEST_NE_P (tmp->description, NULL);
+
+		TEST_EQ_STR (tmp->description, "my description");
 
 		nih_free (job);
 	}
@@ -153,7 +192,7 @@ test_stanza_exec (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -190,7 +229,7 @@ test_stanza_exec (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -229,7 +268,7 @@ test_stanza_exec (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -266,7 +305,7 @@ test_stanza_exec (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -299,7 +338,7 @@ test_stanza_script (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -340,7 +379,7 @@ test_stanza_script (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -379,7 +418,7 @@ test_stanza_script (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -416,7 +455,7 @@ test_stanza_script (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -447,7 +486,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -484,7 +523,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -524,7 +563,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -565,7 +604,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -604,7 +643,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -643,7 +682,7 @@ test_stanza_pre_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -680,7 +719,7 @@ test_stanza_pre_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -699,7 +738,7 @@ test_stanza_pre_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -718,7 +757,7 @@ test_stanza_pre_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -737,7 +776,7 @@ test_stanza_pre_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -768,7 +807,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -805,7 +844,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -845,7 +884,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -886,7 +925,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -925,7 +964,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -964,7 +1003,7 @@ test_stanza_post_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1001,7 +1040,7 @@ test_stanza_post_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1020,7 +1059,7 @@ test_stanza_post_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1039,7 +1078,7 @@ test_stanza_post_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1058,7 +1097,7 @@ test_stanza_post_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1089,7 +1128,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1126,7 +1165,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1166,7 +1205,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1207,7 +1246,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1246,7 +1285,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1285,7 +1324,7 @@ test_stanza_pre_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1322,7 +1361,7 @@ test_stanza_pre_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1341,7 +1380,7 @@ test_stanza_pre_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1360,7 +1399,7 @@ test_stanza_pre_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1379,7 +1418,7 @@ test_stanza_pre_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1410,7 +1449,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1447,7 +1486,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1487,7 +1526,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1528,7 +1567,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1567,7 +1606,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1606,7 +1645,7 @@ test_stanza_post_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1643,7 +1682,7 @@ test_stanza_post_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1662,7 +1701,7 @@ test_stanza_post_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1681,7 +1720,7 @@ test_stanza_post_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1700,7 +1739,7 @@ test_stanza_post_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -1731,7 +1770,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1776,7 +1815,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1828,7 +1867,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1879,7 +1918,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -1942,7 +1981,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2012,7 +2051,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2090,7 +2129,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2170,7 +2209,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2249,7 +2288,7 @@ test_stanza_start (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2291,7 +2330,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2310,7 +2349,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2329,7 +2368,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2348,7 +2387,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2367,7 +2406,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2384,7 +2423,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2403,7 +2442,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2422,7 +2461,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2441,7 +2480,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2460,7 +2499,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2479,7 +2518,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2498,7 +2537,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2517,7 +2556,7 @@ test_stanza_start (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -2526,6 +2565,74 @@ test_stanza_start (void)
 	TEST_EQ (pos, 31);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
+}
+
+void
+test_stanza_manual (void)
+{
+	char           buf[1024];
+	size_t         pos, lineno;
+	JobClass      *job;
+	NihError      *err;
+	EventOperator *oper;
+
+	TEST_FUNCTION ("stanza_manual");
+
+	/* manual only ignores *previously specified* start on
+	 * events.
+	 */
+	TEST_FEATURE ("manual_stanza before start on");
+	strcpy (buf, "manual\nstart on wibble\n");
+
+	/* ensure we haven't broken a basic start on event by introducing the
+	 * manual stanza into a config
+	 */
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_SIZE (job->start_on, sizeof (EventOperator));
+		TEST_ALLOC_PARENT (job->start_on, job);
+
+		oper = job->start_on;
+		TEST_EQ (oper->type, EVENT_MATCH);
+		TEST_EQ_STR (oper->name, "wibble");
+		TEST_EQ_P (oper->env, NULL);
+
+		TEST_EQ_P (oper->node.parent, NULL);
+		TEST_EQ_P (oper->node.left, NULL);
+		TEST_EQ_P (oper->node.right, NULL);
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("manual stanza after start on");
+	strcpy (buf, "start on wibble\nmanual\n");
+
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+			&pos, &lineno);
+
+	TEST_NE_P (job, NULL);
+	TEST_ALLOC_SIZE (job, sizeof (JobClass));
+	TEST_EQ_P (job->start_on, NULL);
+
+	nih_free (job);
 }
 
 void
@@ -2548,7 +2655,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2593,7 +2700,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2645,7 +2752,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2696,7 +2803,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2759,7 +2866,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2829,7 +2936,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2907,7 +3014,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -2987,7 +3094,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3066,7 +3173,7 @@ test_stanza_stop (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3108,7 +3215,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3127,7 +3234,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3146,7 +3253,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3165,7 +3272,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3184,7 +3291,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3201,7 +3308,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3220,7 +3327,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3239,7 +3346,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3258,7 +3365,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3277,7 +3384,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3296,7 +3403,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3315,7 +3422,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3334,7 +3441,7 @@ test_stanza_stop (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3364,7 +3471,7 @@ test_stanza_description (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3397,7 +3504,7 @@ test_stanza_description (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3430,7 +3537,7 @@ test_stanza_description (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3449,7 +3556,7 @@ test_stanza_description (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3479,7 +3586,7 @@ test_stanza_author (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3512,7 +3619,7 @@ test_stanza_author (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3545,7 +3652,7 @@ test_stanza_author (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3564,7 +3671,7 @@ test_stanza_author (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3594,7 +3701,7 @@ test_stanza_version (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3627,7 +3734,7 @@ test_stanza_version (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3660,7 +3767,7 @@ test_stanza_version (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3679,7 +3786,7 @@ test_stanza_version (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3709,7 +3816,7 @@ test_stanza_emits (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3746,7 +3853,7 @@ test_stanza_emits (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3789,7 +3896,7 @@ test_stanza_emits (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3831,7 +3938,7 @@ test_stanza_emits (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -3861,7 +3968,7 @@ test_stanza_expect (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3894,7 +4001,7 @@ test_stanza_expect (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3927,7 +4034,7 @@ test_stanza_expect (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3960,7 +4067,7 @@ test_stanza_expect (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -3993,7 +4100,7 @@ test_stanza_expect (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4025,7 +4132,7 @@ test_stanza_expect (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4044,7 +4151,7 @@ test_stanza_expect (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4063,7 +4170,7 @@ test_stanza_expect (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4091,7 +4198,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4125,7 +4232,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4158,7 +4265,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4192,7 +4299,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4225,7 +4332,7 @@ test_stanza_respawn (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4258,7 +4365,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4277,7 +4384,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4296,7 +4403,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4315,7 +4422,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4334,7 +4441,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4353,7 +4460,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4372,7 +4479,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4391,7 +4498,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4410,7 +4517,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4429,7 +4536,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4448,7 +4555,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4467,7 +4574,7 @@ test_stanza_respawn (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4497,7 +4604,7 @@ test_stanza_task (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4529,7 +4636,7 @@ test_stanza_task (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4561,7 +4668,7 @@ test_stanza_task (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4591,7 +4698,7 @@ test_stanza_instance (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4625,7 +4732,7 @@ test_stanza_instance (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4658,7 +4765,7 @@ test_stanza_instance (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4677,7 +4784,7 @@ test_stanza_instance (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4707,7 +4814,7 @@ test_stanza_kill (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4731,6 +4838,39 @@ test_stanza_kill (void)
 	}
 
 
+	/* Check that a kill stanza with the signal argument and signal,
+	 * sets the right signal on the jobs class.
+	 */
+	TEST_FEATURE ("with signal and single argument");
+	strcpy (buf, "kill signal INT\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGINT);
+
+		nih_free (job);
+	}
+
+
 	/* Check that the last of multiple kill stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple timeout and single argument stanzas");
@@ -4740,7 +4880,7 @@ test_stanza_kill (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4764,6 +4904,37 @@ test_stanza_kill (void)
 	}
 
 
+	TEST_FEATURE ("with multiple signal and single argument stanzas");
+	strcpy (buf, "kill signal INT\n");
+	strcat (buf, "kill signal TERM\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->kill_signal, SIGTERM);
+
+		nih_free (job);
+	}
+
+
 	/* Check that a kill stanza without an argument results in a syntax
 	 * error.
 	 */
@@ -4772,7 +4943,7 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4791,7 +4962,7 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4810,13 +4981,32 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (pos, 12);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the timeout argument but no timeout
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and missing argument");
+	strcpy (buf, "kill signal\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 11);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -4829,7 +5019,7 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4848,7 +5038,7 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4867,7 +5057,7 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4886,13 +5076,32 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_INTERVAL);
 	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill signal stanza with an unknown signal argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with signal and unknown signal argument");
+	strcpy (buf, "kill signal foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_SIGNAL);
+	TEST_EQ (pos, 12);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -4906,7 +5115,27 @@ test_stanza_kill (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a kill stanza with the signal argument and signal,
+	 * but with an extra argument afterwards results in a syntax
+	 * error.
+	 */
+	TEST_FEATURE ("with signal and extra argument");
+	strcpy (buf, "kill signal INT foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -4937,7 +5166,7 @@ test_stanza_normal (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -4976,7 +5205,7 @@ test_stanza_normal (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5015,7 +5244,7 @@ test_stanza_normal (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5059,7 +5288,7 @@ test_stanza_normal (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5100,7 +5329,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5119,7 +5348,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5138,7 +5367,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5157,7 +5386,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5176,7 +5405,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5195,7 +5424,7 @@ test_stanza_normal (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5225,7 +5454,7 @@ test_stanza_console (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5258,7 +5487,7 @@ test_stanza_console (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5291,7 +5520,7 @@ test_stanza_console (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5315,6 +5544,38 @@ test_stanza_console (void)
 	}
 
 
+	/* Check that console log sets the job's console to
+	 * CONSOLE_LOG.
+	 */
+	TEST_FEATURE ("with log argument");
+	strcpy (buf, "console log\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->console, CONSOLE_LOG);
+
+		nih_free (job);
+	}
+
 	/* Check that the last of multiple console stanzas is used.
 	 */
 	TEST_FEATURE ("with multiple stanzas");
@@ -5324,7 +5585,7 @@ test_stanza_console (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5355,7 +5616,7 @@ test_stanza_console (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5374,7 +5635,7 @@ test_stanza_console (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5392,7 +5653,7 @@ test_stanza_console (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5422,7 +5683,7 @@ test_stanza_env (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5460,7 +5721,7 @@ test_stanza_env (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5497,7 +5758,7 @@ test_stanza_env (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5516,7 +5777,7 @@ test_stanza_env (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5546,7 +5807,7 @@ test_stanza_export (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5583,7 +5844,7 @@ test_stanza_export (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5626,7 +5887,7 @@ test_stanza_export (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5668,7 +5929,7 @@ test_stanza_export (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5698,7 +5959,7 @@ test_stanza_umask (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5731,7 +5992,7 @@ test_stanza_umask (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5763,7 +6024,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5782,7 +6043,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5801,7 +6062,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5820,7 +6081,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5839,7 +6100,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5859,7 +6120,7 @@ test_stanza_umask (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -5889,7 +6150,7 @@ test_stanza_nice (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5922,7 +6183,7 @@ test_stanza_nice (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5955,7 +6216,7 @@ test_stanza_nice (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -5987,7 +6248,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6006,7 +6267,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6025,7 +6286,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6044,7 +6305,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6063,7 +6324,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6082,7 +6343,7 @@ test_stanza_nice (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -6092,6 +6353,8 @@ test_stanza_nice (void)
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
+
+#define ADJ_TO_SCORE(x) ((x * 1000) / ((x < 0) ? 17 : 15))
 
 void
 test_stanza_oom (void)
@@ -6112,7 +6375,7 @@ test_stanza_oom (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6130,11 +6393,39 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, 10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
 
 		nih_free (job);
 	}
 
+	TEST_FEATURE ("with positive score argument");
+	strcpy (buf, "oom score 100\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 100);
+
+		nih_free (job);
+	}
 
 	/* Check that an oom stanza with a negative timeout results
 	 * in it being stored in the job.
@@ -6145,7 +6436,7 @@ test_stanza_oom (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6163,7 +6454,36 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, -10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(-10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with negative score argument");
+	strcpy (buf, "oom score -100\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, -100);
 
 		nih_free (job);
 	}
@@ -6178,7 +6498,7 @@ test_stanza_oom (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6196,7 +6516,40 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, -17);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(-17));
+
+		nih_free (job);
+	}
+
+
+	/* Check that an oom score stanza may have the special never
+	 *  argument which stores -1000 in the job.
+	 */
+	TEST_FEATURE ("with never score argument");
+	strcpy (buf, "oom score never\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, -1000);
 
 		nih_free (job);
 	}
@@ -6211,7 +6564,7 @@ test_stanza_oom (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6229,7 +6582,100 @@ test_stanza_oom (void)
 
 		TEST_ALLOC_SIZE (job, sizeof (JobClass));
 
-		TEST_EQ (job->oom_adj, 10);
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with multiple score stanzas");
+	strcpy (buf, "oom score -500\n");
+	strcat (buf, "oom score 500\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 500);
+
+		nih_free (job);
+	}
+
+	/* Check that the last of multiple distinct oom stanzas is
+	 * used.
+	 */
+	TEST_FEATURE ("with an oom overriding an oom score stanza");
+	strcpy (buf, "oom score -10\n");
+	strcat (buf, "oom 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, ADJ_TO_SCORE(10));
+
+		nih_free (job);
+	}
+
+	TEST_FEATURE ("with an oom score overriding an oom stanza");
+	strcpy (buf, "oom -10\n");
+	strcat (buf, "oom score 10\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_EQ (job->oom_score_adj, 10);
 
 		nih_free (job);
 	}
@@ -6243,13 +6689,32 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 	TEST_EQ (pos, 3);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an oom score stanza without an argument results in a
+	 * syntax error.
+	 */
+	TEST_FEATURE ("with missing score argument");
+	strcpy (buf, "oom score\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 9);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6262,13 +6727,28 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with overly large score argument");
+	strcpy (buf, "oom score 1200\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6281,13 +6761,28 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with overly small score argument");
+	strcpy (buf, "oom score -1200\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6300,13 +6795,28 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with non-integer score argument");
+	strcpy (buf, "oom score foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6319,13 +6829,28 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
 	TEST_EQ (pos, 4);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with alphanumeric score argument");
+	strcpy (buf, "oom score 12foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, PARSE_ILLEGAL_OOM);
+	TEST_EQ (pos, 10);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 
@@ -6338,13 +6863,28 @@ test_stanza_oom (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
 	TEST_EQ (pos, 7);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+	TEST_FEATURE ("with extra score argument");
+	strcpy (buf, "oom score 500 foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 14);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
 }
@@ -6367,7 +6907,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6401,7 +6941,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6435,7 +6975,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6469,7 +7009,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6503,7 +7043,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6538,7 +7078,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6573,7 +7113,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6607,7 +7147,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6642,7 +7182,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6676,7 +7216,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6710,7 +7250,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6744,7 +7284,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6779,7 +7319,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6813,7 +7353,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6849,7 +7389,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6888,7 +7428,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6923,7 +7463,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6958,7 +7498,7 @@ test_stanza_limit (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -6992,7 +7532,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7011,7 +7551,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7030,7 +7570,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7049,7 +7589,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7068,7 +7608,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7087,7 +7627,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7106,7 +7646,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7125,7 +7665,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7144,7 +7684,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7163,7 +7703,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7182,7 +7722,7 @@ test_stanza_limit (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7212,7 +7752,7 @@ test_stanza_chroot (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -7246,7 +7786,7 @@ test_stanza_chroot (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -7279,7 +7819,7 @@ test_stanza_chroot (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7298,7 +7838,7 @@ test_stanza_chroot (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7328,7 +7868,7 @@ test_stanza_chdir (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -7362,7 +7902,7 @@ test_stanza_chdir (void)
 	TEST_ALLOC_FAIL {
 		pos = 0;
 		lineno = 1;
-		job = parse_job (NULL, "test", buf, strlen (buf),
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
 				 &pos, &lineno);
 
 		if (test_alloc_failed) {
@@ -7395,7 +7935,7 @@ test_stanza_chdir (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7414,7 +7954,7 @@ test_stanza_chdir (void)
 
 	pos = 0;
 	lineno = 1;
-	job = parse_job (NULL, "test", buf, strlen (buf), &pos, &lineno);
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
 
 	TEST_EQ_P (job, NULL);
 
@@ -7425,10 +7965,361 @@ test_stanza_chdir (void)
 	nih_free (err);
 }
 
+void
+test_stanza_setuid (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_setuid");
+
+	/* Check that a setuid stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "setuid www-data\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setuid, job);
+		TEST_EQ_STR (job->setuid, "www-data");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple setuid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "setuid www-data\n");
+	strcat (buf, "setuid pulse\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setuid, job);
+		TEST_EQ_STR (job->setuid, "pulse");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a setuid stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "setuid\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a setuid stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "setuid www-data foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 16);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
+test_stanza_setgid (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_setgid");
+
+	/* Check that a setgid stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "setgid kvm\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setgid, job);
+		TEST_EQ_STR (job->setgid, "kvm");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple setgid stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "setgid kvm\n");
+	strcat (buf, "setgid fuse\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->setgid, job);
+		TEST_EQ_STR (job->setgid, "fuse");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a setgid stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "setgid\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 6);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a setgid stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "setgid kvm foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 11);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
+void
+test_stanza_usage (void)
+{
+	JobClass*job;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_usage");
+
+	/* Check that a usage stanza with an argument results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with single argument");
+	strcpy (buf, "usage \"stanza usage test message\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->usage, job);
+		TEST_EQ_STR (job->usage, "stanza usage test message");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple usage stanzas is used.
+	 */
+	TEST_FEATURE ("with multiple stanzas");
+	strcpy (buf, "usage \"stanza usage original\"\n");
+	strcat (buf, "usage \"stanza usage test message\"\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->usage, job);
+		TEST_EQ_STR (job->usage, "stanza usage test message");
+
+		nih_free (job);
+	}
+
+
+	/* Check that a usage stanza without an argument results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "usage\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 5);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that a usage stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument");
+	strcpy (buf, "usage stanza usage test message\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+}
+
 int
 main (int   argc,
       char *argv[])
 {
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
 	test_parse_job ();
 
 	test_stanza_instance ();
@@ -7443,6 +8334,7 @@ main (int   argc,
 	test_stanza_start ();
 	test_stanza_stop ();
 	test_stanza_emits ();
+	test_stanza_manual ();
 
 	test_stanza_exec ();
 	test_stanza_script ();
@@ -7467,6 +8359,9 @@ main (int   argc,
 	test_stanza_limit ();
 	test_stanza_chroot ();
 	test_stanza_chdir ();
+	test_stanza_setuid ();
+	test_stanza_setgid ();
+	test_stanza_usage ();
 
 	return 0;
 }

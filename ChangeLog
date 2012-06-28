@@ -1,4 +1,1056 @@
+2012-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Changelog: Release entry.
+	* configure.ac: Bump year.
+	* NEWS: Release 1.5.
+
+2012-03-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_job_process:
+	  - Fixed multiple TEST_FAILED() typos
+	    ("unexpected" => unexpectedly").
+	* job_process_spawn(): Only display single message
+	  if pty setup fails. 
+	* init/man/init.5: Typo.
+	* init/tests/test_job_process:
+	  - child(): New TEST_OUTPUT_WITH_STOP test.
+	  - test_run(): New test "with multiple processes and log".
+	  - test_spawn():
+	    - umask reset.
+	    - New test "ensure multi processes output logged".
+	* dbus/com.ubuntu.Upstart.xml:
+	  - added 'NotifyDiskWriteable' method.
+	* init/control.c:
+	  - control_notify_disk_writeable(): New function to flush early job log.
+	* init/job_process.c:
+	  - job_process_terminated(): Call log_handle_unflushed() to potentially
+	    add log object to unflushed list (the early job log) in certain
+	    scenarios.
+	* init/log.c:
+	  - log_flushed: bool indicating successful flush of early job log.
+	  - log_unflushed_files: The "early job log" list.
+	  - log_new(): Call log_unflushed_init() and initialize new log members.
+	  - log_flush(): Only call log_read_watch() conditionally now.
+	  - log_io_reader(): More careful consideration of errno by
+	    using saved value from log member.
+	  - log_io_error_handler(): Set remote_closed for the benefit of
+	    log_flushed() (to avoid flushing multiple times).
+	  - log_file_open: Now saves errno value from open(2).
+	  - log_read_watch(): Removed log->unflushed->len assert since it was
+	    erroneous: even if unflushed data exists, it will be written in
+	    order when log_io_reader() calls log_file_write().
+	  - log_unflushed_init(): New function to initialise the
+	    log_unflushed_files list.
+	  - log_handle_unflushed(): New function that potentially adds log
+	    object to the log_unflushed_files list to allow the data to be
+	    flushed _after_ the parent object has been destroyed.
+	  - log_clear_unflushed(): New function to clear the
+	    log_unflushed_files list by attempting to flush the data to disk.
+	  - log_read_watch(): Set remote_closed for scenarios where
+	    error handler never called. (LP: #935585)
+	* init/log.h:
+	  - Added new Log members: detached, remote_closed and open_errno.
+	  - Updated documentation.
+	  - extern for log_unflushed_files.
+	  - Added prototypes for new functions: log_handle_unflushed(),
+	    log_clear_unflushed() and log_unflushed_init().
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - Call log_unflushed_init().
+	    - Corrected grammar in error messages for "ensure sane fds" tests.
+	    - "with single line command writing fast and exiting": Call
+	      nih_child_add_watch().
+	    - added waitid() calls to ensure log data not added to
+	      unflushed list.
+	  - test_spawn():
+	    - Call log_unflushed_init().
+	    - Corrected grammar in error messages for "ensure sane fds" tests.
+	    - Added TEST_ALLOC_SAFE() to "simple test" to ensure
+	      destructors run correctly.
+	    - "read single null byte with 'console log'": Call
+	      log_handle_unflushed() and added missing free.
+	    - "read data from forked process": Call
+	      log_handle_unflushed().
+	* init/tests/test_log.c: 
+	  - Updated documentation.
+	  - Added calls to log_unflushed_init().
+	  - "ensure logger flushes cached data on request": New test
+	    for log_handle_unflushed().
+	* util/initctl.c:
+	  - notify_disk_writeable_action(): New function to notify
+	    Upstart that the disk is writeable.
+	  - commands: Added new command "notify-disk-writeable".
+	* util/man/initctl.8: Updated for new notify-disk-writeable command.
+	* util/tests/test_initctl.c:
+	  - STOP_UPSTART(): Check return from kill(2).
+	  - test_show_config(): Adding missing rmdir(2).
+	  - test_check_config(): Adding missing rmdir(2).
+	  - test_notify_disk_writeable(): New function embodying new test
+	    "with job ending before log disk writeable".
+
+	[ Steve Langasek <steve.langasek@ubuntu.com> ]
+	* init/tests/test_job_process:
+	  - close_all_files(): New function to ensure test environment
+	    has only expected fds open.
+	  - main(): Call close_all_files().
+
+2012-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_new(): Initialize log array.
+	* init/job.h: Change Log element to an array to handle scenario where
+	  job has multiple simultaneous processes running (LP: #940290).
+	* init/job_process.c:
+	  - job_process_run(): pass ProcessType to job_process_spawn().
+	  - job_process_spawn():
+	    - Now accepts a ProcessType.
+	    - Ensure existing matching process type log is destroyed before
+	      creating a new one.
+	  - job_process_terminated(): Update for log array.
+	* init/job_process.h: Updated prototype for job_process_spawn().
+	* init/tests/test_job.c: test_new(): Updated logic for log array.
+	* init/tests/test_job_process.c: test_run():
+	  - Updated logic for log array.
+	  - Added ProcessType to job_process_spawn() calls.
+
+2012-03-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn(): If pty setup fails,
+	  log message and disable logging for job.
+	* init/man/init.5: Explain new behaviour should pty setup fail.
+	* init/tests/test_job_process.c: Updated disabled test
+	  "when no free ptys" for new behaviour.
+
+2012-03-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_get_instance():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+	  - job_class_start():
+	    - Use nih_local to avoid memory leak should nih_strcat_sprintf()
+	      fail.
+	    - Formatting.
+	* init/man/init.5: Add further pty details.
+
+2012-02-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_flush(): Comments.
+	  - log_read_watch():
+	    - Improved comments.
+	    - Don't re-attempt read on EAGAIN/EWOULDBLOCK since those errors are
+	      nominally impossible due to the remote end of the pty already
+	      having ended (LP: #926468).
+	    - Added a debug-mode warning when 'badly-behaved' application
+	      detected that leaks fds to its children, as this is generally a bug.
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - "with single line command writing fast and exiting": added
+	      waitpid() to ensure no EAGAIN.
+	  - test_spawn():
+	    - "with no such file, no shell and console log": added
+	      waitpid() to ensure no EAGAIN.
+
+2012-02-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Set close-on-exec for pty_master.
+	  - Ensure stdio buffers flushed prior to forking to ensure no data
+	    leakage to child (should init be run with '--debug', or the tests
+	    be run with redirected output, for example).
+	  - Free log object if child process fails to exec(3) rather than just
+	    closing fd. This ensures io watch is removed correctly. (LP: #922754)
+	  - Only need to remap pty_master if CONSOLE_LOG in operation.
+	* init/tests/test_job_process:
+	  - fd_valid(): New helper function to determine if specified fd is valid.
+	  - child(): Added new 'TEST_FDS' test to ensure no fd leakage to child
+	    processes.
+	  - test_run():
+	    - New tests:
+	      - "ensure sane fds with no console, no script"
+	      - "ensure sane fds with no console, and script"
+	      - "ensure sane fds with console log, no script"
+	      - "ensure sane fds with console log, and script"
+	      - "with single-line command running an invalid command, \
+	         then a 1-line post-stop script"
+	      - "with single-line command running an invalid command, \
+	         then a 2-line post-stop script"
+	      - "with single-line command running an invalid command, \
+	         then a post-stop command"
+	      - "with single-line command running an invalid command, \
+	         then an invalid post-stop command"
+	      - "with single-line command running a valid command, \
+	         then a 1-line invalid post-stop command"
+	    - Test "with single-line command running an invalid command":
+	      - now diverts stderr output for less chatty test-run experience.
+	      - Improved checking.
+	    - Test "with setuid me" now diverts stderr output for less chatty
+	      test-run experience.
+	  - test_spawn():
+	    - New tests:
+	      - "with no such file, no shell and console log"
+	      - "ensure sane fds with no console"
+	      - "ensure sane fds with console log"
+	* init/tests/test_log.c: test_log_destroy():
+	  - New test "ensure watch freed when log destroyed"
+
+2012-01-27  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_job_process.c: test_run(): Fixed typo in
+	  test "with setuid me" where uid value was being set to gid.
+
+2012-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_terminated(): Free log to ensure data
+	  written as soon as _any_ process ends (consider respawn jobs).
+	* init/log.c:
+	  - log_destroy():
+	    - Improved documentation.
+	    - Now calls new function log_flush().
+	  - log_flush(): New function to ensure no lingering buffered job data
+	    remains. Now considers EBADF (LP: #912558).
+	  - log_io_reader():
+	    - Added missing assert for @len.
+	    - Simplified ENOSPC handling.
+	    - Ensure log->io set to NULL to allow other routines to detect it
+	      really has gone.
+	  - log_file_write(): Added @len checks.
+	  - log_read_watch(): New function to drain data from a watch descriptor
+	    (which also must consider EBADF).
+	* init/log.h: Added define for LOG_READ_SIZE.
+	* init/tests/test_job_process.c:
+	  - test_run():
+	    - Added some extra pointer checks.
+	    - Free class *before* checking file to ensure destructor invoked at
+	      correct point.
+	    - Added test "with single-line command running an invalid command"
+	      (for scenario bug 912558 exposed).
+	    - Added test "with single-line command writing fast and exiting".
+	* init/tests/test_log.c: Changed all tests to use openpty(3) rather than
+	  pipe(2) for semantic parity with actual code.
+	* util/tests/test_user_sessions.sh:
+	  - ensure_no_output(): Now calls check_job_output() and delete_job() to
+	    simplify logic.
+	  - delete_job(): Call get_job_file() rather than doing it long-hand.
+	  - check_job_output(): New function.
+	  - start_job(): Added allow_failure parameter.
+	  - test_ensure_no_unexpected_output(): New test
+	    "ensure command job does not create log file with invalid command".
+
+2012-01-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Explain that all job processes affected
+	  by 'setuid' and 'setgid' stanzas.
+
+2011-12-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Set child handler to default rather than explicit ignore
+	    to avoid test failures in environments that disallow
+	    ignoring SIGCHLD.
+	* init/tests/test_job_process.c: test_run():
+	  - Changed timeout for test feature "ensure that no log
+	    file written for CONSOLE_NONE".
+
+2011-12-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* Makefile.am: Add missing TESTING.sessions to distribution.
+	* contrib/vim/syntax/upstart.vim: Meta-data update and addition
+	  of more standard (Ubuntu Upstart) events.
+	* extra/man/upstart-udev-bridge.8: Ensure literal dashes used
+	  for all command-line options.
+	* extra/upstart-udev-bridge.c:
+	  - udev_monitor_watcher(): Fix leak when obtaining udev value.
+	  - make_safe_string(): Don't realloc since overhead too high
+	  considering size of strings.
+	* init/job_class.c: Typo.
+	* init/job_process.c: job_process_spawn():
+	  - Correct ignoring of SIGCHLD prior to grantpt(3) call.
+	  - Removed redundant close(2) calls.
+	  - Move declarations to top of block for
+	    getpwnam(3)/getgrnam(3).
+	* init/log.c:
+	  - log_file_open(): Comments.
+	  - log_file_write(): Added missing cast on
+	    nih_io_buffer_shrink() call.
+	* init/main.c: console_type_setter(): NihOptionSetter's should
+	  return 0 on success.
+	* init/man/init.5: lower-case all references to system jobs
+	  and user jobs.
+	* init/tests/test_job_process.c: Add missing include for
+	  fnmatch.h.
+
+2011-12-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_job_process.c: test_run():
+	  - Ensure process group killed for multi-process shell scripts.
+	  - Change 'command-not-found' tests to use regex matching rather
+	    than literal to allow for minor differences in /bin/sh variants
+	    error output.
+
+2011-12-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Bump version to 1.5
+	* NEWS: Begin new release
+
+2011-12-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.4
+	* configure.ac (NIH_COPYRIGHT): Update
+
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
+	Simplify logfile name encoding.
+	
+	* init/job_process.c: job_process_log_path(): Ditch D-Bus job name
+	  encoding in path names for saner approach that simply remaps slash
+	  characters (minimal surprises for users).
+	* init/job_process.h: Addition of macros:
+	  - JOB_PROCESS_LOG_FILE_EXT
+	  - JOB_PROCESS_LOG_REMAP_FROM_CHAR
+	  - JOB_PROCESS_LOG_REMAP_TO_CHAR
+	* init/man/init.5: Update console section for simplified log filename
+	  encoding approach.
+	* init/test_job_process.c: test_log_path(): Updates for simplified
+	  logfile name encoding.
+	* util/tests/test_user_sessions.sh: Updates for simplified
+	  logfile name encoding: removed dbus_encode() and replaced with
+	  upstart_encode().
+
+2011-12-12  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8:
+	  - Added new '--no-strip' option.
+	  - Added missing '--daemon', '--debug' and '--help' options.
+	* extra/upstart-udev-bridge.c:
+	  XXX: Behavioural change: non-printable bytes are now removed
+	  by default from all udev message data to handle buggy
+	  hardware devices which expose this data to userland (the
+	  kernel simply passes it through verbatim). To revert to old
+	  behaviour (where no udev message data is modified), specify
+	  the new '--no-strip' option (LP: #829980).
+	  - make_safe_string(): New function to cleanse udev data.
+	  - udev_monitor_watcher():
+	    - Cleanse udev data unless '--no-strip' specified.
+	    - Fixed possible crash should 'action' not be set.
+	    - Fixed possible crash should 'devname' not be set
+	      and '--debug' specified.
+
+2011-12-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* Merge of 'setuid' + 'setgid' stanzas from
+	  Evan Broder (lp:~broder/upstart/drop-privileges).
+
+2011-12-09  James Hunt  <james.hunt@ubuntu.com>
+
+	Introduction of 'log' argument to 'console' stanza allowing
+	system job output only to be captured.
+	
+	* contrib/vim/syntax/upstart.vim: Added 'log' and missing
+	  'none'.
+	* init/Makefile.am: Update for log.c, log.h and test_log.c.
+	* init/job.c: job_new(): Initialize log.
+	* init/job.h: Add Log pointer to Job.
+	* init/job_class.c:
+	  - XXX: behaviour change: Default for 'console'
+	    is now CONSOLE_LOG rather than CONSOLE_NONE.
+	    Rationale is that if a job does produce output, you want to see
+	    it since the chances are it will contain useful error details.
+	  - Added default_console variable.
+	  - job_class_console_type(): New function to parse console type
+	    string.
+	* init/job_class.h:
+	  - Added CONSOLE_LOG to ConsoleType and updated documentation
+	    for ConsoleType.
+	  - Added prototype for job_class_console_type().
+	* init/job_process.c:
+	  - New log_dir and disable_job_logging variables.
+	  - job_process_run(): Updated to reflect new parameter for
+	    job_process_spawn().
+	  - job_process_spawn(): Now accepts a Job rather than a
+	    JobClass to allow job->log and class->console to be handled
+	    appropriately. Now creates pty master and slave fds for
+	    console logging. Simplified code for file descriptor
+	    switching by using new job_process_remap_fd().
+	  - job_process_error_read(): Added entries for:
+	    - JOB_PROCESS_ERROR_OPENPT_MASTER
+	    - JOB_PROCESS_ERROR_OPENPT_UNLOCKPT
+	    - JOB_PROCESS_ERROR_PTSNAME
+	    - JOB_PROCESS_ERROR_OPENPT_SLAVE
+	  - job_process_log_path(): New function that returns full path to log
+	    file for specified Job.
+	  - job_process_remap_fd(): New function to ensure file
+	    descriptors do not collide.
+	* init/job_process.h:
+	  - Updated JobProcessErrorType with new entries:
+	    - JOB_PROCESS_ERROR_OPENPT_MASTER
+	    - JOB_PROCESS_ERROR_OPENPT_UNLOCKPT
+	    - JOB_PROCESS_ERROR_PTSNAME
+	    - JOB_PROCESS_ERROR_OPENPT_SLAVE
+	  - job_process_spawn(): Updated prototype.
+	  - job_process_log_path(): Added prototype.
+	* init/main.c:
+	  - handle_logdir(): New function for overriding log directory.
+	  - console_type_setter(): New Function to handle selection of
+	    default console value.
+	  - Added following command-line options:
+	    - '--default-console'
+	    - '--logdir'
+	    - '--no-log'
+	* init/man/init.5:
+	  - Update and restructure of section on 'console' stanza.
+	  - Added a FILES section.
+	* init/man/init.8: Updated with details of new options:
+	  - '--default-console'
+	  - '--logdir'
+	  - '--no-log'
+	* init/parse_job.c: stanza_console(): Updated for "log".
+	* init/paths.h: Added defines for JOB_LOGDIR and LOGDIR_ENV.
+	* init/session.c:
+	  - Added missing function headers.
+	* init/system.c: system_setup_console(): Update for CONSOLE_LOG.
+	* init/test_conf.c:
+	  - TEST_FORCE_WATCH_UPDATE(): Removed debug.
+	  - test_override(): Removed erroneous comment.
+	  - test_select_job(): Added variable attributes to keep gcc 4.6 happy.
+	* init/test_event.c: Explicitly set console type to CONSOLE_NONE to
+	  retain behaviour of existing tests.
+	* init/test_job.c:
+	  - test_job_new(): Ensure log object not created on Job instantiation.
+	  - test_change_state(): Explicitly set console type to CONSOLE_NONE to
+	    retain behaviour of existing tests.
+	* init/test_job_class.c:
+	  - test_new(): Ensure console type now defaults to CONSOLE_LOG.
+	  - Explicitly set console type to CONSOLE_NONE to retain behaviour of
+	    existing tests.
+	* init/test_job_process.c:
+	  - Added various new macros to simplify test code.
+	  - child(): New child_tests added for TEST_OUTPUT and TEST_SIGNALS.
+	  - get_available_pty_count(): New function.
+	  - Explicitly set console type to CONSOLE_NONE to retain behaviour of
+	    existing tests.
+	  - test_run(): Added new tests for CONSOLE_LOG.
+	  - test_spawn(): Added new tests for CONSOLE_LOG.
+	  - test_log_path(): New function.
+	  - test_handler(): Added UPSTART_LOGDIR support to 
+	  - main():
+	    - Update to allow number of forks to be specified when run as a child
+	      process.
+	    - Added call to test_log_path().
+	    - initialize various subsystems since before, functions run from
+	      main() had to be run in the order specified and exactly as listed
+	     (certain tests relied on previous tests initializing a subsystem
+	     which gives unexpected results and thus confusing behaviour
+	     if the order of tests is changed).
+	* init/test_parse_job.c: Added new test to test_stanza_console() for
+	  "console log".
+	* util/tests/test_user_sessions.sh: Added tests for job logging
+	  to ensure no unexpected output recorded for user jobs.
+
+2011-11-16  Petr Lautrbach <plautrba@redhat.com>
+	* init/parse_job.c, init/job_class.c, init/job_class.h: Added "usage"
+	stanza which is used by initctl command.
+	* init/tests/test_parse_job.c: Tests for "usage" stanza
+	* init/man/init.5: "usage" stanza documentation.
+	* util/initctl.c, util/man/initctl.8: Added "inictl usage" command.
+	* util/tests/test_initctl.c: Tests for ""inictl usage" command.
+
+2011-08-11  Scott James Remnant  <keybuk@google.com>
+
+	* init/job_process.c (job_process_spawn): Can't return on
+	dup2() error, we're in the child. Return an error back to
+	the child properly.
+
+	* init/job_process.c (job_process_spawn), init/main.c: error
+	should be ENOENT
+
+	* init/job_class.c, init/job_class.h: Move constants into the
+	header file so they can be found from other source files.
+	* init/job_process.c (job_process_spawn): Only adjust the OOM
+	score if it isn't the default
+	* init/main.c: Apply the default OOM score to the init process
+	itself.
+
+	* init/main.c: Deal with failure to setup the system console by
+	falling back to /dev/null, so we don't end up without default fds
+	and castrate the process.
+
+2011-08-10  Scott James Remnant  <keybuk@google.com>
+
+	* init/job_class.c (job_class_new): nit, use #defines for the default
+	nice level and oom score adjustment.
+2011-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn():
+	  - Added dup2() return check.
+	* TESTING.sessions: Updated with information on user sessions.
+	* init/job_process.c:
+	  - job_process_spawn():
+	    - Change group before user and do it as early as possible.
+	    - Ensure non-priv user is able to read script fd. Default system
+	      behaviour is seemingly not consistent/defined, so force it
+	      to be (LP: #813052)
+	    - Ensure cwd for user job is home directory by default.
+	  - job_process_error_read():
+	    - Added handling for JOB_PROCESS_ERROR_SETUID and
+	      JOB_PROCESS_ERROR_SETGID (LP: #807293).
+	    - Added new entry for JOB_PROCESS_ERROR_CHOWN.
+	* init/job_process.h:
+	  - Added entry for JOB_PROCESS_ERROR_CHOWN in JobProcessErrorType.
+	* init/man/init.5: Update for user jobs explaining behaviour of stanzas
+	  which manipulate system resource limits and when the init
+	  daemon reads the users job directory.
+	* util/tests/test_user_sessions.sh: New script for testing user sessions
+	  (NOTE: this is *NOT* run automatically).
+	* init/session.c: session_from_dbus(): Handle case where a users
+	  home directory is changed or where a uid is re-used for a
+	  different username.
+	* init/session.h: Updated comments for Session object.
+	* init/man/init.5: Explain that symbolic links are not supported.
+
+2011-07-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/man/initctl.8: Clarify semantics of restart(8)
+	  command (LP: #731225).
+
+2011-07-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - test_show_config(): /* fall through :) */
+	  - test_check_config(): Manually start and stop dbus-daemon to work
+	    around change in dbus autostart behaviour which causes issues when
+	    running the tests in a chroot and non-X11 environment (see dbus commit
+	    cea055514a9dfc74e7f0515cf4a256da10a891bc).
+
+2011-06-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.3
+
+2011-06-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/vim/syntax/upstart.vim: Updates for kill, oom, expect
+	and limit.  
+
+2011-06-07  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_spawn): Make sure we don't close
+	our own file descriptor if it already has the right value.
+
+2011-06-06  James Hunt  <james.hunt@ubuntu.com>
+	
+	Add override file support.
+
+	* init/conf.c:
+	  - conf_reload_path(): Now takes an extra override_path parameter.
+	  - is_conf_file() / is_conf_file_std() / is_conf_file_override(): New
+	    functions to determine type of given file path.
+	  - toggle_conf_name(): New function which convert a conf file
+	    name to an override name and vice versa.
+	  - majority of remaining functions updated to handle override
+	    files.
+	* init/conf.h: Prototypes.
+	* init/job_class.c: Whitespace.
+	* init/man/init.5: Updated to document override file support.
+	* init/man/init.8: Added reference to control-alt-delete(7) man page.
+	* init/paths.h: New macros CONF_EXT_OVERRIDE, CONF_EXT_STD,
+	  IS_CONF_FILE_OVERRIDE and IS_CONF_FILE_STD.
+	* init/parse_conf.c: Added assertion to remind us forcibly to add
+	  override-handling code for directories if we ever allow content in
+	  'init.conf'.
+	* init/parse_job.c (parse_job): Additional parameter 'update' to
+	  allow override files to replace existing Job details.
+	* init/parse_job.h: Updated parse_job() prototype.
+	* init/test_conf.c
+	  - New macros TEST_ENSURE_CLEAN_ENV() and
+	    TEST_FORCE_WATCH_UPDATE().
+	  - test_override(): New function.
+	  - test_toggle_conf_name(): New function.
+	* init/test_parse_job.c:
+	  - Updated for extra parse_job() parameter.
+	  - added a test feature to test_parse_job() to exercise new
+	    parameter to parse_job().
+	* util/man/initctl.8: Clarified what it means to restart a job.
+
+	Add udev and socket bridges.
+	
+	* Makefile.am: Added extra directory.
+	* New files:
+	  - extra/Makefile.am
+	  - extra/conf/upstart-socket-bridge.conf
+	  - extra/conf/upstart-udev-bridge.conf
+	  - extra/man/socket-event.7
+	  - extra/man/upstart-socket-bridge.8
+	  - extra/man/upstart-udev-bridge.8
+	  - extra/upstart-socket-bridge.c
+	  - extra/upstart-udev-bridge.c
+	* configure.ac:
+	  - Check for udev (for upstart-udev-bridge).
+	  - Add extra/Makefile to AC_CONFIG_FILES.
+	* dbus/com.ubuntu.Upstart.xml: Add EmitEventWithFile method.
+	* init/control.c:
+	  - control_emit_event(): Now a wrapper for control_emit_event_with_file.
+	  - control_emit_event_with_file(): New function that operates on an fd.
+	* init/control.h: Prototype for control_emit_event_with_file().
+	* init/event.c:
+	  - event_new(): Initialize event fd.
+	  - event_pending_handle_jobs(): Now calls event_operator_fds().
+	* init/event.c: Add fd to Event struct.
+	* init/event_operator.c: event_operator_fds(): New function.
+	* init/event_operator.h: Prototype for event_operator_fds().
+	* init/job.c: job_new(): Initialize fd members.
+	* init/job.h: Add fds and num_fds to Job struct.
+
+2011-06-03  James Hunt  <james.hunt@ubuntu.com>
+
+	Add session support. Note that there are no automatically runnable and
+	explicit tests yet. However, see TESTING.sessions.
+	
+	* TESTING.sessions: ASCII (reStructuredText) document explaining
+	  how to run manual tests for session support (for chroots).
+	* dbus/Upstart.conf: Simplified to support allowing users to invoke
+	  all methods (since Upstart now isolates commands by user).
+	* init/Makefile.am: Added session.[ch] files.
+	* init/session.c: New file. Note that session_from_dbus() will disable sessions
+	  (by returning the NULL session) if environment variable "UPSTART_NO_SESSIONS"
+	  is set to any value (used by tests).
+	* init/session.h: New file.
+	* init/parse_job.h: parse_job(): Add session pointer to prototype.
+	* init/parse_job.c:
+	  - parse_job(): Add session parameter.
+	  - Update calls to job_class_new() to pass session pointer.
+	* init/job.c: job_new(): Crucial change to ensure chroot sessions have
+	  a unique D-Bus name (LP:#728531).
+	* init/job_class.c: 
+	  - job_class_new(): Add session parameter and session support.
+	  - job_class_remove(): Add session parameter to prototype.
+	  - job_class_consider(): Only consider jobs from the appropriate session.
+	  - job_class_reconsider(): Only consider jobs from the appropriate session.
+	  - job_class_start(): Disallow out-of-session modification.
+	  - job_class_stop(): Disallow out-of-session modification.
+	  - job_class_restart(): Disallow out-of-session modification.
+	* init/main.c: Add "--no-sessions" command-line option to disable
+	  sessions and revert to traditional behaviour.
+	* init/job_class.h: 
+	  - job_class_new(): Add session pointer to prototype.
+	  - JobClass: Add session member.
+	* init/job_process.c: job_process_spawn():
+	  - Call chroot(2) for chroot sessions.
+	  - Call setuid(2) for user session jobs.
+	* init/job.c:
+	  - job_emit_event(): Set session for event.
+	  - job_start(): Disallow out-of-session modification.
+	  - job_stop(): Disallow out-of-session modification.
+	  - job_restart(): Disallow out-of-session modification.
+	* init/event.h: Event: Add session member.
+	* init/event.c:
+	  - event_new(): initialize session to NULL.
+	  - event_pending_handle_jobs(): Add session handling.
+	  - event_finished(): Set session for failure event.
+	* init/control.c:
+	  - control_get_job_by_name(): Add session handling.
+	  - control_get_all_jobs(): Add session handling.
+	  - control_emit_event(): Add session handling.
+	* init/conf.c:
+	  - conf_source_new(): Initialise session to NULL.
+	  - conf_reload_path(): Pass session to parse_job().
+	  - conf_select_job(): Add session parameter.
+	* init/conf.h:
+	  - ConfSource: Add session member.
+	  - conf_select_job(): Add session parameter to prototype.
+	* All tests updated to set "UPSTART_NO_SESSIONS" (to disable
+	  sessions).
+
+2011-06-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart:
+	  - Made function names more meaningful:
+	  - _upstart_jobs: Now returns a unique list
+	  - _upstart_events (nee _upstart_named_events ) now considers all
+	    "emits" tokens.
+	  - Updates for "check-config" and "show-config".
+	  - Added "--session" option.
+	  - Added "--no-wait" for emit, reload and restart.
+
+	Man page updates.
+	
+	* init/man/init.5:
+	  - Quoted dashes.
+	  - Explain handling of duplicated stanzas.
+	  - "respawn": Document default count and interval.
+	  - "emits": Reference "initctl check-config".
+	  - Added BUGS section.
+	  - Added copyright.
+	* init/man/init.8:
+	  - Quoted dashes.
+	  - See Also: Added control-alt-delete(7).
+	* util/man/initctl.8:
+	  - Quoted dashes.
+	  - "restart": Clarified meaning.
+	  - "list": Explained "stop/waiting" jobs.
+
+2011-06-01  James Hunt  <james.hunt@ubuntu.com>
+
+	Add D-Bus session support to initctl.
+	
+	* util/initctl.c:
+	  - Added "--session" command-line option.
+	  - dbus_bus_type_setter(): New function used by option parser to
+	    distinguish system/session D-Bus bus type.
+	  - system_bus variable now replaced by two others: use_dbus (boolean)
+	    and dbus_bus_type.
+	  - upstart_open(): Updated to handle multiple D-Bus bus types.
+	* util/man/initctl.8: Update for "--session" option.
+	* util/tests/test_initctl.c: Updated to make use of use_dbus and
+	  dbus_bus_type rather than system_bus.
+
+	Add "show-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - job_class_condition_handler(): Handler function to retrieve job conditions.
+	    - job_class_condition_err_handler(): Handler error function for
+	      job_class_condition_handler().
+	    - job_class_parse_events(): Convert RPN "start on" and "stop on" conditions to
+	      human-readable format.
+	    - job_class_show_emits(): Display events which job emits.
+	    - job_class_show_conditions(): Make D-Bus calls to retrieve "start on" and
+	      "stop on" conditions.
+	    - show_config_action: Handle "show-config" command..
+	* util/initctl.h: New file providing stack-handling functionality for
+	  RPN parsing for "show-config" command.
+	* util/Makefile.am: Added initctl.h to initctl_SOURCES.
+	* util/man/initctl.8: Updated for "show-config" command and associated
+	  options.
+	* util/tests/test_initctl.c:
+	  - New macros START_UPSTART, STOP_UPSTART, RUN_COMMAND, CREATE_FILE and DELETE_FILE.
+	    These are required since due to the introduction of the
+	    "show-config" initctl command, initctl is no longer solely a proxy
+	    to Upstart: it now has some intelligence (it parses the 
+	    "emits", "start on" and "stop on" conditions) and thus must be
+	    tested directly.
+	  - test_show_config(): New function to test "initctl show-config".
+	  - in_chroot(): New function to detect if tests are being run from
+	    within a chroot environment.
+	  - dbus_configured(): New function which performs a basic check to
+	    establish if D-Bus is configured correctly.
+	  - main(): Added call to test_show_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+
+	Add "check-config" command to initctl.
+	
+	* util/initctl.c:
+	  - New functions:
+	    - allow_event(): Determine if specified event is erroneous or not.
+	      Handles globbing.
+	    - allow_job(): Determine if specified job is erroneous or not.
+	      Handles variables (such as instance variables).
+	    - check_condition(): High-level function to handle checking start
+	      on/stop on conditions.
+	    - check_config_action: Handler for "check-config" command.
+	    - display_check_errors(): Display errors from expression tree nodes
+	      that are in error.
+	    - eval_expr_tree(): Evaluate expression tree.
+	    - ignored_events_setter(): handler for '--ignore-events' command-line
+	      option for "check-config" command.
+	    - tree_filter(): Used for filtering expression tree nodes.
+	  - show_config_action(): Update for check-config mode.
+	  - job_class_parse_events(): Update for check-config mode.
+	  - job_class_show_emits(): Update for check-config mode.
+	* util/initctl.h:
+	  - Added structs for JobCondition, CheckConfigData and ExprNode.
+	  - New macros: MAKE_EXPR_NODE() and MAKE_JOB_CONDITION().
+	* util/tests/test_initctl.c:
+	  - test_check_config(): New function to test "initctl check-config".
+	  - main(): Added call to test_check_config(), conditional on
+	    a non-chroot environment and a working D-Bus system.
+	* util/man/initctl.8: Updated for "check-config" command and associated
+	  options.
+	* conf/rc-sysinit.conf: Added "emits" stanza, required by
+	"check-config".
+
+	Addition of initctl2dot script for visualisation.
+	
+	* Makefile.am: Added scripts directory.
+	* configure.ac: Updated AC_CONFIG_FILES for scripts/Makefile.
+	* scripts/Makefile.am: Makefile for scripts.
+	* scripts/initctl2dot.py: Python script to produce dot(1) graphs of
+	  "initctl show-config" output.
+	* scripts/man/initctl2dot.8: Man page for initctl2dot.py script.
+
+	Addition of init-checkconf script.
+	
+	* scripts/init-checkconf.sh: Script to determine if specified job
+	  config file is valid or not.
+	* scripts/man/init-checkconf.8: Man page for init-checkconf.sh.
+	* scripts/Makefile.am: Added init-checkconf script and man
+	  page.
+
+2011-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	Add command-line option to use D-Bus session bus (for testing).
+	
+	* init/control.c:
+	  - Added new boolean use_session_bus.
+	  - Updated comments.
+	  - control_handle_bus_type(): New function to allow selection of
+	    session bus via env var "UPSTART_USE_SESSION_BUS".
+	    Also logs use of session bus if use_session_bus set.
+	  - control_bus_open(): Now connects to either D-Bus system bus or session bus.
+	* init/control.h: New define for USE_SESSION_BUS_ENV.
+	* init/main.c: Addition of "--session" command-line option.
+	* init/man/init.8: Update for new "--session" command-line option.
+
+	* Corrected copyright notices.
+
+	Add option to allow alternate location for job config files.
+	
+	* init/main.c:
+	  - Added "--confdir <dir>" command-line option.
+	  - handle_confdir(): New function to select alternate confdir using env
+	    var "UPSTART_CONFDIR" or command-line option (for testing).
+	* init/paths.h: Added define for CONFDIR_ENV.
+	* init/man/init.8: Update for new "--confdir" command-line option.
+
+	Add ability to suppress initial event and/or change its name.
+	
+	* init/main.c: New command-line options: "--no-startup-event" and
+	  "--startup-event". If "--no-startup-event" specified, log message as a
+	  debug aid.
+	* init/man/init.8: Documentation for new command-line options:
+	  "--no-startup-event" and "--startup-event".
+
+2011-05-12  Marc - A. Dahlhaus  <mad@wol.de>
+
+	* init/job_class.h (JobClass): Add kill signal member
+	* init/job_class.c (job_class_new): Initialise kill signal
+	* init/tests/test_job_class.c (test_new): Check kill signal initialised
+	correctly.
+	* init/system.c (system_kill): Change to accept a signal rather than
+	a boolean.
+	* init/system.h: Update prototype
+	* init/tests/test_system.c (test_kill): Update tests to pass signals
+	by value.
+	* init/job_process.c (job_process_kill, job_process_kill_timer): Pass
+	the configured kill signal, or SIGKILL, to the function rather than
+	TRUE/FALSE.
+	* init/parse_job.c (stanza_kill): Add parsing for kill signal.
+	* init/tests/test_parse_job.c (test_stanza_kill): Check parsing works
+	* init/errors.h: Add illegal signal error and string.
+	* init/man/init.5: Update documentation
+
+	* init/job_class.h (JobClass): Replace oom_adj with oom_score_adj
+	* init/job_class.c (job_class_new): Replace oom_adj with oom_score_adj.
+	* init/job_process.c (job_process_spawn): Write the new score
+	adjustment, falling back to calculating and writing the old value if
+	necessary.
+	* init/parse_job.c (stanza_oom): Parse both the new and old values,
+	converting the old value to the new value if present.
+	* init/errors.h: Add new error string.
+	* init/man/init.5: Documentation update.
+	* init/tests/test_job_class.c (test_new): Update check.
+	* init/tests/test_parse_job.c (test_stanza_oom): Update tests.
+
+2011-05-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_run): Always make the shell script
+	fd 9, since that's the highest that shells are required by POSIX to
+	support.  Pass the file descriptor to job_process_spawn()
+	(job_process_run): Accept the extra file descriptor, moving it to fd 9.
+	(job_process_error_read): Add handling for error condition.
+	* init/job_process.h: Adjust prototypes, add constant
+	* init/tests/test_job_process.c (test_spawn): Add argument to call in
+	tests
+
+2011-03-22  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 1.3
+	* NEWS: Begin new release
+
+	* NEWS: Release 1.2
+
+	* init/job_process.c (job_process_run): Correct shell redirection;
+	the form we used dosen't work with at least pdksh
+
+2011-03-16  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 1.2
+	* NEWS: Begin new release
+
+	* NEWS: Release 1.1
+
+	* configure.ac (NIH_COPYRIGHT): Update
+
+	* init/main.c: Don't close the console until initialization is
+	complete.
+
+	* util/Makefile.am (uninstall-hook): Clean up symlinks on uninstall
+
+	* init/environ.c (environ_all_valid): Only verify that an = is present
+	(environ_valid): Drop this function, the part of POSIX I read about
+	valid environment variable names only applies to other things defined
+	by POSIX, elsewhere it explicitly says Applications may do whatever
+	they like (and even encourages to avoid conflict)
+	(environ_expand_until): Remove validity check for name.
+	* init/environ.h: Update header.
+	* init/tests/test_environ.c (test_valid): Drop tests.
+	(test_all_valid): Drop name tests.
+	(test_expand): Remove illegal expansion test.
+	* init/tests/test_control.c (test_emit_event): Remove the test case for
+	an invalid name in the environment.
+	* init/tests/test_job_class.c (test_start, test_stop)
+	(test_restart): Change the invalid argument tests to use an entry
+	without an = as the invalid test.
+
+	* util/reboot.c: pass '-H' to shutdown when called as 'halt'
+
+	* init/job_process.c (job_process_handler): Check the job's normal exit
+	list, decrease log priority of messages from warning to information if
+	the exit status or signal is in the list.
+	* init/tests/test_job_process.c (test_handler): Change the normal exit
+	test cases to not expect the warning
+
+	* init/job_process.c (job_process_run): Prepend a shell command to the
+	pasted script to force the shell to close the file descriptor being
+	used to paste the script. The shell will already have a new copy when
+	it opened the path.
+
+2011-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c (conf_source_reload, conf_source_reload_dir): Fix typos
+	in doc-strings
+	* init/job_process.c (job_process_run): Fix typo in doc-string
+	* init/parse_job.c (stanza_env): Fix typo in doc-string
+
+2011-03-15  Patty Langasek  <harmoney@dodds.net>
+
+	* init/man/init.5: Grammar fixes
+
+2011-03-15  Jacek Konieczny  <jajcus@jajcus.net>
+
+	* contrib/vim/syntax/upstart.vim: Further improve syntax hilighting
+
+2011-03-01  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 1.1
+	* NEWS: Begin new release
+
+	* NEWS: Release 1.0
+
+2011-02-17  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac, NEWS: Bump version to 1.0
+	* TODO: Update.
+
+	* init/tests/test_conf.c (test_source_reload_job_dir): Add tests for
+	a crasher bug when a file is created called ".conf"
+	* init/conf.c (conf_dir_filter): Apply fix for the crasher; check that
+	the character before the ".conf" extension is not "/"
+	* NEWS: Update.
+
+2011-01-06  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_termianted): Don't rewind the
+	utmp file between updates.
+	* init/tests/test_job_process.c (test_utmp): Add test case for
+	newer mingetty behaviour.
+
+2010-12-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* contrib/bash_completion/upstart: Add bash completion script.
+	* contrib/Makefile.am (EXTRA_DIST): Include in tarball.
+	* NEWS: Update.
+
+2010-12-20  Scott James Remnant  <scott@netsplit.com>
+
+	* NEWS: update.
+
+2010-12-20  Petr Lautrbach  <plautrba@redhat.com>
+
+	* init/job_process.c (job_process_terminated): On termination of
+	a job, update the utmp file replacing any existing entry for that
+	pid with a DEAD_PROCESS entry; likewise append an entry to wtmp.
+	* init/tests/test_job_process.c (test_utmp): Test utmp handling.
+
+	* util/shutdown.c: Exit non-zero if unable to shutdown the system.
+
+2010-12-14  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.6.8
+	* NEWS: Begin new release
+
+	* NEWS: Release 0.6.7
+
+	* dbus/com.ubuntu.Upstart.Job.xml (start_on, stop_on, emits): Add new
+	properties to return the job's relationship to events.
+	* init/job_class.c (job_class_get_start_on)
+	(job_class_get_stop_on, job_class_get_emits): Implement the properties
+	* init/job_class.h: Add prototypes.
+	* init/tests/test_job_class.c (test_get_start_on)
+	(test_get_stop_on, test_get_emits): Test the new properties too
+
+2010-12-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/parse_job.c (stanza_manual): New function to handle manual
+	stanza.
+	* init/tests/test_parse_job.c (test_stanza_manual): New function to
+	test manual stanza.
+	* init/man/init.5: Update for manual stanza.
+
+2010-12-14  James Hunt <james.hunt@ubuntu.com>
+
+	* init/job_class.h: Added debug member.
+	* init/job_class.c: Initialized debug member.
+	* init/job_process.c: Pause child using raise(3).
+	* init/main.c: Display PID+PPID for debug builds.
+	* init/parse_job.c: Added new function stanza_debug.
+	* init/tests/test_job_process.c (test_spawn): Added test for debug stanza.
+
+2010-12-10  Scott James Remnant  <scott@netsplit.com>
+
+	* dbus/upstart.h (DBUS_SERVICE_UPSTART, DBUS_ADDRESS_UPSTART):
+	For debugging purposes, when -DDEBUG is given, change the values of
+	these constants.  You'll need to modify your own D-Bus configuration
+	of course.
+
+2010-12-09  Scott James Remnant  <scott@netsplit.com>
+
+	* init/tests/test_job.c (test_change_state): Add missing
+	DBUS_TYPE_INVALID to dbus_message_get_args() call.
+
+2010-12-08  Colin Watson  <cjwatson@debian.org>
+
+	* dbus/com.ubuntu.Upstart.Instance.xml (GoalChanged, StateChanged)
+	(Failed): New signals.
+	* init/job.c (job_change_goal): Emit GoalChanged signal after
+	(job_change_state): Emit StateChanged signal after changing state.
+	(job_failed): Emit Failed signal after marking job as failed.
+	* init/tests/test_job.c (test_change_goal): Test for this.
+	(test_change_state): Test for this.
+	* NEWS: Update.
+
+2010-12-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c, init/event_operator.c: Fix grammar and factual errors
+	in comments.
+	* init/man/init.5: Fix grammar errors and clarify export behaviour.
+
+2010-12-08  Clint Byrum  <clint@ubuntu.com>
+
+	* init/man/init.5: Typo existing -> exiting
+
+2010-08-12  Scott James Remnant  <scott@netsplit.com>
+
+	* init/job_process.c (job_process_spawn): We can fail to open the
+	system console for various reasons, sometimes because there isn't
+	a console (ENXIO or ENODEV) but worse due to kernel race conditions
+	on SMP/multi-core systems (EIO).  If "console output" is used, and
+	these happen, fall back to /dev/null.
+
 2010-04-27  Scott James Remnant  <scott@netsplit.com>
+
+	* configure.ac: Bump version to 0.6.7
+	* NEWS: Begin new release
 
 	* NEWS: Release 0.6.6
 
