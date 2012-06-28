@@ -1892,6 +1892,11 @@ error:
  * Note that the object returned is not a true JobClass since not all
  * structure elements are encoded in the JSON.
  *
+ * Further, note that limits, process and normalexit are NOT handled by
+ * this function - use state_rlimit_deserialise_all(),
+ * process_deserialise_all() and state_deserialize_int_array()
+ * respectively.
+ *
  * Returns: partial JobClass object, or NULL on error.
  **/
 JobClass *
@@ -1904,8 +1909,6 @@ job_class_deserialise (json_object *json)
 	 *
 	 * instances
 	 * process
-	 * expect
-	 * etc....
 	 */
 
 	nih_assert (json);
@@ -1945,10 +1948,10 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, partial, version))
 		goto error;
 
-	if (! state_get_json_str_array_to_obj (json, partial, env))
+	if (! state_get_json_env_array_to_obj (json, partial, env))
 		goto error;
 
-	if (! state_get_json_str_array_to_obj (json, partial, export))
+	if (! state_get_json_env_array_to_obj (json, partial, export))
 		goto error;
 
 	/* start and stop conditions are optional */
@@ -2046,7 +2049,7 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, partial, respawn_interval))
 			goto error;
 
-	/* FIXME: normalexit, normalexit_len */
+	/* normalexit and normalexit_len handled by caller */
 
 	if (! state_get_json_int_var_to_obj (json, partial, console))
 			goto error;
@@ -2102,8 +2105,10 @@ error:
 int
 job_class_deserialise_all (json_object *json)
 {
-	json_object         *json_classes;
-	JobClass            *class;
+	json_object  *json_classes;
+	json_object  *json_normalexit;
+	JobClass     *class;
+	int           ret;
 
 	nih_assert (json);
 
@@ -2155,8 +2160,6 @@ job_class_deserialise_all (json_object *json)
 		/* FIXME: TODO
 		 *
 		 *   instances
-		 *   normalexit
-		 *   normalexit_len
 		 */
 		nih_error ("FIXME: need to finish JobClass deserialisation");
 
@@ -2191,6 +2194,16 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy_int (class, partial, respawn);
 		state_partial_copy_int (class, partial, respawn_limit);
 		state_partial_copy_int (class, partial, respawn_interval);
+
+		json_normalexit = json_object_object_get (json, "normalexit");
+		if (! json_normalexit)
+			goto error;
+
+		ret = state_deserialize_int_array (class, json_normalexit,
+				&class->normalexit, &class->normalexit_len);
+		if (ret < 0)
+			goto error;
+
 		state_partial_copy_int (class, partial, console);
 		state_partial_copy_int (class, partial, umask);
 		state_partial_copy_int (class, partial, nice);

@@ -398,7 +398,24 @@
 #define state_get_json_str_array_to_obj(json, object, name) \
 	({json_object *json_var = NULL; \
 	 (state_get_json_var_full (json, #name, array, json_var)) && \
-	(object->name = state_deserialize_str_array (object, json_var));})
+	(object->name = state_deserialize_str_array (object, json_var, FALSE));})
+
+/**
+ * state_get_json_env_array_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised.
+ *
+ * Deserialise stringified @name from @json into an array of environment
+ * variable strings and assign to @name within @object.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_env_array_to_obj(json, object, name) \
+	({json_object *json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, json_var)) && \
+	(object->name = state_deserialize_str_array (object, json_var, TRUE));})
 
 /**
  * state_copy_str_array_to_obj:
@@ -481,8 +498,13 @@ state_serialize_int_array (int *array, int count)
 	__attribute__ ((warn_unused_result));
 
 char **
-state_deserialize_str_array (void *parent, json_object *json)
+state_deserialize_str_array (void *parent, json_object *json, int env)
 	__attribute__ ((malloc, warn_unused_result));
+
+int
+state_deserialize_int_array (void *parent, json_object *json,
+		int **array, size_t *len)
+	__attribute__ ((warn_unused_result));
 
 json_object *
 state_rlimit_serialise (const struct rlimit *rlimit)

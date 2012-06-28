@@ -696,16 +696,18 @@ error:
  * state_deserialize_str_array:
  *
  * @parent: parent object for new array,
- * @json: JSON array object representing a string array.
+ * @json: JSON array object representing a string array,
+ * @env: TRUE if @json represents an array of environment
+ * variables, FALSE for simple strings.
  *
  * Convert JSON array object @json into a string array.
  *
  * Returns string array, or NULL on error.
  **/
 char **
-state_deserialize_str_array (void *parent, json_object *json)
+state_deserialize_str_array (void *parent, json_object *json, int env)
 {
-	size_t    env_len = 0;
+	size_t    len = 0;
 	char    **array = NULL;
 
 	nih_assert (parent);
@@ -714,26 +716,29 @@ state_deserialize_str_array (void *parent, json_object *json)
 	if (! state_check_type (json, array))
 		goto error;
 
-	array = NIH_MUST (nih_str_array_new (parent));
+	array = nih_str_array_new (parent);
+	if (! array)
+		return NULL;
 
 	for (int i = 0; i < json_object_array_length (json); i++) {
-		json_object  *jenv_var;
-		const char   *env_var;
+		json_object  *json_element;
+		const char   *element;
 
-		jenv_var = json_object_array_get_idx (json, i);
-		if (! state_check_type (jenv_var, string))
+		json_element = json_object_array_get_idx (json, i);
+		if (! state_check_type (json_element, string))
 			goto error;
 
-		env_var = json_object_get_string (jenv_var);
-		if (! env_var)
+		element = json_object_get_string (json_element);
+		if (! element)
 			goto error;
 
-		NIH_MUST (environ_add (&array, parent, &env_len, TRUE, env_var));
-
-#if 1
-		/* FIXME */
-		nih_message ("%s:%d: found env var '%s'", __func__, __LINE__, env_var);
-#endif
+		if (env) {
+			if (! environ_add (&array, parent, &len, TRUE, element))
+				goto error;
+		} else {
+			if (! nih_str_array_add (&array, parent, &len, element))
+				goto error;
+		}
 	}
 
 	return array;
@@ -786,6 +791,55 @@ state_serialize_int_array (int *array, int count)
 error:
 	json_object_put (json);
 	return NULL;
+}
+
+/**
+ * state_deserialize_int_array:
+ *
+ * @parent: parent object for new array,
+ * @json: JSON array object representing an integer array,
+ * @array: array of integers,
+ * @len: length of @array.
+ *
+ * Convert JSON array object @json into an integer array.
+ *
+ * Returns 0 on success, -1 on ERROR.
+ **/
+int
+state_deserialize_int_array (void *parent, json_object *json, int **array, size_t *len)
+{
+	nih_assert (parent);
+	nih_assert (json);
+	nih_assert (array);
+	nih_assert (len);
+
+	if (! state_check_type (json, array))
+		return -1;
+
+	*len = json_object_array_length (json);
+
+	*array = nih_alloc (parent, (*len) * sizeof (int));
+	if (! *array)
+		return -1;
+
+	for (int i = 0; i < json_object_array_length (json); i++) {
+		int          *element;
+		json_object  *json_element;
+
+		element = (*array)+i;
+
+		json_element = json_object_array_get_idx (json, i);
+		if (! state_check_type (json_element, int))
+			goto error;
+
+		*element = json_object_get_int (json_element);
+	}
+
+	return 0;
+
+error:
+	nih_free (*array);
+	return -1;
 }
 
 /**

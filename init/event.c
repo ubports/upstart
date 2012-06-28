@@ -655,7 +655,7 @@ event_deserialise (json_object *json)
 	if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
-	partial->env = state_deserialize_str_array (partial, json_env);
+	partial->env = state_deserialize_str_array (partial, json_env, TRUE);
 	if (! partial->env)
 		goto error;
 
