@@ -1,3 +1,27 @@
+upstart (1.5-1) UNRELEASED; urgency=low
+
+  * New maintainer.
+  * New upstream release.  Closes: #627544.
+  * Drop /etc/init/dbus-reconnect.conf, no longer needed.
+  * Add new jobs from Ubuntu: console, container-detect, failsafe,
+    flush-early-job-log, rcS.conf, shutdown, wait-for-state.
+  * Use 'linux-any' in the architecture check in debian/control, instead of
+    trying to enumerate all non-linux archs.  Closes: #634513.
+  * Conflict with lxcguest package (Ubuntu-specific).
+  * Breaks old friendly-recovery (Ubuntu-specific).
+  * Mark upstart multi-arch: foreign.
+  * Add upstart-events(7) manpage from Ubuntu.
+  * Update packaging to dh(1), debian/compat=9 (from Ubuntu).
+  * debian/running-in-container: a script using container.conf to
+    answer whether upstart is running in a container.
+  * refresh soon-to-be-obsolete upstart-job helper from Ubuntu.
+  * Add bash-completion support.
+  * Add /var/log/upstart directory and logrotate support.
+  * Don't re-exec init on upgrade, we don't currently support stateful
+    re-exec.
+
+ -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
+
 upstart (0.6.6-2) unstable; urgency=low
 
   * New maintainer. Closes: #624440.

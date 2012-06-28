@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.5\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2012-03-22 11:02+0000\n"
+"POT-Creation-Date: 2012-03-22 14:37+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -63,7 +63,7 @@ msgstr ""
 msgid "Disconnected from system bus"
 msgstr ""
 
-#: init/control.c:370 init/main.c:694
+#: init/control.c:370 init/main.c:830
 msgid "Reloading configuration"
 msgstr ""
 
@@ -504,108 +504,118 @@ msgstr ""
 msgid "Failed to write to log file"
 msgstr ""
 
-#: init/main.c:131
+#: init/main.c:135
 msgid "specify alternative directory to load configuration files from"
 msgstr ""
 
-#: init/main.c:134
+#: init/main.c:138
 msgid "default value for console stanza"
 msgstr ""
 
-#: init/main.c:137
+#: init/main.c:141
 msgid "specify alternative directory to store job output logs in"
 msgstr ""
 
-#: init/main.c:140
+#: init/main.c:144
 msgid "disable job logging"
 msgstr ""
 
-#: init/main.c:143
+#: init/main.c:147
 msgid "disable user and chroot sessions"
 msgstr ""
 
-#: init/main.c:146
+#: init/main.c:150
 msgid "do not emit any startup event (for testing)"
 msgstr ""
 
-#: init/main.c:151
+#: init/main.c:155
 msgid "use D-Bus session bus rather than system bus (for testing)"
 msgstr ""
 
-#: init/main.c:154
+#: init/main.c:158
 msgid "specify an alternative initial event (for testing)"
 msgstr ""
 
-#: init/main.c:174
+#: init/main.c:178
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:176
+#: init/main.c:180
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:197 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:201 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:206
+#: init/main.c:210
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:247
+#: init/main.c:251
 msgid "Unable to initialize console, will try /dev/null"
 msgstr ""
 
-#: init/main.c:253
+#: init/main.c:257
 msgid "Unable to initialize console as /dev/null"
 msgstr ""
 
-#: init/main.c:269 init/main.c:604
+#: init/main.c:273 init/main.c:687
 msgid "Unable to set root directory"
 msgstr ""
 
-#: init/main.c:280
+#: init/main.c:284
 msgid "Unable to mount /proc filesystem"
 msgstr ""
 
-#: init/main.c:289
+#: init/main.c:293
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:392 init/main.c:398
+#: init/main.c:403 init/main.c:409
 msgid "Unable to set default oom score"
 msgstr ""
 
-#: init/main.c:417
+#: init/main.c:428
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:450
+#: init/main.c:461
 msgid "Unable to setup standard file descriptors"
 msgstr ""
 
-#: init/main.c:621
+#: init/main.c:704
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:625
+#: init/main.c:708
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:711
+#: init/main.c:737
+#, c-format
+msgid "Re-executing %s"
+msgstr ""
+
+#: init/main.c:762
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr ""
+
+#: init/main.c:847
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:717
+#: init/main.c:853
 msgid "Unable to connect to the system bus"
 msgstr ""
 
-#: init/main.c:793
+#: init/main.c:929
 msgid "invalid console type specified"
 msgstr ""
 

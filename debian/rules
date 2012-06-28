@@ -1,101 +1,26 @@
 #!/usr/bin/make -f
-# debian/rules for the upstart package.
-# Author: Scott James Remnant <scott@ubuntu.com>
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-export DH_OPTIONS
-
-CFLAGS = -Wall -g
+DEB_BUILD_MAINT_OPTIONS  := hardening=+pie,+bindnow
+DEB_LDFLAGS_MAINT_APPEND := -Wl,--as-needed
+DEB_CFLAGS_MAINT_APPEND  := -Wall
 
 # Disable optimisations if noopt found in $DEB_BUILD_OPTIONS
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -O0
+	DEB_LDFLAGS_MAINT_APPEND += -Wl,-O0
 else
-	CFLAGS += -Os
+	DEB_CFLAGS_MAINT_APPEND += -Os
+	DEB_LDFLAGS_MAINT_APPEND += -Wl,-O1
 endif
 
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
-ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
-	confflags += --build=$(DEB_HOST_GNU_TYPE)
-else
-	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
-endif
+%:
+	dh $@ --with bash-completion
 
+override_dh_auto_configure:
+	dh_auto_configure -- --exec-prefix= --enable-selinux
 
-# Run the package configure script
-config.status: $(QUILT_STAMPFN) configure
-	./configure $(confflags) CFLAGS="$(CFLAGS)" \
-		--prefix=/usr \
-		--exec-prefix=/ \
-		--sysconfdir=/etc \
-		--localstatedir=/var/lib \
-		--mandir=\$${datadir}/man \
-		--infodir=\$${datadir}/info \
-		--enable-selinux \
-		--disable-maintainer-mode
-
-
-# Build the package
-build: build-stamp
-build-stamp: config.status
-	dh_testdir
-
-	$(MAKE)
-	touch $@
-
-# Install the package underneath debian/tmp
-install: build
-	dh_testdir
-	dh_testroot
-	dh_prep
-	dh_installdirs
-
-	$(MAKE) DESTDIR="$(CURDIR)/debian/tmp" install
-
-	# Copy the compat script
-	install -D -d debian/tmp/lib/init
-	install -m 755 -o root -g root debian/upstart-job \
-		debian/tmp/lib/init
-
-
-binary: binary-indep binary-arch
-
-# Build architecture-independent files here.
-binary-indep:
-# We have nothing to do by default.
-
-# Build architecture-dependent files here.
-binary-arch: DH_OPTIONS=-a
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installchangelogs ChangeLog
-	dh_installdocs
-	dh_install --list-missing
-	dh_link
-	dh_strip
-	dh_compress
+override_dh_fixperms:
 	dh_fixperms
-	dh_installdeb
-	dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-
-# Clean up the mess we made
-clean:
-	dh_testdir
-	rm -f build-stamp
-
-	[ ! -f Makefile ] || $(MAKE) clean distclean
-	dh_clean
-
-
-.PHONY: build install binary-indep binary-arch binary clean
+	chmod 755 debian/upstart/lib/init/upstart-job
+	chmod 755 debian/upstart/lib/init/apparmor-profile-load

@@ -16,6 +16,12 @@ allows a system administrator to communicate and interact with the Upstart
 .BR init (8)
 daemon.
 
+If D\-Bus has been configured to allow non\-privileged users to invoke all
+Upstart D\-Bus methods, this command is also able to manage user jobs.
+See
+.BR init (5)
+for further details.
+
 When run as
 .BR initctl ,
 the first non\-option argument is the

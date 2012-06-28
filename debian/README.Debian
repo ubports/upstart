@@ -2,13 +2,9 @@ upstart
 =======
 
 Upstart is a replacement for the traditional sysvinit package, and
-runs as process #1.  While it is eventually intended to be used to
-create a completely event-driven boot process, we are currently
-only using it to emulate the original sysvinit behaviour.
-
-This gives us the maximum amount of testing of the code and concepts
-behind it, while retaining the ability to fallback to sysvinit should
-things not work out.
+runs as process #1.  Through upstart, we are able to have an
+event-driven process, whilst at the same time retaining compatibility
+for the original sysvinit behaviour.
 
 This file documents how to do a few common operations with the new
 system.

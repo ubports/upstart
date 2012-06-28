@@ -1,8 +1,4 @@
-sbin/
-lib/init/upstart-job
-usr/share/man/man5/
-usr/share/man/man7/
-usr/share/man/man8/
-etc/dbus-1/system.d/Upstart.conf
-etc/init/*.conf
 debian/conf/*.conf etc/init/
+debian/upstart-job lib/init/
+debian/apparmor-profile-load lib/init/
+debian/running-in-container bin/
