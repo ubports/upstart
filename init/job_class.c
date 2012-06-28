@@ -60,6 +60,8 @@
 #include <json.h>
 
 /* Prototypes for static functions */
+static void  job_class_add (JobClass *class);
+static void  job_class_add_safe (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
 static char *job_class_collapse_env (char **env)
@@ -344,7 +346,7 @@ job_class_reconsider (JobClass *class)
  * Adds @class to the hash table and registers it with all current D-Bus
  * connections.  @class may be NULL.
  **/
-void
+static void
 job_class_add (JobClass *class)
 {
 	control_init ();
@@ -360,6 +362,29 @@ job_class_add (JobClass *class)
 
 		job_class_register (class, conn, TRUE);
 	}
+}
+
+/**
+ * job_class_add_safe:
+ * @class: new class to select.
+ *
+ * Adds @class to the hash table iff no existing entry of the
+ * same name exists.
+ **/
+static void
+job_class_add_safe (JobClass *class)
+{
+	JobClass *existing = NULL;
+
+	nih_assert (class);
+
+	control_init ();
+
+	existing = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	nih_assert (! existing);
+
+	job_class_add (class);
 }
 
 /**
@@ -1743,25 +1768,25 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "process", json_processes);
 
-	if (! state_set_json_num_var_from_obj (json, class, expect, int))
+	if (! state_set_json_int_var_from_obj (json, class, expect))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, task, int))
+	if (! state_set_json_int_var_from_obj (json, class, task))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, kill_timeout, int))
+	if (! state_set_json_int_var_from_obj (json, class, kill_timeout))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, kill_signal, int))
+	if (! state_set_json_int_var_from_obj (json, class, kill_signal))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, respawn, int))
+	if (! state_set_json_int_var_from_obj (json, class, respawn))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, respawn_limit, int))
+	if (! state_set_json_int_var_from_obj (json, class, respawn_limit))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, respawn_interval, int))
+	if (! state_set_json_int_var_from_obj (json, class, respawn_interval))
 		goto error;
 
 	json_normalexit = class->normalexit_len
@@ -1773,16 +1798,16 @@ job_class_serialise (const JobClass *class)
 
 	json_object_object_add (json, "normalexit", json_normalexit);
 
-	if (! state_set_json_num_var_from_obj (json, class, console, int))
+	if (! state_set_json_int_var_from_obj (json, class, console))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, umask, int))
+	if (! state_set_json_int_var_from_obj (json, class, umask))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, nice, int))
+	if (! state_set_json_int_var_from_obj (json, class, nice))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, oom_score_adj, int))
+	if (! state_set_json_int_var_from_obj (json, class, oom_score_adj))
 		goto error;
 
 	json_limits = state_rlimit_serialise_all (class->limits);
@@ -1802,10 +1827,10 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, setgid))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, deleted, int))
+	if (! state_set_json_int_var_from_obj (json, class, deleted))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, class, debug, int))
+	if (! state_set_json_int_var_from_obj (json, class, debug))
 		goto error;
 
 	if (! state_set_json_string_var_from_obj (json, class, usage))
@@ -1872,15 +1897,6 @@ error:
 JobClass *
 job_class_deserialise (json_object *json)
 {
-	json_object    *json_env;
-	json_object    *json_export;
-	json_object    *json_emits;
-	const char     *name;
-	//const char     *path;
-	const char     *instance;
-	const char     *description;
-	const char     *author;
-	const char     *version;
 	JobClass       *partial;
 	int             session_index;
 
@@ -1903,50 +1919,36 @@ job_class_deserialise (json_object *json)
 
 	memset (partial, '\0', sizeof (JobClass));
 
-	if (! state_get_json_string_var (json, "name", name))
-			goto error;
-	partial->name = NIH_MUST (nih_strdup (partial, name));
+	if (! state_get_json_string_var_to_obj (json, partial, name))
+		goto error;
 
-#if 0
-	if (! state_get_json_string_var (json, "path", path))
-			goto error;
-	partial->path = NIH_MUST (nih_strdup (partial, path));
-#endif
 	if (! state_get_json_string_var_to_obj (json, partial, path))
 		goto error;
 
-	if (! state_get_json_string_var (json, "instance", instance))
+	if (! state_get_json_num_var (json, "session", int, session_index))
 			goto error;
-	partial->instance = NIH_MUST (nih_strdup (partial, instance));
+
+	/* can't check return value here (as all values are legitimate) */
+	partial->session = session_from_index (session_index);
+
+	if (! state_get_json_string_var_to_obj (json, partial, instance))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, description))
+		goto error;
 
 	/* FIXME: instances */
 
-	if (! state_get_json_string_var (json, "description", description))
-			goto error;
-	partial->description = description && *description
-		? NIH_MUST (nih_strdup (partial, description))
-		: NULL;
-
-	if (! state_get_json_string_var (json, "author", author))
-			goto error;
-	partial->author = NIH_MUST (nih_strdup (partial, author));
-
-	if (! state_get_json_string_var (json, "version", version))
-			goto error;
-	partial->version = NIH_MUST (nih_strdup (partial, version));
-
-	if (! state_get_json_var_full (json, "env", array, json_env))
-			goto error;
-
-	partial->env = state_deserialize_str_array (partial, json_env);
-	if (! partial->env)
+	if (! state_get_json_string_var_to_obj (json, partial, author))
 		goto error;
 
-	if (! state_get_json_var_full (json, "export", array, json_export))
+	if (! state_get_json_string_var_to_obj (json, partial, version))
 		goto error;
 
-	partial->export = state_deserialize_str_array (partial, json_export);
-	if (! partial->export)
+	if (! state_get_json_str_array_to_obj (json, partial, env))
+		goto error;
+
+	if (! state_get_json_str_array_to_obj (json, partial, export))
 		goto error;
 
 	/* start and stop conditions are optional */
@@ -2018,32 +2020,68 @@ job_class_deserialise (json_object *json)
 
 	}
 
-	if (! state_get_json_var_full (json, "emits", array, json_emits))
-			goto error;
-
-	partial->emits = state_deserialize_str_array (partial, json_emits);
-	if (! partial->emits)
+	if (! state_get_json_str_array_to_obj (json, partial, emits))
 		goto error;
 
 	/* FIXME: process */
 
-	if (! state_get_json_num_var_to_obj (json, partial, expect, int))
+	if (! state_get_json_int_var_to_obj (json, partial, expect))
 			goto error;
 
-	if (! state_get_json_num_var_to_obj (json, partial, task, int))
+	if (! state_get_json_int_var_to_obj (json, partial, task))
 			goto error;
 
-	if (! state_get_json_num_var_to_obj (json, partial, kill_timeout, int))
+	if (! state_get_json_int_var_to_obj (json, partial, kill_timeout))
 			goto error;
 
-	if (! state_get_json_num_var_to_obj (json, partial, kill_signal, int))
+	if (! state_get_json_int_var_to_obj (json, partial, kill_signal))
 			goto error;
 
-	if (! state_get_json_num_var (json, "session", int, session_index))
+	if (! state_get_json_int_var_to_obj (json, partial, respawn))
 			goto error;
 
-	/* can't check return value here (as all values are legitimate) */
-	partial->session = session_from_index (session_index);
+	if (! state_get_json_int_var_to_obj (json, partial, respawn_limit))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, respawn_interval))
+			goto error;
+
+	/* FIXME: normalexit, normalexit_len */
+
+	if (! state_get_json_int_var_to_obj (json, partial, console))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, umask))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, nice))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, oom_score_adj))
+			goto error;
+
+	/* FIXME: limits */
+
+	if (! state_get_json_string_var_to_obj (json, partial, chroot))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, chdir))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, setuid))
+			goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, setgid))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, deleted))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, debug))
+			goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, usage))
+		goto error;
 
 	return partial;
 
@@ -2102,33 +2140,49 @@ job_class_deserialise_all (json_object *json)
 
 		class = NIH_MUST (job_class_new (NULL, partial->name, partial->session));
 
-		/* job_class_new() sets path */
 		/* FIXME:
+		 *
+		 * If user sessions exist (ie 'initctl --session list'
+		 * has been run), we get this failure:
 		 *
 		 *             serialised path='/com/ubuntu/Upstart/jobs/1000/bang'
 		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
 		 *
 		 */
+		/* job_class_new() sets path */
 		nih_assert (! strcmp (class->path, partial->path));
 
 		/* FIXME: TODO
 		 *
 		 *   instances
-		 *   XXX: start_on
-		 *   XXX: stop_on
 		 *   normalexit
 		 *   normalexit_len
 		 */
 		nih_error ("FIXME: need to finish JobClass deserialisation");
 
-		state_partial_copy_string (class, partial, description);
-		state_partial_copy_string (class, partial, author);
-		state_partial_copy_string (class, partial, version);
-		state_partial_copy_string (class, partial, chroot);
-		state_partial_copy_string (class, partial, chdir);
-		state_partial_copy_string (class, partial, setuid);
-		state_partial_copy_string (class, partial, setgid);
-		state_partial_copy_string (class, partial, usage);
+		if (! state_partial_copy_string (class, partial, description))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, author))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, version))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, chroot))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, chdir))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, setuid))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, setgid))
+			goto error;
+
+		if (! state_partial_copy_string (class, partial, usage))
+			goto error;
 
 		state_partial_copy_int (class, partial, expect);
 		state_partial_copy_int (class, partial, task);
@@ -2156,6 +2210,12 @@ job_class_deserialise_all (json_object *json)
 		if (! state_copy_str_array_to_obj (class, partial, emits))
 			goto error;
 
+		if (! state_copy_event_oper_to_obj (class, partial, start_on))
+			goto error;
+
+		if (! state_copy_event_oper_to_obj (class, partial, stop_on))
+			goto error;
+
 		if (process_deserialise_all (json_class, class, &class->process) < 0)
 			goto error;
 
@@ -2171,8 +2231,20 @@ job_class_deserialise_all (json_object *json)
 
 		nih_message ("class=%p, session=%p", class, class->session);
 
+		/* FIXME:
+		 *
+		 * - should only add this if no class already exists.
+		 *   This *should* never happen but we need to handle
+		 *   the scenario in case of invalid JSON.
+		 *
+		 *   We cannot use job_class_*consider() since the
+		 *   JobClasses have no associated ConfFile.
+		 *
+		 *   Plan may have to be to create a dummy ConfFile for
+		 *   all jobs that have been passed across an exec.
+		 */
 		/* Force class to be known */
-		job_class_add (class);
+		job_class_add_safe (class);
 	}
 
 	return 0;

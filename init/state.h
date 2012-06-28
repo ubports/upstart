@@ -2,6 +2,8 @@
  *
  * - remove all PRODUCTION_BUILD macros and adopt production flow.
  *
+ * - check "NULL session" deserialisation handling.
+ *
  * - XXX: audit memory management for all *_deserialise() and
  *   XXX: *_deserialise_all() functions!!
  *
@@ -67,6 +69,15 @@
  * is also essential since the JSON representation of most objects does
  * _NOT_ encode all information about an object (for example the JSON
  * encoding for an Event does not encode 'blockers' and 'blocking').
+ *
+ * == Macros ==
+ *
+ * Some of the macros defind here may appear needlessly trivial.
+ * However, their value lies in their ability to avoid having to
+ * duplicate element names when copying data from partial objects and
+ * JSON (where it would be easy to forget to update some part of an
+ * expresion and end up corrupting/duplicating data elements).
+ * Safety first! :)
  *--------------------------------------------------------------------
  */
 
@@ -190,6 +201,7 @@
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
  * @name: name of numeric element within @object to be deserialised,
+ * @type: type of @name in @json (without prefix).
  *
  * Extract stringified @name from @json and set numeric element named
  * @name in @object to its value.
@@ -201,6 +213,22 @@
 	 int ret = state_get_json_var_full (json, #name, type, json_var); \
 	 if (json_var) object->name = json_object_get_ ## type (json_var); \
 	 json_var && ret;})
+
+/**
+ * state_get_json_int_var_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of numeric element within @object to be deserialised,
+ *
+ * Extract stringified @name from @json and set integer element named
+ * @name in @object to its value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int_var_to_obj(json, object, name) \
+	state_get_json_num_var_to_obj(json, object, name, int)
+
 
 /**
  * state_get_json_string_var:
@@ -259,7 +287,7 @@
  **/
 #define state_set_json_var_full(json, name, value, type) \
 	({json_object *json_var = json_object_new_ ## type (value); \
-	 if (json_var) json_object_object_add (json, name, json_var); json_var; })
+	 if (json_var) json_object_object_add (json, name, json_var); json_var;})
 
 /**
  * state_set_json_num_var_from_obj:
@@ -275,8 +303,24 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_num_var_from_obj(json, object, name, type) \
-	({json_object *json_var = json_object_new_ ## type ((type)(object)->name); \
-	 if (json_var) json_object_object_add (json, #name, json_var); json_var; })
+	({json_object *json_var = \
+	 json_object_new_ ## type ((type)object ? (object)->name : 0); \
+	 if (json_var) json_object_object_add (json, #name, json_var); json_var;})
+
+/**
+ * state_set_json_int_var_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of element within @object to be serialised,
+ *
+ * Add value of integer entity @name in object @object to
+ * @json with stringified @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int_var_from_obj(json, object, name) \
+	state_set_json_num_var_from_obj (json, object, name, int)
 
 /**
  * state_set_json_string_var_from_obj:
@@ -298,7 +342,7 @@
 	({json_object *json_var = \
 	 json_object_new_string (object->name ? object->name : ""); \
 	 if (json_var) json_object_object_add (json, #name, json_var); \
-	 json_var; })
+	 json_var;})
 
 /**
  * state_partial_copy_int:
@@ -327,18 +371,34 @@
  *
  * Copy string @name from within @source to @parent.
  *
- * After the call, @parents version of @source contains a copy of
- * that from @source (which may be NULL if the version in @source
- * is either NULL or the null string).
+ * XXX: If @source's version of @name is either NULL or the nul string,
+ * @parents @name will be set to NULL.
  *
- * Returns: TRUE on success always.
+ * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_partial_copy_string(parent, source, name) \
 	({typeof (source->name) _name = source->name; \
 	 	parent->name = _name && *(_name) \
 	 	? NIH_MUST (nih_strdup (parent, _name)) \
-	 	: NULL;})
+	 	: NULL; \
+	 	_name && *(_name) ? parent->name ? 1 : 0: 1;})
 
+/**
+ * state_get_json_str_array_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised.
+ *
+ * Deserialise stringified @name from @json into an array of strings and
+ * assign to @name within @object.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_str_array_to_obj(json, object, name) \
+	({json_object *json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, json_var)) && \
+	(object->name = state_deserialize_str_array (object, json_var));})
 
 /**
  * state_copy_str_array_to_obj:
@@ -353,6 +413,24 @@
  **/
 #define state_copy_str_array_to_obj(to, from, element) \
 	(to->element = nih_str_array_copy (to, NULL, from->element))
+
+/**
+ * state_copy_event_oper_to_obj:
+ *
+ * @to: object to copy @event_oper to,
+ * @from: object from which to copy from,
+ * @event_oper: name of EventOperator element in @from to copy.
+ *
+ * Copy EventOperator @event_oper from @from to @to.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_copy_event_oper_to_obj(to, from, event_oper) \
+	({if (from->event_oper) \
+	 	to->event_oper = event_operator_copy (to, from->event_oper); \
+	 else \
+	 	to->event_oper = NULL; \
+	 from->event_oper ? to->event_oper ? 1 : 0 : 1;})
 
 NIH_BEGIN_EXTERN
 

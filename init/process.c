@@ -139,7 +139,7 @@ process_serialise (const Process *process)
 	if (! json)
 		return NULL;
 
-	if (! state_set_json_num_var_from_obj (json, process, script, int))
+	if (! state_set_json_int_var_from_obj (json, process, script))
 		goto error;
 
 	if (! state_set_json_string_var_from_obj (json, process, command))
@@ -227,7 +227,7 @@ process_deserialise (json_object *json)
 
 	memset (process, '\0', sizeof (Process));
 
-	if (! state_get_json_num_var_to_obj (json, process, script, int))
+	if (! state_get_json_int_var_to_obj (json, process, script))
 			goto error;
 
 	if (! state_get_json_string_var_to_obj (json, process, command))

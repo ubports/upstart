@@ -377,6 +377,9 @@ session_serialise (const Session *session)
 	if (! json)
 		return NULL;
 
+	/* Requirement for NULL session handling disallows use of helper
+	 * macros.
+	 */
 	chroot = json_object_new_string (
 			session
 			? session->chroot
@@ -389,6 +392,9 @@ session_serialise (const Session *session)
 
 	json_object_object_add (json, "chroot", chroot);
 
+	/* Requirement for NULL session handling disallows use of helper
+	 * macros.
+	 */
 	user = json_object_new_int ((int)(session ? session->user : 0));
 	if (! user)
 		goto error;
@@ -493,7 +499,7 @@ session_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, partial, chroot))
 		goto error;
 
-	if (! state_get_json_num_var_to_obj (json, partial, user, int))
+	if (! state_get_json_int_var_to_obj (json, partial, user))
 			goto error;
 
 	if (! state_get_json_string_var_to_obj (json, partial, conf_path))

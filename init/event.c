@@ -537,7 +537,7 @@ event_serialise (const Event *event)
 	if (! state_set_json_var_full (json, "session", session_index, int))
 		goto error;
 
-	if (! state_set_json_num_var_from_obj (json, event, fd, int))
+	if (! state_set_json_int_var_from_obj (json, event, fd))
 		goto error;
 
 	json_env = event->env
@@ -643,7 +643,7 @@ event_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, partial, name))
 			goto error;
 
-	if (! state_get_json_num_var_to_obj (json, partial, fd, int))
+	if (! state_get_json_int_var_to_obj (json, partial, fd))
 			goto error;
 
 	if (! state_get_json_num_var (json, "session", int, session_index))

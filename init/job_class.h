@@ -328,8 +328,6 @@ job_class_deserialise (json_object *json)
 int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
-void  job_class_add    (JobClass *class);
-
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */
