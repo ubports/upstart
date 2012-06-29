@@ -509,6 +509,12 @@ event_finished (Event *event)
  * Convert @event into a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
+ * Note that event->blocking is NOT serialised. Instead, those objects
+ * which event->blocking refers to encode the fact that they are blocked
+ * on the event (index in the JSON) in question. Deserialisation
+ * restores event->blocking via a 2-pass technique. event->blockers is
+ * recorded to allow a double-check.
+ *
  * Returns: JSON-serialised Event object, or NULL on error.
  **/
 json_object *
@@ -527,9 +533,6 @@ event_serialise (const Event *event)
 	if (! json)
 		return NULL;
 
-	if (! state_set_json_string_var_from_obj (json, event, name))
-		goto error;
-
 	session_index = session_get_index (event->session);
 	if (session_index < 0)
 		goto error;
@@ -537,7 +540,7 @@ event_serialise (const Event *event)
 	if (! state_set_json_var_full (json, "session", session_index, int))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, event, fd))
+	if (! state_set_json_string_var_from_obj (json, event, name))
 		goto error;
 
 	json_env = event->env
@@ -548,12 +551,18 @@ event_serialise (const Event *event)
 		goto error;
 	json_object_object_add (json, "env", json_env);
 
-	/* FIXME:
-	 *
-	 * need to add:
-	 *
-	 * event->blocking!!
-	 */
+
+	if (! state_set_json_int_var_from_obj (json, event, fd))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, progress))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, failed))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, blockers))
+		goto error;
 
 	return json;
 
@@ -572,7 +581,7 @@ error:
 json_object *
 event_serialise_all (void)
 {
-	json_object *json;
+	json_object        *json;
 
 	event_init ();
 
@@ -585,16 +594,26 @@ event_serialise_all (void)
 	if (! json)
 		return NULL;
 
-#if 0
-	json_object *json;
-	json_object *json_event_name;
-	json_object *json_event_env;
-	json_object *json_event_fd;
-#endif
-
 	NIH_LIST_FOREACH (events, iter) {
-		Event        *event = (Event *)iter;
-		json_object  *json_event;
+		//NihListEntry  *entry = NULL;
+		Event         *event = (Event *)iter;
+		json_object   *json_event;
+
+#if 0
+		if (event->blockers) {
+			entry = nih_list_entry_new (blocked);
+			if (! entry)
+				goto error;
+
+			entry->str = nih_strdup (entry, event->name);
+			if (! entry->str) {
+				nih_free (entry);
+				goto error;
+			}
+
+			nih_list_add (blocked, &entry->entry);
+		}
+#endif
 
 		json_event = event_serialise (event);
 

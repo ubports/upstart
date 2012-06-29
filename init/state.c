@@ -413,8 +413,9 @@ state_write_objects (int fd)
 char *
 state_to_string (void)
 {
-	json_object  *json;
-	char         *value;
+	json_object        *json;
+	char               *value;
+	//nih_local NihList  *blocked;
 
 	json = json_object_new_object ();
 
@@ -423,20 +424,27 @@ state_to_string (void)
 
 	json_sessions = session_serialise_all ();
 	if (! json_sessions)
-		return NULL;
+		goto error;
 
 	json_object_object_add (json, "sessions", json_sessions);
 
+#if 0
+	blocked = nih_list_new (NULL);
+	if (! blocked)
+		goto error;
+#endif
+
 	json_events = event_serialise_all ();
 	if (! json_events)
-		return NULL;
+		goto error;
 
 	json_object_object_add (json, "events", json_events);
 
 	json_job_classes = job_class_serialise_all ();
 
 	if (! json_job_classes)
-		return NULL;
+		goto error;
+
 	json_object_object_add (json, "job_classes", json_job_classes);
 
 
@@ -452,6 +460,10 @@ state_to_string (void)
 	json_object_put (json);
 
 	return value;
+
+error:
+	json_object_put (json);
+	return NULL;
 }
 
 /**
