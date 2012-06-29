@@ -85,13 +85,7 @@ Session      * session_new         (const void *parent, const char *chroot, uid_
 
 Session      * session_from_dbus   (const void *parent, NihDBusMessage *message);
 
-json_object  * session_serialise   (const Session *session)
-	__attribute__ ((malloc, warn_unused_result));
-
 json_object  * session_serialise_all   (void)
-	__attribute__ ((malloc, warn_unused_result));
-
-Session *session_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
 int            session_deserialise_all (json_object *json)

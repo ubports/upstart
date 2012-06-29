@@ -52,6 +52,11 @@ static void event_pending              (Event *event);
 static void event_pending_handle_jobs  (Event *event);
 static void event_finished             (Event *event);
 
+static json_object *event_serialise (const Event *event)
+	__attribute__ ((malloc, warn_unused_result));
+
+static Event *event_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
 
 /**
  * events:
@@ -517,11 +522,10 @@ event_finished (Event *event)
  *
  * Returns: JSON-serialised Event object, or NULL on error.
  **/
-json_object *
+static json_object *
 event_serialise (const Event *event)
 {
 	json_object  *json;
-	json_object  *json_env;
 	int           session_index;
 
 	nih_assert (event);
@@ -543,14 +547,8 @@ event_serialise (const Event *event)
 	if (! state_set_json_string_var_from_obj (json, event, name))
 		goto error;
 
-	json_env = event->env
-		? state_serialize_str_array (event->env)
-		: json_object_new_array ();
-
-	if (! json_env)
+	if (! state_set_json_str_array_from_obj (json, event, env))
 		goto error;
-	json_object_object_add (json, "env", json_env);
-
 
 	if (! state_set_json_int_var_from_obj (json, event, fd))
 		goto error;
@@ -600,6 +598,12 @@ event_serialise_all (void)
 		json_object   *json_event;
 
 #if 0
+		/* FIXME: make this function add list of all blocked
+		 * events to an "NihList **" passed in such that the
+		 * caller can double-check all events have been
+		 * serialised by comparing this list with all events
+		 * seen in all the job->blocking lists.
+		 */
 		if (event->blockers) {
 			entry = nih_list_entry_new (blocked);
 			if (! entry)
@@ -641,7 +645,7 @@ error:
  *
  * Returns: partial Event object, or NULL on error.
  **/
-Event *
+static Event *
 event_deserialise (json_object *json)
 {
 	json_object        *json_env;
@@ -660,13 +664,13 @@ event_deserialise (json_object *json)
 	memset (partial, '\0', sizeof (Event));
 
 	if (! state_get_json_string_var_to_obj (json, partial, name))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, partial, fd))
-			goto error;
+		goto error;
 
 	if (! state_get_json_num_var (json, "session", int, session_index))
-			goto error;
+		goto error;
 
 	/* can't check return value here (as all values are legitimate) */
 	partial->session = session_from_index (session_index);

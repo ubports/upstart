@@ -345,6 +345,25 @@
 	 json_var;})
 
 /**
+ * state_set_json_str_array_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of element withing @object to be serialised.
+ *
+ * Copy string array @name from @object to @json.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_str_array_from_obj(json, object, name) \
+	({json_object *json_var; \
+	 json_var = object->name \
+	 ? state_serialize_str_array (object->name) \
+	 : json_object_new_array (); \
+	 if (json_var) json_object_object_add (json, #name, json_var); \
+	 json_var;})
+
+/**
  * state_partial_copy_int:
  *
  * @to: object to assign @name to,
@@ -507,15 +526,7 @@ state_deserialize_int_array (void *parent, json_object *json,
 	__attribute__ ((warn_unused_result));
 
 json_object *
-state_rlimit_serialise (const struct rlimit *rlimit)
-	__attribute__ ((malloc, warn_unused_result));
-
-json_object *
 state_rlimit_serialise_all (struct rlimit * const *rlimits)
-	__attribute__ ((malloc, warn_unused_result));
-
-struct rlimit *
-state_rlimit_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
 int 

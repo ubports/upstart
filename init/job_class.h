@@ -315,15 +315,8 @@ int         job_class_get_usage	           (JobClass *class,
 ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 
-json_object * job_class_serialise (const JobClass *class)
-	__attribute__ ((warn_unused_result, malloc));
-
 json_object * job_class_serialise_all (void)
 	__attribute__ ((warn_unused_result, malloc));
-
-JobClass *
-job_class_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
 
 int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));

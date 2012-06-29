@@ -39,6 +39,13 @@
 #include "job_class.h"
 #include "environ.h"
 
+/* Prototypes for static functions */
+static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
+	__attribute__ ((malloc, warn_unused_result));
+
+static struct rlimit *state_rlimit_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
 
 /* FIXME */
 #if 1
@@ -445,6 +452,20 @@ state_to_string (void)
 	if (! json_job_classes)
 		goto error;
 
+	/* FIXME:
+	 *
+	 * To serialise jobs:
+	 *
+	 * - call 'json_jobs = job_class_job_serialise_all()' that
+	 *   loops through "job_classes->instances".
+	 * - iterate through json_job_classes, setting numeric index
+	 *   numbers to the appropriate job index number in json_jobs.
+	 * - iterate through json_jobs, setting numeric index
+	 *   numbers to the appropriate job_class index in
+	 *   json_job_classes.
+	 * - iterate through json_events setting refs to jobs.
+	 */
+
 	json_object_object_add (json, "job_classes", json_job_classes);
 
 
@@ -489,6 +510,7 @@ state_from_string (const char *state)
 	json = json_tokener_parse_verbose (state, &error);
 
 	if (! json) {
+		/* FIXME */
 		nih_error ("XXX:ERROR: json error='%s'",
 				json_tokener_error_desc (error));
 		return ret;
@@ -528,14 +550,19 @@ state_from_string (const char *state)
 	if (! state_check_type (json, object))
 		goto out;
 
+	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
+
 	if (session_deserialise_all (json) < 0)
 		goto out;
 
+	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 	if (event_deserialise_all (json) < 0)
 		goto out;
+	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
+	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 
 /* FIXME */
 #if 1
@@ -863,7 +890,7 @@ error:
  *
  * Returns: JSON-serialised rlimit structure, or NULL on error.
  **/
-json_object *
+static json_object *
 state_rlimit_serialise (const struct rlimit *rlimit)
 {
 	json_object    *json;
@@ -951,7 +978,7 @@ error:
  *
  * Returns: struct rlimit, or NULL on error.
  **/
-struct rlimit *
+static struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
 	struct rlimit  *rlimit;

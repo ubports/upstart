@@ -59,6 +59,9 @@
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
+/* Prototypes for static functions */
+static json_object *job_serialise (const Job *job);
+static Job *job_deserialise (json_object *json);
 
 /**
  * job_new:
@@ -1493,4 +1496,185 @@ job_get_processes (Job *                  job,
 	return 0;
 }
 
+/**
+ * job_serialise:
+ * @job: job serialise.
+ *
+ * Convert @job into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised Job object, or NULL on error.
+ **/
+static json_object *
+job_serialise (const Job *job)
+{
+	json_object  *json;
 
+	nih_assert (job);
+
+	/* FIXME:
+	 *
+	 * class
+	 *
+	 */
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_string_var_from_obj (json, job, name))
+		goto error;
+
+	/* FIXME: class */
+
+	if (! state_set_json_string_var_from_obj (json, job, path))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, goal))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, state))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, env))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, start_env))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, stop_env))
+		goto error;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_serialise_all:
+ *
+ * Convert existing Session objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Job objects, or NULL on error.
+ **/
+json_object *
+job_serialise_all (const NihHash *jobs)
+{
+	json_object *json;
+
+	nih_assert (jobs);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		json_object  *json_job;
+		Job *job = (Job *)iter;
+
+		json_job = job_serialise (job);
+
+		if (! json_job)
+			goto error;
+
+		json_object_array_add (json, json_job);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_deserialise:
+ * @json: JSON-serialised Job object to deserialise.
+ *
+ * Note that the object returned is not a true Job since not all
+ * structure elements are encoded in the JSON.
+ *
+ * Returns: partial Job object, or NULL on error.
+ **/
+static Job *
+job_deserialise (json_object *json)
+{
+	Job *partial;
+
+	nih_assert (json);
+
+	if (! state_check_type (json, object))
+		return NULL;
+
+	partial = nih_new (NULL, Job);
+	if (! partial)
+		return NULL;
+
+	memset (partial, '\0', sizeof (Job));
+
+	if (! state_get_json_string_var_to_obj (json, partial, name))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, path))
+		goto error;
+
+	/* FIXME: finish!! */
+
+	return partial;
+
+error:
+	nih_free (partial);
+	return NULL;
+}
+
+/**
+ * job_deserialise_all:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of Jobs back into Job objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_deserialise_all (json_object *json)
+{
+	json_object  *json_jobs;
+	//Job          *job;
+
+	nih_assert (json);
+
+	json_jobs = json_object_object_get (json, "jobs");
+
+	if (! json_jobs)
+			goto error;
+
+	if (! state_check_type (json_jobs, array))
+		goto error;
+
+	/* FIXME: finish!! */
+	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
+		json_object         *json_job;
+		nih_local Job       *partial = NULL;
+
+		json_job = json_object_array_get_idx (json_job, i);
+
+		if (! state_check_type (json_job, object))
+			goto error;
+
+		partial = job_deserialise (json_job);
+		if (! partial)
+			goto error;
+
+		/* FIXME: need class!! */
+#if 0
+		job = NIH_MUST (job_new (class, partial->name));
+#endif
+		/* FIXME: now copy @partial to @job */
+	}
+
+	return 0;
+
+error:
+	return -1;
+}

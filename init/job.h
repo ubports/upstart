@@ -208,6 +208,12 @@ int         job_get_processes   (Job *job, NihDBusMessage *message,
 				 JobProcessesElement ***processes)
 	__attribute__ ((warn_unused_result));
 
+json_object *job_serialise_all (const NihHash *jobs)
+	__attribute__ ((malloc, warn_unused_result));
+
+int         job_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

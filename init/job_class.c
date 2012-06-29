@@ -70,6 +70,14 @@ static char *job_class_collapse_env (char **env)
 static char *job_class_collapse_condition (EventOperator *condition)
 	__attribute__ ((warn_unused_result));
 
+static json_object *job_class_serialise (const JobClass *class)
+	__attribute__ ((warn_unused_result, malloc));
+
+static JobClass *job_class_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
+
+
 /**
  * default_console:
  *
@@ -1648,31 +1656,32 @@ job_class_get_usage (JobClass *      class,
  * job_class_serialise:
  * @class: job class to serialise.
  *
- * Convert @class int a JSON representation for serialisation.
+ * Convert @class into a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
  * Returns: JSON-serialised JobClass object, or NULL on error.
  **/
-json_object *
+static json_object *
 job_class_serialise (const JobClass *class)
 {
 	json_object      *json;
-	json_object      *json_env;
 	json_object      *json_export;
 	json_object      *json_emits;
 	json_object      *json_processes;
 	json_object      *json_normalexit;
 	json_object      *json_limits;
+	json_object      *json_jobs;
 	nih_local char   *start_on = NULL;
 	nih_local char   *stop_on = NULL;
 	int               session_index;
-
 
 	/* FIXME: */
 #if 0
 	json_object  *json_instances;
 
 #endif
+	/* FIXME: TODO: instances */
+	nih_error ("FIXME: %s: JobClass: need to serialise Job instances", __func__);
 
 	nih_assert (class);
 
@@ -1699,6 +1708,15 @@ job_class_serialise (const JobClass *class)
 		goto error;
 
 	/* FIXME: instances */
+	/* FIXME: GOT TO HERE */
+#if 1
+	json_jobs = job_serialise_all (class->instances);
+#endif
+
+	if (! json_jobs)
+		goto error;
+
+	json_object_object_add (json, "jobs", json_jobs);
 
 	if (! state_set_json_string_var_from_obj (json, class, description))
 		goto error;
@@ -1709,13 +1727,8 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, version))
 		goto error;
 
-	json_env = class->env
-		? state_serialize_str_array (class->env)
-		: json_object_new_array ();
-
-	if (! json_env)
+	if (! state_set_json_str_array_from_obj (json, class, env))
 		goto error;
-	json_object_object_add (json, "env", json_env);
 
 	json_export = class->export
 		? state_serialize_str_array (class->export)
@@ -1846,9 +1859,10 @@ error:
 /**
  * job_class_serialise_all:
  *
- * Convert existing Session objects to JSON representation.
+ * Convert existing JobClass objects to JSON representation.
  *
- * Returns: JSON object containing array of JobClasses, or NULL on error.
+ * Returns: JSON object containing array of JobClass objects,
+ * or NULL on error.
  **/
 json_object *
 job_class_serialise_all (void)
@@ -1899,7 +1913,7 @@ error:
  *
  * Returns: partial JobClass object, or NULL on error.
  **/
-JobClass *
+static JobClass *
 job_class_deserialise (json_object *json)
 {
 	JobClass       *partial;
@@ -1908,7 +1922,6 @@ job_class_deserialise (json_object *json)
 	/* FIXME: TODO:
 	 *
 	 * instances
-	 * process
 	 */
 
 	nih_assert (json);
@@ -2026,7 +2039,7 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_str_array_to_obj (json, partial, emits))
 		goto error;
 
-	/* FIXME: process */
+	/* process must be handled by caller */
 
 	if (! state_get_json_int_var_to_obj (json, partial, expect))
 			goto error;
@@ -2126,7 +2139,7 @@ job_class_deserialise_all (json_object *json)
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		json_object  *json_class;
+		json_object         *json_class;
 		nih_local JobClass  *partial = NULL;
 
 		/* FIXME */
@@ -2157,11 +2170,8 @@ job_class_deserialise_all (json_object *json)
 		/* job_class_new() sets path */
 		nih_assert (! strcmp (class->path, partial->path));
 
-		/* FIXME: TODO
-		 *
-		 *   instances
-		 */
-		nih_error ("FIXME: need to finish JobClass deserialisation");
+		/* FIXME: TODO: instances */
+		nih_error ("FIXME: %s: JobClass: need to deserialise Job instances", __func__);
 
 		if (! state_partial_copy_string (class, partial, description))
 			goto error;
@@ -2195,7 +2205,7 @@ job_class_deserialise_all (json_object *json)
 		state_partial_copy_int (class, partial, respawn_limit);
 		state_partial_copy_int (class, partial, respawn_interval);
 
-		json_normalexit = json_object_object_get (json, "normalexit");
+		json_normalexit = json_object_object_get (json_class, "normalexit");
 		if (! json_normalexit)
 			goto error;
 

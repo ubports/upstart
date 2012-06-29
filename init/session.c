@@ -47,6 +47,13 @@
 #include "conf.h"
 #include "paths.h"
 
+/* Prototypes for static functions */
+static json_object  *session_serialise   (const Session *session)
+	__attribute__ ((malloc, warn_unused_result));
+
+static Session *session_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
 
 /**
  * sessions:
@@ -363,7 +370,7 @@ session_create_conf_source (Session *session, int deserialised)
  *
  * Returns: JSON-serialised Session object, or NULL on error.
  **/
-json_object *
+static json_object *
 session_serialise (const Session *session)
 {
 	json_object  *json;
@@ -480,7 +487,7 @@ error:
  *
  * Returns: partial Session object, or NULL on error.
  **/
-Session *
+static Session *
 session_deserialise (json_object *json)
 {
 	Session       *partial;
