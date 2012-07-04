@@ -402,7 +402,21 @@ session_serialise (const Session *session)
 	/* Requirement for NULL session handling disallows use of helper
 	 * macros.
 	 */
-	user = json_object_new_int ((int)(session ? session->user : 0));
+	/* FIXME */
+	//user = json_object_new_int ((int)(session ? session->user : 0));
+#if 0
+	if (session) {
+		if (sizeof (session->user) > sizeof (int))
+			user = json_object_new_int64 (session->user);
+		else
+			user = json_object_new_int (session->user);
+	} else {
+		user = json_object_new_int (0);
+	}
+#endif
+	user = state_new_json_int (session ? session->user : 0,
+			session ? session->user : 0);
+
 	if (! user)
 		goto error;
 
@@ -494,7 +508,7 @@ session_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		return NULL;
 
 	partial = nih_new (NULL, Session);
@@ -556,7 +570,7 @@ session_deserialise_all (json_object *json)
 	if (! json_sessions)
 		goto error;
 
-	if (! state_check_type (json_sessions, array))
+	if (! state_check_json_type (json_sessions, array))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_sessions); i++) {
@@ -568,7 +582,7 @@ session_deserialise_all (json_object *json)
 #endif
 
 		json_session = json_object_array_get_idx (json_sessions, i);
-		if (! state_check_type (json_session, object))
+		if (! state_check_json_type (json_session, object))
 			goto error;
 
 		partial = session_deserialise (json_session);

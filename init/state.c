@@ -344,7 +344,7 @@ state_read_objects (int fd)
 	if (! json)
 		return -1;
 
-	if (! state_check_type (json, object)) {
+	if (! state_check_json_type (json, object)) {
 		json_object_put (json);
 		return -1;
 	}
@@ -547,7 +547,7 @@ state_from_string (const char *state)
 	nih_message ("#-----------------------------------------");
 #endif
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		goto out;
 
 	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
@@ -688,20 +688,20 @@ state_toggle_cloexec (int fd, int set)
 }
 
 /**
- * state_serialize_str_array:
+ * state_serialise_str_array:
  *
  * @array: string array to serialise.
  *
  * Convert string array @array into a JSON array object.
  *
- * Returns JSON-serialised @array, or NULL on error.
+ * Returns: JSON-serialised @array, or NULL on error.
  **/
 json_object *
-state_serialize_str_array (char ** const array)
+state_serialise_str_array (char ** const array)
 {
 	char * const       *elem;
 	json_object        *json;
-	json_object        *jelem;
+	json_object        *json_element;
 	int                 i;
 
 	nih_assert (array);
@@ -715,12 +715,12 @@ state_serialize_str_array (char ** const array)
 		/* We should never see a blank value, but paranoia is
 		 * good.
 		 */
-		jelem = json_object_new_string (*elem ? *elem : "");
+		json_element = json_object_new_string (*elem ? *elem : "");
 
-		if (! jelem)
+		if (! json_element)
 			goto error;
 
-		if (json_object_array_put_idx (json, i, jelem) < 0)
+		if (json_object_array_put_idx (json, i, json_element) < 0)
 			goto error;
 	}
 
@@ -732,7 +732,7 @@ error:
 }
 
 /**
- * state_deserialize_str_array:
+ * state_deserialise_str_array:
  *
  * @parent: parent object for new array,
  * @json: JSON array object representing a string array,
@@ -741,10 +741,10 @@ error:
  *
  * Convert JSON array object @json into a string array.
  *
- * Returns string array, or NULL on error.
+ * Returns: string array, or NULL on error.
  **/
 char **
-state_deserialize_str_array (void *parent, json_object *json, int env)
+state_deserialise_str_array (void *parent, json_object *json, int env)
 {
 	size_t    len = 0;
 	char    **array = NULL;
@@ -752,7 +752,7 @@ state_deserialize_str_array (void *parent, json_object *json, int env)
 	nih_assert (parent);
 	nih_assert (json);
 
-	if (! state_check_type (json, array))
+	if (! state_check_json_type (json, array))
 		goto error;
 
 	array = nih_str_array_new (parent);
@@ -764,7 +764,7 @@ state_deserialize_str_array (void *parent, json_object *json, int env)
 		const char   *element;
 
 		json_element = json_object_array_get_idx (json, i);
-		if (! state_check_type (json_element, string))
+		if (! state_check_json_type (json_element, string))
 			goto error;
 
 		element = json_object_get_string (json_element);
@@ -788,40 +788,39 @@ error:
 }
 
 /**
- * state_serialize_int_array:
+ * state_serialise_int32_array:
  *
- * @array: array of integers,
- * @count: number of values in @array.
+ * @array: array of 32-bit integers,
+ * @count: number of values in @array,
  *
  * Convert integer array @array into a JSON array object.
  *
- * Returns JSON-serialised @array, or NULL on error.
+ * Returns: JSON-serialised @array, or NULL on error.
  **/
 json_object *
-state_serialize_int_array (int *array, int count)
+state_serialise_int32_array (int32_t *array, int count)
 {
-	json_object        *json;
-	json_object        *jelem;
-	int                 i;
+	json_object   *json;
+	json_object   *json_element;
+	int            i;
 
-	nih_assert (array);
 	nih_assert (count >= 0);
 
 	json = json_object_new_array ();
 	if (! json)
 		return NULL;
 
-	if (! count)
+	if (! count || ! array)
 		return json;
 
 	for (i = 0; i < count; ++i) {
 
-		jelem = json_object_new_int (array[i]);
+		json_element = json_object_new_int (array[i]);
 
-		if (! jelem)
+		if (! json_element)
 			goto error;
 
-		if (json_object_array_put_idx (json, i, jelem) < 0)
+		if (json_object_array_put_idx (json, i, json_element) < 0)
 			goto error;
 	}
 
@@ -833,26 +832,70 @@ error:
 }
 
 /**
- * state_deserialize_int_array:
+ * state_serialise_int64_array:
+ *
+ * @array: array of 64-bit integers,
+ * @count: number of values in @array,
+ *
+ * Convert integer array @array into a JSON array object.
+ *
+ * Returns: JSON-serialised @array, or NULL on error.
+ **/
+json_object *
+state_serialise_int64_array (int64_t *array, int count)
+{
+	json_object   *json;
+	json_object   *json_element;
+	int            i;
+
+	nih_assert (count >= 0);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	if (! count || ! array)
+		return json;
+
+	for (i = 0; i < count; ++i) {
+
+		json_element = json_object_new_int64 (array[i]);
+
+		if (! json_element)
+			goto error;
+
+		if (json_object_array_put_idx (json, i, json_element) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * state_deserialise_int32_array:
  *
  * @parent: parent object for new array,
  * @json: JSON array object representing an integer array,
- * @array: array of integers,
+ * @array: array of 32-bit integers,
  * @len: length of @array.
  *
- * Convert JSON array object @json into an integer array.
+ * Convert JSON array object @json into an array of 32-bit integers.
  *
- * Returns 0 on success, -1 on ERROR.
+ * Returns: 0 on success, -1 on ERROR.
  **/
 int
-state_deserialize_int_array (void *parent, json_object *json, int **array, size_t *len)
+state_deserialise_int32_array (void *parent, json_object *json, int32_t **array, size_t *len)
 {
 	nih_assert (parent);
 	nih_assert (json);
 	nih_assert (array);
 	nih_assert (len);
 
-	if (! state_check_type (json, array))
+	if (! state_check_json_type (json, array))
 		return -1;
 
 	*len = json_object_array_length (json);
@@ -862,16 +905,65 @@ state_deserialize_int_array (void *parent, json_object *json, int **array, size_
 		return -1;
 
 	for (int i = 0; i < json_object_array_length (json); i++) {
-		int          *element;
+		int32_t      *element;
 		json_object  *json_element;
 
 		element = (*array)+i;
 
 		json_element = json_object_array_get_idx (json, i);
-		if (! state_check_type (json_element, int))
+		if (! state_check_json_type (json_element, int))
 			goto error;
 
 		*element = json_object_get_int (json_element);
+	}
+
+	return 0;
+
+error:
+	nih_free (*array);
+	return -1;
+}
+
+/**
+ * state_deserialise_int64_array:
+ *
+ * @parent: parent object for new array,
+ * @json: JSON array object representing an integer array,
+ * @array: array of 64-bit integers,
+ * @len: length of @array.
+ *
+ * Convert JSON array object @json into an array of 64-bit integers.
+ *
+ * Returns: 0 on success, -1 on ERROR.
+ **/
+int
+state_deserialise_int64_array (void *parent, json_object *json, int64_t **array, size_t *len)
+{
+	nih_assert (parent);
+	nih_assert (json);
+	nih_assert (array);
+	nih_assert (len);
+
+	if (! state_check_json_type (json, array))
+		return -1;
+
+	*len = json_object_array_length (json);
+
+	*array = nih_alloc (parent, (*len) * sizeof (int));
+	if (! *array)
+		return -1;
+
+	for (int i = 0; i < json_object_array_length (json); i++) {
+		int64_t      *element;
+		json_object  *json_element;
+
+		element = (*array)+i;
+
+		json_element = json_object_array_get_idx (json, i);
+		if (! state_check_json_type (json_element, int))
+			goto error;
+
+		*element = json_object_get_int64 (json_element);
 	}
 
 	return 0;
@@ -890,6 +982,9 @@ error:
  *
  * Returns: JSON-serialised rlimit structure, or NULL on error.
  **/
+
+/* FIXME: encode as int/int64 rather than string! */
+
 static json_object *
 state_rlimit_serialise (const struct rlimit *rlimit)
 {
@@ -988,7 +1083,7 @@ state_rlimit_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		goto error;
 
 	rlimit = nih_new (NULL, struct rlimit);
@@ -1048,7 +1143,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 	if (! json_limits)
 		goto error;
 
-	if (! state_check_type (json_limits, array))
+	if (! state_check_json_type (json_limits, array))
 		goto error;
 
 	for (i = 0; i < json_object_array_length (json_limits); i++) {
@@ -1057,7 +1152,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 		nih_assert (i <= RLIMIT_NLIMITS);
 
 		json_rlimit = json_object_array_get_idx (json_limits, i);
-		if (! state_check_type (json_rlimit, object))
+		if (! state_check_json_type (json_rlimit, object))
 			goto error;
 
 		(*rlimits)[i] = state_rlimit_deserialise (json_rlimit);
@@ -1077,4 +1172,107 @@ error:
 #endif
 
 	return -1;
+}
+
+/**
+ * state_collapse_env:
+ *
+ * @env: string array.
+ *
+ * Convert @env into a flattened string, quoting values as required.
+ *
+ * Returns: newly-allocated flattened string representing @env on
+ * success, or NULL on error.
+ **/
+char *
+state_collapse_env (char **env)
+{
+	char   *p;
+	char   *flattened;
+	char  **elem;
+
+	nih_assert (env);
+
+	if (! env)
+		return NULL;
+
+	/* Start with a string we can append to */
+	flattened = NIH_MUST (nih_strdup (NULL, ""));
+
+	for (elem = env; elem && *elem; ++elem) {
+		p = strchr (*elem, '=');
+
+		/* If an environment variable contains an equals and whitespace
+		 * in the value part, quote the value.
+		 */
+		if (p && strpbrk (p, " \t")) {
+			/* append name and equals */
+			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %.*s",
+						(int)((p - *elem) + 1), *elem));
+			p++;
+
+			/* add quoted value */
+			if (p) {
+				NIH_MUST (nih_strcat_sprintf (&flattened, NULL, "\"%s\"",
+							p));
+			}
+		} else {
+			/* either a simple 'name' environment variable,
+			 * or a name/value pair without space in the
+			 * value part.
+			 */
+			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %s", *elem));
+		}
+
+	}
+
+	return flattened;
+}
+
+//json_object *
+//state_json_new_int(void 
+
+/**
+ * state_get_json_type:
+ *
+ * @short_type: name of JSON type without the prefix.
+ *
+ * Convert JSON short-type name to a full JSON type.
+ *
+ * This function is only required due to JSON-C's integer handling:
+ * RFC 4627, the JSON "memo" (not a spec!) alludes to JSON being a
+ * subset of ECMA-262, and yet no mention is made of the maximum integer
+ * size. ECMA-262 defines a 'Number' to be a 64-bit entity, but older
+ * versions of JSON-C defined a number to be the same size as a native
+ * integer (which might be 32-bit or 64-bit). Version 0.10 rectified
+ * this by storing all integer types as 64-bit internally but it does
+ * not define 
+ *
+ * Returns: JSON type.
+ **/
+inline enum json_type
+state_get_json_type (const char *short_type)
+{
+    nih_assert (short_type);
+
+#define state_make_type_check(var, short_type) \
+    else if (! strcmp (var, #short_type)) \
+        return (json_type_ ## short_type)
+
+    if (! strcmp (short_type, "int64"))
+        return json_type_int;
+
+    state_make_type_check (short_type, null);
+    state_make_type_check (short_type, boolean);
+    state_make_type_check (short_type, double);
+    state_make_type_check (short_type, int);
+    state_make_type_check (short_type, object);
+    state_make_type_check (short_type, array);
+    state_make_type_check (short_type, string);
+
+#undef state_make_type_check
+
+    nih_assert_not_reached ();
+/* FIXME */
+    //return json_type_null;
 }

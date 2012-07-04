@@ -145,6 +145,7 @@ process_serialise (const Process *process)
 	if (! json)
 		return NULL;
 
+	/* FIXME: GOT TO HERE - FAILING! */
 	if (! state_set_json_int_var_from_obj (json, process, script))
 		goto error;
 
@@ -226,7 +227,7 @@ process_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		goto error;
 
 	process = NIH_MUST (process_new (NULL));
@@ -274,7 +275,7 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 	if (! json_processes)
 		goto error;
 
-	if (! state_check_type (json_processes, array))
+	if (! state_check_json_type (json_processes, array))
 		goto error;
 
 	/* FIXME: Simplify? */
@@ -286,7 +287,7 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 		nih_assert (i <= PROCESS_LAST);
 
 		json_process = json_object_array_get_idx (json_processes, i);
-		if (! state_check_type (json_process, object))
+		if (! state_check_json_type (json_process, object))
 			goto error;
 
 		partial = process_deserialise (json_process);

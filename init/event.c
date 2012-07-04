@@ -654,7 +654,7 @@ event_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		return NULL;
 
 	partial = nih_new (NULL, Event);
@@ -678,7 +678,7 @@ event_deserialise (json_object *json)
 	if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
-	partial->env = state_deserialize_str_array (partial, json_env, TRUE);
+	partial->env = state_deserialise_str_array (partial, json_env, TRUE);
 	if (! partial->env)
 		goto error;
 
@@ -725,7 +725,7 @@ event_deserialise_all (json_object *json)
 	if (! json_events)
 		goto error;
 
-	if (! state_check_type (json_events, array))
+	if (! state_check_json_type (json_events, array))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
@@ -737,7 +737,7 @@ event_deserialise_all (json_object *json)
 #endif
 
 		json_event = json_object_array_get_idx (json_events, i);
-		if (! state_check_type (json_event, object))
+		if (! state_check_json_type (json_event, object))
 			goto error;
 
 		partial = event_deserialise (json_event);

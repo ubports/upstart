@@ -78,6 +78,28 @@
  * JSON (where it would be easy to forget to update some part of an
  * expresion and end up corrupting/duplicating data elements).
  * Safety first! :)
+ *
+ * == Data Types ==
+ *
+ * Care has to be taken to ensure no data loss in handling typedef'ed
+ * values as they are nominally opaque and may have unusually large
+ * representations on some systems.
+ *
+ * Although RFC 4627, the JSON "memo" (not a spec!) alludes to
+ * JSON being a subset of ECMA-262, it does not specify the size of
+ * integer types! However, ECMA-262 specifies them as 64-bit.
+ *
+ * JSON-C up to version 0.9 encoded all integers as a native 'int'
+ * type (which may have been 32-bit or 64-bit) but with version 0.10 it
+ * now provides a 32-bit and 64-bit integer interface (although all
+ * integers are actually stored as 64-bit internally).
+ *
+ * As such, we have to check the size of all typedef'd types and
+ * encode/decode them using either the 32-bit or 64-bit JSON-C integer
+ * interfaces (note that technically it is only the decoding that can
+ * cause data loss due to JSON-C storing all integer values as 64-bit
+ * internally).
+ *
  *--------------------------------------------------------------------
  */
 
@@ -145,22 +167,30 @@
 #endif
 
 /**
- * state_check_type:
+ * state_check_json_type:
  *
  * @object: JSON object,
  * @type: type of JSON primitive (without prefix).
  *
+ * Compare type of @object with @type.
+ * 
+ * Note: This could be achieved entirely as a macro but for
+ * the fact that JSON-C does not define a 64-bit integer type
+ * (and yet allows integers to be handled either as 32-bit
+ * or 64-bit).
+ *
  * Returns: TRUE if type of @object is @type, else FALSE.
  **/
-#define state_check_type(object, type) \
-	(json_object_get_type (object) == json_type_ ## type)
+
+#define state_check_json_type(object, type) \
+    (json_object_get_type (object) == state_get_json_type (#type))
 
 /*
  * state_get_json_var_full:
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
- * @type: type of JSON primitive (without prefix),
+ * @json_type: type of JSON primitive (without prefix),
  * @json_var: name of json_object variable that will store value.
  *
  * Query @json, setting @json_var to be the JSON value of @name where
@@ -170,14 +200,14 @@
  **/
 #define state_get_json_var_full(json, name, type, json_var) \
 	((json_var = json_object_object_get (json, name)) && \
-	  state_check_type (json_var, type))
+	  state_check_json_type (json_var, type))
 
 /**
  * state_get_json_num_var:
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
- * @type: type of @json_var (without prefix),
+ * @type_json: type of @var (without prefix),
  * @var: variable of type @type to set to value encoded in @json.
  *
  * Specialisation of state_get_json_var_full() that works for JSON
@@ -190,10 +220,12 @@
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_num_var(json, name, type, var) \
-	({json_object *json_var = NULL; \
-	 int ret = state_get_json_var_full (json, name, type, json_var); \
-	 if (json_var) var = json_object_get_ ## type (json_var); json_var && ret;})
+#define state_get_json_num_var(json, name, type_json, var) \
+	({json_object *_json_var = NULL; \
+	 int ret = state_get_json_var_full (json, name, type_json, _json_var); \
+	 if (_json_var) \
+	 	var = json_object_get_ ## type_json (_json_var); \
+	 _json_var && ret;})
 
 /**
  * state_get_json_num_var_to_obj:
@@ -201,25 +233,104 @@
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
  * @name: name of numeric element within @object to be deserialised,
- * @type: type of @name in @json (without prefix).
+ * @type_json: type of @name in @json (without prefix).
  *
  * Extract stringified @name from @json and set numeric element named
  * @name in @object to its value.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_num_var_to_obj(json, object, name, type) \
-	({json_object *json_var = NULL; \
-	 int ret = state_get_json_var_full (json, #name, type, json_var); \
-	 if (json_var) object->name = json_object_get_ ## type (json_var); \
-	 json_var && ret;})
+#define state_get_json_num_var_to_obj(json, object, name, type_json) \
+	({json_object *_json_var = NULL; \
+	 int ret = state_get_json_var_full (json, #name, type_json, _json_var); \
+	 if (_json_var) \
+	 	object->name = json_object_get_ ## type_json (_json_var); \
+	 _json_var && ret;})
+
+
+/**
+ * state_new_json_int:
+ *
+ * @value: value to encode
+ *
+ * Encode @value as a JSON integer.
+ *
+ * Returns: json_object that encodes @value.
+ */
+#define state_new_json_int(size, value) \
+	 ((size_t)(size) > sizeof (int) \
+	 ? json_object_new_int64 (value) \
+	 : json_object_new_int (value))
+
+/**
+ * state_serialise_int_array:
+ *
+ * @type: native type of elements within @array,
+ * @array: array to serialise
+ * @len: length of @array.
+ *
+ * Returns: JSON-serialised @array, or NULL on error.
+ **/
+#define state_serialise_int_array(type, array, len) \
+	(sizeof (type) == (size_t)4 \
+	 ? state_serialise_int32_array ((int32_t *)array, len) \
+	 : state_serialise_int64_array ((int64_t *)array, len))
+
+/**
+ * state_deserialise_int_array:
+ *
+ * @parent: parent object for new array,
+ * @json: JSON array object representing an integer array,
+ * @type: native type of elements within @array,
+ * @array: array of integers,
+ * @len: length of @array.
+ *
+ * Convert JSON array object @json into an array of integers whose size
+ * is the same as the size of @type.
+ *
+ * Returns: 0 on success, -1 on ERROR.
+ **/
+#define state_deserialise_int_array(parent, json, type, array, len) \
+	(sizeof (type) == (size_t)4 \
+	 ? state_deserialise_int32_array (parent, json, (int32_t **)array, len) \
+	 : state_deserialise_int64_array (parent, json, (int64_t **)array, len))
+
+/**
+ * state_get_json_int32_var_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of 32-bit numeric element within @object to be deserialised.
+ *
+ * Extract stringified @name from @json and set 32-bit integer element
+ * named @name in @object to its value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int32_var_to_obj(json, object, name) \
+	  (state_get_json_num_var_to_obj (json, object, name, int))
+
+/**
+ * state_get_json_int64_var_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of 64-bit numeric element within @object to be deserialised.
+ *
+ * Extract stringified @name from @json and set 64-bit integer element
+ * named @name in @object to its value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int64_var_to_obj(json, object, name) \
+	  (state_get_json_num_var_to_obj (json, object, name, int64))
 
 /**
  * state_get_json_int_var_to_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
- * @name: name of numeric element within @object to be deserialised,
+ * @name: name of numeric element within @object to be deserialised.
  *
  * Extract stringified @name from @json and set integer element named
  * @name in @object to its value.
@@ -227,18 +338,18 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_int_var_to_obj(json, object, name) \
-	state_get_json_num_var_to_obj(json, object, name, int)
-
-
+	(sizeof (object->name) == (size_t)4 \
+		? state_get_json_int32_var_to_obj (json, object, name) \
+		: state_get_json_int64_var_to_obj (json, object, name))
 /**
  * state_get_json_string_var:
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
- * @var: string variable to set to value of @json_var.
+ * @var: string variable to set to value of @name in @json.
  *
- * Specialisation of state_get_json_var_full() that works for the JSON string
- * type.
+ * Specialisation of state_get_json_var_full() that works for
+ * the JSON string type.
  *
  * Query @json, setting @var to be string value of @name.
  *
@@ -248,9 +359,9 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_string_var(json, name, var) \
-	({json_object *json_var; \
-	state_get_json_var_full (json, name, string, json_var) && \
-	 (var = json_object_get_string (json_var));})
+	({json_object *_json_var; \
+	state_get_json_var_full (json, name, string, _json_var) && \
+	 (var = json_object_get_string (_json_var));})
 
 
 /**
@@ -266,12 +377,11 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_string_var_to_obj(json, object, name) \
-	({json_object *json_var; \
+	({json_object *_json_var; \
 	 const char *value = NULL; \
-	 state_get_json_var_full (json, #name, string, json_var) && \
-	 (value = json_object_get_string (json_var)) \
+	 state_get_json_var_full (json, #name, string, _json_var) && \
+	 (value = json_object_get_string (_json_var)) \
 	 && (object->name = nih_strdup (object, value));})
-
 
 /**
  * state_set_json_var_full:
@@ -279,15 +389,18 @@
  * @json: json_object pointer,
  * @name: string name to add as key in @json,
  * @value: value corresponding to @name,
- * @type: JSON type (without prefix) representing type of @value,
+ * @type_json: JSON type (without prefix) representing type of @value.
  *
  * Add @value to @json with name @name and type @type.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_set_json_var_full(json, name, value, type) \
-	({json_object *json_var = json_object_new_ ## type (value); \
-	 if (json_var) json_object_object_add (json, name, json_var); json_var;})
+#define state_set_json_var_full(json, name, value, type_json) \
+	({json_object *_json_var; \
+	 _json_var = json_object_new_ ## type_json (value); \
+	 if (_json_var) json_object_object_add (json, name, _json_var); \
+	 _json_var;})
+
 
 /**
  * state_set_json_num_var_from_obj:
@@ -295,24 +408,60 @@
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be serialised,
  * @name: name of element within @object to be serialised,
- * @type: JSON type (without prefix) for field to be added.
+ * @type_json: JSON type (without prefix) for field to be added,
+ * @type: native type of object represented by @name.
  *
  * Add value of numeric entity @name in object @object to
  * @json with stringified @name.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_set_json_num_var_from_obj(json, object, name, type) \
-	({json_object *json_var = \
-	 json_object_new_ ## type ((type)object ? (object)->name : 0); \
-	 if (json_var) json_object_object_add (json, #name, json_var); json_var;})
+#define state_set_json_num_var_from_obj(json, object, name, type_json, type) \
+	({json_object *_json_var = \
+	 json_object_new_ ## type_json ((type)(object ? (object)->name : 0)); \
+	 if (_json_var) json_object_object_add (json, #name, _json_var); \
+	 _json_var;})
+
+/**
+ * state_set_json_int32_var_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of 32-bit integer element within @object to be serialised,
+ *
+ * Add value of 32-bit integer entity @name in object @object to
+ * @json with stringified @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int32_var_from_obj(json, object, name) \
+	state_set_json_num_var_from_obj (json, object, name, int, int32_t)
+
+/**
+ * state_set_json_int64_var_from_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be serialised,
+ * @name: name of 64-bit integer element within @object to be serialised,
+ *
+ * Add value of 64-bit integer entity @name in object @object to
+ * @json with stringified @name.
+ *
+ * Note: The @type pased to state_set_json_num_var_from_obj() looks
+ * wrong, but remember that there is only a single 'json_type_int'
+ * value (which encompasses both 32-bit and 64-bit values).
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int64_var_from_obj(json, object, name) \
+	state_set_json_num_var_from_obj (json, object, name, int, int64_t)
 
 /**
  * state_set_json_int_var_from_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be serialised,
- * @name: name of element within @object to be serialised,
+ * @name: name of integer element within @object to be serialised,
  *
  * Add value of integer entity @name in object @object to
  * @json with stringified @name.
@@ -320,7 +469,9 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int_var_from_obj(json, object, name) \
-	state_set_json_num_var_from_obj (json, object, name, int)
+	(sizeof (object->name) == (size_t)4 \
+	? state_set_json_int32_var_from_obj (json, object, name) \
+	: state_set_json_int64_var_from_obj (json, object, name))
 
 /**
  * state_set_json_string_var_from_obj:
@@ -339,10 +490,10 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_string_var_from_obj(json, object, name) \
-	({json_object *json_var = \
+	({json_object *_json_var = \
 	 json_object_new_string (object->name ? object->name : ""); \
-	 if (json_var) json_object_object_add (json, #name, json_var); \
-	 json_var;})
+	 if (_json_var) json_object_object_add (json, #name, _json_var); \
+	 _json_var;})
 
 /**
  * state_set_json_str_array_from_obj:
@@ -356,12 +507,12 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_str_array_from_obj(json, object, name) \
-	({json_object *json_var; \
-	 json_var = object->name \
-	 ? state_serialize_str_array (object->name) \
+	({json_object *_json_var; \
+	 _json_var = object->name \
+	 ? state_serialise_str_array (object->name) \
 	 : json_object_new_array (); \
-	 if (json_var) json_object_object_add (json, #name, json_var); \
-	 json_var;})
+	 if (_json_var) json_object_object_add (json, #name, _json_var); \
+	 _json_var;})
 
 /**
  * state_partial_copy_int:
@@ -415,9 +566,9 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_str_array_to_obj(json, object, name) \
-	({json_object *json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, json_var)) && \
-	(object->name = state_deserialize_str_array (object, json_var, FALSE));})
+	({json_object *_json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, _json_var)) && \
+	(object->name = state_deserialise_str_array (object, _json_var, FALSE));})
 
 /**
  * state_get_json_env_array_to_obj:
@@ -432,9 +583,9 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_env_array_to_obj(json, object, name) \
-	({json_object *json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, json_var)) && \
-	(object->name = state_deserialize_str_array (object, json_var, TRUE));})
+	({json_object *_json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, _json_var)) && \
+	(object->name = state_deserialise_str_array (object, _json_var, TRUE));})
 
 /**
  * state_copy_str_array_to_obj:
@@ -493,7 +644,7 @@ int  state_write_objects   (int fd)
 	__attribute__ ((warn_unused_result));
 
 #if 1
-/* FIXME */
+/* FIXME: TESTING and DEBUG only */
 char * state_to_string       (void)
 	__attribute__ ((warn_unused_result));
 int    state_from_string (const char *state)
@@ -509,20 +660,29 @@ int    state_toggle_cloexec (int fd, int set)
 	__attribute__ ((warn_unused_result));
 
 json_object *
-state_serialize_str_array (char ** const array)
+state_serialise_str_array (char ** const array)
 	__attribute__ ((warn_unused_result));
 
 json_object *
-state_serialize_int_array (int *array, int count)
-	__attribute__ ((warn_unused_result));
+state_serialise_int32_array (int32_t *array, int count)
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object *
+state_serialise_int64_array (int64_t *array, int count)
+	__attribute__ ((malloc, warn_unused_result));
 
 char **
-state_deserialize_str_array (void *parent, json_object *json, int env)
+state_deserialise_str_array (void *parent, json_object *json, int env)
 	__attribute__ ((malloc, warn_unused_result));
 
 int
-state_deserialize_int_array (void *parent, json_object *json,
-		int **array, size_t *len)
+state_deserialise_int32_array (void *parent, json_object *json,
+		int32_t **array, size_t *len)
+	__attribute__ ((warn_unused_result));
+
+int
+state_deserialise_int64_array (void *parent, json_object *json,
+		int64_t **array, size_t *len)
 	__attribute__ ((warn_unused_result));
 
 json_object *
@@ -532,6 +692,13 @@ state_rlimit_serialise_all (struct rlimit * const *rlimits)
 int 
 state_rlimit_deserialise_all (json_object *json, const void *parent,
 			      struct rlimit *(*rlimits)[])
+	__attribute__ ((warn_unused_result));
+
+char *state_collapse_env (char **env)
+	__attribute__ ((malloc, warn_unused_result));
+
+enum json_type
+state_get_json_type (const char *short_type)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

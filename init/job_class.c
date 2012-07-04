@@ -64,18 +64,11 @@ static void  job_class_add (JobClass *class);
 static void  job_class_add_safe (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
-static char *job_class_collapse_env (char **env)
-	__attribute__ ((warn_unused_result));
-
-static char *job_class_collapse_condition (EventOperator *condition)
-	__attribute__ ((warn_unused_result));
-
 static json_object *job_class_serialise (const JobClass *class)
 	__attribute__ ((warn_unused_result, malloc));
 
 static JobClass *job_class_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
-
 
 
 /**
@@ -1533,9 +1526,9 @@ job_class_get_stop_on (JobClass *      class,
 				nih_message ("XXX: c='%s'", *c);
 				nih_assert (nih_str_array_add (&list, NULL, NULL, *c));
 
-				json = state_serialize_str_array (c);
+				json = state_serialise_str_array (c);
 				if (!json ) {
-					nih_message ("XXX: state_serialize_str_array failed");
+					nih_message ("XXX: state_serialise_str_array failed");
 					nih_return_no_memory_error (-1);
 				}
 
@@ -1731,7 +1724,7 @@ job_class_serialise (const JobClass *class)
 		goto error;
 
 	json_export = class->export
-		? state_serialize_str_array (class->export)
+		? state_serialise_str_array (class->export)
 		: json_object_new_array ();
 
 	if (! json_export)
@@ -1740,9 +1733,9 @@ job_class_serialise (const JobClass *class)
 
 	/* set "start/stop on" in the JSON even if no condition specified.
 	 */
-	/* FIXME: why bother? */
+	/* FIXME: shouldn't we just encode condition if it exists?? */
 	start_on = class->start_on
-		? job_class_collapse_condition (class->start_on)
+		? event_operator_collapse (class->start_on)
 		: NIH_MUST (nih_strdup (NULL, ""));
 	if (! start_on)
 		goto error;
@@ -1755,7 +1748,7 @@ job_class_serialise (const JobClass *class)
 	}
 
 	stop_on = class->stop_on
-		? job_class_collapse_condition (class->stop_on)
+		? event_operator_collapse (class->stop_on)
 		: NIH_MUST (nih_strdup (NULL, ""));
 	if (! stop_on)
 		goto error;
@@ -1768,7 +1761,7 @@ job_class_serialise (const JobClass *class)
 	}
 
 	json_emits = class->emits
-		? state_serialize_str_array (class->emits)
+		? state_serialise_str_array (class->emits)
 		: json_object_new_array ();
 
 	if (! json_emits)
@@ -1802,10 +1795,8 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_int_var_from_obj (json, class, respawn_interval))
 		goto error;
 
-	json_normalexit = class->normalexit_len
-		? state_serialize_int_array (class->normalexit,
-					     class->normalexit_len)
-		: json_object_new_array ();
+	json_normalexit = state_serialise_int_array (int, class->normalexit,
+					     class->normalexit_len);
 	if (! json_normalexit)
 		goto error;
 
@@ -1908,7 +1899,7 @@ error:
  *
  * Further, note that limits, process and normalexit are NOT handled by
  * this function - use state_rlimit_deserialise_all(),
- * process_deserialise_all() and state_deserialize_int_array()
+ * process_deserialise_all() and state_deserialise_int_array()
  * respectively.
  *
  * Returns: partial JobClass object, or NULL on error.
@@ -1926,7 +1917,7 @@ job_class_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		goto error;
 
 	partial = nih_new (NULL, JobClass);
@@ -1995,7 +1986,7 @@ job_class_deserialise (json_object *json)
 #if 1
 			nih_message ("%s:%d: parse_on-parsed start_on='%s'",
 					__func__, __LINE__,
-					job_class_collapse_condition (partial->start_on));
+					event_operator_collapse (partial->start_on));
 #endif
 
 
@@ -2029,7 +2020,7 @@ job_class_deserialise (json_object *json)
 #if 1
 			nih_message ("%s:%d: stop_on='%s'",
 					__func__, __LINE__,
-					job_class_collapse_condition (partial->stop_on));
+					event_operator_collapse (partial->stop_on));
 #endif
 
 		}
@@ -2135,7 +2126,7 @@ job_class_deserialise_all (json_object *json)
 	if (! json_classes)
 			goto error;
 
-	if (! state_check_type (json_classes, array))
+	if (! state_check_json_type (json_classes, array))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
@@ -2146,7 +2137,7 @@ job_class_deserialise_all (json_object *json)
 		nih_message ("XXX: found job class");
 
 		json_class = json_object_array_get_idx (json_classes, i);
-		if (! state_check_type (json_class, object))
+		if (! state_check_json_type (json_class, object))
 			goto error;
 
 		partial = job_class_deserialise (json_class);
@@ -2209,8 +2200,8 @@ job_class_deserialise_all (json_object *json)
 		if (! json_normalexit)
 			goto error;
 
-		ret = state_deserialize_int_array (class, json_normalexit,
-				&class->normalexit, &class->normalexit_len);
+		ret = state_deserialise_int_array (class, json_normalexit,
+				int, &class->normalexit, &class->normalexit_len);
 		if (ret < 0)
 			goto error;
 
@@ -2276,147 +2267,3 @@ error:
 	return -1;
 }
 
-/**
- * job_class_collapsed_env:
- *
- * @env: string array.
- *
- * Convert @env into a flattened string, quoting values as required.
- *
- * Returns: newly-allocated flattened string representing @env on
- * success, or NULL on error.
- **/
-static char *
-job_class_collapse_env (char **env)
-{
-	char   *p;
-	char   *flattened;
-	char  **elem;
-
-	nih_assert (env);
-
-	if (! env)
-		return NULL;
-
-	/* Start with a string we can append to */
-	flattened = NIH_MUST (nih_strdup (NULL, ""));
-
-	for (elem = env; elem && *elem; ++elem) {
-		p = strchr (*elem, '=');
-
-		/* If an environment variable contains an equals and whitespace
-		 * in the value part, quote the value.
-		 */
-		if (p && strpbrk (p, " \t")) {
-			/* append name and equals */
-			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %.*s",
-						(int)((p - *elem) + 1), *elem));
-			p++;
-
-			/* add quoted value */
-			if (p) {
-				NIH_MUST (nih_strcat_sprintf (&flattened, NULL, "\"%s\"",
-							p));
-			}
-		} else {
-			/* either a simple 'name' environment variable,
-			 * or a name/value pair without space in the
-			 * value part.
-			 */
-			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %s", *elem));
-		}
-
-	}
-
-	return flattened;
-}
-
-/**
- * job_class_collapse_condition:
- *
- * @condition: start on/stop on condition.
- *
- * Collapsed condition will be fully bracketed. Note that as such it may
- * not be lexicographically identical to the original expression that
- * resulted in @condition, but it will be logically identical.
- *
- * Returns: newly-allocated flattened string representing @condition
- * on success, or NULL on error.
- **/
-static char *
-job_class_collapse_condition (EventOperator *condition)
-{
-	/* count of number of closing brackets to insert at end
-	 * of tree traversal.
-	 */
-	int right_parens = 0;
-
-	char *str = NULL;
-
-	nih_assert (condition);
-
-	/* Start with a string we can append to */
-	str = NIH_MUST (nih_strdup (NULL, ""));
-
-	NIH_TREE_FOREACH (&condition->node, iter) {
-		EventOperator *oper = (EventOperator *)iter;
-
-		switch (oper->type) {
-		case EVENT_OR: 
-		case EVENT_AND:
-			{
-				right_parens++;
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, " %s ",
-							oper->type == EVENT_OR ? "or" : "and"));
-				break;
-			}
-		case EVENT_MATCH:
-			{
-				char *b, *e;
-				char *env = NULL;
-
-				if (! oper->node.parent) {
-					/* condition comprises a single event */
-					b = e = "";
-				} else if (oper->node.parent->left == &oper->node) {
-					b = "(";
-					e = "";
-				} else {
-					b = "";
-					e = ")";
-				}
-
-				if (oper->env)
-					env = job_class_collapse_env (oper->env);
-
-#if 0
-				nih_message ("XXX: job_class_collapse_env returned: '%s'",
-						env ? env : "");
-
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s%s%s",
-							b, oper->name,
-							oper->env ? env : "", e));
-#endif
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s",
-							b, oper->name));
-				if (env)
-					NIH_MUST (nih_strcat (&str, NULL, env));
-
-				NIH_MUST (nih_strcat (&str, NULL, e));
-
-				if (env)
-					nih_free (env);
-			}
-			break;
-
-		}
-
-	}
-	right_parens--;
-
-	for (int i = 0; i < right_parens; ++i) {
-		NIH_MUST (nih_strcat (&str, NULL, ")"));
-	}
-
-	return str;
-}

@@ -32,7 +32,22 @@ PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 
-# json_tokener_parse_verbose() required to detect invalid JSON (!)
+# Reasons for requiring this library version:
+#
+# 1) RFC 4627, the JSON "memo" (it is *NOT* a standard!) helpfully fails
+#    to specify the maximum size of an integer type. And yet, JSON is
+#    supposedly a subset of ECMA-262, which specifies a Number type to
+#    be 64-bits.
+#
+#    The loose JSON "memo" might expalain why older versions of JSON-C encode
+#    a JSON Number in sizoef(int) bytes which is only 32-bits on 32-bit
+#    systems. This is not acceptable for Upstart which needs to be able
+#    to encode 'size_t' and 'unsigned long' types which can be larger
+#    than 'int'.
+#
+# 2) New json_tokener_parse_verbose() function required to detect invalid
+#    JSON (!)
+#
 PKG_CHECK_MODULES([JSON], [json >= 0.10])
 
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
@@ -44,6 +59,37 @@ AC_CHECK_HEADERS([valgrind/valgrind.h])
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 NIH_C_THREAD
+
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(uid_t)
+AC_CHECK_SIZEOF(pid_t)
+AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(mode_t)
+AC_CHECK_SIZEOF(size_t)
+AC_CHECK_SIZEOF(ssize_t)
+
+AS_IF(
+	[test "$ac_cv_sizeof_size_t" -ne "$ac_cv_sizeof_ssize_t"],
+	AC_MSG_ERROR([init/log.c requires size_t and ssize_t to be of the same size])
+)
+
+
+AS_IF(
+	[test "$ac_cv_sizeof_time_t" -gt "$ac_cv_sizeof_int"],
+	AC_MSG_ERROR([JSON-C requires time_t to fit within an integer])
+)
+
+AS_IF(
+	[test "$ac_cv_sizeof_size_t" -gt "$ac_cv_sizeof_int"],
+	AC_MSG_ERROR([JSON-C requires size_t to be same size as int])
+)
+
+# Unlikely to hit this limit for a while, but it pays to be safe.
+for type in int uid_t pid_t time_t mode_t size_t ssize_t
+do
+	eval value="\$ac_cv_sizeof_${type}"
+	test "$value" -gt 8 && AC_MSG_ERROR([type $type is $value bytes, larger than JSON-C can represent])
+done
 
 # Checks for library functions.
 

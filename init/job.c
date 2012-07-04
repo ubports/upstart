@@ -1508,13 +1508,21 @@ job_get_processes (Job *                  job,
 static json_object *
 job_serialise (const Job *job)
 {
-	json_object  *json;
+	json_object      *json;
+	json_object      *json_pid;
+	json_object      *json_fds;
+	nih_local char   *stop_on = NULL;
 
 	nih_assert (job);
 
 	/* FIXME:
 	 *
 	 * class
+	 * blocker
+	 * blocking
+	 * kill_timer
+	 * kill_process
+	 *
 	 *
 	 */
 
@@ -1543,6 +1551,48 @@ job_serialise (const Job *job)
 		goto error;
 
 	if (! state_set_json_str_array_from_obj (json, job, stop_env))
+		goto error;
+
+	stop_on = job->stop_on
+		? event_operator_collapse (job->stop_on)
+		: NIH_MUST (nih_strdup (NULL, ""));
+
+	if (! stop_on)
+		goto error;
+
+	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
+		nih_free (stop_on);
+		goto error;
+	}
+
+	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
+	if (! json_fds)
+		goto error;
+
+	json_object_object_add (json, "fds", json_fds);
+
+	json_pid = state_serialise_int_array (pid_t, job->pid,
+					     PROCESS_LAST);
+	if (! json_pid)
+		goto error;
+
+	json_object_object_add (json, "pid", json_pid);
+
+	/* FIXME: blocker */
+	/* FIXME: blocking */
+	/* FIXME: kill_timer */
+	/* FIXME: kill_process */
+
+	if (! state_set_json_int_var_from_obj (json, job, failed))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, failed_process))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, exit_status))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, exit_status))
 		goto error;
 
 error:
@@ -1603,7 +1653,7 @@ job_deserialise (json_object *json)
 
 	nih_assert (json);
 
-	if (! state_check_type (json, object))
+	if (! state_check_json_type (json, object))
 		return NULL;
 
 	partial = nih_new (NULL, Job);
@@ -1649,7 +1699,7 @@ job_deserialise_all (json_object *json)
 	if (! json_jobs)
 			goto error;
 
-	if (! state_check_type (json_jobs, array))
+	if (! state_check_json_type (json_jobs, array))
 		goto error;
 
 	/* FIXME: finish!! */
@@ -1659,7 +1709,7 @@ job_deserialise_all (json_object *json)
 
 		json_job = json_object_array_get_idx (json_job, i);
 
-		if (! state_check_type (json_job, object))
+		if (! state_check_json_type (json_job, object))
 			goto error;
 
 		partial = job_deserialise (json_job);
