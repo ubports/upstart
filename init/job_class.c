@@ -1668,14 +1668,6 @@ job_class_serialise (const JobClass *class)
 	nih_local char   *stop_on = NULL;
 	int               session_index;
 
-	/* FIXME: */
-#if 0
-	json_object  *json_instances;
-
-#endif
-	/* FIXME: TODO: instances */
-	nih_error ("FIXME: %s: JobClass: need to serialise Job instances", __func__);
-
 	nih_assert (class);
 
 	job_class_init ();
@@ -1700,11 +1692,7 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, instance))
 		goto error;
 
-	/* FIXME: instances */
-	/* FIXME: GOT TO HERE */
-#if 1
 	json_jobs = job_serialise_all (class->instances);
-#endif
 
 	if (! json_jobs)
 		goto error;
@@ -1740,7 +1728,10 @@ job_class_serialise (const JobClass *class)
 	if (! start_on)
 		goto error;
 
+#if 1
+/* FIXME */
 	nih_message ("%s:%d: start_on='%s'", __func__, __LINE__, start_on);
+#endif
 
 	if (! state_set_json_var_full (json, "start_on", start_on, string)) {
 		nih_free (start_on);
@@ -1753,7 +1744,10 @@ job_class_serialise (const JobClass *class)
 	if (! stop_on)
 		goto error;
 
+#if 1
+	/* FIXME */
 	nih_message ("XXX: stop_on='%s'", stop_on);
+#endif
 
 	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
 		nih_free (stop_on);

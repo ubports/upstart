@@ -701,6 +701,11 @@ enum json_type
 state_get_json_type (const char *short_type)
 	__attribute__ ((warn_unused_result));
 
+int
+state_serialise_resolve_deps (json_object *json_events,
+		json_object *json_job_classes)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_STATE_H */

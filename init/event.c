@@ -562,6 +562,12 @@ event_serialise (const Event *event)
 	if (! state_set_json_int_var_from_obj (json, event, blockers))
 		goto error;
 
+	/* FIXME: blocking */
+	if (! NIH_LIST_EMPTY (&event->blocking)) {
+		/* FIXME: blocking */
+	}
+		 
+
 	return json;
 
 error:

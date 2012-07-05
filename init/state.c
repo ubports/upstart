@@ -37,7 +37,9 @@
 #include "session.h"
 #include "event.h"
 #include "job_class.h"
+#include "job.h"
 #include "environ.h"
+#include "blocked.h"
 
 /* Prototypes for static functions */
 static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
@@ -55,6 +57,7 @@ static struct rlimit *state_rlimit_deserialise (json_object *json)
 json_object  *json_sessions = NULL;
 json_object  *json_events = NULL;
 json_object  *json_job_classes = NULL;
+json_object  *json_jobs = NULL;
 
 /**
  * state_show_version:
@@ -413,7 +416,7 @@ state_write_objects (int fd)
 /**
  * state_to_string:
  *
- * Convert internal data structures to a JSON string.
+ * Serialise internal data structures to a JSON string.
  *
  * Returns: string on success, NULL on error.
  **/
@@ -468,6 +471,16 @@ state_to_string (void)
 
 	json_object_object_add (json, "job_classes", json_job_classes);
 
+	if (state_serialise_resolve_deps (json_events, json_job_classes) < 0)
+		goto error;
+
+#if 0
+	json_jobs = job_serialise_all ();
+	if (! json_jobs)
+		goto error;
+	json_object_object_add (json, "jobs", json_jobs);
+#endif
+
 
 	/* FIXME */
 	fprintf(stderr, "sessions='%s'\n", json_object_to_json_string (json_sessions));
@@ -492,7 +505,7 @@ error:
  *
  * @state: JSON-encoded state.
  *
- * Convert JSON string to an pseudo-internal representation for testing.
+ * Convert JSON string to a pseudo-internal representation for testing.
  *
  * FIXME:XXX: for TESTING ONLY.
  *
@@ -914,7 +927,10 @@ state_deserialise_int32_array (void *parent, json_object *json, int32_t **array,
 		if (! state_check_json_type (json_element, int))
 			goto error;
 
+		errno = 0;
 		*element = json_object_get_int (json_element);
+		if (! *element && errno == EINVAL)
+			goto error;
 	}
 
 	return 0;
@@ -963,7 +979,10 @@ state_deserialise_int64_array (void *parent, json_object *json, int64_t **array,
 		if (! state_check_json_type (json_element, int))
 			goto error;
 
+		errno = 0;
 		*element = json_object_get_int64 (json_element);
+		if (! *element && errno == EINVAL)
+			goto error;
 	}
 
 	return 0;
@@ -1275,4 +1294,64 @@ state_get_json_type (const char *short_type)
     nih_assert_not_reached ();
 /* FIXME */
     //return json_type_null;
+}
+
+/**
+ * state_resolve_deps:
+ *
+ * @json_event: JSON array of events,
+ * @json_job_classes: JSON array of job_classes.
+ *
+ * Resolve circular dependencies between Events and Jobs (via their
+ * parent JobClass) and update JSON accordingly to allow deserialisation
+ * of such dependencies.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+state_serialise_resolve_deps (json_object *json_events,
+		json_object *json_job_classes)
+{
+	nih_assert (json_events);
+	nih_assert (json_job_classes);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, iter) {
+			Job *job = (Job *)iter;
+
+			NIH_LIST_FOREACH (&job->blocking, iter) {
+				Blocked *blocked = (Blocked *)iter;
+
+				nih_debug ("%s:%d: job '%s:%s' blocking type %d",
+						__func__, __LINE__,
+						class->name,
+						job->name,
+						blocked->type);
+				/* FIXME: */
+				if (1 == 0)
+					goto error;
+				switch (blocked->type) {
+				case BLOCKED_JOB:
+					nih_debug ("XXX: blocked job");
+					break;
+
+				case BLOCKED_EVENT:
+					nih_debug ("XXX: blocked event '%s'",
+							blocked->event->name);
+					break;
+
+				default:
+					/* D-Bus */
+					break;
+				}
+			}
+		}
+	}
+
+	return 0;
+
+error:
+	return -1;
 }

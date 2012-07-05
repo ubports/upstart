@@ -55,6 +55,7 @@
 #include "event_operator.h"
 #include "blocked.h"
 #include "control.h"
+#include "parse_job.h"
 
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
@@ -1503,6 +1504,10 @@ job_get_processes (Job *                  job,
  * Convert @job into a JSON representation for serialisation.
  * Caller must free returned value using json_object_put().
  *
+ * Note that the 'class' element is not encoded - it is assumed the
+ * caller will encode the returned JSON Job object as a child of the
+ * parent JSON-encoded JobClass object so a reference is not required.
+ *
  * Returns: JSON-serialised Job object, or NULL on error.
  **/
 static json_object *
@@ -1518,12 +1523,12 @@ job_serialise (const Job *job)
 	/* FIXME:
 	 *
 	 * class
+	 *
 	 * blocker
 	 * blocking
 	 * kill_timer
-	 * kill_process
 	 *
-	 *
+	 * log !!!
 	 */
 
 	json = json_object_new_object ();
@@ -1532,8 +1537,6 @@ job_serialise (const Job *job)
 
 	if (! state_set_json_string_var_from_obj (json, job, name))
 		goto error;
-
-	/* FIXME: class */
 
 	if (! state_set_json_string_var_from_obj (json, job, path))
 		goto error;
@@ -1578,10 +1581,51 @@ job_serialise (const Job *job)
 
 	json_object_object_add (json, "pid", json_pid);
 
-	/* FIXME: blocker */
-	/* FIXME: blocking */
+	/* Encode the blocking event as an index number which represents
+	 * the events position in the JSON events array.
+	 */
+#if 1
+	/* FIXME: we're only encoding if there *IS* a blocker!?! */
+#endif
+	if (job->blocker) {
+		int i = 0;
+
+		NIH_LIST_FOREACH (events, iter) {
+			Event *event = (Event *)iter;
+
+			if (! strcmp (event->name, job->blocker->name))
+				break;
+
+			i++;
+		}
+
+		if (! state_set_json_var_full (json, "blocker", i, int))
+			goto error;
+	}
+
+#if 0
+	if (! NIH_LIST_EMPTY (&job->blocking)) {
+		/* FIXME: blocking.
+		 *
+		 * create an array of objects like this:
+		 *
+		 * { "job" : 3 },
+		 * { "event" : 2 },
+		 * { "message" : 9 },
+		 */
+	}
+#endif
+
+#if 0
+	NIH_LIST_FOREACH (&job->blocking, iter) {
+		Blocked *blocked = (Blocked *)iter;
+	}
+#endif
+
 	/* FIXME: kill_timer */
-	/* FIXME: kill_process */
+
+	if (! state_set_json_int_var_from_obj (json, job, kill_process))
+		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, job, failed))
 		goto error;
@@ -1592,8 +1636,21 @@ job_serialise (const Job *job)
 	if (! state_set_json_int_var_from_obj (json, job, exit_status))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, job, exit_status))
+	if (! state_set_json_int_var_from_obj (json, job, respawn_time))
 		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, respawn_count))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, trace_forks))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, trace_state))
+		goto error;
+
+	/* FIXME: log */
+
+	return json;
 
 error:
 	json_object_put (json);
@@ -1649,7 +1706,7 @@ error:
 static Job *
 job_deserialise (json_object *json)
 {
-	Job *partial;
+	Job  *partial;
 
 	nih_assert (json);
 
@@ -1667,6 +1724,65 @@ job_deserialise (json_object *json)
 
 	if (! state_get_json_string_var_to_obj (json, partial, path))
 		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, goal))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, state))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, partial, env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, partial, start_env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, partial, stop_env))
+		goto error;
+
+	if (json_object_object_get (json, "stop_on")) {
+		const char  *stop_on = NULL;
+
+		if (! state_get_json_string_var (json, "stop_on", stop_on))
+			goto error;
+
+		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
+
+		if (*stop_on) {
+			nih_local JobClass *tmp = NULL;
+
+			tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
+
+			tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
+			if (! tmp->stop_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s: %s",
+						_("BUG: parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+
+			partial->stop_on = event_operator_copy (partial, tmp->stop_on);
+			if (! partial->stop_on)
+				goto error;
+
+#if 1
+			nih_message ("%s:%d: stop_on='%s'",
+					__func__, __LINE__,
+					event_operator_collapse (partial->stop_on));
+#endif
+
+		}
+	}
+
+	/* fds and num_fds handled by caller */
+	/* pid handled by caller */
 
 	/* FIXME: finish!! */
 
@@ -1690,14 +1806,18 @@ int
 job_deserialise_all (json_object *json)
 {
 	json_object  *json_jobs;
-	//Job          *job;
+	json_object  *json_fds;
+	json_object  *json_pid;
+	Job          *job;
+	size_t        len;
+	int           ret;
 
 	nih_assert (json);
 
 	json_jobs = json_object_object_get (json, "jobs");
 
 	if (! json_jobs)
-			goto error;
+		goto error;
 
 	if (! state_check_json_type (json_jobs, array))
 		goto error;
@@ -1720,7 +1840,35 @@ job_deserialise_all (json_object *json)
 #if 0
 		job = NIH_MUST (job_new (class, partial->name));
 #endif
+		/* FIXME: need to specify parent class!! */
+		job = NIH_MUST (job_new (NULL, partial->name));
+
 		/* FIXME: now copy @partial to @job */
+
+		if (! state_copy_event_oper_to_obj (job, partial, stop_on))
+			goto error;
+
+		json_fds = json_object_object_get (json_job, "fds");
+		if (! json_fds)
+			goto error;
+
+		ret = state_deserialise_int_array (job, json_fds,
+				int, &job->fds, &job->num_fds);
+		if (ret < 0)
+			goto error;
+
+		json_pid = json_object_object_get (json_job, "pid");
+		if (! json_pid)
+			goto error;
+
+		ret = state_deserialise_int_array (job, json_pid,
+				pid_t, &job->pid, &len);
+		if (ret < 0)
+			goto error;
+
+		if (len != PROCESS_LAST)
+			goto error;
+
 	}
 
 	return 0;

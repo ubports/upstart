@@ -235,7 +235,6 @@ test_state_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_CFLAGS) \
 	$(JSON_LIBS)
 
 test_event_SOURCES = tests/test_event.c
