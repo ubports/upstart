@@ -49,6 +49,10 @@ static struct rlimit *state_rlimit_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
 
+static json_object *
+state_serialise_blocked (const Blocked *blocked)
+	__attribute__ ((malloc, warn_unused_result));
+
 /* FIXME */
 #if 1
 #include "nih_iterators.h"
@@ -1310,7 +1314,7 @@ state_get_json_type (const char *short_type)
  **/
 int
 state_serialise_resolve_deps (json_object *json_events,
-		json_object *json_job_classes)
+		              json_object *json_job_classes)
 {
 	nih_assert (json_events);
 	nih_assert (json_job_classes);
@@ -1319,31 +1323,55 @@ state_serialise_resolve_deps (json_object *json_events,
 		JobClass *class = (JobClass *)iter;
 
 		NIH_HASH_FOREACH (class->instances, iter) {
-			Job *job = (Job *)iter;
+			Job          *job = (Job *)iter;
+			json_object  *blocking = NULL;
 
 			NIH_LIST_FOREACH (&job->blocking, iter) {
 				Blocked *blocked = (Blocked *)iter;
+
+				//json_object *json_job = json_object_object_get ();
 
 				nih_debug ("%s:%d: job '%s:%s' blocking type %d",
 						__func__, __LINE__,
 						class->name,
 						job->name,
 						blocked->type);
-				/* FIXME: */
-				if (1 == 0)
-					goto error;
+
 				switch (blocked->type) {
 				case BLOCKED_JOB:
-					nih_debug ("XXX: blocked job");
+					{
+						nih_debug ("XXX: job is blocking another job (of class '%s')",
+								blocked->job->class->name);
+
+						//json_job = state_get_json_job (json_job_classes, job);
+
+						/* TODO:
+						 *
+						 * - find *this* job in
+						 *   json_job_classes.
+						 * - add
+						 *
+						 */
+						//if (state_serialise_blocking (json_job, blocked) < 0)
+						//	goto error;
+
+						if (! blocking)
+						       blocking = json_object_new_array ();
+						if (! blocking)
+							goto error;
+
+					}
+
 					break;
 
 				case BLOCKED_EVENT:
-					nih_debug ("XXX: blocked event '%s'",
+					nih_debug ("XXX: job is blocking event '%s'",
 							blocked->event->name);
 					break;
 
 				default:
 					/* D-Bus */
+					nih_debug ("XXX: job is blocking a D-BUS thang");
 					break;
 				}
 			}
@@ -1355,3 +1383,133 @@ state_serialise_resolve_deps (json_object *json_events,
 error:
 	return -1;
 }
+
+json_object *
+state_get_json_job (json_object *json_job_classes, const Job *job)
+{
+	json_object  *json_jobs;
+	json_object  *json_job;
+	//json_object  *json_job_class;
+
+	nih_assert (json_job_classes);
+	nih_assert (job);
+
+#if 0
+	json_object_object_foreach (json_job_classes, key, value) {
+		if (! strcmp ()) {
+			json_job_class = 
+		}
+
+	}
+#endif
+
+	if (! json_object_object_get_ex (json_job_classes, "jobs", &json_jobs))
+		return NULL;
+
+	if (! json_object_object_get_ex (json_jobs, "jobs", &json_job))
+		return NULL;
+
+	return json_job;
+}
+
+/* FIXME: document */
+/**
+ *
+ **/
+json_object *
+state_serialise_blocked (const Blocked *blocked)
+{
+	json_object *json;
+
+	nih_assert (blocked);
+
+	json = json_object_new_object ();
+
+	if (! json)
+		return NULL;
+
+	switch (blocked->type) {
+	case BLOCKED_JOB:
+		{
+			json_object *job_details;
+
+			job_details = json_object_new_object ();
+			if (! job_details)
+				goto error;
+
+			/* Need to encode JobClass name and Job name to make
+			 * it unique.
+			 */
+			if (! state_set_json_var_full (job_details, "class",
+						blocked->job->class->name, string))
+				goto error;
+
+			if (! state_set_json_var_full (job_details, "name",
+						blocked->job->name
+						? blocked->job->name
+						: "",
+						string))
+				goto error;
+
+			json_object_object_add (json, "job", job_details);
+		}
+		break;
+
+	case BLOCKED_EVENT:
+		{
+			if (! state_set_json_var_full (json, "event",
+						blocked->event->name, string))
+				goto error;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/* FIXME: document */
+/**
+ *
+ **/
+json_object *
+state_serialise_blocking (const NihList *blocking)
+{
+	json_object *json;
+
+	json = json_object_new_array ();
+
+	if (! json)
+		return NULL;
+
+	if (! blocking)
+		return json;
+
+	NIH_LIST_FOREACH (blocking, iter) {
+		Blocked *blocked = (Blocked *)iter;
+
+		json_object *json_blocked;
+
+		json_blocked = state_serialise_blocked (blocked);
+		if (! json_blocked)
+			goto error;
+
+		if (json_object_array_add (json, json_blocked) < 0)
+			goto error;
+
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+
+}
+

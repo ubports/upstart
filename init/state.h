@@ -130,6 +130,7 @@
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
+#include <nih/list.h>
 
 #include <stdio.h>
 
@@ -184,6 +185,22 @@
 
 #define state_check_json_type(object, type) \
     (json_object_get_type (object) == state_get_json_type (#type))
+
+
+/**
+ * state_new_json_int:
+ *
+ * @value: value to encode
+ *
+ * Encode @value as a JSON integer.
+ *
+ * Returns: json_object that encodes @value.
+ */
+#define state_new_json_int(size, value) \
+	 ((size_t)(size) > sizeof (int) \
+	 ? json_object_new_int64 (value) \
+	 : json_object_new_int (value))
+
 
 /*
  * state_get_json_var_full:
@@ -246,54 +263,6 @@
 	 if (_json_var) \
 	 	object->name = json_object_get_ ## type_json (_json_var); \
 	 _json_var && ret;})
-
-
-/**
- * state_new_json_int:
- *
- * @value: value to encode
- *
- * Encode @value as a JSON integer.
- *
- * Returns: json_object that encodes @value.
- */
-#define state_new_json_int(size, value) \
-	 ((size_t)(size) > sizeof (int) \
-	 ? json_object_new_int64 (value) \
-	 : json_object_new_int (value))
-
-/**
- * state_serialise_int_array:
- *
- * @type: native type of elements within @array,
- * @array: array to serialise
- * @len: length of @array.
- *
- * Returns: JSON-serialised @array, or NULL on error.
- **/
-#define state_serialise_int_array(type, array, len) \
-	(sizeof (type) == (size_t)4 \
-	 ? state_serialise_int32_array ((int32_t *)array, len) \
-	 : state_serialise_int64_array ((int64_t *)array, len))
-
-/**
- * state_deserialise_int_array:
- *
- * @parent: parent object for new array,
- * @json: JSON array object representing an integer array,
- * @type: native type of elements within @array,
- * @array: array of integers,
- * @len: length of @array.
- *
- * Convert JSON array object @json into an array of integers whose size
- * is the same as the size of @type.
- *
- * Returns: 0 on success, -1 on ERROR.
- **/
-#define state_deserialise_int_array(parent, json, type, array, len) \
-	(sizeof (type) == (size_t)4 \
-	 ? state_deserialise_int32_array (parent, json, (int32_t **)array, len) \
-	 : state_deserialise_int64_array (parent, json, (int64_t **)array, len))
 
 /**
  * state_get_json_int32_var_to_obj:
@@ -382,6 +351,41 @@
 	 state_get_json_var_full (json, #name, string, _json_var) && \
 	 (value = json_object_get_string (_json_var)) \
 	 && (object->name = nih_strdup (object, value));})
+
+/**
+ * state_get_json_str_array_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised.
+ *
+ * Deserialise stringified @name from @json into an array of strings and
+ * assign to @name within @object.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_str_array_to_obj(json, object, name) \
+	({json_object *_json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, _json_var)) && \
+	(object->name = state_deserialise_str_array (object, _json_var, FALSE));})
+
+/**
+ * state_get_json_env_array_to_obj:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised.
+ *
+ * Deserialise stringified @name from @json into an array of environment
+ * variable strings and assign to @name within @object.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_env_array_to_obj(json, object, name) \
+	({json_object *_json_var = NULL; \
+	 (state_get_json_var_full (json, #name, array, _json_var)) && \
+	(object->name = state_deserialise_str_array (object, _json_var, TRUE));})
+
 
 /**
  * state_set_json_var_full:
@@ -515,6 +519,39 @@
 	 _json_var;})
 
 /**
+ * state_serialise_int_array:
+ *
+ * @type: native type of elements within @array,
+ * @array: array to serialise
+ * @len: length of @array.
+ *
+ * Returns: JSON-serialised @array, or NULL on error.
+ **/
+#define state_serialise_int_array(type, array, len) \
+	(sizeof (type) == (size_t)4 \
+	 ? state_serialise_int32_array ((int32_t *)array, len) \
+	 : state_serialise_int64_array ((int64_t *)array, len))
+
+/**
+ * state_deserialise_int_array:
+ *
+ * @parent: parent object for new array,
+ * @json: JSON array object representing an integer array,
+ * @type: native type of elements within @array,
+ * @array: array of integers,
+ * @len: length of @array.
+ *
+ * Convert JSON array object @json into an array of integers whose size
+ * is the same as the size of @type.
+ *
+ * Returns: 0 on success, -1 on ERROR.
+ **/
+#define state_deserialise_int_array(parent, json, type, array, len) \
+	(sizeof (type) == (size_t)4 \
+	 ? state_deserialise_int32_array (parent, json, (int32_t **)array, len) \
+	 : state_deserialise_int64_array (parent, json, (int64_t **)array, len))
+
+/**
  * state_partial_copy_int:
  *
  * @to: object to assign @name to,
@@ -552,40 +589,6 @@
 	 	? NIH_MUST (nih_strdup (parent, _name)) \
 	 	: NULL; \
 	 	_name && *(_name) ? parent->name ? 1 : 0: 1;})
-
-/**
- * state_get_json_str_array_to_obj:
- *
- * @json: json_object pointer,
- * @object: pointer to internal object that is to be deserialised,
- * @name: name of element within @object to be deserialised.
- *
- * Deserialise stringified @name from @json into an array of strings and
- * assign to @name within @object.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_get_json_str_array_to_obj(json, object, name) \
-	({json_object *_json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, _json_var)) && \
-	(object->name = state_deserialise_str_array (object, _json_var, FALSE));})
-
-/**
- * state_get_json_env_array_to_obj:
- *
- * @json: json_object pointer,
- * @object: pointer to internal object that is to be deserialised,
- * @name: name of element within @object to be deserialised.
- *
- * Deserialise stringified @name from @json into an array of environment
- * variable strings and assign to @name within @object.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_get_json_env_array_to_obj(json, object, name) \
-	({json_object *_json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, _json_var)) && \
-	(object->name = state_deserialise_str_array (object, _json_var, TRUE));})
 
 /**
  * state_copy_str_array_to_obj:
@@ -705,6 +708,11 @@ int
 state_serialise_resolve_deps (json_object *json_events,
 		json_object *json_job_classes)
 	__attribute__ ((warn_unused_result));
+
+
+json_object *
+state_serialise_blocking (const NihList *blocking)
+	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
 

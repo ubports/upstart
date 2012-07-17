@@ -848,6 +848,18 @@ control_clear_cloexec (void)
 
 	if (state_toggle_cloexec (fd, FALSE) < 0)
 		nih_warn (_("Failed to clear control server CLOEXEC flag"));
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry *entry = (NihListEntry *)iter;
+		DBusConnection *conn = entry->data;
+
+		/* FIXME */
+		nih_message ("XXX: found D-Bus connection %p", conn);
+
+		if (conn == control_bus)
+			/* already handled */
+			continue;
+	}
 }
 
 /**

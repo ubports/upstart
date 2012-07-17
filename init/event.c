@@ -526,6 +526,7 @@ static json_object *
 event_serialise (const Event *event)
 {
 	json_object  *json;
+	json_object  *json_blocking;
 	int           session_index;
 
 	nih_assert (event);
@@ -562,11 +563,14 @@ event_serialise (const Event *event)
 	if (! state_set_json_int_var_from_obj (json, event, blockers))
 		goto error;
 
-	/* FIXME: blocking */
+	/* FIXME: blocking - TEST!!! */
 	if (! NIH_LIST_EMPTY (&event->blocking)) {
-		/* FIXME: blocking */
+		json_blocking = state_serialise_blocking (&event->blocking);
+		if (! json_blocking)
+			goto error;
+
+		json_object_array_add (json, json_blocking);
 	}
-		 
 
 	return json;
 

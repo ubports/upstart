@@ -1599,8 +1599,19 @@ job_serialise (const Job *job)
 			i++;
 		}
 
+#if 0
+		/* index value */
 		if (! state_set_json_var_full (json, "blocker", i, int))
 			goto error;
+#endif
+
+		/* We could just encode the event index here, but we
+		 * encode the event name for consistency with the way
+		 * job->blocking is handled.
+		 */
+		if (! state_set_json_var_full (json, "blocker", job->blocker->name, string))
+			goto error;
+
 	}
 
 #if 0
