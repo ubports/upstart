@@ -1340,8 +1340,7 @@ state_serialise_resolve_deps (json_object *json_events,
 				switch (blocked->type) {
 				case BLOCKED_JOB:
 					{
-						nih_debug ("XXX: job is blocking another job (of class '%s')",
-								blocked->job->class->name);
+						nih_debug ("XXX: job is blocking another job (of class '%s')", blocked->job->class->name);
 
 						//json_job = state_get_json_job (json_job_classes, job);
 
@@ -1428,6 +1427,10 @@ state_serialise_blocked (const Blocked *blocked)
 	if (! json)
 		return NULL;
 
+	nih_debug ("%s:%d: blocking type: %d",
+			__func__, __LINE__,
+			blocked->type);
+
 	switch (blocked->type) {
 	case BLOCKED_JOB:
 		{
@@ -1437,9 +1440,9 @@ state_serialise_blocked (const Blocked *blocked)
 			if (! job_details)
 				goto error;
 
-			/* Need to encode JobClass name and Job name to make
-			 * it unique.
-			 */
+		/* Need to encode JobClass name and Job name to make
+		 * it unique.
+		 */
 			if (! state_set_json_var_full (job_details, "class",
 						blocked->job->class->name, string))
 				goto error;
@@ -1452,7 +1455,7 @@ state_serialise_blocked (const Blocked *blocked)
 				goto error;
 
 			json_object_object_add (json, "job", job_details);
-		}
+	}
 		break;
 
 	case BLOCKED_EVENT:
@@ -1464,6 +1467,27 @@ state_serialise_blocked (const Blocked *blocked)
 		break;
 
 	default:
+		/* Handle the D-Bus types */
+		{
+			json_object *msg_details;
+
+			/* FIXME */
+			nih_message ("%s:%d: D-Bus message ID=%u",
+					__func__, __LINE__,
+					dbus_message_get_serial (blocked->message->message));
+
+			msg_details = json_object_new_object ();
+			if (! msg_details)
+				goto error;
+
+			if (! state_set_json_var_full (msg_details,
+						"msg-id",
+						dbus_message_get_serial (blocked->message->message),
+						int))
+				goto error;
+
+			json_object_object_add (json, "dbus", msg_details);
+		}
 		break;
 	}
 

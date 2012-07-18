@@ -1593,45 +1593,34 @@ job_serialise (const Job *job)
 		NIH_LIST_FOREACH (events, iter) {
 			Event *event = (Event *)iter;
 
-			if (! strcmp (event->name, job->blocker->name))
+			if (event == job->blocker)
 				break;
 
 			i++;
 		}
 
-#if 0
-		/* index value */
+		/* For consistency, it would be preferable to encode the
+		 * event name, but the index is actually better since it is
+		 * simple and unambiguous - encoding the name would also require
+		 * us to encode the env to make the event unique.
+		 */
 		if (! state_set_json_var_full (json, "blocker", i, int))
 			goto error;
-#endif
 
-		/* We could just encode the event index here, but we
-		 * encode the event name for consistency with the way
-		 * job->blocking is handled.
-		 */
-		if (! state_set_json_var_full (json, "blocker", job->blocker->name, string))
+	}
+
+	/* FIXME: should we remove the if test and always encode
+	 * something in the JSON here?
+	 */
+	if (! NIH_LIST_EMPTY (&job->blocking)) {
+		json_object *json_blocking;
+
+		json_blocking = state_serialise_blocking (&job->blocking);
+		if (! json_blocking)
 			goto error;
 
+		json_object_object_add (json, "blocking", json_blocking);
 	}
-
-#if 0
-	if (! NIH_LIST_EMPTY (&job->blocking)) {
-		/* FIXME: blocking.
-		 *
-		 * create an array of objects like this:
-		 *
-		 * { "job" : 3 },
-		 * { "event" : 2 },
-		 * { "message" : 9 },
-		 */
-	}
-#endif
-
-#if 0
-	NIH_LIST_FOREACH (&job->blocking, iter) {
-		Blocked *blocked = (Blocked *)iter;
-	}
-#endif
 
 	/* FIXME: kill_timer */
 

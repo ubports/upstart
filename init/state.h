@@ -100,6 +100,31 @@
  * cause data loss due to JSON-C storing all integer values as 64-bit
  * internally).
  *
+ * == Circular Dependencies ==
+ *
+ * Events can refer to Jobs via event->blocking and Jobs can refer to
+ * Events via job->blocker and job->blocking, hence a circular
+ * dependency may exist.
+ *
+ * Serialisation is handled "in a single pass" by iterating the events
+ * list and encoding any blocking objects found, then iterating the
+ * JobClasses instances list to encoding any blocking objects found for
+ * each Job. A single pass works in this case since we're just encoding
+ * the names of Jobs and Events that might not yet have been encoded
+ * (but which we know _will_ eventually be encoded).
+ *
+ * Deserialisation is more difficult. The process is as follows:
+ *
+ * - Convert all JSON-encoded events back into real Events.
+ * - Convert all JSON-encoded jobs back into real Jobs.
+ * - Re-iterate all Jobs and:
+ *   - create any job->blocking links to other jobs.
+ *   - create any job->blocking links to any events.
+ *   - create any job->blocking links to any D-Bus messages.
+ * - Re-iterate all Events and:
+ *   - create any event->blocking links to any jobs.
+ *   - create any event->blocking links to any D-Bus messages.
+ *
  *--------------------------------------------------------------------
  */
 
