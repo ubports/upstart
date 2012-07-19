@@ -1524,8 +1524,6 @@ job_serialise (const Job *job)
 	 *
 	 * class
 	 *
-	 * blocker
-	 * blocking
 	 * kill_timer
 	 *
 	 * log !!!
@@ -1588,7 +1586,7 @@ job_serialise (const Job *job)
 	/* FIXME: we're only encoding if there *IS* a blocker!?! */
 #endif
 	if (job->blocker) {
-		int i = 0;
+		int event_index = 0;
 
 		NIH_LIST_FOREACH (events, iter) {
 			Event *event = (Event *)iter;
@@ -1596,7 +1594,7 @@ job_serialise (const Job *job)
 			if (event == job->blocker)
 				break;
 
-			i++;
+			event_index++;
 		}
 
 		/* For consistency, it would be preferable to encode the
@@ -1604,7 +1602,7 @@ job_serialise (const Job *job)
 		 * simple and unambiguous - encoding the name would also require
 		 * us to encode the env to make the event unique.
 		 */
-		if (! state_set_json_var_full (json, "blocker", i, int))
+		if (! state_set_json_var_full (json, "blocker", event_index, int))
 			goto error;
 
 	}
@@ -1699,14 +1697,18 @@ error:
  * @json: JSON-serialised Job object to deserialise.
  *
  * Note that the object returned is not a true Job since not all
- * structure elements are encoded in the JSON.
+ * structure elements are encoded in the JSON. Of particular note are
+ * that job->blocking is handled by state_serialise_resolve_deps().
+ *
+ * XXX: All events must have been deserialised prior to this function
+ * XXX: being called.
  *
  * Returns: partial Job object, or NULL on error.
  **/
 static Job *
 job_deserialise (json_object *json)
 {
-	Job  *partial;
+	Job *partial;
 
 	nih_assert (json);
 
@@ -1784,6 +1786,7 @@ job_deserialise (json_object *json)
 	/* fds and num_fds handled by caller */
 	/* pid handled by caller */
 
+
 	/* FIXME: finish!! */
 
 	return partial;
@@ -1796,14 +1799,16 @@ error:
 /**
  * job_deserialise_all:
  *
+ * @parent: job class for JSON-encoded jobs,
  * @json: root of JSON-serialised state.
  *
- * Convert JSON representation of Jobs back into Job objects.
+ * Convert JSON representation of jobs back into Job objects associated
+ * with @parent.
  *
  * Returns: 0 on success, -1 on error.
  **/
 int
-job_deserialise_all (json_object *json)
+job_deserialise_all (JobClass *parent, json_object *json)
 {
 	json_object  *json_jobs;
 	json_object  *json_fds;
@@ -1812,6 +1817,7 @@ job_deserialise_all (json_object *json)
 	size_t        len;
 	int           ret;
 
+	nih_assert (parent);
 	nih_assert (json);
 
 	json_jobs = json_object_object_get (json, "jobs");
@@ -1822,10 +1828,18 @@ job_deserialise_all (json_object *json)
 	if (! state_check_json_type (json_jobs, array))
 		goto error;
 
-	/* FIXME: finish!! */
+	/* FIXME: finish!!
+	 *
+	 * - blocker
+	 * - blocking
+	 * - kill_timer
+	 * - log!!
+	 *
+	 */
+
 	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
-		json_object         *json_job;
-		nih_local Job       *partial = NULL;
+		json_object    *json_job;
+		nih_local Job  *partial = NULL;
 
 		json_job = json_object_array_get_idx (json_job, i);
 
@@ -1836,14 +1850,18 @@ job_deserialise_all (json_object *json)
 		if (! partial)
 			goto error;
 
-		/* FIXME: need class!! */
-#if 0
-		job = NIH_MUST (job_new (class, partial->name));
-#endif
-		/* FIXME: need to specify parent class!! */
-		job = NIH_MUST (job_new (NULL, partial->name));
+		job = NIH_MUST (job_new (parent, partial->name));
 
-		/* FIXME: now copy @partial to @job */
+		state_partial_copy_int (job, partial, goal);
+		state_partial_copy_int (job, partial, state);
+
+		if (! state_copy_str_array_to_obj (job, partial, env))
+			goto error;
+
+		if (! state_copy_str_array_to_obj (job, partial, start_env))
+			goto error;
+		if (! state_copy_str_array_to_obj (job, partial, stop_env))
+			goto error;
 
 		if (! state_copy_event_oper_to_obj (job, partial, stop_on))
 			goto error;
@@ -1868,6 +1886,23 @@ job_deserialise_all (json_object *json)
 
 		if (len != PROCESS_LAST)
 			goto error;
+
+		/* FIXME: blocker */
+		/* FIXME: blocking */
+		/* FIXME: kill_timer */
+
+		state_partial_copy_int (job, partial, kill_process);
+		state_partial_copy_int (job, partial, failed);
+		state_partial_copy_int (job, partial, failed_process);
+		state_partial_copy_int (job, partial, exit_status);
+		state_partial_copy_int (job, partial, respawn_time);
+		state_partial_copy_int (job, partial, respawn_count);
+		state_partial_copy_int (job, partial, trace_forks);
+		state_partial_copy_int (job, partial, trace_state);
+
+#if 1
+		/* FIXME: log!!! */
+#endif
 
 	}
 

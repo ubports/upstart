@@ -59,6 +59,8 @@
 
 #include <json.h>
 
+extern json_object *json_classes;
+
 /* Prototypes for static functions */
 static void  job_class_add (JobClass *class);
 static void  job_class_add_safe (JobClass *class);
@@ -1891,10 +1893,10 @@ error:
  * Note that the object returned is not a true JobClass since not all
  * structure elements are encoded in the JSON.
  *
- * Further, note that limits, process and normalexit are NOT handled by
- * this function - use state_rlimit_deserialise_all(),
- * process_deserialise_all() and state_deserialise_int_array()
- * respectively.
+ * Further, note that limits, process, instances (jobs), and normalexit
+ * are NOT handled by this function - use state_rlimit_deserialise_all(),
+ * process_deserialise_all(), job_deserialise_all() and
+ * state_deserialise_int_array() respectively.
  *
  * Returns: partial JobClass object, or NULL on error.
  **/
@@ -1937,8 +1939,6 @@ job_class_deserialise (json_object *json)
 
 	if (! state_get_json_string_var_to_obj (json, partial, description))
 		goto error;
-
-	/* FIXME: instances */
 
 	if (! state_get_json_string_var_to_obj (json, partial, author))
 		goto error;
@@ -2103,7 +2103,6 @@ error:
 int
 job_class_deserialise_all (json_object *json)
 {
-	json_object  *json_classes;
 	json_object  *json_normalexit;
 	JobClass     *class;
 	int           ret;
@@ -2155,8 +2154,15 @@ job_class_deserialise_all (json_object *json)
 		/* job_class_new() sets path */
 		nih_assert (! strcmp (class->path, partial->path));
 
-		/* FIXME: TODO: instances */
-		nih_error ("FIXME: %s: JobClass: need to deserialise Job instances", __func__);
+		/* FIXME: test instances */
+		nih_error ("FIXME: %s: JobClass: need to test Job instances!!", __func__);
+
+		/* Associated jobs are handled here rather than in
+		 * job_class_deserialise() to avoid yet more data copying
+		 * from 'partial' to 'class'.
+		 */
+		if (job_deserialise_all (class, json) < 0)
+			goto error;
 
 		if (! state_partial_copy_string (class, partial, description))
 			goto error;

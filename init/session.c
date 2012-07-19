@@ -47,6 +47,8 @@
 #include "conf.h"
 #include "paths.h"
 
+extern json_object *json_sessions;
+
 /* Prototypes for static functions */
 static json_object  *session_serialise   (const Session *session)
 	__attribute__ ((malloc, warn_unused_result));
@@ -545,7 +547,6 @@ error:
 int
 session_deserialise_all (json_object *json)
 {
-	json_object        *json_sessions;
 	Session            *session;
 	nih_local Session  *partial = NULL;
 

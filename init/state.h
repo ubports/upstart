@@ -106,22 +106,31 @@
  * Events via job->blocker and job->blocking, hence a circular
  * dependency may exist.
  *
+ * === Serialisation ===
+ *
  * Serialisation is handled "in a single pass" by iterating the events
  * list and encoding any blocking objects found, then iterating the
  * JobClasses instances list to encoding any blocking objects found for
  * each Job. A single pass works in this case since we're just encoding
- * the names of Jobs and Events that might not yet have been encoded
- * (but which we know _will_ eventually be encoded).
+ * the names of Jobs and Events. Some of these might not yet have been
+ * encoded, but we know they _will_ eventually be encoded.
+ *
+ * === Deserialisation ===
  *
  * Deserialisation is more difficult. The process is as follows:
  *
  * - Convert all JSON-encoded events back into real Events.
+ *   Note that event->blocking and event->blockers will _NOT_ be
+ *   set at this stage.
  * - Convert all JSON-encoded jobs back into real Jobs.
- * - Re-iterate all Jobs and:
+ *   Note that job->blocker and job->blocking will _NOT_ be
+ *   set at this stage.
+ * - Re-iterate over all Jobs and...
+ *   - set job->blocker if encoded in the JSON.
  *   - create any job->blocking links to other jobs.
  *   - create any job->blocking links to any events.
  *   - create any job->blocking links to any D-Bus messages.
- * - Re-iterate all Events and:
+ * - Re-iterate over all Events and...
  *   - create any event->blocking links to any jobs.
  *   - create any event->blocking links to any D-Bus messages.
  *
@@ -729,15 +738,25 @@ enum json_type
 state_get_json_type (const char *short_type)
 	__attribute__ ((warn_unused_result));
 
+/* FIXME: remove - not needed? */
+#if 0
 int
 state_serialise_resolve_deps (json_object *json_events,
 		json_object *json_job_classes)
 	__attribute__ ((warn_unused_result));
+#endif
 
+int
+state_deserialise_resolve_deps (json_object *json)
+	__attribute__ ((warn_unused_result));
 
 json_object *
 state_serialise_blocking (const NihList *blocking)
 	__attribute__ ((malloc, warn_unused_result));
+
+int
+state_deserialise_blocking (NihList *list, json_object *json)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

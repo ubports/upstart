@@ -57,6 +57,8 @@ static json_object *event_serialise (const Event *event)
 static Event *event_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
+extern json_object *json_events;
+
 /**
  * events:
  *
@@ -591,45 +593,17 @@ error:
 json_object *
 event_serialise_all (void)
 {
-	json_object        *json;
+	json_object  *json;
 
 	event_init ();
-
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
 
 	json = json_object_new_array ();
 	if (! json)
 		return NULL;
 
 	NIH_LIST_FOREACH (events, iter) {
-		//NihListEntry  *entry = NULL;
 		Event         *event = (Event *)iter;
 		json_object   *json_event;
-
-#if 0
-		/* FIXME: make this function add list of all blocked
-		 * events to an "NihList **" passed in such that the
-		 * caller can double-check all events have been
-		 * serialised by comparing this list with all events
-		 * seen in all the job->blocking lists.
-		 */
-		if (event->blockers) {
-			entry = nih_list_entry_new (blocked);
-			if (! entry)
-				goto error;
-
-			entry->str = nih_strdup (entry, event->name);
-			if (! entry->str) {
-				nih_free (entry);
-				goto error;
-			}
-
-			nih_list_add (blocked, &entry->entry);
-		}
-#endif
 
 		json_event = event_serialise (event);
 
@@ -653,7 +627,9 @@ error:
  * Convert @json into a partial Event object.
  *
  * Note that the object returned is not a true Event since not all
- * structure elements are encoded in the JSON.
+ * structure elements are encoded in the JSON. Of particular note are
+ * that event->blocking and event->blockers are handled by
+ * state_serialise_resolve_deps().
  *
  * Returns: partial Event object, or NULL on error.
  **/
@@ -713,7 +689,6 @@ error:
 int
 event_deserialise_all (json_object *json)
 {
-	json_object      *json_events;
 	nih_local Event  *partial = NULL;
 	Event            *event;
 
