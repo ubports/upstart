@@ -52,17 +52,25 @@ static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
 static struct rlimit *state_rlimit_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
-
 static json_object *
 state_serialise_blocked (const Blocked *blocked)
 	__attribute__ ((malloc, warn_unused_result));
 
-#if 0
 static Blocked *
-state_deserialise_blocked (void *parent, json_object *json)
+state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 	__attribute__ ((malloc, warn_unused_result));
-#endif
 
+int
+state_event_to_index (const Event *event)
+	__attribute__ ((warn_unused_result));
+
+Event *
+state_index_to_event (int event_index)
+	__attribute__ ((warn_unused_result));
+
+Job *
+state_names_to_job (const char *job_class, const char *job_name)
+	__attribute__ ((warn_unused_result));
 
 /* FIXME */
 #if 1
@@ -792,6 +800,9 @@ state_deserialise_str_array (void *parent, json_object *json, int env)
 		const char   *element;
 
 		json_element = json_object_array_get_idx (json, i);
+		if (! json_element)
+			goto error;
+
 		if (! state_check_json_type (json_element, string))
 			goto error;
 
@@ -939,6 +950,9 @@ state_deserialise_int32_array (void *parent, json_object *json, int32_t **array,
 		element = (*array)+i;
 
 		json_element = json_object_array_get_idx (json, i);
+		if (! json_element)
+			goto error;
+
 		if (! state_check_json_type (json_element, int))
 			goto error;
 
@@ -991,6 +1005,9 @@ state_deserialise_int64_array (void *parent, json_object *json, int64_t **array,
 		element = (*array)+i;
 
 		json_element = json_object_array_get_idx (json, i);
+		if (! json_element)
+			goto error;
+
 		if (! state_check_json_type (json_element, int))
 			goto error;
 
@@ -1186,6 +1203,9 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 		nih_assert (i <= RLIMIT_NLIMITS);
 
 		json_rlimit = json_object_array_get_idx (json_limits, i);
+		if (! json_rlimit)
+			goto error;
+
 		if (! state_check_json_type (json_rlimit, object))
 			goto error;
 
@@ -1419,6 +1439,8 @@ error:
  * parent JobClass) and update JSON accordingly to allow deserialisation
  * of such dependencies.
  *
+ * XXX
+ *
  * Returns: 0 on success, -1 on error.
  **/
 int
@@ -1433,60 +1455,23 @@ state_deserialise_resolve_deps (json_object *json)
 	nih_assert (json_events);
 	nih_assert (json_classes);
 
-#if 0
-	/* FIXME: remove - already done! */
-	json_events = json_object_object_get (json, "events");
-	if (! json_events)
-		goto error;
-#endif
-
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
 		json_object  *json_event;
-		json_object  *json_blocking;
 		Event        *event = NULL;
-		int           event_index = 0;
 
 		json_event = json_object_array_get_idx (json_events, i);
+		if (! json_event)
+			goto error;
+
 		if (! state_check_json_type (json_event, object))
 			goto error;
 
-		json_blocking = json_object_object_get (json_event, "blocking");
+		event = state_index_to_event (i);
+		if (! event)
+			goto error;
 
-		/* No blocking objects for event. Unlikely to hit this
-		 * scenario.
-		 */
-		if (! json_blocking)
-			continue;
-
-		/* lookup event associated with JSON event index */
-		NIH_LIST_FOREACH (events, iter) {
-			Event *tmp = (Event *)iter;
-
-			if (event_index == i) {
-				event = tmp;
-				break;
-			}
-			event_index++;
-		}
-
-		nih_assert (event);
-
-		/* convert JSON back into real Blocked objects */
-		for (int j = 0; j < json_object_array_length (json_blocking); j++) {
-			/* FIXME: */
-			//Blocked *blocked;
-
-			/* FIXME: type (BLOCKED_EMIT_METHOD) !!! */
-			/* FIXME: need to obtain ref to DBusMessage from
-			 * serial number!
-			 */
-#if 0
-			blocked = blocked_new (event, BLOCKED_EMIT_METHOD, message);
-			nih_list_add (&event->blocking, &blocked->entry);
-#endif
-		}
-
-		/* FIXME: finish! */
+		if (state_deserialise_blocking (event, &event->blocking, json_event) < 0)
+			goto error;
 	}
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
@@ -1697,24 +1682,11 @@ state_serialise_blocked (const Blocked *blocked)
 
 	case BLOCKED_EVENT:
 		{
-			/* for assertion checking only */
-			Event        *check = NULL;
+			int event_index = 0;
 
-			int           event_index = 0;
-
-			/* Find the event index */
-			NIH_LIST_FOREACH (events, iter) {
-				Event *event = (Event *)iter;
-
-				if (event == blocked->event) {
-					check = event;
-					break;
-				}
-
-				event_index++;
-			}
-
-			nih_assert (check);
+			event_index = state_event_to_index (blocked->event);
+			if (event_index < 0)
+				goto error;
 
 			if (! state_set_json_var_full (json_blocked_data,
 						"index",
@@ -1729,20 +1701,39 @@ state_serialise_blocked (const Blocked *blocked)
 		break;
 
 	default:
-		/* Handle the D-Bus types */
+		/* Handle the D-Bus types by encoding the D-Bus message
+		 * serial number and message data.
+		 */
 		{
+			DBusMessage  *message = blocked->message->message;
+			char         *dbus_message_data = NULL;
+			int           len = 0;
 #if 1
 			/* FIXME */
 			nih_message ("%s:%d: D-Bus message ID=%u",
 					__func__, __LINE__,
-					dbus_message_get_serial (blocked->message->message));
+					dbus_message_get_serial (message));
 #endif
 
 			if (! state_set_json_var_full (json_blocked_data,
 						"msg-id",
-						dbus_message_get_serial (blocked->message->message),
+						dbus_message_get_serial (message),
 						int))
 				goto error;
+
+			if (! dbus_message_marshal (message, &dbus_message_data, &len))
+				goto error;
+
+			if (! state_set_json_var_full (json_blocked_data,
+						"msg-data",
+						dbus_message_data,
+						string))
+				goto error;
+
+			/* returned memory is not managed by NIH, hence use
+			 * libc facilities.
+			 */
+			free (dbus_message_data);
 
 			json_object_object_add (json, "data", json_blocked_data);
 
@@ -1805,7 +1796,7 @@ error:
 
 /* FIXME: document */
 Blocked *
-state_deserialise_blocked (void *parent, json_object *json)
+state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 {
 	json_object  *json_blocked_data;
 	Blocked      *blocked = NULL;
@@ -1813,6 +1804,7 @@ state_deserialise_blocked (void *parent, json_object *json)
 
 	nih_assert (parent);
 	nih_assert (json);
+	nih_assert (list);
 
 	if (! state_get_json_string_var (json, "type", blocked_type))
 		goto error;
@@ -1822,40 +1814,74 @@ state_deserialise_blocked (void *parent, json_object *json)
 		goto error;
 
 	if (! strcmp (blocked_type, "job")) {
-		const char *name;
-		const char *class;
+		const char  *job_name;
+		const char  *job_class_name;
+		Job         *job;
 
-		if (! state_get_json_string_var (json_blocked_data, "name", name))
+		if (! state_get_json_string_var (json_blocked_data, "name", job_name))
 			goto error;
-		if (! state_get_json_string_var (json_blocked_data, "class", class))
+		if (! state_get_json_string_var (json_blocked_data, "class", job_class_name))
 			goto error;
 
+		job = state_names_to_job (job_class_name, job_name);
+		if (! job)
+			goto error;
 
 		/* FIXME */
 		nih_message ("%s:%d: job name='%s', class='%s'",
 				__func__, __LINE__,
-				name ? name : "", class);
+				job_name ? job_name : "", job_class_name);
 
-		/* FIXME: now call blocked_new */
+		blocked = NIH_MUST (blocked_new (parent, BLOCKED_JOB, job));
+		nih_list_add (list, &blocked->entry);
 
 	} else if (! strcmp (blocked_type, "event")) {
-		int event_index;
+		Event  *event = NULL;
+		int     event_index;
 
 		if (! state_get_json_num_var (json_blocked_data,
 					"index", int, event_index))
 			goto error;
 
-		/* FIXME */
-		nih_message ("%s:%d: event index=%d",
-				__func__, __LINE__,
-				event_index);
-		/* FIXME: now call blocked_new */
+		event = state_index_to_event (event_index);
+		if (! event)
+			goto error;
+
+		blocked = NIH_MUST (blocked_new (parent, BLOCKED_EVENT, event));
+		nih_list_add (list, &blocked->entry);
+		event_block (blocked->event);
 
 	} else if (! strcmp (blocked_type, "dbus")) {
+#if 0
+		DBusError      *error = NULL;
+		DBusMessage    *message = NULL;
+		dbus_uint32_t   serial;
+		int             len;
+#endif
 
-		/* FIXME: got to here */
+		nih_message ("XXX");
+		nih_message ("XXX");
+		nih_message ("XXX");
+		nih_message ("XXX:%s:%d: GOT TO HERE - FINISH ME!",
+				__func__, __LINE__);
+		nih_message ("XXX");
+		nih_message ("XXX");
+		nih_message ("XXX");
 
-		/* FIXME: now call blocked_new */
+		abort();
+
+		/* FIXME: TODO:
+		 *
+		 * - call dbus_message_demarshal() to recover the msg
+		 *   data.
+		 * - call dbus_message_set_serial (message, serial);
+		 * - call blocked_new().
+		 *
+		 * FIXME: how do we associate a message with a connection?
+		 */
+#if 0
+		dbus_message_demarshal ();
+#endif
 	} else {
 		nih_assert_not_reached ();
 	}
@@ -1863,20 +1889,25 @@ state_deserialise_blocked (void *parent, json_object *json)
 	return blocked;
 
 error:
-	nih_free (blocked);
+	if (blocked)
+		nih_free (blocked);
+
 	return NULL;
 }
 
 /* FIXME: document */
 int
-state_deserialise_blocking (NihList *list, json_object *json)
+state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 {
 	json_object *json_blocking;
 
+	nih_assert (parent);
 	nih_assert (list);
 	nih_assert (json);
 
 	json_blocking = json_object_object_get (json, "blocking");
+
+	/* parent is not blocking anything */
 	if (! json_blocking)
 		return 0;
 
@@ -1887,11 +1918,90 @@ state_deserialise_blocking (NihList *list, json_object *json)
 		if (! json_blocked)
 			goto error;
 
-		// blocked = state_deserialise_blocked ();
+		if (! state_deserialise_blocked (parent, json_blocked, list))
+			goto error;
 	}
 
 	return 0;
 
 error:
 	return -1;
+}
+
+/**
+ * state_event_to_index:
+ *
+ * @event: event.
+ *
+ * Convert an event to an index number within
+ * the list of events.
+ *
+ * Returns: event index, or -1 on error.
+ **/
+int
+state_event_to_index (const Event *event)
+{
+	int event_index = 0;
+	int found = 0;
+
+	nih_assert (event);
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *tmp = (Event *)iter;
+
+		if (tmp == event) {
+			found = 1;
+			break;
+		}
+
+		event_index++;
+	}
+
+	if (! found)
+		return -1;
+
+	return event_index;
+}
+
+Event *
+state_index_to_event (int event_index)
+{
+	int     i = 0;
+
+	nih_assert (event_index >= 0);
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		if (i == event_index)
+			return event;
+		i++;
+	}
+
+	return NULL;
+}
+
+Job *
+state_names_to_job (const char *job_class, const char *job_name)
+{
+	JobClass  *class;
+	Job       *job;
+
+	nih_assert (job_class);
+	nih_assert (job_classes);
+
+	class = (JobClass *)nih_hash_lookup (job_classes, job_class);
+	if (! class)
+		goto error;
+
+	job = (Job *)nih_hash_lookup (class->instances, job_name);
+	if (! job)
+		goto error;
+
+	return job;
+
+error:
+	return NULL;
 }

@@ -295,7 +295,7 @@ control_bus_close (void)
  *
  * This function is called when the connection to the D-Bus system bus,
  * or a client connection to our D-Bus server, is dropped and our reference
- * is about to be list.  We clear the connection from our current list
+ * is about to be lost.  We clear the connection from our current list
  * and drop the control_bus global if relevant.
  **/
 static void
@@ -946,8 +946,6 @@ control_deserialise (void            *data,
 	int    ret;
 	nih_assert (message != NULL);
 	nih_assert (json != NULL);
-
-	nih_message ("%s:%d: read string '%s'", __func__, __LINE__, json);
 
 	ret = state_from_string (json);
 

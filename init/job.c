@@ -1620,7 +1620,23 @@ job_serialise (const Job *job)
 		json_object_object_add (json, "blocking", json_blocking);
 	}
 
-	/* FIXME: kill_timer */
+	/* FIXME: kill_timer!
+	 *
+	 * plan is to:
+	 *
+	 * - create a new function that splits out the logic
+	 *   that calls nih_timer_add_timeout() in job_process_kill().
+	 *
+	 * - encode timer->due (time_t) in JSON.
+	 *
+	 * - on deserialisation, call the following:
+	 *
+	 *   	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
+	 *      			    job,
+	 * 				    time_from_json, # <--- XXX:
+	 * 				    (NihTimerCb)job_process_kill_timer,
+	 *				    job));
+	 */
 
 	if (! state_set_json_int_var_from_obj (json, job, kill_process))
 		goto error;
@@ -1841,7 +1857,9 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		json_object    *json_job;
 		nih_local Job  *partial = NULL;
 
-		json_job = json_object_array_get_idx (json_job, i);
+		json_job = json_object_array_get_idx (json_jobs, i);
+		if (! json_job)
+			goto error;
 
 		if (! state_check_json_type (json_job, object))
 			goto error;

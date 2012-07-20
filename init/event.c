@@ -724,6 +724,9 @@ event_deserialise_all (json_object *json)
 #endif
 
 		json_event = json_object_array_get_idx (json_events, i);
+		if (! json_event)
+			goto error;
+
 		if (! state_check_json_type (json_event, object))
 			goto error;
 

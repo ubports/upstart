@@ -380,6 +380,7 @@ job_class_add_safe (JobClass *class)
 	JobClass *existing = NULL;
 
 	nih_assert (class);
+	nih_assert (class->name);
 
 	control_init ();
 
@@ -2104,7 +2105,7 @@ int
 job_class_deserialise_all (json_object *json)
 {
 	json_object  *json_normalexit;
-	JobClass     *class;
+	JobClass     *class = NULL;
 	int           ret;
 
 	nih_assert (json);
@@ -2130,6 +2131,9 @@ job_class_deserialise_all (json_object *json)
 		nih_message ("XXX: found job class");
 
 		json_class = json_object_array_get_idx (json_classes, i);
+		if (! json_class)
+			goto error;
+
 		if (! state_check_json_type (json_class, object))
 			goto error;
 
@@ -2156,13 +2160,6 @@ job_class_deserialise_all (json_object *json)
 
 		/* FIXME: test instances */
 		nih_error ("FIXME: %s: JobClass: need to test Job instances!!", __func__);
-
-		/* Associated jobs are handled here rather than in
-		 * job_class_deserialise() to avoid yet more data copying
-		 * from 'partial' to 'class'.
-		 */
-		if (job_deserialise_all (class, json) < 0)
-			goto error;
 
 		if (! state_partial_copy_string (class, partial, description))
 			goto error;
@@ -2259,11 +2256,25 @@ job_class_deserialise_all (json_object *json)
 		 */
 		/* Force class to be known */
 		job_class_add_safe (class);
+
+		/* Any jobs must be added after the class is registered
+		 * (since you cannot add a job to a partially-created
+		 * class).
+		 *
+		 * Associated jobs are handled here rather than in
+		 * job_class_deserialise() to avoid yet more data copying
+		 * from 'partial' to 'class'.
+		 */
+		if (job_deserialise_all (class, json_class) < 0)
+			goto error;
 	}
 
 	return 0;
 
 error:
+	if (class)
+		nih_free (class);
+
 	return -1;
 }
 

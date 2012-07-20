@@ -159,14 +159,15 @@
 #ifndef INIT_STATE_H
 #define INIT_STATE_H
 
+#include <stdio.h>
+#include <errno.h>
+
 #include <sys/time.h>
 #include <sys/resource.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/list.h>
-
-#include <stdio.h>
 
 #include <json.h>
 
@@ -274,9 +275,10 @@
 #define state_get_json_num_var(json, name, type_json, var) \
 	({json_object *_json_var = NULL; \
 	 int ret = state_get_json_var_full (json, name, type_json, _json_var); \
+	 errno = 0; \
 	 if (_json_var) \
 	 	var = json_object_get_ ## type_json (_json_var); \
-	 _json_var && ret;})
+	 _json_var && ret && errno != EINVAL;})
 
 /**
  * state_get_json_num_var_to_obj:
@@ -292,11 +294,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_num_var_to_obj(json, object, name, type_json) \
-	({json_object *_json_var = NULL; \
-	 int ret = state_get_json_var_full (json, #name, type_json, _json_var); \
-	 if (_json_var) \
-	 	object->name = json_object_get_ ## type_json (_json_var); \
-	 _json_var && ret;})
+	 (state_get_json_num_var (json, #name, type_json, ((object)->name)))
 
 /**
  * state_get_json_int32_var_to_obj:
@@ -473,7 +471,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int32_var_from_obj(json, object, name) \
-	state_set_json_num_var_from_obj (json, object, name, int, int32_t)
+	(state_set_json_num_var_from_obj (json, object, name, int, int32_t))
 
 /**
  * state_set_json_int64_var_from_obj:
@@ -492,7 +490,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int64_var_from_obj(json, object, name) \
-	state_set_json_num_var_from_obj (json, object, name, int, int64_t)
+	(state_set_json_num_var_from_obj (json, object, name, int, int64_t))
 
 /**
  * state_set_json_int_var_from_obj:
@@ -601,7 +599,7 @@
  *
  **/
 #define state_partial_copy_int(parent, source, name) \
-	(parent->name = source->name)
+	((parent)->name = (source)->name)
 
 /**
  * state_partial_copy_string:
@@ -755,7 +753,8 @@ state_serialise_blocking (const NihList *blocking)
 	__attribute__ ((malloc, warn_unused_result));
 
 int
-state_deserialise_blocking (NihList *list, json_object *json)
+state_deserialise_blocking (void *parent, NihList *list,
+			    json_object *json)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

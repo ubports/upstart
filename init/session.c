@@ -583,6 +583,9 @@ session_deserialise_all (json_object *json)
 #endif
 
 		json_session = json_object_array_get_idx (json_sessions, i);
+		if (! json_session)
+			goto error;
+
 		if (! state_check_json_type (json_session, object))
 			goto error;
 
