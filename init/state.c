@@ -60,16 +60,24 @@ static Blocked *
 state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 	__attribute__ ((malloc, warn_unused_result));
 
-int
+static int
 state_event_to_index (const Event *event)
 	__attribute__ ((warn_unused_result));
 
-Event *
+static Event *
 state_index_to_event (int event_index)
 	__attribute__ ((warn_unused_result));
 
-Job *
+static Job *
 state_names_to_job (const char *job_class, const char *job_name)
+	__attribute__ ((warn_unused_result));
+
+static char *
+state_data_to_hex (void *parent, const void *data, size_t len)
+	__attribute__ ((warn_unused_result));
+
+static char *
+state_hex_to_data (void *parent, const void *data, size_t len, size_t *new_len)
 	__attribute__ ((warn_unused_result));
 
 /* FIXME */
@@ -1703,10 +1711,16 @@ state_serialise_blocked (const Blocked *blocked)
 	default:
 		/* Handle the D-Bus types by encoding the D-Bus message
 		 * serial number and message data.
+		 *
+		 * This scenario occurs when "initctl emit foo" blocks -
+		 * the D-Bus message is "in-flight" but blocked on some
+		 * event. Therefore, we must serialise the entire D-Bus
+		 * message and reconstruct it on deserialisation.
 		 */
 		{
 			DBusMessage  *message = blocked->message->message;
-			char         *dbus_message_data = NULL;
+			char         *dbus_message_data_raw = NULL;
+			char         *dbus_message_data_str = NULL;
 			int           len = 0;
 #if 1
 			/* FIXME */
@@ -1721,25 +1735,45 @@ state_serialise_blocked (const Blocked *blocked)
 						int))
 				goto error;
 
-			if (! dbus_message_marshal (message, &dbus_message_data, &len))
+			if (! dbus_message_marshal (message, &dbus_message_data_raw, &len))
 				goto error;
 
-			if (! state_set_json_var_full (json_blocked_data,
-						"msg-data",
-						dbus_message_data,
-						string))
-				goto error;
+			/* FIXME */
+			nih_message ("XXX");
+			nih_message ("XXX");
+			nih_message ("XXX");
+			nih_message ("marshalled msg into %d bytes", (int)len);
+			nih_message ("XXX");
+			nih_message ("XXX");
+
+
+			dbus_message_data_str = state_data_to_hex (NULL,
+					dbus_message_data_raw,
+					len);
+
+			if (! dbus_message_data_str)
+					goto error;
+
+#if 1
+			/* FIXME */
+			nih_message ("D-Bus hex msg='%s'", dbus_message_data_str);
+#endif
 
 			/* returned memory is not managed by NIH, hence use
 			 * libc facilities.
 			 */
-			free (dbus_message_data);
+			free (dbus_message_data_raw);
+
+			if (! state_set_json_var_full (json_blocked_data,
+						"msg-data",
+						dbus_message_data_str,
+						string))
+				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
 
 			if (! state_set_json_var_full (json, "type", "dbus", string))
 				goto error;
-
 		}
 		break;
 	}
@@ -1839,8 +1873,8 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		Event  *event = NULL;
 		int     event_index;
 
-		if (! state_get_json_num_var (json_blocked_data,
-					"index", int, event_index))
+		if (! state_get_json_int_var (json_blocked_data,
+					"index", event_index))
 			goto error;
 
 		event = state_index_to_event (event_index);
@@ -1852,12 +1886,12 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		event_block (blocked->event);
 
 	} else if (! strcmp (blocked_type, "dbus")) {
-#if 0
-		DBusError      *error = NULL;
-		DBusMessage    *message = NULL;
-		dbus_uint32_t   serial;
-		int             len;
-#endif
+		DBusMessage     *message = NULL;
+		DBusError        error;
+		dbus_uint32_t    serial;
+		size_t           raw_len;
+		const char      *dbus_message_data_str = NULL;
+		nih_local char  *dbus_message_data_raw = NULL;;
 
 		nih_message ("XXX");
 		nih_message ("XXX");
@@ -1868,7 +1902,9 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		nih_message ("XXX");
 		nih_message ("XXX");
 
+#if 0
 		abort();
+#endif
 
 		/* FIXME: TODO:
 		 *
@@ -1879,9 +1915,38 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		 *
 		 * FIXME: how do we associate a message with a connection?
 		 */
-#if 0
-		dbus_message_demarshal ();
-#endif
+
+		if (! state_get_json_string_var (json_blocked_data, "msg-data", dbus_message_data_str))
+			goto error;
+
+		if (! state_get_json_int_var (json_blocked_data, "msg-id", serial))
+			goto error;
+
+		dbus_message_data_raw = state_hex_to_data (NULL,
+				dbus_message_data_str,
+				strlen (dbus_message_data_str),
+				&raw_len);
+
+		if (! dbus_message_data_raw)
+			goto error;
+
+		dbus_error_init (&error);
+		message = dbus_message_demarshal (dbus_message_data_raw,
+				(int)raw_len,
+				&error);
+		if (! message || dbus_error_is_set (&error)) {
+			nih_error ("%s: %s",
+					_("failed to demarshal D-Bus message"),
+					error.message);
+			dbus_error_free (&error);
+			goto error;
+		}
+
+		dbus_message_set_serial (message, serial);
+
+		/* FIXME: type is incorrect!!! */
+		blocked = NIH_MUST (blocked_new (parent, BLOCKED_EMIT_METHOD, message));
+		nih_list_add (list, &blocked->entry);
 	} else {
 		nih_assert_not_reached ();
 	}
@@ -2004,4 +2069,71 @@ state_names_to_job (const char *job_class, const char *job_name)
 
 error:
 	return NULL;
+}
+
+static char *
+state_data_to_hex (void *parent, const void *data, size_t len)
+{
+	unsigned char  *p;
+	char           *encoded = NULL;
+	size_t          i;
+
+	nih_assert (data);
+	nih_assert (len);
+
+	for (i = 0, p = (unsigned char *)data;
+			i < len;
+			i++, p++) {
+		/* FIXME */
+		nih_message ("got byte[%d]: '%02x'", i, *p);
+		NIH_MUST (nih_strcat_sprintf (&encoded, parent, "%02x", *p));
+	}
+
+	return encoded;
+
+#if 0
+error:
+	nih_free (encoded);
+	return NULL;
+#endif
+}
+
+static char *
+state_hex_to_data (void *parent, const void *data,
+		   size_t len, size_t *new_len)
+{
+	unsigned char  *p;
+	char           *decoded = NULL;
+	//unsigned char  *d;
+	size_t          i;
+
+	nih_assert (data);
+	nih_assert (len);
+
+	decoded = nih_alloc (parent, len/2);
+	if (! decoded)
+		return NULL;
+
+	//d = (unsigned char *)decoded;
+
+	for (i = 0, p = (unsigned char *)data;
+			i < len;
+			i++, p++) {
+		/* FIXME */
+		nih_message ("got byte[%d]: '%02x'", i, *p);
+
+		//NIH_MUST (nih_strcat_sprintf (&decoded, parent, "%c", (int)*p));
+
+		//d = (unsigned char)strtol (, 10);
+	}
+
+	*new_len = i + 1;
+
+	return decoded;
+
+#if 0
+error:
+	nih_free (decoded);
+	return NULL;
+#endif
 }

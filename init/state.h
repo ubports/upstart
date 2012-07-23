@@ -254,8 +254,9 @@
 	((json_var = json_object_object_get (json, name)) && \
 	  state_check_json_type (json_var, type))
 
+
 /**
- * state_get_json_num_var:
+ * _state_get_json_num_var:
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
@@ -268,11 +269,14 @@
  * Note that a distinct macro is required for non-string types since
  * unlike strings they can legitimately have the value of zero.
  *
- * Query @json, setting @var to value of @name in @json.
+ * Query @json, setting @var to value of @name.
+ *
+ * XXX: Do not call directly (to avoid hard-coding assumptions about
+ * XXX: integer sizes) - use state_get_json_int* macros instead.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_num_var(json, name, type_json, var) \
+#define _state_get_json_num_var(json, name, type_json, var) \
 	({json_object *_json_var = NULL; \
 	 int ret = state_get_json_var_full (json, name, type_json, _json_var); \
 	 errno = 0; \
@@ -281,7 +285,60 @@
 	 _json_var && ret && errno != EINVAL;})
 
 /**
- * state_get_json_num_var_to_obj:
+ * state_get_json_int32_var:
+ *
+ * @json: json_object pointer,
+ * @name: string name of 32-bit numeric element within
+ *        @json to be deserialised,
+ * @var: variable to set to value encoded in @json.
+ *
+ * Query @json, setting @var to 32-bit integer value of @name.
+ *
+ * XXX: May be called directly, but preferable to call
+ * XXX: state_get_json_int_var() to ensure portability.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int32_var(json, name, var) \
+	 (_state_get_json_num_var (json, name, int, var))
+
+/**
+ * state_get_json_int64_var:
+ *
+ * @json: json_object pointer,
+ * @name: string name of 64-bit numeric element within
+ *        @json to be deserialised,
+ * @var: variable to set to value encoded in @json.
+ *
+ * Query @json, setting @var to 64-bit integer value of @name.
+ *
+ * XXX: May be called directly, but preferable to call
+ * XXX: state_get_json_int_var() to ensure portability.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int64_var(json, name, var) \
+	 (_state_get_json_num_var (json, name, int64, var))
+
+/**
+ * state_get_json_int_var:
+ *
+ * @json: json_object pointer,
+ * @name: string name of numeric element within
+ *        @json to be deserialised,
+ * @var: variable to set to value encoded in @json.
+ *
+ * Query @json, setting @var to integer value of @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_int_var(json, name, var) \
+	(sizeof (var) == (size_t)4 \
+		? state_get_json_int32_var (json, name, var) \
+		: state_get_json_int64_var (json, name, var))
+
+/**
+ * _state_get_json_num_var_to_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
@@ -291,10 +348,13 @@
  * Extract stringified @name from @json and set numeric element named
  * @name in @object to its value.
  *
+ * XXX: Do not call directly (to avoid hard-coding assumptions about
+ * XXX: integer sizes) - use state_get_json_int* macros instead.
+ *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_num_var_to_obj(json, object, name, type_json) \
-	 (state_get_json_num_var (json, #name, type_json, ((object)->name)))
+#define _state_get_json_num_var_to_obj(json, object, name, type_json) \
+	 (_state_get_json_num_var (json, #name, type_json, ((object)->name)))
 
 /**
  * state_get_json_int32_var_to_obj:
@@ -306,10 +366,14 @@
  * Extract stringified @name from @json and set 32-bit integer element
  * named @name in @object to its value.
  *
+ * XXX: May be called directly, but preferable to call
+ * XXX: state_get_json_int_var_to_obj() to ensure portability.
+ *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_int32_var_to_obj(json, object, name) \
-	  (state_get_json_num_var_to_obj (json, object, name, int))
+	  (_state_get_json_num_var_to_obj (json, object, name, int))
+
 
 /**
  * state_get_json_int64_var_to_obj:
@@ -321,10 +385,14 @@
  * Extract stringified @name from @json and set 64-bit integer element
  * named @name in @object to its value.
  *
+ * XXX: May be called directly, but preferable to call
+ * XXX: state_get_json_int_var_to_obj() to ensure portability.
+ *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_int64_var_to_obj(json, object, name) \
-	  (state_get_json_num_var_to_obj (json, object, name, int64))
+	  (_state_get_json_num_var_to_obj (json, object, name, int64))
+
 
 /**
  * state_get_json_int_var_to_obj:
@@ -342,6 +410,7 @@
 	(sizeof (object->name) == (size_t)4 \
 		? state_get_json_int32_var_to_obj (json, object, name) \
 		: state_get_json_int64_var_to_obj (json, object, name))
+
 /**
  * state_get_json_string_var:
  *

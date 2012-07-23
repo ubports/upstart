@@ -657,7 +657,7 @@ event_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, partial, fd))
 		goto error;
 
-	if (! state_get_json_num_var (json, "session", int, session_index))
+	if (! state_get_json_int_var (json, "session", session_index))
 		goto error;
 
 	/* can't check return value here (as all values are legitimate) */
