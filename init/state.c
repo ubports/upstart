@@ -76,7 +76,7 @@ static char *
 state_data_to_hex (void *parent, const void *data, size_t len)
 	__attribute__ ((warn_unused_result));
 
-static char *
+static void *
 state_hex_to_data (void *parent, const void *data, size_t len, size_t *new_len)
 	__attribute__ ((warn_unused_result));
 
@@ -1722,12 +1722,6 @@ state_serialise_blocked (const Blocked *blocked)
 			char         *dbus_message_data_raw = NULL;
 			char         *dbus_message_data_str = NULL;
 			int           len = 0;
-#if 1
-			/* FIXME */
-			nih_message ("%s:%d: D-Bus message ID=%u",
-					__func__, __LINE__,
-					dbus_message_get_serial (message));
-#endif
 
 			if (! state_set_json_var_full (json_blocked_data,
 						"msg-id",
@@ -1738,26 +1732,12 @@ state_serialise_blocked (const Blocked *blocked)
 			if (! dbus_message_marshal (message, &dbus_message_data_raw, &len))
 				goto error;
 
-			/* FIXME */
-			nih_message ("XXX");
-			nih_message ("XXX");
-			nih_message ("XXX");
-			nih_message ("marshalled msg into %d bytes", (int)len);
-			nih_message ("XXX");
-			nih_message ("XXX");
-
-
 			dbus_message_data_str = state_data_to_hex (NULL,
 					dbus_message_data_raw,
 					len);
 
 			if (! dbus_message_data_str)
 					goto error;
-
-#if 1
-			/* FIXME */
-			nih_message ("D-Bus hex msg='%s'", dbus_message_data_str);
-#endif
 
 			/* returned memory is not managed by NIH, hence use
 			 * libc facilities.
@@ -1891,7 +1871,7 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		dbus_uint32_t    serial;
 		size_t           raw_len;
 		const char      *dbus_message_data_str = NULL;
-		nih_local char  *dbus_message_data_raw = NULL;;
+		nih_local char  *dbus_message_data_raw = NULL;
 
 		nih_message ("XXX");
 		nih_message ("XXX");
@@ -2098,42 +2078,59 @@ error:
 #endif
 }
 
-static char *
+static void *
 state_hex_to_data (void *parent, const void *data,
 		   size_t len, size_t *new_len)
 {
 	unsigned char  *p;
-	char           *decoded = NULL;
-	//unsigned char  *d;
+	unsigned char   byte;
+	unsigned char  *decoded = NULL;
+	unsigned char  *d;
+	char           *endptr;
 	size_t          i;
 
 	nih_assert (data);
 	nih_assert (len);
+	nih_assert (! (len % 2));
 
 	decoded = nih_alloc (parent, len/2);
 	if (! decoded)
 		return NULL;
 
-	//d = (unsigned char *)decoded;
+	memset (decoded, '\0', len/2);
 
-	for (i = 0, p = (unsigned char *)data;
-			i < len;
-			i++, p++) {
-		/* FIXME */
-		nih_message ("got byte[%d]: '%02x'", i, *p);
+	p = (unsigned char *)data;
+	d = (unsigned char *)decoded;
 
-		//NIH_MUST (nih_strcat_sprintf (&decoded, parent, "%c", (int)*p));
+	/* FIXME: this is a gross mess! */
 
-		//d = (unsigned char)strtol (, 10);
+	for (i = 0; i < len; i += 2, p += 2, d++) {
+		char str[3] = { '\0' };
+
+		str[0] = *p;
+		str[1] = *(p+1);
+		str[2] = '\0';
+
+		nih_message ("got byte[%d]: '%c%c'", i, *p, *(p+1));
+
+		errno = 0;
+		byte = strtol (str, &endptr, 16);
+
+		if (errno || *endptr)
+			goto error;
+
+		nih_message ("strtol returned: %d (%02x)\n", byte, byte);
+
+		*d = byte;
+		nih_assert ((size_t)(d-decoded) <= (len/2));
+		nih_message ("d-decoded=%d", (int)(d-decoded));
 	}
 
-	*new_len = i + 1;
+	*new_len = (int)(d-decoded) + 1;
 
 	return decoded;
 
-#if 0
 error:
 	nih_free (decoded);
 	return NULL;
-#endif
 }
