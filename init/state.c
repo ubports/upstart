@@ -459,6 +459,38 @@ state_to_string (void)
 	char               *value;
 	//nih_local NihList  *blocked;
 
+/* FIXME */
+#if 1
+	extern NihList *conf_sources;
+	extern NihList *control_conns;
+
+	session_init ();
+	event_init ();
+
+	nih_message ("#-----------------------------------------");
+	nih_message ("# Serialisation summary");
+	nih_message (" ");
+	nih_message ("DEBUG:hash: job_classes=%d", nih_hash_count (job_classes));
+	{
+		NIH_HASH_FOREACH (job_classes, iter) {
+			JobClass *class = (JobClass *)iter;
+			int count = nih_hash_count (class->instances);
+
+			nih_message ("DEBUG:hash: job_class '%s' has %d job%s",
+					class->name,
+					count,
+					count == 1 ? "" : "s");
+					
+		}
+	}
+	nih_message ("DEBUG:list: sessions=%d", nih_list_count (sessions));
+	nih_message ("DEBUG:list: events=%d", nih_list_count (events));
+	nih_message ("DEBUG:list: conf_sources=%d", nih_list_count (conf_sources));
+	nih_message ("DEBUG:list: control_conns=%d", nih_list_count (control_conns));
+	nih_message (" ");
+	nih_message ("#-----------------------------------------");
+#endif
+
 	json = json_object_new_object ();
 
 	if (! json)
@@ -604,6 +636,8 @@ state_from_string (const char *state)
 /* FIXME */
 #if 1
 	nih_message ("#-----------------------------------------");
+	nih_message ("# Deserialisation summary");
+	nih_message (" ");
 	nih_message ("DEBUG:POST:hash: job_classes=%d", nih_hash_count (job_classes));
 	{
 		NIH_HASH_FOREACH (job_classes, iter) {
@@ -621,6 +655,7 @@ state_from_string (const char *state)
 	nih_message ("DEBUG:POST:list: events=%d", nih_list_count (events));
 	nih_message ("DEBUG:POST:list: conf_sources=%d", nih_list_count (conf_sources));
 	nih_message ("DEBUG:POST:list: control_conns=%d", nih_list_count (control_conns));
+	nih_message (" ");
 	nih_message ("#-----------------------------------------");
 #endif
 
