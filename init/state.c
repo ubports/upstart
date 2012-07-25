@@ -1577,10 +1577,7 @@ state_serialise_blocked (const Blocked *blocked)
 
 			json_object_object_add (json, "data", json_blocked_data);
 
-			if (! state_set_json_var_full (json,
-						"type",
-						"job",
-						string))
+			if (! state_set_json_var_full (json, "type", "job", string))
 				goto error;
 		}
 		break;

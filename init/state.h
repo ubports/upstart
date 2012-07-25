@@ -100,6 +100,59 @@
  * cause data loss due to JSON-C storing all integer values as 64-bit
  * internally).
  *
+ * == Enum Handling ==
+ *
+ * Handling enums is problematic since is we JSON-encode the enum value
+ * as an integer, and if the newer version of Upstart has either:
+ *
+ * (a) changed the order of the enum entries, or
+ * (b) removed the encoded value entirely
+ *
+ * We cannot proceed with stateful re-exec. Worse, scenario (a) cannot
+ * be detected.
+ *
+ * The only safe solution is to encode all enum values as strings,
+ * requiring one new function per enum type that maps the enum integer value
+ * to a string value. This way, if looking up the string representation
+ * of the enum fails we can detect the scenario and fall back to
+ * stateless re-exec.
+ *
+ * An alternative approach is to create a meta header in the JSON which
+ * encodes a "version" number for each enum type. If the encoded version
+ * number differs from the currently running enum version number, it
+ * would be necessary to call a function to convert the old value to the
+ * new enum value. Something like:
+ *
+ *   <enum_value> <object>_remap_<enum_name> (int old_value);
+ *
+ * For example,
+ *
+ *   JobGoal job_remap_jobgoal (int old_value);
+ *
+ * Note that old_value must be an 'int' since it may no longer be a
+ * legitimate enum value.
+ *
+ * FIXME:
+ * FIXME:
+ * FIXME:
+ * FIXME:
+ * FIXME: which is the best approach? analyse !!
+ * FIXME:
+ * FIXME:
+ *
+ * FIXME: 
+ * FIXME: enums affected:
+ *
+ * 	  EventProgress
+ * 	  EventOperatorType
+ * 	  Process
+ * 	  ExpectType
+ * 	  ConsoleType
+ * 	  JobGoal
+ * 	  JobState
+ * 	  ProcessType
+ * 	  TraceState
+ *
  * == Circular Dependencies ==
  *
  * Events can refer to Jobs via event->blocking and Jobs can refer to
