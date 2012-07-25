@@ -755,11 +755,6 @@ int    state_from_string (const char *state)
 	__attribute__ ((warn_unused_result));
 #endif
 
-#if 0
-int    state_get_session_idx (const char *session_name)
-	__attribute__ ((warn_unused_result));
-#endif
-
 int    state_toggle_cloexec (int fd, int set)
 	__attribute__ ((warn_unused_result));
 

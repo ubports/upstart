@@ -68,6 +68,10 @@ static Event *
 state_index_to_event (int event_index)
 	__attribute__ ((warn_unused_result));
 
+static JobClass *
+state_index_to_job_class (int job_class_index)
+	__attribute__ ((warn_unused_result));
+
 static Job *
 state_names_to_job (const char *job_class, const char *job_name)
 	__attribute__ ((warn_unused_result));
@@ -76,8 +80,10 @@ static char *
 state_data_to_hex (void *parent, const void *data, size_t len)
 	__attribute__ ((warn_unused_result));
 
-static void *
-state_hex_to_data (void *parent, const void *data, size_t len, size_t *new_len)
+static int
+state_hex_to_data (void *parent, const void *hex_data,
+		   size_t hex_len, char **data,
+		   size_t *data_len)
 	__attribute__ ((warn_unused_result));
 
 /* FIXME */
@@ -557,14 +563,6 @@ state_from_string (const char *state)
 		return ret;
 	}
 
-#if 0
-	/* FIXME */
-	{
-		nih_message ("XXX: freeing conf_sources");
-		nih_free (conf_sources);
-	}
-#endif
-
 	/* FIXME */
 #if 1
 	extern NihList *conf_sources;
@@ -591,19 +589,14 @@ state_from_string (const char *state)
 	if (! state_check_json_type (json, object))
 		goto out;
 
-	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
-
 	if (session_deserialise_all (json) < 0)
 		goto out;
 
-	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 	if (event_deserialise_all (json) < 0)
 		goto out;
-	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
-	nih_message ("XXX:got to line %s:%d", __func__, __LINE__);
 
 	if (state_deserialise_resolve_deps (json) < 0)
 		goto out;
@@ -612,6 +605,18 @@ state_from_string (const char *state)
 #if 1
 	nih_message ("#-----------------------------------------");
 	nih_message ("DEBUG:POST:hash: job_classes=%d", nih_hash_count (job_classes));
+	{
+		NIH_HASH_FOREACH (job_classes, iter) {
+			JobClass *class = (JobClass *)iter;
+			int count = nih_hash_count (class->instances);
+
+			nih_message ("DEBUG:POST:hash: job_class '%s' has %d job%s",
+					class->name,
+					count,
+					count == 1 ? "" : "s");
+					
+		}
+	}
 	nih_message ("DEBUG:POST:list: sessions=%d", nih_list_count (sessions));
 	nih_message ("DEBUG:POST:list: events=%d", nih_list_count (events));
 	nih_message ("DEBUG:POST:list: conf_sources=%d", nih_list_count (conf_sources));
@@ -628,74 +633,6 @@ out:
 	return ret;
 }
 
-#endif
-
-#if 0
-/**
- * state_get_session_idx:
- *
- * @session: session.
- *
- * Determine JSON-serialised array index for specified @session.
- *
- * Returns: zero-based array index for @session, or -1 on error.
- **/
-int
-state_get_session_idx (const Session *session)
-{
-	int i;
-#if 0
-	int len;
-
-	nih_assert (session_name);
-	nih_assert (json_sessions);
-
-
-
-	len = json_object_array_length (json_sessions);
-
-	for (int i = 0; i < len; ++i) {
-		json_object  *jsession;
-		json_object  *jname;
-		const char   *name;
-	       
-		jsession = json_object_array_get_idx (json_sessions, i);
-
-		if ( !jsession)
-			goto error;
-
-		jname = json_object_object_get (jsession, "name");
-		if (! jname)
-			goto error;
-
-		//name = json_object_get_string (jname);
-		if (! name)
-			goto error;
-
-		if (! strcmp (session_name, name))
-			return i;
-	}
-
-error:
-	return -1;
-#endif
-
-	/* Handle NULL session */
-	if (! session)
-		return 0;
-
-	i = 1;
-	NIH_LIST_FOREACH (sessions, iter) {
-		Session *s = (Session *)iter;
-
-		if (s == session)
-			return i;
-
-		++i;
-	}
-
-	return -1;
-}
 #endif
 
 /**
@@ -1447,7 +1384,7 @@ error:
  * parent JobClass) and update JSON accordingly to allow deserialisation
  * of such dependencies.
  *
- * XXX
+ * XXX: FIXME: More details required!
  *
  * Returns: 0 on success, -1 on error.
  **/
@@ -1486,7 +1423,6 @@ state_deserialise_resolve_deps (json_object *json)
 		json_object  *json_class;
 		json_object  *json_jobs;
 		JobClass     *class = NULL;
-		int           class_index = 0;
 
 		/* FIXME: TODO:
 		 *
@@ -1501,128 +1437,54 @@ state_deserialise_resolve_deps (json_object *json)
 		if (! json_class)
 			goto error;
 
-		json_jobs = json_object_object_get (json_class, "jobs");
-		if (! json_jobs)
-			continue;
+		if (! state_check_json_type (json_class, object))
+			goto error;
 
 		/* lookup class associated with JSON class index */
-		NIH_HASH_FOREACH (job_classes, iter) {
-			JobClass *tmp = (JobClass *)iter;
+		class = state_index_to_job_class (i);
+		if (! class)
+			goto error;
 
-			if (class_index == i) {
-				class = tmp;
-				break;
-			}
+		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
+			goto error;
 
-			class_index++;
-		}
-
-		nih_assert (class);
-
+		/* look for jobs in JSON with associated blocked entries */
 		for (int j = 0; j < json_object_array_length (json_jobs); j++) {
 			json_object  *json_blocking;
 			json_object  *json_job;
+			Job          *job = NULL;
+			const char   *job_name;
 
-			json_job = json_object_array_get_idx (json_jobs, i);
+			json_job = json_object_array_get_idx (json_jobs, j);
 			if (! json_job)
+				goto error;
+
+			if (! state_check_json_type (json_job, object))
 				goto error;
 
 			json_blocking = json_object_object_get (json_job, "blocking");
 			if (! json_blocking)
 				continue;
-		}
 
-#if 0
-		json_object  *json_class;
-		json_object  *json_blocking;
-		Job          *job = NULL;
+			if (! state_get_json_string_var (json_job, "name", job_name))
+				goto error;
 
-		json_class = json_object_array_get_idx (json_classes, i);
-		if (! state_check_json_type (json_class, object))
-			goto error;
+			/* lookup job */
+			job = state_names_to_job (class->name, job_name);
+			if (! job)
+				goto error;
 
-		json_blocking = json_object_object_get (json_class, "blocking");
-
-		/* No blocking objects for event. Unlikely to hit this
-		 * scenario.
-		 */
-		if (! json_blocking)
-			continue;
-
-		/* lookup event associated with JSON event index */
-		NIH_HASH_FOREACH (job_classes, iter) {
-			JobClass *class = (JobClass *)iter;
-
-			NIH_HASH_FOREACH (class->instances, iter) {
-				Job *tmp = (Job *)iter;
-
-				if (tmp == 
-			}
-			
-			if (event_index == i) {
-				event = tmp;
-				break;
-			}
-			event_index++;
-		}
-
-		nih_assert (event);
-#endif
-	}
-
-#if 0
-	/* Handle events */
-	NIH_LIST_FOREACH_SAFE (events, iter) {
-		//Event *event = (Event *)iter;
-		/* FIXME: finish! */
-	}
-
-	/* Handle jobs */
-	NIH_HASH_FOREACH (job_classes, iter) {
-		JobClass *class = (JobClass *)iter;
-
-		NIH_HASH_FOREACH (class->instances, iter) {
-			//Job *job = (Job *)iter;
+			/* recreate blocked entries */
+			if (state_deserialise_blocking (job, &job->blocking, json_job) < 0)
+				goto error;
 		}
 	}
-#endif
 
 	return 0;
 
 error:
 	return -1;
 }
-
-#if 0
-/* FIXME: document */
-json_object *
-state_get_json_job (json_object *json_classes, const Job *job)
-{
-	json_object  *json_jobs;
-	json_object  *json_job;
-	//json_object  *json_job_class;
-
-	nih_assert (json_classes);
-	nih_assert (job);
-
-#if 0
-	json_object_object_foreach (json_classes, key, value) {
-		if (! strcmp ()) {
-			json_job_class = 
-		}
-
-	}
-#endif
-
-	if (! json_object_object_get_ex (json_classes, "jobs", &json_jobs))
-		return NULL;
-
-	if (! json_object_object_get_ex (json_jobs, "jobs", &json_job))
-		return NULL;
-
-	return json_job;
-}
-#endif
 
 /**
  * state_serialise_blocked:
@@ -1808,13 +1670,26 @@ error:
 	return NULL;
 }
 
-/* FIXME: document */
+/**
+ * state_deserialise_blocked:
+ *
+ * @parent: parent,
+ * @json: JSON data representing a blocking array entry,
+ * @list: list to add Blocked entry to.
+ *
+ * Create a single Blocked entry based on data found in JSON and add to
+ * @list.
+ *
+ * Returns: new Blocked object, or NULL on error.
+ **/
 Blocked *
-state_deserialise_blocked (void *parent, json_object *json, NihList *list)
+state_deserialise_blocked (void *parent, json_object *json,
+			   NihList *list)
 {
 	json_object  *json_blocked_data;
 	Blocked      *blocked = NULL;
 	const char   *blocked_type;
+	int           ret;
 
 	nih_assert (parent);
 	nih_assert (json);
@@ -1832,19 +1707,16 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		const char  *job_class_name;
 		Job         *job;
 
-		if (! state_get_json_string_var (json_blocked_data, "name", job_name))
+		if (! state_get_json_string_var (json_blocked_data,
+					"name", job_name))
 			goto error;
-		if (! state_get_json_string_var (json_blocked_data, "class", job_class_name))
+		if (! state_get_json_string_var (json_blocked_data,
+					"class", job_class_name))
 			goto error;
 
 		job = state_names_to_job (job_class_name, job_name);
 		if (! job)
 			goto error;
-
-		/* FIXME */
-		nih_message ("%s:%d: job name='%s', class='%s'",
-				__func__, __LINE__,
-				job_name ? job_name : "", job_class_name);
 
 		blocked = NIH_MUST (blocked_new (parent, BLOCKED_JOB, job));
 		nih_list_add (list, &blocked->entry);
@@ -1873,41 +1745,22 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 		const char      *dbus_message_data_str = NULL;
 		nih_local char  *dbus_message_data_raw = NULL;
 
-		nih_message ("XXX");
-		nih_message ("XXX");
-		nih_message ("XXX");
-		nih_message ("XXX:%s:%d: GOT TO HERE - FINISH ME!",
-				__func__, __LINE__);
-		nih_message ("XXX");
-		nih_message ("XXX");
-		nih_message ("XXX");
-
-#if 0
-		abort();
-#endif
-
-		/* FIXME: TODO:
-		 *
-		 * - call dbus_message_demarshal() to recover the msg
-		 *   data.
-		 * - call dbus_message_set_serial (message, serial);
-		 * - call blocked_new().
-		 *
-		 * FIXME: how do we associate a message with a connection?
-		 */
-
-		if (! state_get_json_string_var (json_blocked_data, "msg-data", dbus_message_data_str))
+		if (! state_get_json_string_var (json_blocked_data,
+					"msg-data",
+					dbus_message_data_str))
 			goto error;
 
-		if (! state_get_json_int_var (json_blocked_data, "msg-id", serial))
+		if (! state_get_json_int_var (json_blocked_data,
+					"msg-id", serial))
 			goto error;
 
-		dbus_message_data_raw = state_hex_to_data (NULL,
+		ret = state_hex_to_data (NULL,
 				dbus_message_data_str,
 				strlen (dbus_message_data_str),
+				&dbus_message_data_raw,
 				&raw_len);
 
-		if (! dbus_message_data_raw)
+		if (ret < 0)
 			goto error;
 
 		dbus_error_init (&error);
@@ -1924,6 +1777,16 @@ state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 
 		dbus_message_set_serial (message, serial);
 
+		
+#if 1
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+		/* FIXME: BUG: BUG: BUG!!!! */
+#endif
 		/* FIXME: type is incorrect!!! */
 		blocked = NIH_MUST (blocked_new (parent, BLOCKED_EMIT_METHOD, message));
 		nih_list_add (list, &blocked->entry);
@@ -1940,7 +1803,18 @@ error:
 	return NULL;
 }
 
-/* FIXME: document */
+/**
+ * state_deserialise_blocking:
+ *
+ * @parent: parent,
+ * @list: list to add new blocked entries to,
+ * @json: JSON representing object containing a blocking entry.
+ *
+ * Recreate Blocked objects from JSON encoded blocking array and add to
+ * specified list.
+ *
+ * Returns: 0 on success, or -1 on error.
+ **/
 int
 state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 {
@@ -1983,7 +1857,7 @@ error:
  *
  * Returns: event index, or -1 on error.
  **/
-int
+static int
 state_event_to_index (const Event *event)
 {
 	int event_index = 0;
@@ -2009,6 +1883,16 @@ state_event_to_index (const Event *event)
 	return event_index;
 }
 
+
+/**
+ * state_index_to_event:
+ *
+ * @event_index: event index number.
+ *
+ * Lookup event based on JSON array index number.
+ *
+ * Returns: existing Job on success, or NULL if Job not found.
+ **/
 Event *
 state_index_to_event (int event_index)
 {
@@ -2027,6 +1911,53 @@ state_index_to_event (int event_index)
 
 	return NULL;
 }
+
+
+/**
+ * state_index_to_job_class:
+ *
+ * @job_class_index: job class index number.
+ *
+ * Lookup JobClass based on JSON array index number.
+ *
+ * Returns: existing JobClass on success, or NULL if JobClass not found.
+ **/
+JobClass *
+state_index_to_job_class (int job_class_index)
+{
+	int     i = 0;
+
+	nih_assert (job_class_index >= 0);
+	nih_assert (job_classes);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (i == job_class_index)
+			return class;
+
+		i++;
+	}
+
+	return NULL;
+}
+
+/**
+ * state_names_to_job:
+ *
+ * @job_class: name of job class,
+ * @job_name: name of job instance.
+ *
+ * Lookup job based on parent class name and
+ * job instance name.
+ *
+ * Returns: existing Job on success, or NULL if job class or
+ * job not found.
+ **/
+
+/* FIXME: silly function name */
+/* FIXME: silly function name */
+/* FIXME: silly function name */
 
 Job *
 state_names_to_job (const char *job_class, const char *job_name)
@@ -2051,6 +1982,18 @@ error:
 	return NULL;
 }
 
+/**
+ * state_data_to_hex:
+ *
+ * @parent: parent,
+ * @data: data to convert,
+ * @len: length of @data.
+ *
+ * Convert @data to a hex-encoded string.
+ *
+ * Returns: newly-allocated hex-encoded string,
+ * or NULL on error.
+ **/
 static char *
 state_data_to_hex (void *parent, const void *data, size_t len)
 {
@@ -2064,54 +2007,70 @@ state_data_to_hex (void *parent, const void *data, size_t len)
 	for (i = 0, p = (unsigned char *)data;
 			i < len;
 			i++, p++) {
-		/* FIXME */
-		nih_message ("got byte[%d]: '%02x'", i, *p);
-		NIH_MUST (nih_strcat_sprintf (&encoded, parent, "%02x", *p));
+		if (! nih_strcat_sprintf (&encoded, parent, "%02x", *p))
+			goto error;
 	}
 
 	return encoded;
 
-#if 0
 error:
-	nih_free (encoded);
+	if (encoded)
+		nih_free (encoded);
+
 	return NULL;
-#endif
 }
 
-static void *
-state_hex_to_data (void *parent, const void *data,
-		   size_t len, size_t *new_len)
+/**
+ * state_hex_to_data:
+ *
+ * @parent: parent,
+ * @hex_data: hex data to convert,
+ * @hex_len: length of @hex,
+ * @data: newly-allocated data,
+ * @data_len: length of @data.
+ *
+ * Convert hex-encoded data @hex back into its
+ * natural representation.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+static int
+state_hex_to_data (void         *parent,
+		   const void   *hex_data,
+		   size_t        hex_len,
+		   char        **data,
+		   size_t       *data_len)
 {
-	unsigned char  *p;
-	unsigned char   byte;
-	unsigned char  *decoded = NULL;
-	unsigned char  *d;
-	char           *endptr;
-	size_t          i;
+	char    *p;
+	char    *d;
+	char    *decoded;
+	size_t   new_len;
 
+	nih_assert (hex_data);
+	nih_assert (hex_len);
 	nih_assert (data);
-	nih_assert (len);
-	nih_assert (! (len % 2));
+	nih_assert (data_len);
+	nih_assert (! (hex_len % 2));
 
-	decoded = nih_alloc (parent, len/2);
+	new_len = hex_len / 2;
+
+	*data = decoded = nih_alloc (parent, new_len);
 	if (! decoded)
-		return NULL;
+		return 0;
 
-	memset (decoded, '\0', len/2);
+	memset (decoded, '\0', new_len);
 
-	p = (unsigned char *)data;
-	d = (unsigned char *)decoded;
+	d = (char *)decoded;
 
-	/* FIXME: this is a gross mess! */
+	for (size_t i = 0; i < hex_len; i += 2, d++) {
+		char   byte;
+		char   str[3] = { '\0' };
+		char  *endptr;
 
-	for (i = 0; i < len; i += 2, p += 2, d++) {
-		char str[3] = { '\0' };
+		p = ((char *)hex_data)+i;
 
 		str[0] = *p;
 		str[1] = *(p+1);
-		str[2] = '\0';
-
-		nih_message ("got byte[%d]: '%c%c'", i, *p, *(p+1));
 
 		errno = 0;
 		byte = strtol (str, &endptr, 16);
@@ -2119,18 +2078,16 @@ state_hex_to_data (void *parent, const void *data,
 		if (errno || *endptr)
 			goto error;
 
-		nih_message ("strtol returned: %d (%02x)\n", byte, byte);
-
 		*d = byte;
-		nih_assert ((size_t)(d-decoded) <= (len/2));
-		nih_message ("d-decoded=%d", (int)(d-decoded));
 	}
 
-	*new_len = (int)(d-decoded) + 1;
+	*data_len = (size_t)(d - decoded);
 
-	return decoded;
+	nih_assert (*data_len == new_len);
+
+	return 0;
 
 error:
-	nih_free (decoded);
-	return NULL;
+	nih_free (*data);
+	return -1;
 }
