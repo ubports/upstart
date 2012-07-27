@@ -72,6 +72,13 @@ static json_object *job_class_serialise (const JobClass *class)
 static JobClass *job_class_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
+static const char *
+job_class_expect_type_enum_to_str (ExpectType expect)
+	__attribute__ ((warn_unused_result));
+
+static ExpectType
+job_class_expect_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
 
 /**
  * default_console:
@@ -1771,7 +1778,9 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "process", json_processes);
 
-	if (! state_set_json_int_var_from_obj (json, class, expect))
+	if (! state_set_json_enum_var (json,
+				job_class_expect_type_enum_to_str,
+				"expect", class->expect))
 		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, class, task))
@@ -2025,10 +2034,12 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_str_array_to_obj (json, partial, emits))
 		goto error;
 
-	/* process must be handled by caller */
+	/* 'process' must be handled by caller */
 
-	if (! state_get_json_int_var_to_obj (json, partial, expect))
-			goto error;
+	if (! state_get_json_enum_var (json,
+				job_class_expect_type_str_to_enum,
+				"expect", partial->expect))
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, partial, task))
 			goto error;
@@ -2274,6 +2285,49 @@ job_class_deserialise_all (json_object *json)
 error:
 	if (class)
 		nih_free (class);
+
+	return -1;
+}
+
+
+/**
+ * job_class_expect_type_enum_to_str:
+ *
+ * @expect: ExpectType.
+ *
+ * Convert numeric ExpectType to a string
+ * representation.
+ *
+ * Returns: string representation of @expect, or NULL if not known.
+ **/
+static const char *
+job_class_expect_type_enum_to_str (ExpectType expect)
+{
+	state_enum_to_str (EXPECT_NONE, expect);
+	state_enum_to_str (EXPECT_STOP, expect);
+	state_enum_to_str (EXPECT_DAEMON, expect);
+	state_enum_to_str (EXPECT_FORK, expect);
+
+	return NULL;
+}
+
+/**
+ * job_class_expect_type_str_to_enum:
+ *
+ * @name: name of ExpectType value.
+ *
+ * Convert string representation of ExpectType into a
+ * real ExpectType value.
+ *
+ * Returns: string representation of @name, or -1 if not known.
+ **/
+static ExpectType
+job_class_expect_type_str_to_enum (const char *name)
+{
+	state_str_to_enum (EXPECT_NONE, name);
+	state_str_to_enum (EXPECT_STOP, name);
+	state_str_to_enum (EXPECT_DAEMON, name);
+	state_str_to_enum (EXPECT_FORK, name);
 
 	return -1;
 }

@@ -57,6 +57,13 @@ static json_object *event_serialise (const Event *event)
 static Event *event_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
+static const char * event_progress_enum_to_str (EventProgress progress)
+	__attribute__ ((warn_unused_result));
+
+static int
+event_progress_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
 extern json_object *json_events;
 
 /**
@@ -554,7 +561,9 @@ event_serialise (const Event *event)
 	if (! state_set_json_int_var_from_obj (json, event, fd))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, event, progress))
+	if (! state_set_json_enum_var (json,
+				event_progress_enum_to_str,
+				"progress", event->progress))
 		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, event, failed))
@@ -670,6 +679,14 @@ event_deserialise (json_object *json)
 	if (! partial->env)
 		goto error;
 
+	if (! state_get_json_enum_var (json,
+				event_progress_str_to_enum,
+				"progress", partial->progress))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, partial, failed))
+		goto error;
+
 	return partial;
 
 error:
@@ -749,5 +766,45 @@ event_deserialise_all (json_object *json)
 	return 0;
 
 error:
+	return -1;
+}
+
+/**
+ * event_progress_enum_to_str:
+ *
+ * @progress: event progress.
+ *
+ * Convert numeric EventProgress enum value @progress to a string
+ * representation.
+ *
+ * Returns: string representation of @progress, or NULL if not known.
+ **/
+static const char *
+event_progress_enum_to_str (EventProgress progress)
+{
+	state_enum_to_str (EVENT_PENDING, progress);
+	state_enum_to_str (EVENT_HANDLING, progress);
+	state_enum_to_str (EVENT_FINISHED, progress);
+
+	return NULL;
+}
+
+/**
+ * event_progress_str_to_enum:
+ *
+ * @name: name of EventOperator value.
+ *
+ * Convert string representation of EventProgress into a
+ * real EventProgress value.
+ *
+ * Returns: string representation of @name, or -1 if not known.
+ **/
+static int
+event_progress_str_to_enum (const char *name)
+{
+	state_str_to_enum (EVENT_PENDING, name);
+	state_str_to_enum (EVENT_HANDLING, name);
+	state_str_to_enum (EVENT_FINISHED, name);
+
 	return -1;
 }

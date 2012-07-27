@@ -102,22 +102,40 @@
  *
  * == Enum Handling ==
  *
- * Handling enums is problematic since is we JSON-encode the enum value
+ * Handling enums is problematic since is we JSON-encode the enum _value_
  * as an integer, and if the newer version of Upstart has either:
  *
- * (a) changed the order of the enum entries, or
- * (b) removed the encoded value entirely
+ * (a) changed the _order_ of the enum entries, or
+ * (b) removed the encoded value entirely...
  *
- * We cannot proceed with stateful re-exec. Worse, scenario (a) cannot
- * be detected.
+ * We cannot proceed with stateful re-exec as undefind behaviour would
+ * result since not only would an the deserialised enum
+ * value be incorrect, but the two scenarios above cannot even be
+ * detected at runtime.
  *
  * The only safe solution is to encode all enum values as strings,
- * requiring one new function per enum type that maps the enum integer value
- * to a string value. This way, if looking up the string representation
- * of the enum fails we can detect the scenario and fall back to
- * stateless re-exec.
+ * requiring two new functions per enum type: one to map an enum value
+ * to a string and another to convert a string representation back into
+ * an enum value.
  *
- * An alternative approach is to create a meta header in the JSON which
+ * With this strategy, both scenarios above are handled: if either
+ * function fails to find the provided value, the error scenario
+ * can be handled (by reverting to stateless re-exec. Keeping the two
+ * extra functions per enum updated to match changes in
+ * the actual enum provides an extra maintenance burden but this problem
+ * is vastly more preferable than having to deal with insiduous data
+ * corruption caused by an incorrect program. The burden is minimized by
+ * using the following two macros...
+ *
+ *     state_get_json_enum_var ()
+ *     state_set_json_enum_var ()
+ *
+ * ... coupled with the typedefs EnumSerialiser and EnumDeserialiser
+ * along with the two extra functions per enum.
+ *
+ * === Alternative Approach ===
+ *
+ * An alternative approach would be to create a meta header in the JSON which
  * encodes a "version" number for each enum type. If the encoded version
  * number differs from the currently running enum version number, it
  * would be necessary to call a function to convert the old value to the
@@ -132,26 +150,35 @@
  * Note that old_value must be an 'int' since it may no longer be a
  * legitimate enum value.
  *
- * FIXME:
- * FIXME:
- * FIXME:
- * FIXME:
- * FIXME: which is the best approach? analyse !!
- * FIXME:
- * FIXME:
+ * However, this strategy is more burdensome since any change to any
+ * enum must also be coupled with a version bump and that is easy to
+ * forget. With the approach adopted, this is never a problem since
+ * forgetting to update one of the two functions per enum is guaranteed
+ * to result in an error condition. Whereas, if the enum-specific version
+ * number is not bumped, silent corruption could occur as no error
+ * scenario could be detected.
  *
- * FIXME: 
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
  * FIXME: enums affected:
  *
- * 	  EventProgress
- * 	  EventOperatorType
- * 	  Process
- * 	  ExpectType
+ * 	  +EventProgress
+ * 	  +ExpectType
  * 	  ConsoleType
  * 	  JobGoal
  * 	  JobState
  * 	  ProcessType
  * 	  TraceState
+ *
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
+ * FIXME: enums affected:
  *
  * == Circular Dependencies ==
  *
@@ -254,6 +281,24 @@
  **/
 #define STATE_WAIT_SECS 3
 #endif
+
+/**
+ * state_enum_to_str:
+ *
+ * Helper macro for EnumSerialiser functions.
+ **/
+#define state_enum_to_str(progress_type, progress_value) \
+	if (progress_value == progress_type) \
+		return #progress_type
+
+/**
+ * state_str_to_enum:
+ *
+ * Helper macro for EnumDeserialiser functions.
+ **/
+#define state_str_to_enum(progress_type, progress_name) \
+	if (! strcmp (progress_name, #progress_type)) \
+		return progress_type
 
 /**
  * state_check_json_type:
@@ -540,6 +585,52 @@
 	 (state_get_json_var_full (json, #name, array, _json_var)) && \
 	(object->name = state_deserialise_str_array (object, _json_var, TRUE));})
 
+/**
+ * state_get_json_enum_var:
+ *
+ * @json: json_object pointer,
+ * @func: function to convert string value of enum to a real enum,
+ * @name: name of enum value within @json to deserialise,
+ * @var: name of enum variable to assign value extracted from JSON to.
+ *
+ * Extract the string value of an enum of type @name from JSON and
+ * assign value to @var.
+ *
+ * @func must accept a stringified enum value name and return an integer
+ * enum value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_enum_var(json, func, name, var) \
+	 ({int tmp = -1; \
+	  const char *_value = NULL; \
+	  EnumDeserialiser f = (EnumDeserialiser)func; \
+	  int ret; \
+	  ret = state_get_json_string_var (json, name, _value); \
+	  if (ret) { \
+		tmp = f (_value); \
+		if (tmp != -1) \
+			var = tmp; \
+	  } ret && tmp != -1; })
+
+/**
+ * state_set_json_enum_var:
+ * 
+ * @json: json_object pointer,
+ * @func: function to convert enum value into a string representation,
+ * @name: name to associate with enum value in @json,
+ * @value: enum value to add.
+ *
+ * Add enum with value @value to @json with string name @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_enum_var(json, func, name, var) \
+	 ({const char *enum_value; \
+	  EnumSerialiser f = (EnumSerialiser)func; \
+	  enum_value = f (var); \
+	  enum_value && \
+	  state_set_json_string_var (json, name, enum_value);})
 
 /**
  * state_set_json_var_full:
@@ -630,6 +721,23 @@
 	(sizeof (object->name) == (size_t)4 \
 	? state_set_json_int32_var_from_obj (json, object, name) \
 	: state_set_json_int64_var_from_obj (json, object, name))
+
+/**
+ * state_set_json_string_var:
+ *
+ * @json: json_object pointer,
+ * @name: name of element to add to @json,
+ * @value: value to assign @name in @json.
+ *
+ * Add @name to @json with value @value.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_string_var(json, name, value) \
+	({json_object *_json_var = \
+	 json_object_new_string (value ? value : ""); \
+	 if (_json_var) json_object_object_add (json, name, _json_var); \
+	 _json_var;})
 
 /**
  * state_set_json_string_var_from_obj:
@@ -860,6 +968,28 @@ state_serialise_resolve_deps (json_object *json_events,
 		json_object *json_job_classes)
 	__attribute__ ((warn_unused_result));
 #endif
+
+/**
+ * EnumSerialiser:
+ *
+ * @value: enum value.
+ *
+ * Convert @value to a string value.
+ *
+ * Returns: string value of @value, or NULL if @value is unknown.
+ **/
+typedef const char *(*EnumSerialiser) (int value);
+
+/**
+ * EnumDeserialiser:
+ *
+ * @name: string representation of an enum value.
+ *
+ * Convert @name to an enum value.
+ *
+ * Returns: enum value of @name, or -1 if @name is unknown.
+ **/
+typedef int (*EnumDeserialiser) (const char *name);
 
 int
 state_deserialise_resolve_deps (json_object *json)
