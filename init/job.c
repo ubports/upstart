@@ -182,7 +182,7 @@ job_new (JobClass   *class,
 	job->kill_process = PROCESS_INVALID;
 
 	job->failed = FALSE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = 0;
 
 	job->respawn_time = 0;
@@ -385,7 +385,7 @@ job_change_state (Job      *job,
 
 			/* Clear any old failed information */
 			job->failed = FALSE;
-			job->failed_process = -1;
+			job->failed_process = PROCESS_INVALID;
 			job->exit_status = 0;
 
 			job->blocker = job_emit_event (job);
@@ -909,7 +909,7 @@ job_emit_event (Job *job)
 		 * if it was a respawn failure, we use the special "respawn"
 		 * argument instead of the process name,
 		 */
-		if ((job->failed_process != (ProcessType)-1)
+		if ((job->failed_process != PROCESS_INVALID)
 		    && (job->exit_status != -1)) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
@@ -934,7 +934,7 @@ job_emit_event (Job *job)
 				NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 						       "EXIT_STATUS=%d", job->exit_status));
 			}
-		} else if (job->failed_process != (ProcessType)-1) {
+		} else if (job->failed_process != PROCESS_INVALID) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
 					       process_name (job->failed_process)));

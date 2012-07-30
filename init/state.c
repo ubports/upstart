@@ -1577,8 +1577,6 @@ state_serialise_blocked (const Blocked *blocked)
 
 			json_object_object_add (json, "data", json_blocked_data);
 
-			if (! state_set_json_var_full (json, "type", "job", string))
-				goto error;
 		}
 		break;
 
@@ -1596,9 +1594,6 @@ state_serialise_blocked (const Blocked *blocked)
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
-
-			if (! state_set_json_var_full (json, "type", "event", string))
-				goto error;
 		}
 		break;
 
@@ -1645,12 +1640,14 @@ state_serialise_blocked (const Blocked *blocked)
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
-
-			if (! state_set_json_var_full (json, "type", "dbus", string))
-				goto error;
 		}
 		break;
 	}
+
+	if (! state_set_json_enum_var (json,
+				blocked_type_enum_to_str,
+				"type", blocked->type))
+		goto error;
 
 	return json;
 
@@ -1720,110 +1717,113 @@ state_deserialise_blocked (void *parent, json_object *json,
 {
 	json_object  *json_blocked_data;
 	Blocked      *blocked = NULL;
-	const char   *blocked_type;
+	const char   *blocked_type_str;
+	BlockedType   blocked_type;
 	int           ret;
 
 	nih_assert (parent);
 	nih_assert (json);
 	nih_assert (list);
 
-	if (! state_get_json_string_var (json, "type", blocked_type))
+	if (! state_get_json_string_var (json, "type", blocked_type_str))
+		goto error;
+
+	blocked_type = blocked_type_str_to_enum (blocked_type_str);
+	if (blocked_type == (BlockedType)-1)
 		goto error;
 
 	json_blocked_data = json_object_object_get (json, "data");
 	if (! json_blocked_data)
 		goto error;
 
-	if (! strcmp (blocked_type, "job")) {
-		const char  *job_name;
-		const char  *job_class_name;
-		Job         *job;
+	switch (blocked_type) {
+	case BLOCKED_JOB:
+		{
+			const char  *job_name;
+			const char  *job_class_name;
+			Job         *job;
 
-		if (! state_get_json_string_var (json_blocked_data,
-					"name", job_name))
-			goto error;
-		if (! state_get_json_string_var (json_blocked_data,
-					"class", job_class_name))
-			goto error;
+			if (! state_get_json_string_var (json_blocked_data,
+						"name", job_name))
+				goto error;
+			if (! state_get_json_string_var (json_blocked_data,
+						"class", job_class_name))
+				goto error;
 
-		job = state_names_to_job (job_class_name, job_name);
-		if (! job)
-			goto error;
+			job = state_names_to_job (job_class_name, job_name);
+			if (! job)
+				goto error;
 
-		blocked = NIH_MUST (blocked_new (parent, BLOCKED_JOB, job));
-		nih_list_add (list, &blocked->entry);
-
-	} else if (! strcmp (blocked_type, "event")) {
-		Event  *event = NULL;
-		int     event_index;
-
-		if (! state_get_json_int_var (json_blocked_data,
-					"index", event_index))
-			goto error;
-
-		event = state_index_to_event (event_index);
-		if (! event)
-			goto error;
-
-		blocked = NIH_MUST (blocked_new (parent, BLOCKED_EVENT, event));
-		nih_list_add (list, &blocked->entry);
-		event_block (blocked->event);
-
-	} else if (! strcmp (blocked_type, "dbus")) {
-		DBusMessage     *message = NULL;
-		DBusError        error;
-		dbus_uint32_t    serial;
-		size_t           raw_len;
-		const char      *dbus_message_data_str = NULL;
-		nih_local char  *dbus_message_data_raw = NULL;
-
-		if (! state_get_json_string_var (json_blocked_data,
-					"msg-data",
-					dbus_message_data_str))
-			goto error;
-
-		if (! state_get_json_int_var (json_blocked_data,
-					"msg-id", serial))
-			goto error;
-
-		ret = state_hex_to_data (NULL,
-				dbus_message_data_str,
-				strlen (dbus_message_data_str),
-				&dbus_message_data_raw,
-				&raw_len);
-
-		if (ret < 0)
-			goto error;
-
-		dbus_error_init (&error);
-		message = dbus_message_demarshal (dbus_message_data_raw,
-				(int)raw_len,
-				&error);
-		if (! message || dbus_error_is_set (&error)) {
-			nih_error ("%s: %s",
-					_("failed to demarshal D-Bus message"),
-					error.message);
-			dbus_error_free (&error);
-			goto error;
+			blocked = NIH_MUST (blocked_new (parent, BLOCKED_JOB, job));
+			nih_list_add (list, &blocked->entry);
 		}
+		break;
 
-		dbus_message_set_serial (message, serial);
+	case BLOCKED_EVENT:
+		{
+			Event  *event = NULL;
+			int     event_index;
 
-		
-#if 1
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-		/* FIXME: BUG: BUG: BUG!!!! */
-#endif
-		/* FIXME: type is incorrect!!! */
-		blocked = NIH_MUST (blocked_new (parent, BLOCKED_EMIT_METHOD, message));
-		nih_list_add (list, &blocked->entry);
-	} else {
-		nih_assert_not_reached ();
+			if (! state_get_json_int_var (json_blocked_data,
+						"index", event_index))
+				goto error;
+
+			event = state_index_to_event (event_index);
+			if (! event)
+				goto error;
+
+			blocked = NIH_MUST (blocked_new (parent, BLOCKED_EVENT, event));
+			nih_list_add (list, &blocked->entry);
+			event_block (blocked->event);
+		}
+		break;
+
+		/* Handle D-Bus types */
+	default:
+		{
+			DBusMessage     *message = NULL;
+			DBusError        error;
+			dbus_uint32_t    serial;
+			size_t           raw_len;
+			const char      *dbus_message_data_str = NULL;
+			nih_local char  *dbus_message_data_raw = NULL;
+
+			if (! state_get_json_string_var (json_blocked_data,
+						"msg-data",
+						dbus_message_data_str))
+				goto error;
+
+			if (! state_get_json_int_var (json_blocked_data,
+						"msg-id", serial))
+				goto error;
+
+			ret = state_hex_to_data (NULL,
+					dbus_message_data_str,
+					strlen (dbus_message_data_str),
+					&dbus_message_data_raw,
+					&raw_len);
+
+			if (ret < 0)
+				goto error;
+
+			dbus_error_init (&error);
+			message = dbus_message_demarshal (dbus_message_data_raw,
+					(int)raw_len,
+					&error);
+			if (! message || dbus_error_is_set (&error)) {
+				nih_error ("%s: %s",
+						_("failed to demarshal D-Bus message"),
+						error.message);
+				dbus_error_free (&error);
+				goto error;
+			}
+
+			dbus_message_set_serial (message, serial);
+
+			blocked = NIH_MUST (blocked_new (parent, blocked_type, message));
+			nih_list_add (list, &blocked->entry);
+		}
+		break;
 	}
 
 	return blocked;

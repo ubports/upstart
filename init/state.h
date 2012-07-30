@@ -108,10 +108,9 @@
  * (a) changed the _order_ of the enum entries, or
  * (b) removed the encoded value entirely...
  *
- * We cannot proceed with stateful re-exec as undefind behaviour would
- * result since not only would an the deserialised enum
- * value be incorrect, but the two scenarios above cannot even be
- * detected at runtime.
+ * We cannot proceed with stateful re-exec as undefined behaviour would
+ * result since not only would the deserialised enum value be incorrect,
+ * but the two scenarios above cannot even be detected at runtime.
  *
  * The only safe solution is to encode all enum values as strings,
  * requiring two new functions per enum type: one to map an enum value
@@ -157,28 +156,6 @@
  * to result in an error condition. Whereas, if the enum-specific version
  * number is not bumped, silent corruption could occur as no error
  * scenario could be detected.
- *
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- *
- * 	  +EventProgress
- * 	  +ExpectType
- * 	  ConsoleType
- * 	  JobGoal
- * 	  JobState
- * 	  ProcessType
- * 	  TraceState
- *
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
- * FIXME: enums affected:
  *
  * == Circular Dependencies ==
  *
@@ -625,10 +602,10 @@
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_set_json_enum_var(json, func, name, var) \
+#define state_set_json_enum_var(json, func, name, value) \
 	 ({const char *enum_value; \
 	  EnumSerialiser f = (EnumSerialiser)func; \
-	  enum_value = f (var); \
+	  enum_value = f (value); \
 	  enum_value && \
 	  state_set_json_string_var (json, name, enum_value);})
 

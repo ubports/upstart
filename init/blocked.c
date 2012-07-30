@@ -92,3 +92,54 @@ blocked_new (const void  *parent,
 
 	return blocked;
 }
+
+
+/**
+ * blocked_enum_to_str:
+ *
+ * @type: BlockedType.
+ *
+ * Convert Blocked to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+blocked_type_enum_to_str (BlockedType type)
+{
+	state_enum_to_str (BLOCKED_JOB, type);
+	state_enum_to_str (BLOCKED_EVENT, type);
+	state_enum_to_str (BLOCKED_EMIT_METHOD, type);
+	state_enum_to_str (BLOCKED_JOB_START_METHOD, type);
+	state_enum_to_str (BLOCKED_JOB_STOP_METHOD, type);
+	state_enum_to_str (BLOCKED_JOB_RESTART_METHOD, type);
+	state_enum_to_str (BLOCKED_INSTANCE_START_METHOD, type);
+	state_enum_to_str (BLOCKED_INSTANCE_STOP_METHOD, type);
+	state_enum_to_str (BLOCKED_INSTANCE_RESTART_METHOD, type);
+
+	return NULL;
+}
+
+/**
+ * blocked_type_str_to_enum:
+ *
+ * @type: string BlockedType value.
+ *
+ * Convert @type back into enum value.
+ *
+ * Returns: BlockedType representation of @type, or -1 if not known.
+ **/
+BlockedType
+blocked_type_str_to_enum (const char *type)
+{
+	state_str_to_enum (BLOCKED_JOB, type);
+	state_str_to_enum (BLOCKED_EVENT, type);
+	state_str_to_enum (BLOCKED_EMIT_METHOD, type);
+	state_str_to_enum (BLOCKED_JOB_START_METHOD, type);
+	state_str_to_enum (BLOCKED_JOB_STOP_METHOD, type);
+	state_str_to_enum (BLOCKED_JOB_RESTART_METHOD, type);
+	state_str_to_enum (BLOCKED_INSTANCE_START_METHOD, type);
+	state_str_to_enum (BLOCKED_INSTANCE_STOP_METHOD, type);
+	state_str_to_enum (BLOCKED_INSTANCE_RESTART_METHOD, type);
+
+	return -1;
+}
