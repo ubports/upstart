@@ -287,18 +287,18 @@
  *
  * Helper macro for EnumSerialiser functions.
  **/
-#define state_enum_to_str(progress_type, progress_value) \
-	if (progress_value == progress_type) \
-		return #progress_type
+#define state_enum_to_str(enum_value, num) \
+	if (enum_value == num) \
+		return #enum_value
 
 /**
  * state_str_to_enum:
  *
  * Helper macro for EnumDeserialiser functions.
  **/
-#define state_str_to_enum(progress_type, progress_name) \
-	if (! strcmp (progress_name, #progress_type)) \
-		return progress_type
+#define state_str_to_enum(enum_value, str) \
+	if (! strcmp (#enum_value, str)) \
+		return enum_value
 
 /**
  * state_check_json_type:

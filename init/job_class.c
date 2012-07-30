@@ -80,6 +80,14 @@ static ExpectType
 job_class_expect_type_str_to_enum (const char *name)
 	__attribute__ ((warn_unused_result));
 
+static const char *
+job_class_console_type_enum_to_str (ConsoleType console)
+	__attribute__ ((warn_unused_result));
+
+static ConsoleType
+job_class_console_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
 /**
  * default_console:
  *
@@ -1808,7 +1816,9 @@ job_class_serialise (const JobClass *class)
 
 	json_object_object_add (json, "normalexit", json_normalexit);
 
-	if (! state_set_json_int_var_from_obj (json, class, console))
+	if (! state_set_json_enum_var (json,
+				job_class_console_type_enum_to_str,
+				"console", class->console))
 		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, class, umask))
@@ -2061,8 +2071,10 @@ job_class_deserialise (json_object *json)
 
 	/* normalexit and normalexit_len handled by caller */
 
-	if (! state_get_json_int_var_to_obj (json, partial, console))
-			goto error;
+	if (! state_get_json_enum_var (json,
+				job_class_console_type_str_to_enum,
+				"console", partial->console))
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, partial, umask))
 			goto error;
@@ -2295,8 +2307,7 @@ error:
  *
  * @expect: ExpectType.
  *
- * Convert numeric ExpectType to a string
- * representation.
+ * Convert ExpectType to a string representation.
  *
  * Returns: string representation of @expect, or NULL if not known.
  **/
@@ -2314,21 +2325,59 @@ job_class_expect_type_enum_to_str (ExpectType expect)
 /**
  * job_class_expect_type_str_to_enum:
  *
- * @name: name of ExpectType value.
+ * @expect: string ExpectType value.
  *
- * Convert string representation of ExpectType into a
- * real ExpectType value.
+ * Convert @expect back into an enum value.
  *
- * Returns: string representation of @name, or -1 if not known.
+ * Returns: ExpectType representing @expect, or -1 if not known.
  **/
 static ExpectType
-job_class_expect_type_str_to_enum (const char *name)
+job_class_expect_type_str_to_enum (const char *expect)
 {
-	state_str_to_enum (EXPECT_NONE, name);
-	state_str_to_enum (EXPECT_STOP, name);
-	state_str_to_enum (EXPECT_DAEMON, name);
-	state_str_to_enum (EXPECT_FORK, name);
+	state_str_to_enum (EXPECT_NONE, expect);
+	state_str_to_enum (EXPECT_STOP, expect);
+	state_str_to_enum (EXPECT_DAEMON, expect);
+	state_str_to_enum (EXPECT_FORK, expect);
 
 	return -1;
 }
 
+/**
+ * job_class_console_type_enum_to_str:
+ *
+ * @console: ConsoleType.
+ *
+ * Convert ConsoleType to a string representation.
+ *
+ * Returns: string representation of @console, or NULL if not known.
+ **/
+static const char *
+job_class_console_type_enum_to_str (ConsoleType console)
+{
+	state_enum_to_str (CONSOLE_NONE, console);
+	state_enum_to_str (CONSOLE_OUTPUT, console);
+	state_enum_to_str (CONSOLE_OWNER, console);
+	state_enum_to_str (CONSOLE_LOG, console);
+
+	return NULL;
+}
+
+/**
+ * job_class_console_type_str_to_enum:
+ *
+ * @console: string ConsoleType value.
+ *
+ * Convert @console back into enum value.
+ *
+ * Returns: ExpectType representing @console, or -1 if not known.
+ **/
+static ConsoleType
+job_class_console_type_str_to_enum (const char *console)
+{
+	state_str_to_enum (CONSOLE_NONE, console);
+	state_str_to_enum (CONSOLE_OUTPUT, console);
+	state_str_to_enum (CONSOLE_OWNER, console);
+	state_str_to_enum (CONSOLE_LOG, console);
+
+	return -1;
+}

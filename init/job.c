@@ -64,6 +64,29 @@
 static json_object *job_serialise (const Job *job);
 static Job *job_deserialise (json_object *json);
 
+static const char *
+job_goal_enum_to_str (JobGoal goal)
+	__attribute__ ((warn_unused_result));
+
+static JobGoal job_goal_str_to_enum (const char *goal)
+	__attribute__ ((warn_unused_result));
+
+static const char *
+job_state_enum_to_str (JobState state)
+	__attribute__ ((warn_unused_result));
+
+static JobState
+job_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
+static const char *
+job_trace_state_enum_to_str (TraceState state)
+	__attribute__ ((warn_unused_result));
+
+static TraceState
+job_trace_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
 /**
  * job_new:
  * @class: class of job,
@@ -156,7 +179,7 @@ job_new (JobClass   *class,
 	nih_list_init (&job->blocking);
 
 	job->kill_timer = NULL;
-	job->kill_process = -1;
+	job->kill_process = PROCESS_INVALID;
 
 	job->failed = FALSE;
 	job->failed_process = -1;
@@ -1539,10 +1562,14 @@ job_serialise (const Job *job)
 	if (! state_set_json_string_var_from_obj (json, job, path))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, job, goal))
+	if (! state_set_json_enum_var (json,
+				job_goal_enum_to_str,
+				"goal", job->goal))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, job, state))
+	if (! state_set_json_enum_var (json,
+				job_state_enum_to_str,
+				"state", job->state))
 		goto error;
 
 	if (! state_set_json_str_array_from_obj (json, job, env))
@@ -1620,6 +1647,7 @@ job_serialise (const Job *job)
 		json_object_object_add (json, "blocking", json_blocking);
 	}
 
+	nih_info ("XXX:%s:%d:warning job->kill_timer not handled", __func__, __LINE__);
 	/* FIXME: kill_timer!
 	 *
 	 * plan is to:
@@ -1638,13 +1666,17 @@ job_serialise (const Job *job)
 	 *				    job));
 	 */
 
-	if (! state_set_json_int_var_from_obj (json, job, kill_process))
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"kill_process", job->kill_process))
 		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, job, failed))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, job, failed_process))
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"failed_process", job->failed_process))
 		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, job, exit_status))
@@ -1659,10 +1691,13 @@ job_serialise (const Job *job)
 	if (! state_set_json_int_var_from_obj (json, job, trace_forks))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, job, trace_state))
+	if (! state_set_json_enum_var (json,
+				job_trace_state_enum_to_str,
+				"trace_state", job->trace_state))
 		goto error;
 
 	/* FIXME: log */
+	nih_info ("XXX:%s:%d:warning job->log not handled", __func__, __LINE__);
 
 	return json;
 
@@ -1743,10 +1778,14 @@ job_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, partial, path))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, goal))
+	if (! state_get_json_enum_var (json,
+				job_goal_str_to_enum,
+				"goal", partial->goal))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, state))
+	if (! state_get_json_enum_var (json,
+				job_state_str_to_enum,
+				"state", partial->state))
 		goto error;
 
 	if (! state_get_json_env_array_to_obj (json, partial, env))
@@ -1802,8 +1841,41 @@ job_deserialise (json_object *json)
 	/* fds and num_fds handled by caller */
 	/* pid handled by caller */
 
+	/* FIXME: kill_timer */
+	nih_info ("XXX:%s:%d:warning job->kill_timer not handled", __func__, __LINE__);
 
-	/* FIXME: finish!! */
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"kill_process", partial->kill_process))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, failed))
+			goto error;
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"failed_process", partial->failed_process))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, exit_status))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, respawn_time))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, respawn_count))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, trace_forks))
+			goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_trace_state_str_to_enum,
+				"trace_state", partial->trace_state))
+		goto error;
+
+	/* FIXME: log!! */
+	nih_info ("XXX:%s:%d:warning job->log not handled", __func__, __LINE__);
 
 	return partial;
 
@@ -1927,5 +1999,135 @@ job_deserialise_all (JobClass *parent, json_object *json)
 	return 0;
 
 error:
+	return -1;
+}
+
+/**
+ * job_goal_enum_to_str:
+ *
+ * @goal: JobGoal.
+ *
+ * Convert JobGoal to a string representation.
+ *
+ * Returns: string representation of @goal, or NULL if not known.
+ **/
+static const char *
+job_goal_enum_to_str (JobGoal goal)
+{
+	state_enum_to_str (JOB_STOP, goal);
+	state_enum_to_str (JOB_START, goal);
+	state_enum_to_str (JOB_RESPAWN, goal);
+
+	return NULL;
+}
+
+/**
+ * job_goal_str_to_enum:
+ *
+ * @goal: string JobGoal value.
+ *
+ * Convert @goal back into enum value.
+ *
+ * Returns: JobGoal representation of @goal, or -1 if not known.
+ **/
+static JobGoal
+job_goal_str_to_enum (const char *goal)
+{
+	state_str_to_enum (JOB_STOP, goal);
+	state_str_to_enum (JOB_START, goal);
+	state_str_to_enum (JOB_RESPAWN, goal);
+
+	return -1;
+}
+
+/**
+ * job_state_enum_to_str:
+ *
+ * @state: JobState.
+ *
+ * Convert JobState to a string representation.
+ *
+ * Returns: string representation of @state, or NULL if not known.
+ **/
+static const char *
+job_state_enum_to_str (JobState state)
+{
+	state_enum_to_str (JOB_WAITING, state);
+	state_enum_to_str (JOB_STARTING, state);
+	state_enum_to_str (JOB_PRE_START, state);
+	state_enum_to_str (JOB_SPAWNED, state);
+	state_enum_to_str (JOB_POST_START, state);
+	state_enum_to_str (JOB_RUNNING, state);
+	state_enum_to_str (JOB_PRE_STOP, state);
+	state_enum_to_str (JOB_STOPPING, state);
+	state_enum_to_str (JOB_KILLED, state);
+	state_enum_to_str (JOB_POST_STOP, state);
+
+	return NULL;
+}
+
+/**
+ * job_state_str_to_enum:
+ *
+ * @state: string JobState value.
+ *
+ * Convert @state back into enum value.
+ *
+ * Returns: JobState representation of @state, or -1 if not known.
+ **/
+static JobState
+job_state_str_to_enum (const char *state)
+{
+	state_str_to_enum (JOB_WAITING, state);
+	state_str_to_enum (JOB_STARTING, state);
+	state_str_to_enum (JOB_PRE_START, state);
+	state_str_to_enum (JOB_SPAWNED, state);
+	state_str_to_enum (JOB_POST_START, state);
+	state_str_to_enum (JOB_RUNNING, state);
+	state_str_to_enum (JOB_PRE_STOP, state);
+	state_str_to_enum (JOB_STOPPING, state);
+	state_str_to_enum (JOB_KILLED, state);
+	state_str_to_enum (JOB_POST_STOP, state);
+
+	return -1;
+}
+
+/**
+ * job_state_enum_to_str:
+ *
+ * @state: TraceState.
+ *
+ * Convert TraceState to a string representation.
+ *
+ * Returns: string representation of @state, or NULL if not known.
+ **/
+static const char *
+job_trace_state_enum_to_str (TraceState state)
+{
+	state_enum_to_str (TRACE_NONE, state);
+	state_enum_to_str (TRACE_NEW, state);
+	state_enum_to_str (TRACE_NEW_CHILD, state);
+	state_enum_to_str (TRACE_NORMAL, state);
+
+	return NULL;
+}
+
+/**
+ * job_trace_state_str_to_enum:
+ *
+ * @state: string TraceState value.
+ *
+ * Convert @state back into enum value.
+ *
+ * Returns: TraceState representation of @state, or -1 if not known.
+ **/
+static TraceState
+job_trace_state_str_to_enum (const char *state)
+{
+	state_str_to_enum (TRACE_NONE, state);
+	state_str_to_enum (TRACE_NEW, state);
+	state_str_to_enum (TRACE_NEW_CHILD, state);
+	state_str_to_enum (TRACE_NORMAL, state);
+
 	return -1;
 }

@@ -60,7 +60,7 @@ static Event *event_deserialise (json_object *json)
 static const char * event_progress_enum_to_str (EventProgress progress)
 	__attribute__ ((warn_unused_result));
 
-static int
+static EventProgress
 event_progress_str_to_enum (const char *name)
 	__attribute__ ((warn_unused_result));
 
@@ -774,8 +774,7 @@ error:
  *
  * @progress: event progress.
  *
- * Convert numeric EventProgress enum value @progress to a string
- * representation.
+ * Convert EventProgress to a string representation.
  *
  * Returns: string representation of @progress, or NULL if not known.
  **/
@@ -792,19 +791,19 @@ event_progress_enum_to_str (EventProgress progress)
 /**
  * event_progress_str_to_enum:
  *
- * @name: name of EventOperator value.
+ * @: name of EventOperator value.
  *
  * Convert string representation of EventProgress into a
  * real EventProgress value.
  *
- * Returns: string representation of @name, or -1 if not known.
+ * Returns: EventProgress representing @progress, or -1 if not known.
  **/
-static int
-event_progress_str_to_enum (const char *name)
+static EventProgress
+event_progress_str_to_enum (const char *progress)
 {
-	state_str_to_enum (EVENT_PENDING, name);
-	state_str_to_enum (EVENT_HANDLING, name);
-	state_str_to_enum (EVENT_FINISHED, name);
+	state_str_to_enum (EVENT_PENDING, progress);
+	state_str_to_enum (EVENT_HANDLING, progress);
+	state_str_to_enum (EVENT_FINISHED, progress);
 
 	return -1;
 }

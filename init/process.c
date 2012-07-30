@@ -306,3 +306,48 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 error:
 	return -1;
 }
+
+/**
+ * process_type_enum_to_str:
+ *
+ * @type: ProcessType.
+ *
+ * Convert ProcessType to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+process_type_enum_to_str (ProcessType type)
+{
+	state_enum_to_str (PROCESS_INVALID, type);
+	state_enum_to_str (PROCESS_MAIN, type);
+	state_enum_to_str (PROCESS_PRE_START, type);
+	state_enum_to_str (PROCESS_POST_START, type);
+	state_enum_to_str (PROCESS_PRE_STOP, type);
+	state_enum_to_str (PROCESS_POST_STOP, type);
+
+	return NULL;
+}
+
+/**
+ * process_type_str_to_enum:
+ *
+ * @type: string ProcessType.
+ *
+ * Convert @type back into enum value.
+ *
+ * Returns: ProcessType representation of @type, or -1 if not known.
+ **/
+ProcessType
+process_type_str_to_enum (const char *type)
+{
+	state_str_to_enum (PROCESS_INVALID, type);
+	state_str_to_enum (PROCESS_MAIN, type);
+	state_str_to_enum (PROCESS_PRE_START, type);
+	state_str_to_enum (PROCESS_POST_START, type);
+	state_str_to_enum (PROCESS_PRE_STOP, type);
+	state_str_to_enum (PROCESS_POST_STOP, type);
+
+	return -1;
+}
+

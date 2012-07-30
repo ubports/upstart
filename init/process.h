@@ -29,14 +29,23 @@
  *
  * This is used to enumerate the array of process definitions attached to
  * a job class, and the array of pids attached to a job instance.
+ *
+ * Note that PROCESS_INVALID would ideally be -1 but that isn't possible
+ * since process_type_str_to_enum() would then not be able to distinguish
+ * between an invalid ProcessType and the default value assigned to a
+ * ProcessType. It also cannot be zero since that would upset iterating
+ * through the (non-invalid) entries.
  **/
 typedef enum process_type {
-	PROCESS_MAIN,
+	/* initial value denoting no process */
+	PROCESS_INVALID = -2,
+
+	PROCESS_MAIN = 0,
 	PROCESS_PRE_START,
 	PROCESS_POST_START,
 	PROCESS_PRE_STOP,
 	PROCESS_POST_STOP,
-	PROCESS_LAST
+	PROCESS_LAST,
 } ProcessType;
 
 
@@ -77,6 +86,15 @@ ProcessType process_from_name (const char *process)
 int
 process_deserialise_all (json_object *json, const void *parent,
 		Process ***processes)
+	__attribute__ ((warn_unused_result));
+
+
+const char *
+process_type_enum_to_str (ProcessType type)
+	__attribute__ ((warn_unused_result));
+
+ProcessType
+process_type_str_to_enum (const char *type)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
