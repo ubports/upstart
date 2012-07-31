@@ -1215,10 +1215,47 @@ job_process_kill (Job         *job,
 		return;
 	}
 
+	job_process_set_kill_timer (job, process, job->class->kill_timeout);
+}
+
+/**
+ * job_process_set_kill_timer:
+ * @job: job to set kill timer for,
+ * @process: process to be killed,
+ * @timeout: timeout to apply for timer.
+ *
+ * Set kill timer for specified @job @process with timeout @timeout.
+ **/
+void
+job_process_set_kill_timer (Job          *job,
+		  	    ProcessType   process,
+			    time_t        timeout)
+{
+	nih_assert (job);
+	nih_assert (timeout);
+
 	job->kill_process = process;
 	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
-			  job, job->class->kill_timeout,
+			  job, timeout,
 			  (NihTimerCb)job_process_kill_timer, job));
+}
+
+/**
+ * job_process_adj_kill_timer:
+ *
+ * @job: job whose kill timer is to be modified,
+ * @due: new due time to set for job kill timer.
+ *
+ * Adjust due time for @job's kill timer to @due.
+ **/
+void
+job_process_adj_kill_timer (Job *job, time_t due)
+{
+	nih_assert (job);
+	nih_assert (job->kill_timer);
+	nih_assert (due);
+
+	job->kill_timer->due = due;
 }
 
 /**

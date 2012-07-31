@@ -145,7 +145,6 @@ process_serialise (const Process *process)
 	if (! json)
 		return NULL;
 
-	/* FIXME: GOT TO HERE - FAILING! */
 	if (! state_set_json_int_var_from_obj (json, process, script))
 		goto error;
 

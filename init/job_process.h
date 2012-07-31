@@ -139,6 +139,12 @@ Job   *job_process_find     (pid_t pid, ProcessType *process);
 char  *job_process_log_path (Job *job, int user_job)
 	__attribute__ ((malloc, warn_unused_result));
 
+void   job_process_set_kill_timer (Job          *job,
+		  	    ProcessType   process,
+			    time_t        timeout);
+
+void   job_process_adj_kill_timer  (Job *job, time_t due);
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_PROCESS_H */

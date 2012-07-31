@@ -87,6 +87,14 @@ static TraceState
 job_trace_state_str_to_enum (const char *state)
 	__attribute__ ((warn_unused_result));
 
+static json_object *
+job_serialise_kill_timer (NihTimer *timer)
+	__attribute__ ((malloc, warn_unused_result));
+
+static NihTimer *
+job_deserialise_kill_timer (void *parent, json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
 /**
  * job_new:
  * @class: class of job,
@@ -1647,24 +1655,19 @@ job_serialise (const Job *job)
 		json_object_object_add (json, "blocking", json_blocking);
 	}
 
-	nih_info ("XXX:%s:%d:warning job->kill_timer not handled", __func__, __LINE__);
-	/* FIXME: kill_timer!
-	 *
-	 * plan is to:
-	 *
-	 * - create a new function that splits out the logic
-	 *   that calls nih_timer_add_timeout() in job_process_kill().
-	 *
-	 * - encode timer->due (time_t) in JSON.
-	 *
-	 * - on deserialisation, call the following:
-	 *
-	 *   	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
-	 *      			    job,
-	 * 				    time_from_json, # <--- XXX:
-	 * 				    (NihTimerCb)job_process_kill_timer,
-	 *				    job));
-	 */
+	nih_info ("XXX:%s:%d:warning job->kill_timer NEEDS TESTING", __func__, __LINE__);
+
+	/* conditionally encode kill timer */
+	if (job->kill_timer) {
+		json_object *kill_timer;
+
+		kill_timer = job_serialise_kill_timer (job->kill_timer);
+
+		if (! kill_timer)
+			goto error;
+
+		json_object_object_add (json, "kill_timer", kill_timer);
+	}
 
 	if (! state_set_json_enum_var (json,
 				process_type_enum_to_str,
@@ -1759,7 +1762,8 @@ error:
 static Job *
 job_deserialise (json_object *json)
 {
-	Job *partial;
+	Job          *partial;
+	json_object  *kill_timer;
 
 	nih_assert (json);
 
@@ -1841,8 +1845,22 @@ job_deserialise (json_object *json)
 	/* fds and num_fds handled by caller */
 	/* pid handled by caller */
 
+#if 1
 	/* FIXME: kill_timer */
-	nih_info ("XXX:%s:%d:warning job->kill_timer not handled", __func__, __LINE__);
+	nih_info ("XXX:%s:%d:warning job->kill_timer NEEDS TESTING", __func__, __LINE__);
+#endif
+	/* Check to see if a kill timer exists first since we do not
+	 * want to end up creating a real but empty timer.
+	 */
+	kill_timer = json_object_object_get (json, "kill_timer");
+
+	if (kill_timer) {
+		partial->kill_timer = job_deserialise_kill_timer (partial, json);
+		if (! partial->kill_timer)
+			goto error;
+	} else {
+		partial->kill_timer = NULL;
+	}
 
 	if (! state_get_json_enum_var (json,
 				process_type_str_to_enum,
@@ -1918,11 +1936,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 
 	/* FIXME: finish!!
 	 *
-	 * - blocker
-	 * - blocking
-	 * - kill_timer
 	 * - log!!
-	 *
 	 */
 
 	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
@@ -1979,9 +1993,34 @@ job_deserialise_all (JobClass *parent, json_object *json)
 
 		/* FIXME: blocker */
 		/* FIXME: blocking */
-		/* FIXME: kill_timer */
 
 		state_partial_copy_int (job, partial, kill_process);
+
+		/* Found a partial kill timer, so create a new one and
+		 * adjust its due time. By the time the main loop gets
+		 * called, the due time will probably be in the past
+		 * such that the job will be stopped.
+		 *
+		 * To be completely fair we should:
+		 *
+		 * - encode the time at the point of serialisation in a
+		 *   JSON 'meta' header.
+		 * - query the time post-deserialisation and calculate
+		 *   the delta (being the time to perform the stateful
+		 *   re-exec).
+		 * - add that time to all jobs with active kill timers
+		 *   to give their processes the full amount of time to
+		 *   end.
+		 */
+		if (partial->kill_timer) {
+			nih_assert (job->kill_process);
+			job_process_set_kill_timer (job,
+					job->kill_process,
+					partial->kill_timer->timeout);
+			job_process_adj_kill_timer (job,
+					partial->kill_timer->due);
+		}
+
 		state_partial_copy_int (job, partial, failed);
 		state_partial_copy_int (job, partial, failed_process);
 		state_partial_copy_int (job, partial, exit_status);
@@ -1989,6 +2028,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		state_partial_copy_int (job, partial, respawn_count);
 		state_partial_copy_int (job, partial, trace_forks);
 		state_partial_copy_int (job, partial, trace_state);
+
 
 #if 1
 		/* FIXME: log!!! */
@@ -2130,4 +2170,74 @@ job_trace_state_str_to_enum (const char *state)
 	state_str_to_enum (TRACE_NORMAL, state);
 
 	return -1;
+}
+
+/**
+ * job_serialise_kill_timer:
+ *
+ * @timer: NihTimer to serialise.
+ *
+ * Serialise @timer into JSON.
+ *
+ * Returns: JSON-serialised NihTimer object, or NULL on error.
+ **/
+static json_object *
+job_serialise_kill_timer (NihTimer *timer)
+{
+	json_object  *json;
+
+	nih_assert (timer);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_int_var_from_obj (json, timer, timeout))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, timer, due))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_deserialise_kill_timer:
+ *
+ * @parent: parent for timer.
+ * @json: JSON representation of NihTimer.
+ *
+ * Deserialise @json back into an NihTimer.
+ *
+ * Returns: NihTimer on NULL on error.
+ **/
+static NihTimer *
+job_deserialise_kill_timer (void *parent, json_object *json)
+{
+	NihTimer *timer;
+
+	nih_assert (parent);
+	nih_assert (json);
+
+	timer = nih_new (parent, NihTimer);
+	if (! timer)
+		return NULL;
+
+	memset (timer, '\0', sizeof (NihTimer));
+
+	if (! state_get_json_int_var_to_obj (json, timer, due))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, timer, timeout))
+			goto error;
+
+	return timer;
+
+error:
+	nih_free (timer);
+	return NULL;
 }

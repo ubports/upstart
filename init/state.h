@@ -683,6 +683,50 @@
 	(state_set_json_num_var_from_obj (json, object, name, int, int64_t))
 
 /**
+ * state_set_json_int32_var:
+ *
+ * @json: json_object pointer,
+ * @name: name to give @var in @json,
+ * @var: 32-bit integer variable to be serialised.
+ *
+ * Add value of 32-bit integer entity @var to @json with name @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int32_var(json, name, var) \
+	 (set_json_var_full (json, name, var, int))
+
+/**
+ * state_set_json_int64_var:
+ *
+ * @json: json_object pointer,
+ * @name: name to give @var in @json,
+ * @var: 64-bit integer variable to be serialised.
+ *
+ * Add value of 64-bit integer entity @var to @json with name @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int64_var(json, name, var) \
+	 (set_json_var_full (json, name, var, int64))
+
+/**
+ * state_set_json_int_var:
+ *
+ * @json: json_object pointer,
+ * @name: name to give @var in @json,
+ * @var: integer variable to be serialised.
+ *
+ * Add value of integer entity @var to @json with name @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_set_json_int_var(json, name, var) \
+	(sizeof (var) == (size_t)4 \
+	? state_set_json_int32_var (json, name, var) \
+	: state_set_json_int64_var (json, name, var))
+
+/**
  * state_set_json_int_var_from_obj:
  *
  * @json: json_object pointer,
