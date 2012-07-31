@@ -195,7 +195,10 @@ stanza.
 This process will be run after the job's
 .BR starting (7)
 event has finished, but before the main process is run.  It is typically
-used to prepare the environment, such as making necessary directories.
+used to prepare the environment, such as making necessary directories,
+and it may also call the
+.BR stop (8)
+command without arguments to cancel the start.
 .\"
 .TP
 .B post\-start exec\fR|\fBscript\fR...
