@@ -1,3 +1,8 @@
+2012-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Eric S. Raymond <esr@thyrsus.com> ]
+	* extra/man/socket-event.7: Fixed incorrect troff (LP: #1018925).
+
 2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Begin new release.
