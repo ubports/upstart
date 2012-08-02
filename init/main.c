@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/resource.h>
+#include <sys/mount.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -271,9 +272,10 @@ main (int   argc,
 
 		/* Mount the /proc and /sys filesystems, which are pretty much
 		 * essential for any Linux system; not to mention used by
-		 * ourselves.
+		 * ourselves. Also mount /dev/pts to allow CONSOLE_LOG
+		 * to function if booted in an initramfs-less environment.
 		 */
-		if (system_mount ("proc", "/proc") < 0) {
+		if (system_mount ("proc", "/proc", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -282,11 +284,35 @@ main (int   argc,
 			nih_free (err);
 		}
 
-		if (system_mount ("sysfs", "/sys") < 0) {
+		if (system_mount ("sysfs", "/sys", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
 			nih_warn ("%s: %s", _("Unable to mount /sys filesystem"),
+				err->message);
+			nih_free (err);
+		}
+		if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
+				err->message);
+			nih_free (err);
+		}
+
+		/* Required to exist before /dev/pts accessed */
+		if (mknod ("/dev/ptmx", makedev (5, 2), S_IFCHR) < 0 && errno != EEXIST)
+			nih_error ("Unable to create /dev/ptmx");
+
+		if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
+			nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
+
+		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to mount /dev/pts filesystem"),
 				err->message);
 			nih_free (err);
 		}

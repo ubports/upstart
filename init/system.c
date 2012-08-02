@@ -164,9 +164,10 @@ system_setup_console (ConsoleType type,
 /**
  * system_mount:
  * @type: filesystem type,
- * @dir: mountpoint.
+ * @dir: mountpoint,
+ * @flags: mount flags.
  *
- * Mount the kernel filesystem @type at @dir, if not already mounted.  This
+ * Mount the kernel filesystem @type at @dir with @flags, if not already mounted.  This
  * is used to ensure that the proc and sysfs filesystems are always
  * available.
  *
@@ -177,7 +178,8 @@ system_setup_console (ConsoleType type,
  **/
 int
 system_mount (const char *type,
-	      const char *dir)
+	      const char *dir,
+	      unsigned long flags)
 {
 	nih_local char *parent = NULL;
 	char *          ptr;
@@ -206,8 +208,7 @@ system_mount (const char *type,
 		return 0;
 
 	/* Mount the filesystem */
-	if (mount ("none", dir, type,
-		   MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0)
+	if (mount ("none", dir, type, flags, NULL) < 0)
 		nih_return_system_error (-1);
 
 	return 0;
