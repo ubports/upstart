@@ -193,6 +193,9 @@ main (int   argc,
 #ifndef DEBUG
 	if (use_session_bus == FALSE) {
 
+		struct stat statbuf;
+		int needs_devtmpfs = 0;
+
 		/* Check we're root */
 		if (getuid ()) {
 			nih_fatal (_("Need to be root"));
@@ -292,21 +295,33 @@ main (int   argc,
 				err->message);
 			nih_free (err);
 		}
-		if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
-			NihError *err;
+		/* Check if /dev/ptmx and /dev/pts already exist; if they do,
+		 * we should assume we don't need to mount /dev.
+		 */
+		if (stat ("/dev/ptmx", &statbuf) < 0 || !S_ISCHR(statbuf.st_mode)
+		    || major(statbuf.st_dev) != 5 || minor(statbuf.st_dev) != 2)
+			needs_devtmpfs = 1;
+		if (needs_devtmpfs
+		    || stat("/dev/pts", &statbuf) < 0 || !S_ISDIR(statbuf.st_mode))
+			needs_devtmpfs = 1;
 
-			err = nih_error_get ();
-			nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
-				err->message);
-			nih_free (err);
+		if (needs_devtmpfs) {
+			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+				NihError *err;
+
+				err = nih_error_get ();
+				nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
+					err->message);
+				nih_free (err);
+			}
+
+			/* Required to exist before /dev/pts accessed */
+			if (mknod ("/dev/ptmx", makedev (5, 2), S_IFCHR) < 0 && errno != EEXIST)
+				nih_error ("Unable to create /dev/ptmx");
+
+			if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
+				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
 		}
-
-		/* Required to exist before /dev/pts accessed */
-		if (mknod ("/dev/ptmx", makedev (5, 2), S_IFCHR) < 0 && errno != EEXIST)
-			nih_error ("Unable to create /dev/ptmx");
-
-		if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
-			nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
 
 		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
 			NihError *err;
