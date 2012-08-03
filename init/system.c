@@ -213,3 +213,60 @@ system_mount (const char *type,
 
 	return 0;
 }
+
+/**
+ * system_mknod:
+ *
+ * @path: full path,
+ * @mode: mode to create device with,
+ * @dev: device major and minor numbers.
+ *
+ * Create specified device.
+ *
+ * Note that depending on the device, if an error occurs
+ * it may not be reportable, hence no return value,
+ * but an attempt to display an error.
+ **/
+void
+system_mknod (const char *path, mode_t mode, dev_t dev)
+{
+	nih_assert (path);
+
+	if (mknod (path, mode, dev) < 0 && errno != EEXIST)
+		nih_error ("%s: %s", _("Unable to create device"), path);
+}
+
+/**
+ * system_check_file:
+ *
+ * @path: full path,
+ * @type: file type,
+ * @dev: device major and minor numbers (only checked for character and
+ * block devices).
+ *
+ * Perform checks on specified file.
+ *
+ * Returns: 0 if device exists and has the specified @path,
+ * @type and @dev attributes, else -1.
+ **/
+int
+system_check_file (const char *path, mode_t type, dev_t dev)
+{
+	struct stat  statbuf;
+	int          ret;
+
+	nih_assert (path);
+
+	ret = stat (path, &statbuf);
+
+	if (ret < 0 || ! ((statbuf.st_mode & S_IFMT) == type))
+		return -1;
+
+	if (type == S_IFCHR || type == S_IFBLK) {
+		if (major (statbuf.st_rdev) != major (dev)
+			|| minor (statbuf.st_rdev) != minor (dev))
+		return -1;
+	}
+
+	return 0;
+}

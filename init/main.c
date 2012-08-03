@@ -193,7 +193,6 @@ main (int   argc,
 #ifndef DEBUG
 	if (use_session_bus == FALSE) {
 
-		struct stat statbuf;
 		int needs_devtmpfs = 0;
 
 		/* Check we're root */
@@ -239,6 +238,70 @@ main (int   argc,
 		 * you never know what initramfs did).
 		 */
 		setsid ();
+
+		/* Allow devices to be created with the actual perms
+		 * specified.
+		 */
+		(void)umask (0);
+
+		/* Check if key devices already exist; if they do,
+		 * we should assume we don't need to mount /dev.
+		 */
+		if (system_check_file ("/dev/null", S_IFCHR, makedev (1, 3)) < 0)
+			needs_devtmpfs = 1;
+
+		if (system_check_file ("/dev/console", S_IFCHR, makedev (5, 1)) < 0)
+			needs_devtmpfs = 1;
+
+		if (system_check_file ("/dev/tty", S_IFCHR, makedev (5, 0)) < 0)
+			needs_devtmpfs = 1;
+
+		if (system_check_file ("/dev/kmsg", S_IFCHR, makedev (1, 11)) < 0)
+			needs_devtmpfs = 1;
+
+		if (system_check_file ("/dev/ptmx", S_IFCHR, makedev (5, 2)) < 0)
+			needs_devtmpfs = 1;
+
+		if (system_check_file ("/dev/pts", S_IFDIR, 0) < 0)
+			needs_devtmpfs = 1;
+
+		if (needs_devtmpfs) {
+			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+				NihError *err;
+
+				err = nih_error_get ();
+				nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
+						err->message);
+				nih_free (err);
+			}
+
+			/* Required to exist before /dev/pts accessed */
+			system_mknod ("/dev/ptmx", (S_IFCHR | 0666), makedev (5, 2));
+
+			if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
+				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
+		}
+
+		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to mount /dev/pts filesystem"),
+					err->message);
+			nih_free (err);
+		}
+
+		/* These devices must exist, but we have to have handled the /dev
+		 * check (and possible mount) prior to considering
+		 * creating them. And yet, if /dev is not available from
+		 * the outset and an error occurs, we are unable to report it,
+		 * hence these checks are performed as early as is
+		 * feasible.
+		 */
+		system_mknod ("/dev/null", (S_IFCHR | 0666), makedev (1, 3));
+		system_mknod ("/dev/tty", (S_IFCHR | 0666), makedev (5, 0));
+		system_mknod ("/dev/console", (S_IFCHR | 0600), makedev (5, 1));
+		system_mknod ("/dev/kmsg", (S_IFCHR | 0600), makedev (1, 11));
 
 		/* Set the standard file descriptors to the ordinary console device,
 		 * resetting it to sane defaults unless we're inheriting from another
@@ -295,42 +358,7 @@ main (int   argc,
 				err->message);
 			nih_free (err);
 		}
-		/* Check if /dev/ptmx and /dev/pts already exist; if they do,
-		 * we should assume we don't need to mount /dev.
-		 */
-		if (stat ("/dev/ptmx", &statbuf) < 0 || !S_ISCHR(statbuf.st_mode)
-		    || major(statbuf.st_dev) != 5 || minor(statbuf.st_dev) != 2)
-			needs_devtmpfs = 1;
-		if (needs_devtmpfs
-		    || stat("/dev/pts", &statbuf) < 0 || !S_ISDIR(statbuf.st_mode))
-			needs_devtmpfs = 1;
 
-		if (needs_devtmpfs) {
-			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
-				NihError *err;
-
-				err = nih_error_get ();
-				nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
-					err->message);
-				nih_free (err);
-			}
-
-			/* Required to exist before /dev/pts accessed */
-			if (mknod ("/dev/ptmx", makedev (5, 2), S_IFCHR) < 0 && errno != EEXIST)
-				nih_error ("Unable to create /dev/ptmx");
-
-			if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
-				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
-		}
-
-		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error ("%s: %s", _("Unable to mount /dev/pts filesystem"),
-				err->message);
-			nih_free (err);
-		}
 	} else {
 		nih_log_set_priority (NIH_LOG_DEBUG);
 		nih_debug ("Running with UID %d as PID %d (PPID %d)",
