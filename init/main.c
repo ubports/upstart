@@ -244,15 +244,11 @@ main (int   argc,
 		 */
 		(void)umask (0);
 
-		/* Check if key devices already exist; if they do,
+		/* Check if key /dev entries already exist; if they do,
 		 * we should assume we don't need to mount /dev.
 		 */
 		if (system_check_file ("/dev/ptmx", S_IFCHR, makedev (5, 2)) < 0
-			|| system_check_file ("/dev/pts", S_IFDIR, 0) < 0
-			|| system_check_file ("/dev/kmsg", S_IFCHR, makedev (1, 11)) < 0
-			|| system_check_file ("/dev/null", S_IFCHR, makedev (1, 3)) < 0
-			|| system_check_file ("/dev/console", S_IFCHR, makedev (5, 1)) < 0
-			|| system_check_file ("/dev/tty", S_IFCHR, makedev (5, 0)) < 0)
+			|| system_check_file ("/dev/pts", S_IFDIR, 0) < 0)
 			needs_devtmpfs = 1;
 
 		if (needs_devtmpfs) {
