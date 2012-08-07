@@ -244,15 +244,11 @@ main (int   argc,
 		 */
 		(void)umask (0);
 
-		/* Check if key devices already exist; if they do,
+		/* Check if key /dev entries already exist; if they do,
 		 * we should assume we don't need to mount /dev.
 		 */
 		if (system_check_file ("/dev/ptmx", S_IFCHR, makedev (5, 2)) < 0
-			|| system_check_file ("/dev/pts", S_IFDIR, 0) < 0
-			|| system_check_file ("/dev/kmsg", S_IFCHR, makedev (1, 11)) < 0
-			|| system_check_file ("/dev/null", S_IFCHR, makedev (1, 3)) < 0
-			|| system_check_file ("/dev/console", S_IFCHR, makedev (5, 1)) < 0
-			|| system_check_file ("/dev/tty", S_IFCHR, makedev (5, 0)) < 0)
+			|| system_check_file ("/dev/pts", S_IFDIR, 0) < 0)
 			needs_devtmpfs = 1;
 
 		if (needs_devtmpfs) {
@@ -290,7 +286,6 @@ main (int   argc,
 		 */
 		system_mknod ("/dev/null", (S_IFCHR | 0666), makedev (1, 3));
 		system_mknod ("/dev/tty", (S_IFCHR | 0666), makedev (5, 0));
-		system_mknod ("/dev/console", (S_IFCHR | 0600), makedev (5, 1));
 		system_mknod ("/dev/kmsg", (S_IFCHR | 0600), makedev (1, 11));
 
 		/* Set the standard file descriptors to the ordinary console device,

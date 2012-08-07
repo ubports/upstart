@@ -1,3 +1,11 @@
+2012-08-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Remove checks for /dev/kmsg, /dev/null,
+	  /dev/console and /dev/tty since some environments use different
+	  major/minor numbers to the norm (for example on LXC, /dev/console is
+	  not (5,1), but (136,*)). Do not attempt to create /dev/console again,
+	  due to LXC numbering difference.
+
 2012-08-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c:main(): Handle hostile initramfs-less environments by
