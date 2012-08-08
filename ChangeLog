@@ -1,3 +1,24 @@
+2012-08-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Remove checks for /dev/kmsg, /dev/null,
+	  /dev/console and /dev/tty since some environments use different
+	  major/minor numbers to the norm (for example on LXC, /dev/console is
+	  not (5,1), but (136,*)). Do not attempt to create /dev/console again,
+	  due to LXC numbering difference.
+
+2012-08-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c:main(): Handle hostile initramfs-less environments by
+	  calling umask and creating required device nodes as early as possible.
+	* init/system.c: New functions to simplify code:
+	  - system_mknod()
+	  - system_check_file()
+
+2012-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Eric S. Raymond <esr@thyrsus.com> ]
+	* extra/man/socket-event.7: Fixed incorrect troff (LP: #1018925).
+
 2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Begin new release.

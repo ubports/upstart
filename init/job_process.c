@@ -584,29 +584,35 @@ job_process_spawn (Job          *job,
 		sigemptyset (&ignore.sa_mask);
 
 		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SIGNAL, 0);
 		}
 
 		if (grantpt (pty_master) < 0) {
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GRANTPT, 0);
 		}
 
 		/* Restore child handler */
 		if (sigaction (SIGCHLD, &act, NULL) < 0) {
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_MASTER, 0);
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SIGNAL, 0);
 		}
 
 		if (unlockpt (pty_master) < 0) {
+			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_UNLOCKPT, 0);
 		}
 
 		if (ptsname_r (pty_master, pts_name, sizeof(pts_name)) < 0) {
+			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_PTSNAME, 0);
 		}
 
 		pty_slave = open (pts_name, O_RDWR | O_NOCTTY);
 
 		if (pty_slave < 0) {
+			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OPENPT_SLAVE, 0);
 		}
 
@@ -618,8 +624,10 @@ job_process_spawn (Job          *job,
 	 */
 	if ((script_fd != -1) && (script_fd != JOB_PROCESS_SCRIPT_FD)) {
 		int tmp = dup2 (script_fd, JOB_PROCESS_SCRIPT_FD);
-		if (tmp < 0)
+		if (tmp < 0) {
+			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_DUP, 0);
+		}
 		close (script_fd);
 		script_fd = tmp;
 	}
@@ -658,22 +666,23 @@ job_process_spawn (Job          *job,
 			 * session in the chroot via D-Bus, so disallow
 			 * all jobs in such an environment.
 			 */
-			nih_return_error (-1, EPERM, "user jobs not supported in chroots");
+			nih_error_raise (EPERM, "user jobs not supported in chroots");
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHROOT, 0);
 		}
 
 		pw = getpwuid (uid);
 
-		if (!pw)
-			nih_return_system_error (-1);
+		if (!pw) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
+		}
 
 		nih_assert (pw->pw_uid == uid);
 
 		if (! pw->pw_dir) {
-			nih_local char *message = NIH_MUST (nih_sprintf (NULL,
-						"no home directory for user with uid %d",
-						uid));
-
-			nih_return_error (-1, ENOENT, message);
+			nih_error_raise_printf (ENOENT,
+					"no home directory for user with uid %d", uid);
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
 
 		}
 
@@ -682,8 +691,10 @@ job_process_spawn (Job          *job,
 		 */
 		user_dir = nih_strdup (NULL, pw->pw_dir);
 
-		if (! user_dir)
-			nih_return_no_memory_error (-1);
+		if (! user_dir) {
+			nih_error_raise_no_memory ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_ALLOC, 0);
+		}
 
 		/* Ensure the file associated with fd 9
 		 * (/proc/self/fd/9) is owned by the user we're about to
@@ -1126,6 +1137,11 @@ job_process_error_read (int fd)
 				  err, _("unable to getgrnam: %s"),
 				  strerror (err->errnum)));
 		break;
+	case JOB_PROCESS_ERROR_GETPWUID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getpwuid: %s"),
+				  strerror (err->errnum)));
+		break;
 	case JOB_PROCESS_ERROR_BAD_SETUID:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to find setuid user")));
@@ -1151,12 +1167,17 @@ job_process_error_read (int fd)
 		break;
 	case JOB_PROCESS_ERROR_OPENPT_MASTER:
 		err->error.message = NIH_MUST (nih_sprintf (
-				  err, _("unable to open pt master: %s"),
+				  err, _("unable to open pty master: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_UNLOCKPT:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to unlockpt: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_GRANTPT:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to granpt: %s"),
 				  strerror (err->errnum)));
 		break;
 	case JOB_PROCESS_ERROR_PTSNAME:
@@ -1166,7 +1187,17 @@ job_process_error_read (int fd)
 		break;
 	case JOB_PROCESS_ERROR_OPENPT_SLAVE:
 		err->error.message = NIH_MUST (nih_sprintf (
-				  err, _("unable to open pt slave: %s"),
+				  err, _("unable to open pty slave: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_SIGNAL:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to modify signal handler: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_ALLOC:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to allocate memory: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:
@@ -2162,8 +2193,10 @@ job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
 		return;
 
 	new = dup (*fd);
-	if (new < 0)
+	if (new < 0) {
+		nih_error_raise_system ();
 		job_process_error_abort (error_fd, JOB_PROCESS_ERROR_DUP, 0);
+	}
 	close (*fd);
 	*fd = new;
 }
