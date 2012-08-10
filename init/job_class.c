@@ -771,7 +771,7 @@ job_class_get_all_instances (JobClass         *class,
  * If the instance goal is already start,
  * the com.ubuntu.Upstart.Error.AlreadyStarted D-Bus error will be returned
  * immediately.  If the instance fails to start, the
- * com.ubuntu.Upstart.Error.JobFailed D-BUs error will be returned when the
+ * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
  * problem occurs.
  *
  * When @wait is TRUE the method call will not return until the job has

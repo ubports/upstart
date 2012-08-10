@@ -219,6 +219,7 @@ error:
  * objects for consistency?
  */
 #endif
+
 static Process *
 process_deserialise (json_object *json)
 {

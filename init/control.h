@@ -92,23 +92,26 @@ void control_handle_bus_type      (void);
 
 void control_prepare_reexec       (void);
 
+json_object * control_serialise_all (void)
+	__attribute__ ((malloc, warn_unused_result));
+
+int control_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
 /* FIXME: DEBUG/TEST only */
 #if 1
 int
-control_serialise (void            *data,
+control_debug_serialise (void   *data,
 		NihDBusMessage  *message,
 		char           **json)
 	__attribute__ ((warn_unused_result));
 
 int
-control_deserialise (void            *data,
+control_debug_deserialise (void *data,
 		NihDBusMessage  *message,
 		char           *json)
 	__attribute__ ((warn_unused_result));
 #endif
-
-int  control_get_connection_fd (void)
-	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

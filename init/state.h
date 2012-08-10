@@ -1,5 +1,46 @@
 /* FIXME: TODO: Thoughts:
  *
+ *--------------------------------------------------------------------
+ * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
+ *
+ * - XXX: Deferred work:
+ *   - handling of Upstart-in-initramfs - for this to work, it would be
+ *     necessary to serialise ConfSources along with the following:
+ *
+ *     (1) inode number of source->path
+ *     (2) inode number of '/'
+ *     (3) the FS device details (stat /|grep ^Device)
+ *
+ *     (1)-(3) would allow the deserialisation logic to discriminate
+ *     between two job configuration files with the same name, but
+ *     different contents (one from the initramfs, one from the root
+ *     filesystem).
+ *
+ *     XXX: Further, to support Upstart-in-intramfs would require
+ *     changes to the 'restart' logic since currently, no initial event
+ *     will be emitted when Upstart is re-exec'd.
+ *
+ *     Since this isn't implemented, there is a restriction currently
+ *     (that can only be handled procedurally!) of not supporting
+ *     Upstart-in-initramfs or more precisely not supporting a job with
+ *     the same name in two different filesystem contexts.
+ *
+ *     Note too that (2)+(3) are the only reliable method for Upstart to
+ *     detect that is *has* changed filesystem context.
+ *
+ *   - ptrace handling: unlikely to hit that scenario.
+ *
+ *   - Log objects (so after stateful re-exec, no further log output
+ *     will be produced).
+ *
+ *   - parent/child timeout handling: we won't support down-grading initially.
+ *
+ *   - dbus-connections: only be re-exec'ing post-boot so bridges won't
+ *     suffer too much.
+ *
+ * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
+ *--------------------------------------------------------------------
+ *
  * - remove all PRODUCTION_BUILD macros and adopt production flow.
  *
  * - check "NULL session" deserialisation handling.
@@ -8,10 +49,6 @@
  *   XXX: *_deserialise_all() functions!!
  *
  * - create meta header and encode/decode code!!
- *
- * - encode/decode jobs
- * - encode/decode rlimits
- * - resolve event circular dependency
  *
  * - should we only serialise settings that have a value? (This might
  *   simplify logic for scenarios where a new Upstart that deserialises
@@ -99,6 +136,16 @@
  * interfaces (note that technically it is only the decoding that can
  * cause data loss due to JSON-C storing all integer values as 64-bit
  * internally).
+ *
+ * An example of a problematic platform is Linux on AMD64 where:
+ *
+ * - sizeof(int)    == 4 bytes
+ * - sizeof(time_t) == 8 bytes
+ *
+ * For platforms such as this, using JSON-C 0.90 it would be necessary
+ * to encode all opaque types whose size is greater than sizeof(int)
+ * as strings to avoid data loss. However, this makes for ugly
+ * and error-prone code.
  *
  * == Enum Handling ==
  *
@@ -238,7 +285,7 @@
 #endif
 
 /* FIXME */
-#if 1
+#if 0
 /**
  * STATE_VERSION:
  *
@@ -248,6 +295,7 @@
  * compatible with all prior versions can be generated.
  **/
 #define STATE_VERSION 1
+#endif
 
 /**
  * STATE_WAIT_SECS:
@@ -257,7 +305,6 @@
  * must either have got into trouble or not support stateful re-exec.
  **/
 #define STATE_WAIT_SECS 3
-#endif
 
 /**
  * state_enum_to_str:
@@ -694,7 +741,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int32_var(json, name, var) \
-	 (set_json_var_full (json, name, var, int))
+	 (state_set_json_var_full (json, name, var, int))
 
 /**
  * state_set_json_int64_var:
@@ -708,7 +755,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int64_var(json, name, var) \
-	 (set_json_var_full (json, name, var, int64))
+	 (state_set_json_var_full (json, name, var, int64))
 
 /**
  * state_set_json_int_var:
@@ -907,6 +954,8 @@
 
 NIH_BEGIN_EXTERN
 
+/* FIXME: remove */
+#if 0
 void state_init          (int version);
 
 int  state_get_version   (void)
@@ -916,6 +965,7 @@ void state_show_version  (void);
 
 int  state_serialiseable (void)
 	__attribute__ ((warn_unused_result));
+#endif
 
 int  state_read          (int fd)
 	__attribute__ ((warn_unused_result));
@@ -923,19 +973,17 @@ int  state_read          (int fd)
 int  state_write         (int fd)
 	__attribute__ ((warn_unused_result));
 
-int  state_read_objects   (int fd)
+int  state_read_objects  (int fd)
 	__attribute__ ((warn_unused_result));
 
-int  state_write_objects   (int fd)
+int  state_write_objects (int fd)
 	__attribute__ ((warn_unused_result));
 
-#if 1
-/* FIXME: TESTING and DEBUG only */
-char * state_to_string       (void)
+int  state_to_string (char **json_string, size_t *len)
 	__attribute__ ((warn_unused_result));
+
 int    state_from_string (const char *state)
 	__attribute__ ((warn_unused_result));
-#endif
 
 int    state_toggle_cloexec (int fd, int set)
 	__attribute__ ((warn_unused_result));
@@ -1023,6 +1071,9 @@ state_serialise_blocking (const NihList *blocking)
 int
 state_deserialise_blocking (void *parent, NihList *list,
 			    json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int state_fd_valid (int fd)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

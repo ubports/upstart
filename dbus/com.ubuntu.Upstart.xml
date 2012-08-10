@@ -42,11 +42,11 @@
       <arg name="job" type="o" />
     </signal>
 
-    <method name="Serialise">
+    <method name="DebugSerialise">
       <arg name="json" type="s" direction="out" />
     </method>
 
-    <method name="Deserialise">
+    <method name="DebugDeserialise">
       <arg name="json" type="s" direction="in" />
     </method>
 

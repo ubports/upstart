@@ -40,10 +40,13 @@
 #include "job.h"
 #include "environ.h"
 #include "blocked.h"
+#include "conf.h"
+#include "control.h"
 
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
+json_object *json_control_conns = NULL;
 
 /* Prototypes for static functions */
 static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
@@ -91,6 +94,7 @@ state_hex_to_data (void *parent, const void *hex_data,
 #include "nih_iterators.h"
 #endif
 
+#if 0
 /**
  * state_show_version:
  *
@@ -233,11 +237,15 @@ state_serialiseable (void)
 
 	return ret;
 }
+#endif
 
 /**
  * state_read:
  *
- * Read JSON-encoded state from specified file descriptor.
+ * Read JSON-encoded state from specified file descriptor and recreate
+ * all internal objects based on JSON representation. The read will
+ * timeout, resulting in a failure after STATE_WAIT_SECS seconds
+ * indicating a problem with the child.
  *
  * Returns: 0 on success, or -1 on error.
  **/
@@ -272,7 +280,7 @@ state_read (int fd)
 
 	nih_assert (! ret);
 
-	/* Now, write the data */
+	/* Now, read the data */
 	if (state_read_objects (fd) < 0)
 		return -1;
 
@@ -301,6 +309,8 @@ state_write (int fd)
 	struct timeval  timeout;
 
 	nih_assert (fd != -1);
+
+	/* must be called from child process */
 	nih_assert (getpid () != (pid_t)1);
 
 	timeout.tv_sec  = STATE_WAIT_SECS;
@@ -333,7 +343,7 @@ state_write (int fd)
 /**
  * state_read_objects:
  *
- * @fd: file descriptor to read serialisation data on.
+ * @fd: file descriptor to read serialisation data from.
  *
  * Read serialisation data from specified file descriptor.
  * @fd is assumed to be open and valid to write to.
@@ -343,14 +353,14 @@ state_write (int fd)
 int
 state_read_objects (int fd)
 {
-	nih_local NihIoBuffer   *buffer = NULL;
-	nih_local char          *buf;
 	ssize_t                  ret;
 	int                      initial_size = 1024;
-	json_object             *json;
 	enum json_tokener_error  error;
+	nih_local NihIoBuffer   *buffer = NULL;
+	nih_local char          *buf;
+	json_object             *json;
 
-	nih_assert (fd > 0);
+	nih_assert (fd != -1);
 
 	buffer = nih_io_buffer_new (NULL);
 
@@ -361,6 +371,7 @@ state_read_objects (int fd)
 	if (nih_io_buffer_resize (buffer, sizeof (buf)) < 0)
 		return -1;
 
+	/* Read all the JSON into the buffer */
 	while (TRUE) {
 
 		ret = read (fd, buf, sizeof (buf));
@@ -371,14 +382,18 @@ state_read_objects (int fd)
 			return -1;
 	}
 
+#if 1
 	/* FIXME: */
 	nih_message ("XXX: read json '%s'", buffer->buf);
+#endif
 
+	/* Create JSON representation of data */
 	json = json_tokener_parse_verbose (buffer->buf, &error);
 
 	if (! json)
 		return -1;
 
+	/* First of many sanity checks */
 	if (! state_check_json_type (json, object)) {
 		json_object_put (json);
 		return -1;
@@ -432,37 +447,57 @@ state_read_objects (int fd)
 int
 state_write_objects (int fd)
 {
+	char     *json_string;
+	size_t    len;
+	ssize_t   ret;
+
+	nih_assert (fd != -1);
+
+	if (state_to_string (&json_string, &len) < 0)
+		return -1;
+
+	ret = write (fd, json_string, len);
+
+	/* FIXME: check return, etc */
+	if (ret < 0)
+		nih_debug ("XXX: write failed");
+
 	/* FIXME
+	 *
+	 * serialise all objects to JSON, then convert JSON to string
+	 * and write to fd.
 	 *
 	 * - write:
 	 *   - sessions
 	 *   - events
 	 *   - ...
 	 */
+
+	nih_free (json_string);
+
 	return 0;
 }
-
-/* FIXME: TEST/DEBUG only */
-#if 1
 
 /**
  * state_to_string:
  *
+ * @json_string; newly-allocated string,
+ * @len: length of @json_string.
+ *
  * Serialise internal data structures to a JSON string.
  *
- * Returns: string on success, NULL on error.
+ * Returns: 0 on success, -1 on error.
  **/
-char *
-state_to_string (void)
+int
+state_to_string (char **json_string, size_t *len)
 {
 	json_object        *json;
-	char               *value;
+	const char         *value;
 	//nih_local NihList  *blocked;
 
 /* FIXME */
 #if 1
 	extern NihList *conf_sources;
-	extern NihList *control_conns;
 
 	session_init ();
 	event_init ();
@@ -494,7 +529,7 @@ state_to_string (void)
 	json = json_object_new_object ();
 
 	if (! json)
-		return NULL;
+		return -1;
 
 	json_sessions = session_serialise_all ();
 	if (! json_sessions)
@@ -507,6 +542,12 @@ state_to_string (void)
 	if (! blocked)
 		goto error;
 #endif
+
+	json_control_conns = control_serialise_all ();
+	if (! json_control_conns)
+		goto error;
+
+	json_object_object_add (json, "control_conns", json_control_conns);
 
 	json_events = event_serialise_all ();
 	if (! json_events)
@@ -554,16 +595,22 @@ state_to_string (void)
 	fprintf(stderr, "job_classes='%s'\n", json_object_to_json_string (json_classes));
 	fprintf(stderr, "json='%s'\n", json_object_to_json_string (json));
 
-	value = NIH_MUST (nih_strdup (NULL,
-			json_object_to_json_string (json)));
+	/* Note that the returned value is managed by json-c! */
+	value = json_object_to_json_string (json);
+	if (! value)
+		goto error;
+
+	*len = strlen (value);
+
+	*json_string = NIH_MUST (nih_strndup (NULL, value, *len));
 
 	json_object_put (json);
 
-	return value;
+	return 0;
 
 error:
 	json_object_put (json);
-	return NULL;
+	return -1;
 }
 
 /**
@@ -598,7 +645,6 @@ state_from_string (const char *state)
 	/* FIXME */
 #if 1
 	extern NihList *conf_sources;
-	extern NihList *control_conns;
 
 	nih_message ("#-----------------------------------------");
 	nih_message ("DEBUG:PRE:hash: job_classes=%d",
@@ -668,7 +714,6 @@ out:
 	return ret;
 }
 
-#endif
 
 /**
  * state_toggle_cloexec:
@@ -701,6 +746,33 @@ state_toggle_cloexec (int fd, int set)
 		return -1;
 
 	return 0;
+}
+
+/**
+ * state_fd_valid:
+ * @fd: file descriptor.
+ *
+ * Return TRUE if @fd is valid, else FALSE.
+ **/
+int
+state_fd_valid (int fd)
+{
+	int flags = 0;
+
+	if (fd < 0)
+		return FALSE;
+
+	errno = 0;
+	flags = fcntl (fd, F_GETFL);
+
+	if (flags < 0)
+		return FALSE;
+
+	/* redundant really */
+	if (errno == EBADF)
+		return FALSE;
+
+	return TRUE;
 }
 
 /**
@@ -1160,7 +1232,7 @@ error:
  **/
 int
 state_rlimit_deserialise_all (json_object *json, const void *parent,
-			      struct rlimit *(*rlimits)[])
+		struct rlimit *(*rlimits)[])
 {
 	json_object        *json_limits;
 	int                 i;
@@ -1284,28 +1356,28 @@ state_collapse_env (char **env)
 inline enum json_type
 state_get_json_type (const char *short_type)
 {
-    nih_assert (short_type);
+	nih_assert (short_type);
 
 #define state_make_type_check(var, short_type) \
-    else if (! strcmp (var, #short_type)) \
-        return (json_type_ ## short_type)
+	else if (! strcmp (var, #short_type)) \
+	return (json_type_ ## short_type)
 
-    if (! strcmp (short_type, "int64"))
-        return json_type_int;
+	if (! strcmp (short_type, "int64"))
+		return json_type_int;
 
-    state_make_type_check (short_type, null);
-    state_make_type_check (short_type, boolean);
-    state_make_type_check (short_type, double);
-    state_make_type_check (short_type, int);
-    state_make_type_check (short_type, object);
-    state_make_type_check (short_type, array);
-    state_make_type_check (short_type, string);
+	state_make_type_check (short_type, null);
+	state_make_type_check (short_type, boolean);
+	state_make_type_check (short_type, double);
+	state_make_type_check (short_type, int);
+	state_make_type_check (short_type, object);
+	state_make_type_check (short_type, array);
+	state_make_type_check (short_type, string);
 
 #undef state_make_type_check
 
-    nih_assert_not_reached ();
-/* FIXME */
-    //return json_type_null;
+	nih_assert_not_reached ();
+	/* FIXME */
+	//return json_type_null;
 }
 
 
@@ -1325,7 +1397,7 @@ state_get_json_type (const char *short_type)
  **/
 int
 state_serialise_resolve_deps (json_object *json_events,
-		              json_object *json_classes)
+		json_object *json_classes)
 {
 	nih_assert (json_events);
 	nih_assert (json_classes);
@@ -1549,7 +1621,7 @@ state_serialise_blocked (const Blocked *blocked)
 		goto error;
 
 #if 1
-/* FIXME */
+	/* FIXME */
 	nih_debug ("%s:%d: blocking type: %d",
 			__func__, __LINE__,
 			blocked->type);
@@ -1599,7 +1671,7 @@ state_serialise_blocked (const Blocked *blocked)
 
 	default:
 		/* Handle the D-Bus types by encoding the D-Bus message
-		 * serial number and message data.
+		 * serial number and marshalled message data.
 		 *
 		 * This scenario occurs when "initctl emit foo" blocks -
 		 * the D-Bus message is "in-flight" but blocked on some
@@ -1626,7 +1698,7 @@ state_serialise_blocked (const Blocked *blocked)
 					len);
 
 			if (! dbus_message_data_str)
-					goto error;
+				goto error;
 
 			/* returned memory is not managed by NIH, hence use
 			 * libc facilities.
@@ -1713,7 +1785,7 @@ error:
  **/
 Blocked *
 state_deserialise_blocked (void *parent, json_object *json,
-			   NihList *list)
+		NihList *list)
 {
 	json_object  *json_blocked_data;
 	Blocked      *blocked = NULL;
@@ -1778,8 +1850,11 @@ state_deserialise_blocked (void *parent, json_object *json,
 		}
 		break;
 
-		/* Handle D-Bus types */
 	default:
+
+		/* Handle D-Bus types by demarshalling deserialised D-Bus
+		 * message and then setting the D-Bus serial number.
+		 */
 		{
 			DBusMessage     *message = NULL;
 			DBusError        error;
@@ -1865,7 +1940,7 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 	for (int i = 0; i < json_object_array_length (json_blocking); i++) {
 		json_object * json_blocked;
 
-	       	json_blocked = json_object_array_get_idx (json_blocking, i);
+		json_blocked = json_object_array_get_idx (json_blocking, i);
 		if (! json_blocked)
 			goto error;
 
@@ -1955,7 +2030,7 @@ state_index_to_event (int event_index)
  * Returns: existing JobClass on success, or NULL if JobClass not found.
  **/
 JobClass *
-state_index_to_job_class (int job_class_index)
+	state_index_to_job_class (int job_class_index)
 {
 	int     i = 0;
 
@@ -2068,10 +2143,10 @@ error:
  **/
 static int
 state_hex_to_data (void         *parent,
-		   const void   *hex_data,
-		   size_t        hex_len,
-		   char        **data,
-		   size_t       *data_len)
+		const void   *hex_data,
+		size_t        hex_len,
+		char        **data,
+		size_t       *data_len)
 {
 	char    *p;
 	char    *d;

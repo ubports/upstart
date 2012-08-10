@@ -80,7 +80,7 @@ static void handle_confdir      (void);
 static void handle_logdir       (void);
 static int  console_type_setter (NihOption *option, const char *arg);
 static void perform_reexec      (void);
-static void stateful_reexec     (int version);
+static void stateful_reexec     (void);
 
 
 /**
@@ -101,18 +101,10 @@ char **args_copy = NULL;
 static int restart = FALSE;
 
 /**
- * display_state_version:
- *
- * Set to TRUE to display highest serialisation data format version
- * supported.
- **/
-static int display_state_version = FALSE;
-
-/**
  * state_fd:
  *
  * File descriptor to read serialised state from when performing
- * stateful re-exec.
+ * stateful re-exec. If value is not -1, attempt stateful re-exec.
  **/
 static int state_fd = -1;
 
@@ -169,14 +161,13 @@ static NihOption options[] = {
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	{ 0, "restart", N_("flag a re-exec has occured"),
+	/* This must be specified for both stateful and stateless re-exec */
+	{ 0, "restart", N_("flag a re-exec has occurred"),
 		NULL, NULL, &restart, NULL },
 
+	/* Required for stateful re-exec */
 	{ 0, "state-fd", N_("specify file descriptor to read serialisation data from"),
 		NULL, "FD", &state_fd, nih_option_int },
-
-	{ 0, "state-version", N_("display serialisation data format version and exit"),
-		NULL, NULL, &display_state_version, NULL },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },
@@ -212,17 +203,6 @@ main (int   argc,
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
-
-	if (display_state_version) {
-		state_show_version ();
-		exit (0);
-	}
-
-	/* FIXME */
-	if (restart) {
-		nih_message ("XXX: state%s re-exec",
-				state_serialiseable () ? "ful" : "less");
-	}
 
 	handle_confdir ();
 	handle_logdir ();
@@ -482,7 +462,6 @@ main (int   argc,
 		int       number;
 
 		err = nih_error_get ();
-
 		number = err->number;
 		nih_free (err);
 
@@ -526,19 +505,54 @@ main (int   argc,
 		}
 
 	} else {
-		sigset_t mask;
+		nih_local char *arg = NULL;
+		sigset_t        mask;
 
-		/* We have to degrade to stateless to avoid spinning in
-		 * case of some unforseen problem where stateful re-exec
-		 * repeatedly fails.
+		/* We have been re-exec'd. Don't emit an initial event
+		 * as only Upstart is restarting - we don't want to restart
+		 * the system (another reason being that we don't yet support
+		 * upstart-in-initramfs to upstart-in-root-filesystem
+		 * state-passing transitions).
+		 *
+		 * If stateful re-exec fails, degrade to stateless re-exec to
+		 * avoid spinning in case of unforeseen problems causing
+		 * stateful re-exec to repeatedly fail.
 		 */
-		if (state_fd != -1 && state_read (state_fd) < 0) {
+		if (state_fd == -1) {
+			nih_warn ("%s",
+			_("Stateful re-exec supported but stateless re-exec requested"));
+		} else if (state_read (state_fd) < 0) {
+
+			/* Inform the child we've given up on stateful
+			 * re-exec.
+			 */
+			close (state_fd);
+
 			nih_error ("%s - %s",
 				_("Failed to read serialisation data"),
 				_("reverting to stateless re-exec"));
+
+			/* Add an argument (thus overriding any existing
+			 * argument of the same name) that effectively disables
+			 * stateful re-exec by providing an invalid
+			 * state-passing file descriptor.
+			 */
+			arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
+						"--state-fd", -1));
+
+			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+
+			perform_reexec ();
+
+			nih_error ("%s",
+				_("Both stateful and stateless re-execs failed"));
+
+			/* Out of options */
+			nih_assert_not_reached ();
 		}
 
-		/* We're ok to receive signals again */
+		/* We're ok to receive signals again so restore signals
+		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
@@ -722,29 +736,16 @@ term_handler (void      *data,
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
 
-	if (state_serialiseable ()) {
-		int   version;
-       
-		version = state_get_version ();
-
-		if (version < 0) {
-			nih_error ("%s: %s",
-				_("Unable to determine serialisation format version"),
-				_("performing stateless re-exec"));
-			perform_reexec ();
-		} else {
-			stateful_reexec (version);
-		}
-	} else {
-		nih_warn ("%s",
-			_("Detected non-stateful downgrade - state will be lost"));
-		perform_reexec ();
-	}
+	stateful_reexec ();
 
 	/* Restore */
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 
+/* FIXME */
+	nih_assert_not_reached ();
+#if 0
 	/* Drop out of signal handler, and back into main loop */
+#endif
 }
 
 
@@ -921,21 +922,26 @@ console_type_setter (NihOption *option, const char *arg)
  *
  * Perform a bare re-exec.
  *
- * Note that unless appropriate command-line options have
- * already been specified in @args, all internal state will be lost.
+ * Note that unless the appropriate command-line option has
+ * _already_ been specified in @args_copy, all internal state will be lost.
  **/
 static void
 perform_reexec (void)
 {
-	NihError   *err;
-	const char *loglevel;
-	int         found = 0;
-	int         i;
+	NihError    *err;
+	const char  *loglevel;
 
-	/* Although we have a copy of the original arguments, we need to
+	/* Although we have a copy of the original arguments (which may
+	 * have included an option to modify the log level), we need to
 	 * handle the case where the log priority has been changed at
-	 * runtime which potentially invalidates the command-line option.
-	 * The current log level wins.
+	 * runtime which potentially invalidates the original command-line
+	 * option value.
+	 *
+	 * Fortuitously, this can be handled easily: NIH option parsing
+	 * semantics allow any option to be specified multiple times -
+	 * the last value seen is used. Therefore, we just append the
+	 * current log-level option and ignore any existing (earlier)
+	 * log level options.
 	 */
 	if (nih_log_priority <= NIH_LOG_DEBUG) {
 		loglevel = "--debug";
@@ -947,38 +953,13 @@ perform_reexec (void)
 		loglevel = NULL;
 	}
 
-	/* Make command-line options reflect current log level */
-	for (i = 1; args_copy[i]; i++) {
-		if (! strcmp (args_copy[i], "--verbose") || strcmp (args_copy[i], "--debug")) {
-			found = 1;
-
-			/* Remove existing entry */
-			nih_free (args_copy[i]);
-
-			if (loglevel) {
-				/* Replace existing value with new log level. If
-				 * there is no new log level, we cheat and just
-				 * add a space to avoid array shifting */
-				args_copy[i] = NIH_MUST (nih_strdup (args_copy, loglevel));
-				nih_ref (args_copy[i], args_copy);
-			} else {
-				/* Remove the existing entry and shuffle the remaining args
-				 * up by 1.
-				 */
-				for (int j = i+1; args_copy[j]; ++i, ++j)
-					args_copy[i] = args_copy[j];
-				args_copy[i] = NULL;
-				break;
-			}
-		}
-	}
-
-	/* No existing command-line option was found, but log level has
-	 * been set, so add it to the new command-line.
-	 */
-	if (loglevel && ! found)
+	if (loglevel)
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, loglevel));
 
+	/* if the currently running instance wasn't invoked as
+	 * part of a re-exec, ensure that the next instance is (since
+	 * otherwise, why would this function be being called!? :)
+	 */
 	if (! restart)
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, "--restart"));
 
@@ -994,40 +975,51 @@ perform_reexec (void)
 /**
  * stateful_reexec:
  *
- * @version: latest serialisation data format version supported by
- * UPSTART.
- *
  * Perform re-exec with state-passing. UPSTART must be capable of
  * stateful re-exec for this routine to be called. Any failures
  * result in a basic re-exec being performed where all state
  * will be lost.
+ *
+ * The process involves the initial Upstart instance (PID 1) creating a
+ * pipe and then forking. The child then writes its serialised state
+ * over the pipe back to PID 1 which has now re-exec'd itself.
+ *
+ * Once the state has been passed, the child can exit.
  **/
 static void
-stateful_reexec (int version)
+stateful_reexec (void)
 {
 	int    fds[2] = { -1 };
 	pid_t  pid;
 
-	state_init (version);
-
 	if (pipe (fds) < 0)
 		goto reexec;
 
+	/* FIXME: check this! */
+	/* FIXME: check this! */
+	/* FIXME: check this! */
+
+	/* retain the D-Bus connection across the re-exec */
+	control_prepare_reexec ();
+
 	pid = fork ();
 
-	if (pid < 0) {
+	if (pid < 0)
 		goto reexec;
-	} else if (pid > 0) {
+	else if (pid > 0) {
 		nih_local char *arg = NULL;
 
 		/* Parent */
 		close (fds[1]);
 
-		/* retain the D-Bus connection across the re-exec */
-		control_prepare_reexec ();
-
 		/* Tell the new instance where to read the
-		 * serialisation data from.
+		 * serialisation data from. Note that if the "new" instance
+		 * is actually an older version of Upstart (that does not
+		 * understand stateful re-exec), due to the way NIH handles
+		 * command-line paring, this option will be ignored and
+		 * the new instance will therefore not be able to read
+		 * the state and overall a stateless re-exec will
+		 * therefore be performed.
 		 */
 		arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
 					"--state-fd", fds[0]));
@@ -1037,20 +1029,18 @@ stateful_reexec (int version)
 		/* Child */
 		close (fds[0]);
 
+		nih_info ("passing state from PID %d to PID 1", (int)getpid ());
+
 		if (state_write (fds[1]) < 0) {
 			nih_error ("%s",
 				_("failed to write serialisation data"));
+			exit (1);
 		}
 
-		_exit (1);
+		/* The baton has been passed */
+		exit (0);
 	}
 
 reexec:
-	/* FIXME: need to *remove* '--state-fd' option on error!!
-	 * might be simpler to copy @args, add --state-fd to it, and if
-	 * no errors detected, free @args and set the copy to be @args.
-	 * If there *is* an error, the original @args won't contain
-	 * '-state-fd' so a stateless re-exec will be performed.
-	 */
 	perform_reexec ();
 }

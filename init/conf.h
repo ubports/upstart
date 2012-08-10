@@ -39,9 +39,9 @@
  * what they define within themselves.
  **/
 typedef enum conf_source_type {
-	CONF_FILE,
-	CONF_DIR,
-	CONF_JOB_DIR,
+	CONF_FILE,    /* solitary file */
+	CONF_DIR,     /* FIXME: */
+	CONF_JOB_DIR, /* directory tree of jobs */
 } ConfSourceType;
 
 
