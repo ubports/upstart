@@ -109,31 +109,34 @@ state_read (int fd)
 {
 	int             nfds;
 	int             ret;
-	fd_set          readfds, exceptfds;
+	fd_set          readfds;
 	struct timeval  timeout;
 
 	nih_assert (fd != -1);
+
+	/* Must be called by the parent */
 	nih_assert (getpid () == (pid_t)1);
 
 	timeout.tv_sec  = STATE_WAIT_SECS;
 	timeout.tv_usec = 0;
 
 	FD_ZERO (&readfds);
-	FD_ZERO (&exceptfds);
 
 	FD_SET (fd, &readfds);
-	FD_SET (fd, &exceptfds);
 
 	nfds = 1 + fd;
 
 	while (TRUE) {
-		ret = select (nfds, &readfds, NULL, &exceptfds, &timeout);
+		ret = select (nfds, &readfds, NULL, NULL, &timeout);
 
-		if (ret < 0 && errno != EINTR)
+		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
 			return -1;
+
+		if (FD_ISSET (fd, &readfds))
+			break;
 	}
 
-	nih_assert (! ret);
+	nih_assert (ret == 1);
 
 	/* Now, read the data */
 	if (state_read_objects (fd) < 0)
@@ -160,7 +163,7 @@ state_write (int fd)
 {
 	int             nfds;
 	int             ret;
-	fd_set          writefds, exceptfds;
+	fd_set          writefds;
 	struct timeval  timeout;
 
 	nih_assert (fd != -1);
@@ -172,17 +175,15 @@ state_write (int fd)
 	timeout.tv_usec = 0;
 
 	FD_ZERO (&writefds);
-	FD_ZERO (&exceptfds);
 
 	FD_SET (fd, &writefds);
-	FD_SET (fd, &exceptfds);
 
 	nfds = 1 + fd;
 
 	while (TRUE) {
-		ret = select (nfds, NULL, &writefds, &exceptfds, &timeout);
+		ret = select (nfds, NULL, &writefds, NULL, &timeout);
 
-		if (ret < 0 && errno != EINTR)
+		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
 			return -1;
 
 		if (FD_ISSET (fd, &writefds))
