@@ -381,13 +381,15 @@ main (int   argc,
 		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 
-		/* SIGTERM instructs us to re-exec ourselves; this should be the
-		 * last in the list to ensure that all other signals are handled
-		 * before a SIGTERM.
-		 */
-		nih_signal_set_handler (SIGTERM, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 	}
+
+	/* SIGTERM instructs us to re-exec ourselves; this should be the
+	 * last in the list to ensure that all other signals are handled
+	 * before a SIGTERM.
+	 */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+
 #endif /* DEBUG */
 
 
@@ -432,11 +434,58 @@ main (int   argc,
 	}
 
 
+	if (restart) {
+		if (state_fd == -1) {
+			nih_warn ("%s",
+				_("Stateful re-exec supported but stateless re-exec requested"));
+		} else if (state_read (state_fd) < 0) {
+			nih_local char *arg = NULL;
+
+			/* If stateful re-exec fails, degrade to stateless re-exec to
+			 * avoid spinning in case of unforeseen problems causing
+			 * stateful re-exec to repeatedly fail.
+			 */
+
+			/* Inform the child we've given up on stateful
+			 * re-exec.
+			 */
+			close (state_fd);
+
+			nih_error ("%s - %s",
+				_("Failed to read serialisation data"),
+				_("reverting to stateless re-exec"));
+
+			/* Add an argument (thus overriding any existing
+			 * argument of the same name) that effectively disables
+			 * stateful re-exec by providing an invalid
+			 * state-passing file descriptor.
+			 */
+			arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
+						"--state-fd", -1));
+
+			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+
+			perform_reexec ();
+
+			nih_error ("%s",
+				_("Both stateful and stateless re-execs failed"));
+
+			/* Out of options */
+			nih_assert_not_reached ();
+		}
+	}
+
+	/* FIXME: change logic to *update* existing JobClasses by
+	 * passing in an 'update' flag (value of restart!)
+	 */
+#if 1
+
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	conf_reload ();
+#endif
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {
@@ -505,7 +554,6 @@ main (int   argc,
 		}
 
 	} else {
-		nih_local char *arg = NULL;
 		sigset_t        mask;
 
 		/* We have been re-exec'd. Don't emit an initial event
@@ -513,43 +561,7 @@ main (int   argc,
 		 * the system (another reason being that we don't yet support
 		 * upstart-in-initramfs to upstart-in-root-filesystem
 		 * state-passing transitions).
-		 *
-		 * If stateful re-exec fails, degrade to stateless re-exec to
-		 * avoid spinning in case of unforeseen problems causing
-		 * stateful re-exec to repeatedly fail.
 		 */
-		if (state_fd == -1) {
-			nih_warn ("%s",
-			_("Stateful re-exec supported but stateless re-exec requested"));
-		} else if (state_read (state_fd) < 0) {
-
-			/* Inform the child we've given up on stateful
-			 * re-exec.
-			 */
-			close (state_fd);
-
-			nih_error ("%s - %s",
-				_("Failed to read serialisation data"),
-				_("reverting to stateless re-exec"));
-
-			/* Add an argument (thus overriding any existing
-			 * argument of the same name) that effectively disables
-			 * stateful re-exec by providing an invalid
-			 * state-passing file descriptor.
-			 */
-			arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
-						"--state-fd", -1));
-
-			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
-
-			perform_reexec ();
-
-			nih_error ("%s",
-				_("Both stateful and stateless re-execs failed"));
-
-			/* Out of options */
-			nih_assert_not_reached ();
-		}
 
 		/* We're ok to receive signals again so restore signals
 		 * disabled by the term_handler */
@@ -1029,7 +1041,7 @@ stateful_reexec (void)
 		/* Child */
 		close (fds[0]);
 
-		nih_info ("passing state from PID %d to PID 1", (int)getpid ());
+		nih_info ("passing state from PID %d to parent", (int)getpid ());
 
 		if (state_write (fds[1]) < 0) {
 			nih_error ("%s",

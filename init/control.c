@@ -855,6 +855,8 @@ control_clear_cloexec (void)
 {
 	int    fd;
 
+	control_init ();
+
 	nih_assert (control_bus);
 
 	if (! dbus_connection_get_unix_fd (control_bus, &fd))
@@ -888,7 +890,9 @@ control_clear_cloexec (void)
 static void
 control_bus_flush (void)
 {
-	nih_assert (control_bus != NULL);
+	control_init ();
+
+	nih_assert (control_bus);
 
 	while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
 		;
@@ -903,6 +907,8 @@ control_bus_flush (void)
 void
 control_prepare_reexec (void)
 {
+	control_init ();
+
 	control_bus_flush ();
 	control_clear_cloexec ();
 }

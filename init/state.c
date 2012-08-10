@@ -94,151 +94,6 @@ state_hex_to_data (void *parent, const void *hex_data,
 #include "nih_iterators.h"
 #endif
 
-#if 0
-/**
- * state_show_version:
- *
- * Display latest serialistion data format to stdout.
- * NIH routines are not used to guarantee output is not redirected.
- **/
-void
-state_show_version (void)
-{
-	printf ("%d\n", STATE_VERSION);
-	fflush (stdout);
-}
-
-/**
- * FIXME:
- *
- * @version: .
- **/
-void
-state_init (int version)
-{
-	const char *which;
-
-	nih_assert (version > 0);
-
-	if (version == STATE_VERSION)
-		which = "same";
-	else if (version > STATE_VERSION)
-		which = "newer";
-	else 
-		which = "older";
-
-	nih_info ("%s %s %s %s",
-		UPSTART,
-		_("supports"),
-		which,
-		_("serialisation format version as running instance"));
-
-}
-
-/**
- * state_get_version:
- *
- * Determine the highest serialisation data format version that the
- * latest UPSTART supports.
- *
- * UPSTART must be known to support serialisation before calling this
- * function.
- *
- * Returns: serialisation version, or -1 on error.
- **/
-int
-state_get_version (void)
-{
-	int                     version = -1;
-	FILE                   *file;
-	nih_local NihIoBuffer  *buffer = NULL;
-	nih_local char         *cmdline = NULL;
-	char                   *cmd;
-       
-
-	/* Useful for testing */
-	cmd = getenv ("UPSTART_CMD");
-
-	cmdline = NIH_MUST (nih_sprintf (NULL, "%s %s",
-				cmd ? cmd : UPSTART,
-				"--state-version"));
-
-	buffer = nih_io_buffer_new (NULL);
-	if (! buffer)
-		return -1;
-
-	if (nih_io_buffer_resize (buffer, 1024) < 0)
-		return -1;
-
-	file = popen (cmdline, "r");
-	if (! file)
-		return -1;
-
-	if (! fgets (buffer->buf, buffer->size, file))
-		goto out;
-
-	version = atoi (buffer->buf + buffer->len);
-
-	if (version <= 0)
-		version = -1;
-
-out:
-	pclose (file);
-
-	return version;
-}
-/**
- * state_serialiseable:
- *
- * Determine if UPSTART supports serialisation. This is generally
- * expected to be true as all future versions of Upstart will support
- * it, but we must check to catch the scenario where the user is 
- * downgrading to a version that does not support serialisation.
- *
- * The technique used is somewhat inelegant (although reliable).
- *
- * We really have no other option since NIH ignores all invalid options,
- * which precludes running UPSTART with an expected flag to check
- * if serialisation is supported - we'd just end up running another
- * instance of upstart as root.
- *
- * Returns: TRUE if serialisation is supported, or FALSE on error or
- * serialisation is not supported.
- **/
-int
-state_serialiseable (void)
-{
-	char                   *cmd = UPSTART " " "--help";
-	nih_local NihIoBuffer  *buffer = NULL;
-	FILE                   *file;
-	int                     ret = FALSE;
-
-	buffer = nih_io_buffer_new (NULL);
-	if (! buffer)
-		return ret;
-
-	if (nih_io_buffer_resize (buffer, 1024) < 0)
-		return ret;
-
-	file = popen (cmd, "r");
-	if (! file)
-		return ret;
-
-	while (fgets (buffer->buf, buffer->size, file)) {
-
-		/* FIXME: don't hard-code! */
-		if (strstr (buffer->buf, "--state-version")) {
-			ret = TRUE;
-			break;
-		}
-	}
-
-	pclose (file);
-
-	return ret;
-}
-#endif
-
 /**
  * state_read:
  *
@@ -329,9 +184,12 @@ state_write (int fd)
 
 		if (ret < 0 && errno != EINTR)
 			return -1;
+
+		if (FD_ISSET (fd, &writefds))
+			break;
 	}
 
-	nih_assert (! ret);
+	nih_assert (ret == 1);
 
 	if (state_write_objects (fd) < 0)
 		return -1;
@@ -346,7 +204,7 @@ state_write (int fd)
  * @fd: file descriptor to read serialisation data from.
  *
  * Read serialisation data from specified file descriptor.
- * @fd is assumed to be open and valid to write to.
+ * @fd is assumed to be open and readable.
  *
  * Returns: 0 on success, -1 on error.
  **/
@@ -354,11 +212,9 @@ int
 state_read_objects (int fd)
 {
 	ssize_t                  ret;
-	int                      initial_size = 1024;
-	enum json_tokener_error  error;
+	int                      initial_size = 4096;
 	nih_local NihIoBuffer   *buffer = NULL;
-	nih_local char          *buf;
-	json_object             *json;
+	nih_local char          *buf = NULL;
 
 	nih_assert (fd != -1);
 
@@ -366,47 +222,38 @@ state_read_objects (int fd)
 
 	buf = nih_alloc (NULL, initial_size);
 	if (! buf)
-		return -1;
+		goto error;
 
-	if (nih_io_buffer_resize (buffer, sizeof (buf)) < 0)
-		return -1;
-
-	/* Read all the JSON into the buffer */
-	while (TRUE) {
+	/* Read the JSON data into the buffer */
+	do {
+		if (nih_io_buffer_resize (buffer, initial_size) < 0)
+			goto error;
 
 		ret = read (fd, buf, sizeof (buf));
-		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
-			return -1;
+		if (ret < 0) {
+			if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
+				goto error;
+			continue;
+		} else if (! ret)
+			break;
 
 		if (nih_io_buffer_push (buffer, buf, ret) < 0)
-			return -1;
-	}
+			goto error;
+	} while (TRUE);
 
 #if 1
 	/* FIXME: */
 	nih_message ("XXX: read json '%s'", buffer->buf);
 #endif
 
-	/* Create JSON representation of data */
-	json = json_tokener_parse_verbose (buffer->buf, &error);
+	/* Recreate internal state from JSON */
+	if (state_from_string (buffer->buf) < 0)
+		goto error;
 
-	if (! json)
-		return -1;
-
-	/* First of many sanity checks */
-	if (! state_check_json_type (json, object)) {
-		json_object_put (json);
-		return -1;
-	}
-
-	/* FIXME:
-	 *
-	 * XXX: Now, deserialise all objects!!
-	 *
-	 * XXX: See state_from_string ().
-	 *
-	 */
 	return 0;
+
+error:
+	return -1;
 }
 
 /**
@@ -458,24 +305,9 @@ state_write_objects (int fd)
 
 	ret = write (fd, json_string, len);
 
-	/* FIXME: check return, etc */
-	if (ret < 0)
-		nih_debug ("XXX: write failed");
-
-	/* FIXME
-	 *
-	 * serialise all objects to JSON, then convert JSON to string
-	 * and write to fd.
-	 *
-	 * - write:
-	 *   - sessions
-	 *   - events
-	 *   - ...
-	 */
-
 	nih_free (json_string);
 
-	return 0;
+	return (ret < 0 ? -1 : 0);
 }
 
 /**
@@ -1856,7 +1688,8 @@ state_deserialise_blocked (void *parent, json_object *json,
 		 * message and then setting the D-Bus serial number.
 		 */
 		{
-			DBusMessage     *message = NULL;
+			DBusMessage     *dbus_msg = NULL;
+			NihDBusMessage  *nih_dbus_msg = NULL;
 			DBusError        error;
 			dbus_uint32_t    serial;
 			size_t           raw_len;
@@ -1882,10 +1715,10 @@ state_deserialise_blocked (void *parent, json_object *json,
 				goto error;
 
 			dbus_error_init (&error);
-			message = dbus_message_demarshal (dbus_message_data_raw,
+			dbus_msg = dbus_message_demarshal (dbus_message_data_raw,
 					(int)raw_len,
 					&error);
-			if (! message || dbus_error_is_set (&error)) {
+			if (! dbus_msg || dbus_error_is_set (&error)) {
 				nih_error ("%s: %s",
 						_("failed to demarshal D-Bus message"),
 						error.message);
@@ -1893,9 +1726,16 @@ state_deserialise_blocked (void *parent, json_object *json,
 				goto error;
 			}
 
-			dbus_message_set_serial (message, serial);
+			dbus_message_set_serial (dbus_msg, serial);
 
-			blocked = NIH_MUST (blocked_new (parent, blocked_type, message));
+#if 1
+			/* FIXME: parent, connection!?! */
+#endif
+			nih_dbus_msg = nih_dbus_message_new (NULL, control_bus, dbus_msg);
+			if (! nih_dbus_msg)
+				goto error;
+
+			blocked = NIH_MUST (blocked_new (parent, blocked_type, nih_dbus_msg));
 			nih_list_add (list, &blocked->entry);
 		}
 		break;
