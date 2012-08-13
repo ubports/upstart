@@ -107,6 +107,42 @@
  * _NOT_ encode all information about an object (for example the JSON
  * encoding for an Event does not encode 'blockers' and 'blocking').
  *
+ * == Error Handling ==
+ *
+ * If stateful re-exec fails, Upstart must perform a stateless reexec:
+ * this obviously is not ideal since it results in all state being
+ * discarded, but atleast init continues to run.
+ *
+ * === Serialisation ===
+ *
+ * Upstart will serialise all internal objects in as rich a
+ * serialisation as possible.
+ *
+ * The error handling strategy for serialisation is easy: if any of the
+ * serialisation steps fail, error immediately.
+ *
+ * === Deserialisation ===
+ *
+ * This is the more difficult aspect: deserialisation must contend
+ * with possible partial errors and handle them intelligently:
+ *
+ * - missing keys and/or values in the JSON:
+ *
+ *   - indicates either a bug or a change in the JSON serialisation dat
+ *     format of the higher-numbered versioned of Upstart.
+ *
+ *   - deserialise as 0 or NULL as appropriate if possible.
+ *
+ * - unexpected JSON entries:
+ *
+ *   - ignored as this indicates a downgrade (and it's clearly
+ *     unreasonable to expect a lower-numbered version of Upstart to
+ *     understand the syntax from a higher-numbered version of Upstart).
+ *
+ * - invalid JSON entries:
+ *
+ *   - only strategy is to error immediately.
+ *
  * == Macros ==
  *
  * Some of the macros defind here may appear needlessly trivial.

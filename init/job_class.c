@@ -1163,6 +1163,39 @@ job_class_restart (JobClass        *class,
 	return 0;
 }
 
+/**
+ * job_class_get:
+ *
+ * @name: name of job class,
+ * @session: session of job class.
+ *
+ * Obtain JobClass with name @name and session @session.
+ *
+ * Returns: JobClass, or NULL if no matching job class found.
+ **/
+JobClass *
+job_class_get (const char *name, Session *session)
+{
+	JobClass  *class = NULL;
+	NihList   *prev = NULL;
+
+	nih_assert (name);
+
+	do {
+		class = (JobClass *)nih_hash_search (job_classes, name, prev);
+		if (! class)
+			return NULL;
+		if (class && class->session == session)
+			return class;
+
+		nih_assert (class);
+
+		prev = (NihList *)class;
+	} while (TRUE);
+
+	nih_assert_not_reached ();
+}
+
 
 /**
  * job_class_get_name:
@@ -1687,8 +1720,7 @@ job_class_serialise (const JobClass *class)
 	int               session_index;
 
 	nih_assert (class);
-
-	job_class_init ();
+	nih_assert (job_classes);
 
 	json = json_object_new_object ();
 	if (! json)
@@ -1739,17 +1771,14 @@ job_class_serialise (const JobClass *class)
 
 	/* set "start/stop on" in the JSON even if no condition specified.
 	 */
+#if 1
 	/* FIXME: shouldn't we just encode condition if it exists?? */
+#endif
 	start_on = class->start_on
 		? event_operator_collapse (class->start_on)
 		: NIH_MUST (nih_strdup (NULL, ""));
 	if (! start_on)
 		goto error;
-
-#if 1
-/* FIXME */
-	nih_message ("%s:%d: start_on='%s'", __func__, __LINE__, start_on);
-#endif
 
 	if (! state_set_json_var_full (json, "start_on", start_on, string)) {
 		nih_free (start_on);
@@ -1761,11 +1790,6 @@ job_class_serialise (const JobClass *class)
 		: NIH_MUST (nih_strdup (NULL, ""));
 	if (! stop_on)
 		goto error;
-
-#if 1
-	/* FIXME */
-	nih_message ("XXX: stop_on='%s'", stop_on);
-#endif
 
 	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
 		nih_free (stop_on);
@@ -1878,11 +1902,6 @@ job_class_serialise_all (void)
 
 	job_class_init ();
 
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
-
 	json = json_object_new_array ();
 	if (! json)
 		return NULL;
@@ -1926,12 +1945,8 @@ job_class_deserialise (json_object *json)
 	JobClass       *partial;
 	int             session_index;
 
-	/* FIXME: TODO:
-	 *
-	 * instances
-	 */
-
 	nih_assert (json);
+	nih_assert (job_classes);
 
 	if (! state_check_json_type (json, object))
 		goto error;
@@ -1979,8 +1994,6 @@ job_class_deserialise (json_object *json)
 		if (! state_get_json_string_var (json, "start_on", start_on))
 			goto error;
 
-		nih_message ("%s:%d: json-parsed     start_on='%s'", __func__, __LINE__, start_on);
-
 		if (*start_on) {
 			partial->start_on = parse_on_simple (partial, "start", start_on);
 			if (! partial->start_on) {
@@ -1996,14 +2009,6 @@ job_class_deserialise (json_object *json)
 
 				goto error;
 			}
-
-#if 1
-			nih_message ("%s:%d: parse_on-parsed start_on='%s'",
-					__func__, __LINE__,
-					event_operator_collapse (partial->start_on));
-#endif
-
-
 		}
 	}
 
@@ -2012,8 +2017,6 @@ job_class_deserialise (json_object *json)
 
 		if (! state_get_json_string_var (json, "stop_on", stop_on))
 			goto error;
-
-		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
 
 		if (*stop_on) {
 			partial->stop_on = parse_on_simple (partial, "stop", stop_on);
@@ -2030,15 +2033,7 @@ job_class_deserialise (json_object *json)
 
 				goto error;
 			}
-
-#if 1
-			nih_message ("%s:%d: stop_on='%s'",
-					__func__, __LINE__,
-					event_operator_collapse (partial->stop_on));
-#endif
-
 		}
-
 	}
 
 	if (! state_get_json_str_array_to_obj (json, partial, emits))
@@ -2084,8 +2079,6 @@ job_class_deserialise (json_object *json)
 
 	if (! state_get_json_int_var_to_obj (json, partial, oom_score_adj))
 			goto error;
-
-	/* FIXME: limits */
 
 	if (! state_get_json_string_var_to_obj (json, partial, chroot))
 		goto error;
@@ -2133,10 +2126,7 @@ job_class_deserialise_all (json_object *json)
 
 	nih_assert (json);
 
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
+	job_class_init ();
 
 	json_classes = json_object_object_get (json, "job_classes");
 
@@ -2150,9 +2140,6 @@ job_class_deserialise_all (json_object *json)
 		json_object         *json_class;
 		nih_local JobClass  *partial = NULL;
 
-		/* FIXME */
-		nih_message ("XXX: found job class");
-
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
 			goto error;
@@ -2164,11 +2151,9 @@ job_class_deserialise_all (json_object *json)
 		if (! partial)
 			goto error;
 
-		/* FIXME */
-		nih_message ("class[%d]: name='%s'", i, partial->name);
-
 		class = NIH_MUST (job_class_new (NULL, partial->name, partial->session));
 
+#if 1
 		/* FIXME:
 		 *
 		 * If user sessions exist (ie 'initctl --session list'
@@ -2178,11 +2163,10 @@ job_class_deserialise_all (json_object *json)
 		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
 		 *
 		 */
+#endif
+
 		/* job_class_new() sets path */
 		nih_assert (! strcmp (class->path, partial->path));
-
-		/* FIXME: test instances */
-		nih_error ("FIXME: %s: JobClass: need to test Job instances!!", __func__);
 
 		if (! state_partial_copy_string (class, partial, description))
 			goto error;
@@ -2263,8 +2247,7 @@ job_class_deserialise_all (json_object *json)
 			class->instance = NIH_MUST (nih_strdup (class, partial->instance));
 		}
 
-		nih_message ("class=%p, session=%p", class, class->session);
-
+#if 0
 		/* FIXME:
 		 *
 		 * - should only add this if no class already exists.
@@ -2277,6 +2260,7 @@ job_class_deserialise_all (json_object *json)
 		 *   Plan may have to be to create a dummy ConfFile for
 		 *   all jobs that have been passed across an exec.
 		 */
+#endif
 		/* Force class to be known */
 		job_class_add_safe (class);
 

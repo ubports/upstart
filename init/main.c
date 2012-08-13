@@ -460,8 +460,11 @@ main (int   argc,
 			 * stateful re-exec by providing an invalid
 			 * state-passing file descriptor.
 			 */
-			arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
-						"--state-fd", -1));
+			arg = NIH_MUST (nih_strdup (NULL, "--state-fd"));
+			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+
+			arg = NIH_MUST (nih_sprintf (NULL, "%d", -1));
+			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
 
 			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
 
@@ -484,7 +487,7 @@ main (int   argc,
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
-	conf_reload ();
+	conf_reload (restart);
 #endif
 
 	/* Create a listening server for private connections. */
@@ -823,7 +826,7 @@ hup_handler (void      *data,
 	     NihSignal *signal)
 {
 	nih_info (_("Reloading configuration"));
-	conf_reload ();
+	conf_reload (restart);
 }
 
 /**
@@ -941,7 +944,7 @@ static void
 perform_reexec (void)
 {
 	NihError    *err;
-	const char  *loglevel;
+	const char  *loglevel = NULL;
 
 	/* Although we have a copy of the original arguments (which may
 	 * have included an option to modify the log level), we need to
@@ -954,6 +957,14 @@ perform_reexec (void)
 	 * the last value seen is used. Therefore, we just append the
 	 * current log-level option and ignore any existing (earlier)
 	 * log level options.
+	 *
+	 * Note that should Upstart be re-exec'ed too many times,
+	 * eventually odd behaviour may result if the command-line
+	 * becomes too large. The correct way to handle this would be to
+	 * prune now invalid options from the command-line to ensure it
+	 * does not continue to increase. That said, if we hit the
+	 * limit, worse things are probably going on so for now we'll
+	 * settle for the simplistic approach.
 	 */
 	if (nih_log_priority <= NIH_LOG_DEBUG) {
 		loglevel = "--debug";
@@ -962,6 +973,9 @@ perform_reexec (void)
 	} else if (nih_log_priority >= NIH_LOG_ERROR) {
 		loglevel = "--error";
 	} else {
+		/* User has not modified default log level of
+		 * NIH_LOG_MESSAGE.
+		 */
 		loglevel = NULL;
 	}
 
@@ -1025,17 +1039,21 @@ stateful_reexec (void)
 		close (fds[1]);
 
 		/* Tell the new instance where to read the
-		 * serialisation data from. Note that if the "new" instance
-		 * is actually an older version of Upstart (that does not
-		 * understand stateful re-exec), due to the way NIH handles
-		 * command-line paring, this option will be ignored and
-		 * the new instance will therefore not be able to read
-		 * the state and overall a stateless re-exec will
-		 * therefore be performed.
+		 * serialisation data from.
+		 *
+		 * Note that if the "new" instance is actually an older
+		 * version of Upstart (that does not understand stateful
+		 * re-exec), due to the way NIH handles command-line
+		 * paring, this option will be ignored and the new instance
+		 * will therefore not be able to read the state and overall
+		 * a stateless re-exec will therefore be performed.
+		 *
+		 * Note futher that this strategy
 		 */
-		arg = NIH_MUST (nih_sprintf (NULL, "%s %d",
-					"--state-fd", fds[0]));
+		arg = NIH_MUST (nih_strdup (NULL, "--state-fd"));
+		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
 
+		arg = NIH_MUST (nih_sprintf (NULL, "%d", fds[0]));
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
 	} else {
 		/* Child */

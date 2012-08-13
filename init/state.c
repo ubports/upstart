@@ -48,6 +48,8 @@ json_object *json_events = NULL;
 json_object *json_classes = NULL;
 json_object *json_control_conns = NULL;
 
+extern int use_session_bus;
+
 /* Prototypes for static functions */
 static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
 	__attribute__ ((malloc, warn_unused_result));
@@ -115,7 +117,8 @@ state_read (int fd)
 	nih_assert (fd != -1);
 
 	/* Must be called by the parent */
-	nih_assert (getpid () == (pid_t)1);
+	if (use_session_bus == FALSE)
+		nih_assert (getpid () == (pid_t)1);
 
 	timeout.tv_sec  = STATE_WAIT_SECS;
 	timeout.tv_usec = 0;
@@ -308,6 +311,9 @@ state_write_objects (int fd)
 
 	nih_free (json_string);
 
+	/* FIXME */
+	nih_message("%s:%d: ret=%d", __func__, __LINE__, ret);
+
 	return (ret < 0 ? -1 : 0);
 }
 
@@ -474,6 +480,13 @@ state_from_string (const char *state)
 				json_tokener_error_desc (error));
 		return ret;
 	}
+
+
+	/* This function is called before conf_source_new (), so setup
+	 * the environment.
+	 */
+	conf_init ();
+
 
 	/* FIXME */
 #if 1

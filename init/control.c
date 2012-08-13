@@ -62,7 +62,13 @@
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
-static void  control_clear_cloexec  (void);
+
+/* FIXME: temporary function attribute */
+#if 1
+static void  control_clear_cloexec  (void)
+	__attribute__ ((unused));
+#endif
+
 static void  control_bus_flush      (void);
 static int   control_get_connection_fd (DBusConnection *connection)
 	__attribute__ ((warn_unused_result));
@@ -381,7 +387,9 @@ control_reload_configuration (void           *data,
 	nih_assert (message != NULL);
 
 	nih_info (_("Reloading configuration"));
-	conf_reload ();
+
+	/* This can only be called after deserialisation */
+	conf_reload (FALSE);
 
 	return 0;
 }
@@ -892,10 +900,9 @@ control_bus_flush (void)
 {
 	control_init ();
 
-	nih_assert (control_bus);
-
-	while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
-		;
+	if (control_bus)
+		while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
+			;
 }
 
 /**
@@ -909,8 +916,16 @@ control_prepare_reexec (void)
 {
 	control_init ();
 
+	if (control_server)
+		control_server_close ();
+
 	control_bus_flush ();
+
+	/* FIXME */
+	nih_warn ("WARNING: NOT clearing close-on-exec bit for D-Bus connections yet");
+#if 0
 	control_clear_cloexec ();
+#endif
 }
 
 
@@ -1135,7 +1150,7 @@ control_deserialise_all (json_object *json)
 			goto error;
 
 		/* FIXME */
-		nih_warn ("WARNING: D-Bus connection NOT being deserialised yet");
+		nih_warn ("WARNING: D-Bus connections NOT being deserialised yet");
 #if 0
 		if (! control_deserialise (json))
 			goto error;

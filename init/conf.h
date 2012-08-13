@@ -119,7 +119,7 @@ ConfSource *conf_source_new    (const void *parent, const char *path,
 ConfFile *  conf_file_new      (ConfSource *source, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
 
-void        conf_reload        (void);
+void        conf_reload        (int _deserialised);
 int         conf_source_reload (ConfSource *source)
 	__attribute__ ((warn_unused_result));
 
