@@ -247,11 +247,6 @@ state_read_objects (int fd)
 			goto error;
 	} while (TRUE);
 
-#if 1
-	/* FIXME: */
-	nih_message ("XXX: read json '%s'", buffer->buf);
-#endif
-
 	/* Recreate internal state from JSON */
 	if (state_from_string (buffer->buf) < 0)
 		goto error;
@@ -1457,7 +1452,8 @@ state_serialise_blocking (const NihList *blocking)
 		 */
 #if 1
 		if (blocked->type != BLOCKED_EVENT && blocked->type != BLOCKED_JOB) {
-			nih_warn ("WARNING: D-Bus blocked objects NOT being serialised yet");
+			nih_warn ("XXX: WARNING (%s:%d): D-Bus blocked objects NOT being serialised yet",
+					__func__, __LINE__);
 			continue;
 		}
 #endif

@@ -401,21 +401,6 @@ session_serialise (const Session *session)
 
 	json_object_object_add (json, "chroot", chroot);
 
-	/* Requirement for NULL session handling disallows use of helper
-	 * macros.
-	 */
-	/* FIXME */
-	//user = json_object_new_int ((int)(session ? session->user : 0));
-#if 0
-	if (session) {
-		if (sizeof (session->user) > sizeof (int))
-			user = json_object_new_int64 (session->user);
-		else
-			user = json_object_new_int (session->user);
-	} else {
-		user = json_object_new_int (0);
-	}
-#endif
 	user = state_new_json_int (session ? session->user : 0,
 			session ? session->user : 0);
 
@@ -455,11 +440,6 @@ session_serialise_all (void)
 	json_object  *json_session;
 
 	session_init ();
-
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
 
 	json = json_object_new_array ();
 	if (! json)
@@ -552,18 +532,14 @@ session_deserialise_all (json_object *json)
 
 	nih_assert (json);
 
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
-
 	session_init ();
 
 	/* FIXME: enable for final build */
 #if PRODUCTION_BUILD
 	nih_assert (NIH_LIST_EMPTY (sessions));
 #else
-	nih_warn ("XXX: WARNING: NIH_LIST_EMPTY(sessions) check disabled");
+	nih_warn ("XXX: WARNING (%s:%d): NIH_LIST_EMPTY(sessions) check disabled",
+			__func__, __LINE__);
 #endif
 
 	json_sessions = json_object_object_get (json, "sessions");
@@ -577,11 +553,6 @@ session_deserialise_all (json_object *json)
 	for (int i = 0; i < json_object_array_length (json_sessions); i++) {
 		json_object   *json_session;
 
-		/* FIXME */
-#if 1
-		nih_message ("%s:%d: found session", __func__, __LINE__);
-#endif
-
 		json_session = json_object_array_get_idx (json_sessions, i);
 		if (! json_session)
 			goto error;
@@ -592,12 +563,6 @@ session_deserialise_all (json_object *json)
 		partial = session_deserialise (json_session);
 		if (! partial)
 			goto error;
-
-		/* FIXME */
-#if 1
-		nih_message ("session[%d]: chroot='%s', user=%d, conf_path='%s'",
-				i, partial->chroot, partial->user, partial->conf_path);
-#endif
 
 		if (! *partial->chroot && ! partial->user && ! *partial->conf_path) {
 			/* Ignore the "NULL session" which is represented

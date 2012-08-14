@@ -711,18 +711,13 @@ event_deserialise_all (json_object *json)
 
 	nih_assert (json);
 
-#if 1
-	/* FIXME */
-	nih_message ("%s:%d:", __func__, __LINE__);
-#endif
-
 	event_init ();
 
 	/* FIXME: enable for final build */
 #if PRODUCTION_BUILD
 	nih_assert (NIH_LIST_EMPTY (events));
 #else
-	nih_warn ("XXX: WARNING: NIH_LIST_EMPTY(events) check disabled");
+	nih_warn ("XXX: WARNING (%s:%d): NIH_LIST_EMPTY(events) check disabled", __func__, __LINE__);
 #endif
 	json_events = json_object_object_get (json, "events");
 
@@ -735,11 +730,6 @@ event_deserialise_all (json_object *json)
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
 		json_object   *json_event;
 
-#if 1
-		/* FIXME */
-		nih_message ("XXX: found event ");
-#endif
-
 		json_event = json_object_array_get_idx (json_events, i);
 		if (! json_event)
 			goto error;
@@ -750,12 +740,6 @@ event_deserialise_all (json_object *json)
 		partial = event_deserialise (json_event);
 		if (! partial)
 			goto error;
-
-#if 1
-		/* FIXME */
-		nih_message ("event[%d]: name='%s', fd=%d",
-				i, partial->name, partial->fd);
-#endif
 
 		/* Create a new event */
 		event = NIH_MUST (event_new (NULL, partial->name, partial->env));

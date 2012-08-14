@@ -923,7 +923,8 @@ control_prepare_reexec (void)
 
 #if 1
 	/* FIXME */
-	nih_warn ("WARNING: NOT clearing close-on-exec bit for D-Bus connections yet");
+	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
+			__func__, __LINE__);
 #else
 	control_clear_cloexec ();
 #endif
@@ -1057,8 +1058,9 @@ control_deserialise (json_object *json)
 
 	dbus_error_init (&error);
 
-	nih_warn ("WARNING: unable to maintain D-Bus connections "
-			"- bridges must be restarted");
+	nih_warn ("XXX: WARNING (%s:%d): unable to maintain D-Bus connections "
+			"- bridges must be restarted",
+			__func__, __LINE__);
 
 	/* FIXME: this isn't currently possible as
 	 * dbus_connection_open_from_fd() has not been added to D-Bus.
@@ -1154,7 +1156,8 @@ control_deserialise_all (json_object *json)
 			goto error;
 
 		/* FIXME */
-		nih_warn ("WARNING: D-Bus connections NOT being deserialised yet");
+		nih_warn ("XXX: WARNING (%s:%d): D-Bus connections NOT being deserialised yet",
+				__func__, __LINE__);
 #if 0
 		if (! control_deserialise (json))
 			goto error;
