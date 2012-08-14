@@ -153,6 +153,8 @@ state_read (int fd)
  *
  * Write internal state to specified file descriptor in JSON format.
  *
+ * Signals are assumed to be blocked when this call is made.
+ *
  * Note the timeout - it is possible that the new PID 1 instance may be
  * unable to read from its end of the file descriptor, either due to
  * some error scenario or more likely due to it not supporting stateful
@@ -1466,13 +1468,6 @@ state_serialise_blocked (const Blocked *blocked)
 	if (! json_blocked_data)
 		goto error;
 
-#if 1
-	/* FIXME */
-	nih_debug ("%s:%d: blocking type: %d",
-			__func__, __LINE__,
-			blocked->type);
-#endif
-
 	switch (blocked->type) {
 	case BLOCKED_JOB:
 		{
@@ -1530,6 +1525,10 @@ state_serialise_blocked (const Blocked *blocked)
 			char         *dbus_message_data_str = NULL;
 			int           len = 0;
 
+#if 1
+			nih_warn ("WARNING: D-Bus blocked objects NOT being deserialised yet");
+			return NULL;
+#endif
 			if (! state_set_json_var_full (json_blocked_data,
 						"msg-id",
 						dbus_message_get_serial (message),

@@ -74,9 +74,12 @@ static int   control_get_connection_fd (DBusConnection *connection)
 	__attribute__ ((warn_unused_result));
 static json_object * control_serialise (DBusConnection *connection)
 	__attribute__ ((malloc, warn_unused_result));
-#if 0
 static DBusConnection *control_deserialise (json_object *json)
+#if 0
 	__attribute__ ((malloc, warn_unused_result));
+#else
+/* FIXME: temporary function attribute */
+	__attribute__ ((unused));
 #endif
 
 extern json_object *json_control_conns;;
@@ -861,17 +864,9 @@ control_get_connection_fd (DBusConnection *connection)
 static void
 control_clear_cloexec (void)
 {
-	int    fd;
-
 	control_init ();
 
 	nih_assert (control_bus);
-
-	if (! dbus_connection_get_unix_fd (control_bus, &fd))
-		return;
-
-	if (state_toggle_cloexec (fd, FALSE) < 0)
-		nih_warn (_("Failed to clear control server CLOEXEC flag"));
 
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry    *entry = (NihListEntry *)iter;
@@ -880,13 +875,13 @@ control_clear_cloexec (void)
 
 		fd = control_get_connection_fd (conn);
 
+		if (state_toggle_cloexec (fd, FALSE) < 0)
+			nih_warn (_("Failed to clear control connection CLOEXEC flag"));
+#if 1
 		/* FIXME */
-		nih_message ("XXX: found D-Bus connection %p (fd=%d)",
-				conn, fd);
-
-		if (conn == control_bus)
-			/* already handled */
-			continue;
+		nih_message ("XXX: found D-Bus connection %p (fd=%d, control bus=%s)",
+				conn, fd, conn == control_bus ? "yes" : "no");
+#endif
 	}
 }
 
@@ -900,9 +895,11 @@ control_bus_flush (void)
 {
 	control_init ();
 
-	if (control_bus)
-		while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
-			;
+	if (! control_bus)
+		return;
+
+	while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
+		;
 }
 
 /**
@@ -916,14 +913,18 @@ control_prepare_reexec (void)
 {
 	control_init ();
 
+	/* Necessary to disallow further commands but also to allow the
+	 * new instance to open the control server.
+	 */
 	if (control_server)
 		control_server_close ();
 
 	control_bus_flush ();
 
+#if 1
 	/* FIXME */
 	nih_warn ("WARNING: NOT clearing close-on-exec bit for D-Bus connections yet");
-#if 0
+#else
 	control_clear_cloexec ();
 #endif
 }
@@ -1028,7 +1029,6 @@ error:
 	return NULL;
 }
 
-#if 0
 /**
  * control_deserialise:
  * @json: JSON-serialised DBusConnection object to deserialise.
@@ -1088,6 +1088,7 @@ control_deserialise (json_object *json)
 	/* (Re)create the D-Bus connections from the file descriptors
 	 * passed from the original PID 1.
 	 */
+#if 0
 	conn = dbus_connection_open_from_fd (address, fd, &error);
 	if (! conn || dbus_error_is_set (&error)) {
 		nih_error ("%s: %s",
@@ -1096,6 +1097,10 @@ control_deserialise (json_object *json)
 		dbus_error_free (&error);
 		goto error;
 	}
+#else
+	/* FIXME: keep compiler happy */
+	conn = NULL;
+#endif
 
 	/* Re-apply close-on-exec flag to stop fd from leaked
 	 * to child processes.
@@ -1112,7 +1117,6 @@ error:
 	nih_free (conn);
 	return NULL;
 }
-#endif
 
 /**
  * control_deserialise_all:
@@ -1177,9 +1181,9 @@ error:
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_debug_serialise (void            *data,
-		NihDBusMessage  *message,
-		char           **json)
+control_debug_serialise (void           *data,
+			NihDBusMessage  *message,
+			char           **json)
 {
 	size_t len;
 

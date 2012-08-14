@@ -161,7 +161,7 @@ static NihOption options[] = {
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	/* This must be specified for both stateful and stateless re-exec */
+	/* Must be specified for both stateful and stateless re-exec */
 	{ 0, "restart", N_("flag a re-exec has occurred"),
 		NULL, NULL, &restart, NULL },
 
@@ -186,7 +186,6 @@ int
 main (int   argc,
       char *argv[])
 {
-	/* FIXME: should this be nih_local? */
 	char **args = NULL;
 	int    ret;
 
@@ -441,9 +440,9 @@ main (int   argc,
 		} else if (state_read (state_fd) < 0) {
 			nih_local char *arg = NULL;
 
-			/* If stateful re-exec fails, degrade to stateless re-exec to
-			 * avoid spinning in case of unforeseen problems causing
-			 * stateful re-exec to repeatedly fail.
+			/* Stateful re-exec has failed so try once more by
+			 * degrading to stateless re-exec, which even in
+			 * the case of low-memory scenarios will work.
 			 */
 
 			/* Inform the child we've given up on stateful
@@ -455,19 +454,25 @@ main (int   argc,
 				_("Failed to read serialisation data"),
 				_("reverting to stateless re-exec"));
 
-			/* Add an argument (thus overriding any existing
-			 * argument of the same name) that effectively disables
-			 * stateful re-exec by providing an invalid
-			 * state-passing file descriptor.
+			/* Remove any existing state fd args which will effectively
+			 * disable stateful re-exec.
 			 */
-			arg = NIH_MUST (nih_strdup (NULL, "--state-fd"));
-			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+			for (int i = 1; args_copy[i]; i++) {
+				if (! strcmp (args_copy[i], "--state-fd")) {
 
-			arg = NIH_MUST (nih_sprintf (NULL, "%d", -1));
-			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+					/* Remove existing entry and fd value */
+					nih_free (args_copy[i]);
+					nih_free (args_copy[i+1]);
 
-			NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
+					/* shuffle up the remaining args */
+					for (int j = i+2; args_copy[j]; i++, j++)
+						args_copy[i] = args_copy[j];
+					args_copy[i] = NULL;
+					break;
+				}
+			}
 
+			/* Attempt stateless re-exec */
 			perform_reexec ();
 
 			nih_error ("%s",
@@ -478,17 +483,11 @@ main (int   argc,
 		}
 	}
 
-	/* FIXME: change logic to *update* existing JobClasses by
-	 * passing in an 'update' flag (value of restart!)
-	 */
-#if 1
-
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	conf_reload (restart);
-#endif
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {
@@ -753,14 +752,15 @@ term_handler (void      *data,
 
 	stateful_reexec ();
 
+	/* We should never end up here since it likely indicates the
+	 * new init binary is damaged.
+	 *
+	 * All we can do is restore the signal handler and drop back into
+	 * the main loop.
+	 */
+
 	/* Restore */
 	sigprocmask (SIG_SETMASK, &oldmask, NULL);
-
-/* FIXME */
-	nih_assert_not_reached ();
-#if 0
-	/* Drop out of signal handler, and back into main loop */
-#endif
 }
 
 
@@ -959,12 +959,14 @@ perform_reexec (void)
 	 * log level options.
 	 *
 	 * Note that should Upstart be re-exec'ed too many times,
-	 * eventually odd behaviour may result if the command-line
-	 * becomes too large. The correct way to handle this would be to
-	 * prune now invalid options from the command-line to ensure it
-	 * does not continue to increase. That said, if we hit the
-	 * limit, worse things are probably going on so for now we'll
-	 * settle for the simplistic approach.
+	 * eventually an unexpected log level may result if the
+	 * command-line becomes too large (and thus truncates).
+	 *
+	 * The correct way to handle this would be to prune now invalid
+	 * options from the command-line to ensure it does not continue
+	 * to increase. That said, if we hit the limit, worse things
+	 * are probably going on so for now we'll settle for the
+	 * simplistic approach.
 	 */
 	if (nih_log_priority <= NIH_LOG_DEBUG) {
 		loglevel = "--debug";
@@ -1021,10 +1023,6 @@ stateful_reexec (void)
 	if (pipe (fds) < 0)
 		goto reexec;
 
-	/* FIXME: check this! */
-	/* FIXME: check this! */
-	/* FIXME: check this! */
-
 	/* retain the D-Bus connection across the re-exec */
 	control_prepare_reexec ();
 
@@ -1047,8 +1045,6 @@ stateful_reexec (void)
 		 * paring, this option will be ignored and the new instance
 		 * will therefore not be able to read the state and overall
 		 * a stateless re-exec will therefore be performed.
-		 *
-		 * Note futher that this strategy
 		 */
 		arg = NIH_MUST (nih_strdup (NULL, "--state-fd"));
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
@@ -1072,5 +1068,6 @@ stateful_reexec (void)
 	}
 
 reexec:
+	/* Attempt stateful re-exec */
 	perform_reexec ();
 }
