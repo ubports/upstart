@@ -56,6 +56,7 @@
 #include "blocked.h"
 #include "control.h"
 #include "parse_job.h"
+#include "state.h"
 
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
@@ -1553,10 +1554,6 @@ job_serialise (const Job *job)
 
 	/* FIXME:
 	 *
-	 * class
-	 *
-	 * kill_timer
-	 *
 	 * log !!!
 	 */
 
@@ -1621,16 +1618,11 @@ job_serialise (const Job *job)
 	/* FIXME: we're only encoding if there *IS* a blocker!?! */
 #endif
 	if (job->blocker) {
-		int event_index = 0;
+		int event_index;
 
-		NIH_LIST_FOREACH (events, iter) {
-			Event *event = (Event *)iter;
-
-			if (event == job->blocker)
-				break;
-
-			event_index++;
-		}
+		event_index = event_to_index (job->blocker);
+		if (event_index < 0)
+			goto error;
 
 		/* For consistency, it would be preferable to encode the
 		 * event name, but the index is actually better since it is
@@ -1655,7 +1647,10 @@ job_serialise (const Job *job)
 		json_object_object_add (json, "blocking", json_blocking);
 	}
 
+	/* FIXME */
+#if 1
 	nih_info ("XXX:%s:%d:warning job->kill_timer NEEDS TESTING", __func__, __LINE__);
+#endif
 
 	/* conditionally encode kill timer */
 	if (job->kill_timer) {
@@ -1700,7 +1695,9 @@ job_serialise (const Job *job)
 		goto error;
 
 	/* FIXME: log */
-	nih_info ("XXX:%s:%d:warning job->log not handled", __func__, __LINE__);
+#if 1
+	nih_info ("XXX: WARNING (%s:%d) job->log NOT handled", __func__, __LINE__);
+#endif
 
 	return json;
 
@@ -1847,7 +1844,7 @@ job_deserialise (json_object *json)
 
 #if 1
 	/* FIXME: kill_timer */
-	nih_info ("XXX:%s:%d:warning job->kill_timer NEEDS TESTING", __func__, __LINE__);
+	nih_info ("XXX: WARNING (%s:%d) job->kill_timer needs testing", __func__, __LINE__);
 #endif
 	/* Check to see if a kill timer exists first since we do not
 	 * want to end up creating a real but empty timer.
@@ -1893,7 +1890,9 @@ job_deserialise (json_object *json)
 		goto error;
 
 	/* FIXME: log!! */
-	nih_info ("XXX:%s:%d:warning job->log not handled", __func__, __LINE__);
+#if 1
+	nih_info ("XXX: WARNING (%s:%d) job->log NOT handled", __func__, __LINE__);
+#endif
 
 	return partial;
 
@@ -1992,7 +1991,11 @@ job_deserialise_all (JobClass *parent, json_object *json)
 			goto error;
 
 		/* FIXME: blocker */
-		/* FIXME: blocking */
+#if 1
+		nih_info ("XXX: WARNING (%s:%d) bug - job->blocked not being deserialised", __func__, __LINE__);
+#endif
+
+		/* 'blocking' handled by state_deserialise_blocking() */
 
 		state_partial_copy_int (job, partial, kill_process);
 

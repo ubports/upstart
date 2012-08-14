@@ -101,6 +101,12 @@ json_object  * event_serialise_all (void)
 int            event_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
+int    event_to_index (const Event *event)
+	__attribute__ ((warn_unused_result));
+
+Event * event_from_index (int event_index)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_EVENT_H */

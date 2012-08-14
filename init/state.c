@@ -65,14 +65,6 @@ static Blocked *
 state_deserialise_blocked (void *parent, json_object *json, NihList *list)
 	__attribute__ ((malloc, warn_unused_result));
 
-static int
-state_event_to_index (const Event *event)
-	__attribute__ ((warn_unused_result));
-
-static Event *
-state_index_to_event (int event_index)
-	__attribute__ ((warn_unused_result));
-
 static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
@@ -1225,7 +1217,7 @@ state_deserialise_resolve_deps (json_object *json)
 		if (! state_check_json_type (json_event, object))
 			goto error;
 
-		event = state_index_to_event (i);
+		event = event_from_index (i);
 		if (! event)
 			goto error;
 
@@ -1347,7 +1339,7 @@ state_serialise_blocked (const Blocked *blocked)
 		{
 			int event_index = 0;
 
-			event_index = state_event_to_index (blocked->event);
+			event_index = event_to_index (blocked->event);
 			if (event_index < 0)
 				goto error;
 
@@ -1543,7 +1535,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 						"index", event_index))
 				goto error;
 
-			event = state_index_to_event (event_index);
+			event = event_from_index (event_index);
 			if (! event)
 				goto error;
 
@@ -1664,72 +1656,6 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 error:
 	return -1;
 }
-
-/**
- * state_event_to_index:
- *
- * @event: event.
- *
- * Convert an event to an index number within
- * the list of events.
- *
- * Returns: event index, or -1 on error.
- **/
-static int
-state_event_to_index (const Event *event)
-{
-	int event_index = 0;
-	int found = 0;
-
-	nih_assert (event);
-	nih_assert (events);
-
-	NIH_LIST_FOREACH (events, iter) {
-		Event *tmp = (Event *)iter;
-
-		if (tmp == event) {
-			found = 1;
-			break;
-		}
-
-		event_index++;
-	}
-
-	if (! found)
-		return -1;
-
-	return event_index;
-}
-
-
-/**
- * state_index_to_event:
- *
- * @event_index: event index number.
- *
- * Lookup event based on JSON array index number.
- *
- * Returns: existing Job on success, or NULL if Job not found.
- **/
-Event *
-state_index_to_event (int event_index)
-{
-	int     i = 0;
-
-	nih_assert (event_index >= 0);
-	nih_assert (events);
-
-	NIH_LIST_FOREACH (events, iter) {
-		Event *event = (Event *)iter;
-
-		if (i == event_index)
-			return event;
-		i++;
-	}
-
-	return NULL;
-}
-
 
 /**
  * state_index_to_job_class:

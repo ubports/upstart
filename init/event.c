@@ -791,3 +791,67 @@ event_progress_str_to_enum (const char *progress)
 
 	return -1;
 }
+
+/**
+ * event_to_index:
+ *
+ * @event: event.
+ *
+ * Convert an Event to an index number within
+ * the list of events.
+ *
+ * Returns: event index, or -1 on error.
+ **/
+int
+event_to_index (const Event *event)
+{
+	int event_index = 0;
+	int found = 0;
+
+	nih_assert (event);
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *tmp = (Event *)iter;
+
+		if (tmp == event) {
+			found = 1;
+			break;
+		}
+
+		event_index++;
+	}
+
+	if (! found)
+		return -1;
+
+	return event_index;
+}
+
+/**
+ * event_from_index:
+ *
+ * @event_index: event index number.
+ *
+ * Lookup Event based on index number.
+ *
+ * Returns: existing Event on success, or NULL if event not found.
+ **/
+Event *
+event_from_index (int event_index)
+{
+	int     i = 0;
+
+	nih_assert (event_index >= 0);
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		if (i == event_index)
+			return event;
+		i++;
+	}
+
+	return NULL;
+}
