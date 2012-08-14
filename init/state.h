@@ -311,28 +311,6 @@
 
 #include <json.h>
 
-#if 0
-/**
- * STATE_VERSION_MIN:
- *
- * Oldest serialistion data format version supported.
- **/
-#define STATE_VERSION_MIN 1
-#endif
-
-/* FIXME */
-#if 0
-/**
- * STATE_VERSION:
- *
- * Newest serialistion data format version supported.
- *
- * Increment when new versions are introduced but ensure output
- * compatible with all prior versions can be generated.
- **/
-#define STATE_VERSION 1
-#endif
-
 /**
  * STATE_WAIT_SECS:
  *
@@ -990,18 +968,27 @@
 
 NIH_BEGIN_EXTERN
 
-/* FIXME: remove */
-#if 0
-void state_init          (int version);
+/**
+ * EnumSerialiser:
+ *
+ * @value: enum value.
+ *
+ * Convert @value to a string value.
+ *
+ * Returns: string value of @value, or NULL if @value is unknown.
+ **/
+typedef const char *(*EnumSerialiser) (int value);
 
-int  state_get_version   (void)
-	__attribute__ ((warn_unused_result));
-
-void state_show_version  (void);
-
-int  state_serialiseable (void)
-	__attribute__ ((warn_unused_result));
-#endif
+/**
+ * EnumDeserialiser:
+ *
+ * @name: string representation of an enum value.
+ *
+ * Convert @name to an enum value.
+ *
+ * Returns: enum value of @name, or -1 if @name is unknown.
+ **/
+typedef int (*EnumDeserialiser) (const char *name);
 
 int  state_read          (int fd)
 	__attribute__ ((warn_unused_result));
@@ -1065,36 +1052,6 @@ char *state_collapse_env (char **env)
 enum json_type
 state_get_json_type (const char *short_type)
 	__attribute__ ((warn_unused_result));
-
-/* FIXME: remove - not needed? */
-#if 0
-int
-state_serialise_resolve_deps (json_object *json_events,
-		json_object *json_job_classes)
-	__attribute__ ((warn_unused_result));
-#endif
-
-/**
- * EnumSerialiser:
- *
- * @value: enum value.
- *
- * Convert @value to a string value.
- *
- * Returns: string value of @value, or NULL if @value is unknown.
- **/
-typedef const char *(*EnumSerialiser) (int value);
-
-/**
- * EnumDeserialiser:
- *
- * @name: string representation of an enum value.
- *
- * Convert @name to an enum value.
- *
- * Returns: enum value of @name, or -1 if @name is unknown.
- **/
-typedef int (*EnumDeserialiser) (const char *name);
 
 int
 state_deserialise_resolve_deps (json_object *json)
