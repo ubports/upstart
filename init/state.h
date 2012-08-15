@@ -914,6 +914,24 @@
 	((parent)->name = (source)->name)
 
 /**
+ * state_partial_copy_ptr:
+ *
+ * @to: object to assign @name to,
+ * @from: object from which to take value from,
+ * @name: name of pointer element in @from to assign to @to.
+ *
+ * Copy pointer value of @name element from @from to @to.
+ *
+ * Trivial, but removes any risk of incorrect assignment due to
+ * "name mixups".
+ *
+ * Returns: value of @name.
+ *
+ **/
+#define state_partial_copy_ptr(parent, source, name) \
+	((parent)->name = (source)->name)
+
+/**
  * state_partial_copy_string:
  *
  * @parent: parent object for new string (parent of @var),

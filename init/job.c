@@ -298,7 +298,7 @@ job_change_goal (Job     *job,
 	 * will finish naturally, so all we need do is change the goal and
 	 * we'll change direction through the state machine at that point.
 	 *
-	 * The exceptions are the natural rest sates of waiting and a
+	 * The exceptions are the natural rest states of waiting and a
 	 * running process; these need induction to get them moving.
 	 */
 	switch (goal) {
@@ -1689,6 +1689,24 @@ job_serialise (const Job *job)
 	if (! state_set_json_int_var_from_obj (json, job, trace_forks))
 		goto error;
 
+	/* FIXME: handle ptraced jobs across re-exec */
+#if 1	
+	if (job->trace_state != TRACE_NONE) {
+		nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job '%s' (class '%s') will stop after re-exec",
+				__func__, __LINE__,
+				job->name ? job->name : "",
+				job->class->name);
+
+		for (int i = 0; i < PROCESS_LAST; i++) {
+			nih_info ("XXX: WARNING (%s:%d) job '%s' (class '%s') pid[%d]=%d",
+					__func__, __LINE__,
+					job->name ? job->name : "",
+					job->class->name,
+					i, job->pid[i]);
+		}
+	}
+#endif
+
 	if (! state_set_json_enum_var (json,
 				job_trace_state_enum_to_str,
 				"trace_state", job->trace_state))
@@ -1761,6 +1779,7 @@ job_deserialise (json_object *json)
 {
 	Job          *partial;
 	json_object  *kill_timer;
+	json_object  *blocker;
 
 	nih_assert (json);
 
@@ -1841,6 +1860,27 @@ job_deserialise (json_object *json)
 
 	/* fds and num_fds handled by caller */
 	/* pid handled by caller */
+
+	/* blocking is handled by state_deserialise_blocking() */
+
+	blocker = json_object_object_get (json, "blocker");
+
+	if (blocker) {
+		int event_index;
+
+		if (! state_get_json_int_var (json, "blocker", event_index))
+			goto error;
+		partial->blocker = event_from_index (event_index);
+
+#if 1
+		/* FIXME */
+		nih_info ("%s:%d:XXXXXXXXXXXXXXXXX: event_index=%d, event=%p",
+				__func__, __LINE__, event_index, partial->blocker);
+#endif
+
+		if (! partial->blocker)
+			goto error;
+	}
 
 #if 1
 	/* FIXME: kill_timer */
@@ -1990,10 +2030,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		if (len != PROCESS_LAST)
 			goto error;
 
-		/* FIXME: blocker */
-#if 1
-		nih_info ("XXX: WARNING (%s:%d) bug - job->blocked not being deserialised", __func__, __LINE__);
-#endif
+		state_partial_copy_ptr (job, partial, blocker);
 
 		/* 'blocking' handled by state_deserialise_blocking() */
 
@@ -2031,6 +2068,16 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		state_partial_copy_int (job, partial, respawn_count);
 		state_partial_copy_int (job, partial, trace_forks);
 		state_partial_copy_int (job, partial, trace_state);
+
+	/* FIXME: handle ptraced jobs across re-exec */
+#if 1	
+		if (partial->trace_state != TRACE_NONE) {
+			nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job '%s' (class '%s') will now stop",
+					__func__, __LINE__,
+					job->name ? job->name : "",
+					job->class->name);
+		}
+#endif
 
 
 #if 1

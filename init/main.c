@@ -1023,6 +1023,8 @@ stateful_reexec (void)
 	if (pipe (fds) < 0)
 		goto reexec;
 
+	nih_info (_("Performing stateful re-exec"));
+
 	/* retain the D-Bus connection across the re-exec */
 	control_prepare_reexec ();
 
@@ -1055,7 +1057,7 @@ stateful_reexec (void)
 		/* Child */
 		close (fds[0]);
 
-		nih_info ("passing state from PID %d to parent", (int)getpid ());
+		nih_info (_("Passing state from PID %d to parent"), (int)getpid ());
 
 		if (state_write (fds[1]) < 0) {
 			nih_error ("%s",
