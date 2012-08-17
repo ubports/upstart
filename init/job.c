@@ -1593,7 +1593,7 @@ job_serialise (const Job *job)
 	if (! stop_on)
 		goto error;
 
-	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
+	if (! state_set_json_string_var (json, "stop_on", stop_on)) {
 		nih_free (stop_on);
 		goto error;
 	}
@@ -1629,7 +1629,7 @@ job_serialise (const Job *job)
 		 * simple and unambiguous - encoding the name would also require
 		 * us to encode the env to make the event unique.
 		 */
-		if (! state_set_json_var_full (json, "blocker", event_index, int))
+		if (! state_set_json_int_var (json, "blocker", event_index))
 			goto error;
 
 	}
@@ -1692,13 +1692,16 @@ job_serialise (const Job *job)
 	/* FIXME: handle ptraced jobs across re-exec */
 #if 1	
 	if (job->trace_state != TRACE_NONE) {
-		nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job '%s' (class '%s') will stop after re-exec",
+		nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will stop after re-exec",
 				__func__, __LINE__,
 				job->name ? job->name : "",
 				job->class->name);
 
 		for (int i = 0; i < PROCESS_LAST; i++) {
-			nih_info ("XXX: WARNING (%s:%d) job '%s' (class '%s') pid[%d]=%d",
+			if (! job->pid[i])
+				continue;
+
+			nih_info ("XXX: WARNING (%s:%d) job instance '%s' (class '%s') pid[%d]=%d",
 					__func__, __LINE__,
 					job->name ? job->name : "",
 					job->class->name,
@@ -2072,7 +2075,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 	/* FIXME: handle ptraced jobs across re-exec */
 #if 1	
 		if (partial->trace_state != TRACE_NONE) {
-			nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job '%s' (class '%s') will now stop",
+			nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will now stop",
 					__func__, __LINE__,
 					job->name ? job->name : "",
 					job->class->name);

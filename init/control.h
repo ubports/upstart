@@ -98,6 +98,13 @@ json_object * control_serialise_all (void)
 int control_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
+int control_conn_to_index (const DBusConnection *connection)
+	__attribute__ ((warn_unused_result));
+
+DBusConnection *
+control_conn_from_index (int conn_index)
+	__attribute__ ((warn_unused_result));
+
 /* FIXME: DEBUG/TEST only */
 #if 1
 int

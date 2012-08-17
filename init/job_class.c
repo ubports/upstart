@@ -1730,7 +1730,7 @@ job_class_serialise (const JobClass *class)
 	if (session_index < 0)
 		goto error;
 
-	if (! state_set_json_var_full (json, "session", session_index, int))
+	if (! state_set_json_int_var (json, "session", session_index))
 		goto error;
 
 	if (! state_set_json_string_var_from_obj (json, class, name))
@@ -1780,7 +1780,7 @@ job_class_serialise (const JobClass *class)
 	if (! start_on)
 		goto error;
 
-	if (! state_set_json_var_full (json, "start_on", start_on, string)) {
+	if (! state_set_json_string_var (json, "start_on", start_on)) {
 		nih_free (start_on);
 		goto error;
 	}
@@ -1791,7 +1791,7 @@ job_class_serialise (const JobClass *class)
 	if (! stop_on)
 		goto error;
 
-	if (! state_set_json_var_full (json, "stop_on", stop_on, string)) {
+	if (! state_set_json_string_var (json, "stop_on", stop_on)) {
 		nih_free (stop_on);
 		goto error;
 	}

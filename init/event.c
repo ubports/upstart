@@ -549,7 +549,7 @@ event_serialise (const Event *event)
 	if (session_index < 0)
 		goto error;
 
-	if (! state_set_json_var_full (json, "session", session_index, int))
+	if (! state_set_json_int_var (json, "session", session_index))
 		goto error;
 
 	if (! state_set_json_string_var_from_obj (json, event, name))
@@ -806,7 +806,7 @@ int
 event_to_index (const Event *event)
 {
 	int event_index = 0;
-	int found = 0;
+	int found = FALSE;
 
 	nih_assert (event);
 	nih_assert (events);
@@ -815,7 +815,7 @@ event_to_index (const Event *event)
 		Event *tmp = (Event *)iter;
 
 		if (tmp == event) {
-			found = 1;
+			found = TRUE;
 			break;
 		}
 
@@ -840,7 +840,7 @@ event_to_index (const Event *event)
 Event *
 event_from_index (int event_index)
 {
-	int     i = 0;
+	int i = 0;
 
 	nih_assert (event_index >= 0);
 	nih_assert (events);

@@ -384,6 +384,9 @@
  * Query @json, setting @json_var to be the JSON value of @name where
  * @json_var is of type @type.
  *
+ * XXX: Although you may use this macro, it is unlikely you will need to
+ * as there are more specific macros available.
+ *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_var_full(json, name, type, json_var) \
@@ -679,6 +682,9 @@
  * @type_json: JSON type (without prefix) representing type of @value.
  *
  * Add @value to @json with name @name and type @type.
+ *
+ * XXX: Although you may use this macro, it is unlikely you will need to
+ * as there are more specific macros available.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/

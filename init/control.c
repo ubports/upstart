@@ -945,6 +945,7 @@ control_serialise (DBusConnection *connection)
 {
 	json_object  *json;
 	int           fd;
+	const char   *address;
 
 	nih_assert (connection);
 	nih_assert (control_bus);
@@ -962,6 +963,16 @@ control_serialise (DBusConnection *connection)
 		goto error;
 
 	if (! state_set_json_int_var (json, "fd", fd))
+		goto error;
+
+	/* FIXME: TODO: wrap into control_get_address() for
+	 * consistency with control_get_connection_fd().
+	 */
+	address = dbus_connection_get_address (connection);
+	if (! address)
+		goto error;
+
+	if (! state_set_json_string_var (json, "address", address))
 		goto error;
 
 	if (connection == control_bus)
@@ -1044,6 +1055,7 @@ control_deserialise (json_object *json)
 	DBusConnection     *conn;
 	DBusError           error;
 	int                 fd;
+	const char         *address;
 
 	nih_assert (json);
 
@@ -1054,6 +1066,9 @@ control_deserialise (json_object *json)
 		goto error;
 
 	if (! state_fd_valid (fd))
+		goto error;
+
+	if (! state_get_json_string_var (json, "address", address))
 		goto error;
 
 	dbus_error_init (&error);
@@ -1090,7 +1105,12 @@ control_deserialise (json_object *json)
 	/* (Re)create the D-Bus connections from the file descriptors
 	 * passed from the original PID 1.
 	 */
-#if 0
+
+/* FIXME */
+#if 1
+	nih_warn ("XXX: WARNING(%s:%d): using unofficial D-Bus API dbus_connection_open_from_fd()",
+			__func__, __LINE__);
+
 	conn = dbus_connection_open_from_fd (address, fd, &error);
 	if (! conn || dbus_error_is_set (&error)) {
 		nih_error ("%s: %s",
@@ -1168,6 +1188,69 @@ control_deserialise_all (json_object *json)
 error:
 	return -1;
 
+}
+
+/**
+ * control_conn_to_index:
+ *
+ * @event: event.
+ *
+ * Convert a control (DBusConnection) connection to an index number
+ * the list of control connections.
+ *
+ * Returns: connection index, or -1 on error.
+ **/
+int
+control_conn_to_index (const DBusConnection *connection)
+{
+	int conn_index = 0;
+	int found = FALSE;
+
+	nih_assert (connection);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		DBusConnection *conn = (DBusConnection *)iter;
+
+		if (connection == conn) {
+			found = TRUE;
+			break;
+		}
+
+		conn_index++;
+	}
+	if (! found)
+		return -1;
+
+	return conn_index;
+}
+
+/**
+ * control_conn_from_index:
+ *
+ * @conn_index: control connection index number.
+ *
+ * Lookup control connection based on index number.
+ *
+ * Returns: existing connection on success, or NULL if connection
+ * not found.
+ **/
+DBusConnection *
+control_conn_from_index (int conn_index)
+{
+	int i = 0;
+
+	nih_assert (conn_index >= 0);
+	nih_assert (control_conns);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		DBusConnection *conn = (DBusConnection *)iter;
+
+		if (i == conn_index)
+			return conn;
+		i++;
+	}
+
+	return NULL;
 }
 
 /* FIXME: TEST/DEBUG only */

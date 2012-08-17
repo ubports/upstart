@@ -474,6 +474,9 @@ state_from_string (const char *state)
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
 
+	if (control_deserialise_all (json) < 0)
+		goto out;
+
 	if (state_deserialise_resolve_deps (json) < 0)
 		goto out;
 
@@ -904,14 +907,14 @@ state_rlimit_serialise (const struct rlimit *rlimit)
 	if (! buffer)
 		goto error;
 
-	if (! state_set_json_var_full (json, "rlim_cur", buffer, string))
+	if (! state_set_json_string_var (json, "rlim_cur", buffer))
 		goto error;
 
 	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_max);
 	if (! buffer)
 		goto error;
 
-	if (! state_set_json_var_full (json, "rlim_max", buffer, string))
+	if (! state_set_json_string_var (json, "rlim_max", buffer))
 		goto error;
 
 	return json;
@@ -1199,12 +1202,13 @@ state_deserialise_resolve_deps (json_object *json)
 {
 	nih_assert (json);
 
-	/* XXX: Events, JobClasses and Jobs must have previously
-	 * been deserialised before invoking this function.
+	/* XXX: Events, JobClasses, Jobs and DBusConnections must have
+	 * previously been deserialised before invoking this function.
 	 */
 	nih_assert (json_sessions);
 	nih_assert (json_events);
 	nih_assert (json_classes);
+	nih_assert (json_control_conns);
 
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
 		json_object  *json_event;
@@ -1288,8 +1292,18 @@ error:
  *
  * @blocked: Blocked object.
  *
- * Convert a Blocked object into JSON comprising a "type" string
- * and a "data" string representing the type-specific data.
+ * Convert a Blocked object into JSON comprising a 'type'
+ * field and a 'data' field. The 'data' field is type-specific:
+ *
+ * - blocked jobs encode the Job instance ('name')
+ *   and JobClass name ('class').
+ *
+ * - blocked events encode the event index number ('index').
+ *
+ * - all D-Bus blocked types encode the marshalled D-Bus
+ *   message ('msg-data'), the D-Bus message serial
+ *   number ('msg-id') and the D-Bus connection associated with this
+ *   D-Bus message ('msg-connection').
  *
  * Returns: JSON-serialised Blocked object, or NULL on error.
  **/
@@ -1316,18 +1330,16 @@ state_serialise_blocked (const Blocked *blocked)
 			/* Need to encode JobClass name and Job name to make
 			 * it unique.
 			 */
-			if (! state_set_json_var_full (json_blocked_data,
+			if (! state_set_json_string_var (json_blocked_data,
 						"class",
-						blocked->job->class->name,
-						string))
+						blocked->job->class->name))
 				goto error;
 
-			if (! state_set_json_var_full (json_blocked_data,
+			if (! state_set_json_string_var (json_blocked_data,
 						"name",
 						blocked->job->name
 						? blocked->job->name
-						: "",
-						string))
+						: ""))
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
@@ -1343,9 +1355,8 @@ state_serialise_blocked (const Blocked *blocked)
 			if (event_index < 0)
 				goto error;
 
-			if (! state_set_json_var_full (json_blocked_data,
-						"index",
-						event_index, int))
+			if (! state_set_json_int_var (json_blocked_data,
+						"index", event_index))
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
@@ -1362,15 +1373,22 @@ state_serialise_blocked (const Blocked *blocked)
 		 * message and reconstruct it on deserialisation.
 		 */
 		{
-			DBusMessage  *message = blocked->message->message;
-			char         *dbus_message_data_raw = NULL;
-			char         *dbus_message_data_str = NULL;
-			int           len = 0;
+			DBusMessage     *message;
+			DBusConnection  *connection;
+			char            *dbus_message_data_raw = NULL;
+			char            *dbus_message_data_str = NULL;
+			int              len = 0;
+			int              conn_index;
+			dbus_uint32_t    serial;
 
-			if (! state_set_json_var_full (json_blocked_data,
+			message    = blocked->message->message;
+			connection = blocked->message->connection;
+
+			serial = dbus_message_get_serial (message);
+
+			if (! state_set_json_int_var (json_blocked_data,
 						"msg-id",
-						dbus_message_get_serial (message),
-						int))
+						serial))
 				goto error;
 
 			if (! dbus_message_marshal (message, &dbus_message_data_raw, &len))
@@ -1388,10 +1406,18 @@ state_serialise_blocked (const Blocked *blocked)
 			 */
 			free (dbus_message_data_raw);
 
-			if (! state_set_json_var_full (json_blocked_data,
+			if (! state_set_json_string_var (json_blocked_data,
 						"msg-data",
-						dbus_message_data_str,
-						string))
+						dbus_message_data_str))
+				goto error;
+
+			conn_index = control_conn_to_index (connection);
+			if (conn_index < 0)
+				goto error;
+
+			if (! state_set_json_int_var (json_blocked_data,
+						"msg-connection",
+						conn_index))
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);
@@ -1552,12 +1578,14 @@ state_deserialise_blocked (void *parent, json_object *json,
 		 */
 		{
 			DBusMessage     *dbus_msg = NULL;
+			DBusConnection  *dbus_conn = NULL;
 			NihDBusMessage  *nih_dbus_msg = NULL;
 			DBusError        error;
 			dbus_uint32_t    serial;
 			size_t           raw_len;
 			const char      *dbus_message_data_str = NULL;
 			nih_local char  *dbus_message_data_raw = NULL;
+			int              conn_index;
 
 			if (! state_get_json_string_var (json_blocked_data,
 						"msg-data",
@@ -1577,6 +1605,13 @@ state_deserialise_blocked (void *parent, json_object *json,
 			if (ret < 0)
 				goto error;
 
+			if (! state_get_json_int_var (json_blocked_data, "msg-connection", conn_index))
+				goto error;
+
+			dbus_conn = control_conn_from_index (conn_index);
+			if (! dbus_conn)
+				goto error;
+
 			dbus_error_init (&error);
 			dbus_msg = dbus_message_demarshal (dbus_message_data_raw,
 					(int)raw_len,
@@ -1592,9 +1627,24 @@ state_deserialise_blocked (void *parent, json_object *json,
 			dbus_message_set_serial (dbus_msg, serial);
 
 #if 1
-			/* FIXME: parent, connection!?! */
+			/* FIXME:
+			 *
+			 * *EITHER*:
+			 *
+			 * a) call nih_dbus_message_new() then *deref*
+			 * both the DBusMessage and the DBusConnection
+			 * (since they've *ALREADY* been refed by the
+			 * pre-re-exec call to nih_dbus_message_new(),
+			 *
+			 * b) Create nih_dbus_message_renew (const void
+			 * *parent, DBusConnection *connection,
+			 * DBusMessage *   message) that creates a
+			 * NihDBusMessage, but does *NOT* ref() the
+			 * msg+connection (again).
+			 */
 #endif
-			nih_dbus_msg = nih_dbus_message_new (NULL, control_bus, dbus_msg);
+			/* FIXME: parent is incorrect?!? */
+			nih_dbus_msg = nih_dbus_message_new (NULL, dbus_conn, dbus_msg);
 			if (! nih_dbus_msg)
 				goto error;
 
