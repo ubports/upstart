@@ -642,6 +642,7 @@ parse_on_simple (JobClass *class, const char *stanza_name, const char *string)
 	NihConfigStanza  *stanza;
 	size_t            pos = 0;
 	size_t            lineno = 0;
+	size_t            len;
 
 	nih_assert (class);
 	nih_assert (stanza_name);
@@ -657,9 +658,9 @@ parse_on_simple (JobClass *class, const char *stanza_name, const char *string)
 
 	nih_assert (stanza);
 
-	nih_assert (string);
+	len = strlen (string);
 
-	root = parse_on (class, stanza, string, strlen (string), &pos, &lineno);
+	root = parse_on (class, stanza, string, len, &pos, &lineno);
 
 	return root;
 }

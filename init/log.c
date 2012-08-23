@@ -810,3 +810,121 @@ log_clear_unflushed (void)
 
 	return 0;
 }
+
+/**
+ * log_serialise:
+ * @log: log to serialise.
+ *
+ * Convert @log into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised Log object, or NULL on error.
+ **/
+json_object *
+log_serialise (const Log *log)
+{
+	json_object  *json;
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! log)
+		return json;
+
+	if (! state_set_json_int_var_from_obj (json, log, fd))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, log, path))
+		goto error;
+
+	/* log->io is not encoded */
+
+	if (! state_set_json_int_var_from_obj (json, log, uid))
+		goto error;
+
+	if (log->unflushed->len) {
+	       if (! state_set_json_string_var (json, "unflushed", log->unflushed->buf))
+		       goto error;
+	}
+
+	if (! state_set_json_int_var_from_obj (json, log, detached))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, log, remote_closed))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, log, open_errno))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * log_deserialise:
+ * @json: JSON-serialised Log object to deserialise.
+ *
+ * Convert @json into a partial Log object.
+ *
+ * Note that the object returned is not a true Log since not all
+ * structure elements are encoded in the JSON.
+ *
+ * Returns: partial Log object, or NULL on error.
+ **/
+Log *
+log_deserialise (json_object *json)
+{
+	Log             *partial;
+	nih_local char  *unflushed = NULL;
+
+	nih_assert (json);
+
+	log_unflushed_init ();
+
+	if (! state_check_json_type (json, object))
+		return NULL;
+
+	partial = nih_new (NULL, Log);
+	if (! partial)
+		return NULL;
+
+	memset (partial, '\0', sizeof (Log));
+
+	if (! state_get_json_int_var_to_obj (json, partial, fd))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, partial, path))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, uid))
+		goto error;
+
+	partial->unflushed = nih_io_buffer_new (partial);
+	if (! partial->unflushed)
+		goto error;
+
+	if (! state_get_json_string_var (json, "unflushed", NULL, unflushed))
+		goto error;
+
+	if (nih_io_buffer_push (partial->unflushed, unflushed, strlen (unflushed)) < 0)
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, detached))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, remote_closed))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, partial, open_errno))
+		goto error;
+
+	return partial;
+
+error:
+	nih_free (partial);
+	return NULL;
+}

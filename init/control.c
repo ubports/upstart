@@ -222,6 +222,8 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
+ * @restart: specify TRUE on restart, else FALSE.
+ *
  * Open a connection to the appropriate D-Bus bus and store it in the
  * control_bus global. The connection is handled automatically
  * in the main loop.
@@ -229,26 +231,45 @@ control_server_close (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_bus_open (void)
+control_bus_open (int restart)
 {
 	DBusConnection *conn;
 	DBusError       error;
 	NihListEntry   *entry;
 	int             ret;
 
-	nih_assert (control_bus == NULL);
+#if 0
+	if (restart) {
+		conn = control_bus;
+		if (! conn) {
+			nih_error_raise (CONTROL_REEXEC_ERROR,
+					_(CONTROL_REEXEC_ERROR_STR));
+			return -1;
+		}
+		dbus_connection_set_exit_on_disconnect (conn, FALSE);
 
-	control_init ();
+		if (nih_dbus_setup (conn, control_disconnected) < 0) {
+			dbus_connection_unref (conn);
+			nih_return_no_memory_error (-1);
+		}
+	} else {
+#endif
+		nih_assert (control_bus == NULL);
 
-	control_handle_bus_type ();
+		control_init ();
 
-	/* Connect to the D-Bus System Bus and hook everything up into
-	 * our own main loop automatically.
-	 */
-	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
-			     control_disconnected);
-	if (! conn)
-		return -1;
+		control_handle_bus_type ();
+
+		/* Connect to the D-Bus System Bus and hook everything up into
+		 * our own main loop automatically.
+		 */
+		conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+				control_disconnected);
+		if (! conn)
+			return -1;
+#if 0
+	}
+#endif
 
 	/* Register objects on the bus. */
 	control_register_all (conn);
@@ -277,15 +298,20 @@ control_bus_open (void)
 	}
 
 
-	/* Add the connection to the list */
-	entry = NIH_MUST (nih_list_entry_new (NULL));
+#if 0
+	if (! restart) {
+#endif
+		/* Add the connection to the list */
+		entry = NIH_MUST (nih_list_entry_new (NULL));
 
-	entry->data = conn;
+		entry->data = conn;
 
-	nih_list_add (control_conns, &entry->entry);
+		nih_list_add (control_conns, &entry->entry);
 
-
-	control_bus = conn;
+		control_bus = conn;
+#if 0
+	}
+#endif
 
 	return 0;
 }
@@ -323,7 +349,20 @@ control_disconnected (DBusConnection *conn)
 	nih_assert (conn != NULL);
 
 	if (conn == control_bus) {
+		DBusError  error;
+
+		dbus_error_init (&error);
+
 		nih_warn (_("Disconnected from system bus"));
+
+#if 0
+		if (dbus_bus_release_name (conn, DBUS_SERVICE_UPSTART, &error) < 0) {
+			nih_error ("Unable to release D-Bus name '%s'", DBUS_SERVICE_UPSTART);
+			dbus_error_free (&error);
+			return;
+		}
+		control_bus_flush ();
+#endif
 
 		control_bus = NULL;
 	}
@@ -921,7 +960,7 @@ control_prepare_reexec (void)
 
 	control_bus_flush ();
 
-#if 1
+#if 0
 	/* FIXME */
 	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
 			__func__, __LINE__);
@@ -1052,10 +1091,11 @@ error:
 static DBusConnection *
 control_deserialise (json_object *json)
 {
-	DBusConnection     *conn;
-	DBusError           error;
-	int                 fd;
-	const char         *address;
+	DBusConnection        *conn = NULL;
+	DBusError              error;
+	int                    fd;
+	nih_local char  *address = NULL;
+	NihListEntry    *entry;
 
 	nih_assert (json);
 
@@ -1068,34 +1108,13 @@ control_deserialise (json_object *json)
 	if (! state_fd_valid (fd))
 		goto error;
 
-	if (! state_get_json_string_var (json, "address", address))
+	if (! state_get_json_string_var (json, "address", NULL, address))
 		goto error;
 
 	dbus_error_init (&error);
 
-	nih_warn ("XXX: WARNING (%s:%d): unable to maintain D-Bus connections "
-			"- bridges must be restarted",
-			__func__, __LINE__);
-
 	/* FIXME: this isn't currently possible as
 	 * dbus_connection_open_from_fd() has not been added to D-Bus.
-	 *
-	 * Further, some strategy is required to handle the address
-	 * parameter:
-	 *
-	 * 1)  either a new D-Bus API is required that returns the
-	 *     original address details when given a connection:
-	 *
-	 *       char *address;
-	 *       dbus_bool_t dbus_connection_get_address (DBusConnection *connection, char **address);
-	 *
-	 * 2) or Upstart needs to cache the address parameter passed to
-	 *    for all calls to dbus_connection_open() in a hash table
-	 *    along with the fds and serialise this information such that
-	 *    the appropriate address can be passed to
-	 *    dbus_connection_open_from_fd() post stateful-reexec.
-	 *
-	 * Option (1) is preferable.
 	 *
 	 * References:
 	 *
@@ -1107,7 +1126,7 @@ control_deserialise (json_object *json)
 	 */
 
 /* FIXME */
-#if 1
+#if 0
 	nih_warn ("XXX: WARNING(%s:%d): using unofficial D-Bus API dbus_connection_open_from_fd()",
 			__func__, __LINE__);
 
@@ -1120,15 +1139,26 @@ control_deserialise (json_object *json)
 		goto error;
 	}
 #else
+	nih_warn ("XXX: WARNING (%s:%d): unable to maintain D-Bus connections "
+			"- bridges must be restarted",
+			__func__, __LINE__);
+
 	/* FIXME: keep compiler happy */
 	conn = NULL;
 #endif
 
-	/* Re-apply close-on-exec flag to stop fd from leaked
+	/* Re-apply close-on-exec flag to stop fd from leaking
 	 * to child processes.
 	 */
 	if (state_toggle_cloexec (fd, 1) < 0)
 		goto error;
+
+	/* Add the connection to the list */
+	entry = NIH_MUST (nih_list_entry_new (NULL));
+
+	entry->data = conn;
+
+	nih_list_add (control_conns, &entry->entry);
 
 	if (json_object_object_get_ex (json, "control_bus", NULL))
 		control_bus = conn;
@@ -1136,7 +1166,7 @@ control_deserialise (json_object *json)
 	return conn;
 
 error:
-	nih_free (conn);
+	dbus_free (conn);
 	return NULL;
 }
 
@@ -1176,15 +1206,22 @@ control_deserialise_all (json_object *json)
 			goto error;
 
 		/* FIXME */
+#if 0
+		if (! control_deserialise (json_control_conn))
+			goto error;
+#else
 		nih_warn ("XXX: WARNING (%s:%d): D-Bus connections NOT being deserialised yet",
 				__func__, __LINE__);
-#if 0
-		if (! control_deserialise (json))
-			goto error;
 #endif
 	}
 
+#if 0
+	if (! control_bus)
+		goto error;
+#endif
+
 	return 0;
+
 error:
 	return -1;
 
@@ -1209,7 +1246,8 @@ control_conn_to_index (const DBusConnection *connection)
 	nih_assert (connection);
 
 	NIH_LIST_FOREACH (control_conns, iter) {
-		DBusConnection *conn = (DBusConnection *)iter;
+		NihListEntry    *entry = (NihListEntry *)iter;
+		DBusConnection  *conn = (DBusConnection *)entry->data;
 
 		if (connection == conn) {
 			found = TRUE;
@@ -1243,7 +1281,8 @@ control_conn_from_index (int conn_index)
 	nih_assert (control_conns);
 
 	NIH_LIST_FOREACH (control_conns, iter) {
-		DBusConnection *conn = (DBusConnection *)iter;
+		NihListEntry    *entry = (NihListEntry *)iter;
+		DBusConnection  *conn = (DBusConnection *)entry->data;
 
 		if (i == conn_index)
 			return conn;
@@ -1252,6 +1291,35 @@ control_conn_from_index (int conn_index)
 
 	return NULL;
 }
+
+/**
+ * control_bus_release_name:
+ *
+ * Unregister well-known D-Bus name.
+ *
+ * Returns: 0 on success, -1 on raised error.
+ **/
+int
+control_bus_release_name (void)
+{
+	DBusError  error;
+	int        ret;
+
+	nih_assert (control_bus);
+
+	dbus_error_init (&error);
+	ret = dbus_bus_release_name (control_bus,
+				     DBUS_SERVICE_UPSTART,
+				     &error);
+	if (ret < 0) {
+		nih_dbus_error_raise (error.name, error.message);
+		dbus_error_free (&error);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 /* FIXME: TEST/DEBUG only */
 #if 1

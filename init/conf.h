@@ -130,9 +130,10 @@ JobClass *  conf_select_job    (const char *name, const Session *session);
 char *toggle_conf_name         (const void *parent, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
 
-#ifdef DEBUG
+//#ifdef DEBUG
 
 /* used for debugging only */
+#include "job.h"
 
 size_t
 debug_count_hash_entries       (const NihHash *hash);
@@ -142,13 +143,20 @@ debug_count_list_entries       (const NihList *list)
 	__attribute__ ((unused));
 
 void
-debug_show_job_class           (const JobClass *job)
+debug_show_job_class           (const JobClass *class)
 	__attribute__ ((unused));
 
 void
 debug_show_job_classes         (void)
 	__attribute__ ((unused));
 
+void
+debug_show_job                 (const Job *job)
+	__attribute__ ((unused));
+
+void
+debug_show_jobs (const NihHash *instances)
+	__attribute__ ((unused));
 void
 debug_show_event               (const Event *event)
 	__attribute__ ((unused));
@@ -165,7 +173,7 @@ void
 debug_show_conf_sources(void)
 	__attribute__ ((unused));
 
-#endif
+//#endif
 
 NIH_END_EXTERN
 

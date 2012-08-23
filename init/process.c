@@ -38,7 +38,7 @@
 static json_object *process_serialise (const Process *process)
 	__attribute__ ((malloc, warn_unused_result));
 
-static Process *process_deserialise (json_object *json)
+static Process *process_deserialise (json_object *json, const void *parent)
 	__attribute__ ((malloc, warn_unused_result));
 
 /**
@@ -221,7 +221,7 @@ error:
 #endif
 
 static Process *
-process_deserialise (json_object *json)
+process_deserialise (json_object *json, const void *parent)
 {
 	Process  *process;
 
@@ -230,7 +230,7 @@ process_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		goto error;
 
-	process = NIH_MUST (process_new (NULL));
+	process = NIH_MUST (process_new (parent));
 
 	memset (process, '\0', sizeof (Process));
 
@@ -252,7 +252,7 @@ error:
  *
  * @json: root of JSON-serialised state,
  * @parent: parent of @processes,
- * @processes: pre-allocated pointer array to hold Process array.
+ * @processes: newly-allocated array of Process objects.
  *
  * Convert JSON representation of processes back into
  * an array of Process objects.
@@ -260,7 +260,8 @@ error:
  * Returns: 0 on success, -1 on error.
  **/
 int
-process_deserialise_all (json_object *json, const void *parent, Process ***processes)
+process_deserialise_all (json_object *json, const void *parent,
+			 Process **processes)
 {
 	json_object        *json_processes;
 	Process            *process;
@@ -269,6 +270,7 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 
 	nih_assert (json);
 	nih_assert (parent);
+	nih_assert (processes);
 
 	json_processes = json_object_object_get (json, "process");
 
@@ -278,10 +280,7 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 	if (! state_check_json_type (json_processes, array))
 		goto error;
 
-	/* FIXME: Simplify? */
-	for (i = 0, process = (*processes)[0];
-		i < json_object_array_length (json_processes);
-		i++, process++) {
+	for (i = 0; i < json_object_array_length (json_processes); i++) {
 		json_object *json_process;
 
 		nih_assert (i <= PROCESS_LAST);
@@ -293,12 +292,29 @@ process_deserialise_all (json_object *json, const void *parent, Process ***proce
 		if (! state_check_json_type (json_process, object))
 			goto error;
 
-		partial = process_deserialise (json_process);
+		partial = process_deserialise (json_process, partial);
 		if (! partial)
 			goto error;
+
+		/* All Process slots have to be serialised in the JSON to
+		 * guarantee ordering on deserialisation.
+		 *
+		 * However, here we've found a Process that was merely
+		 * an ordering placeholder - no command has been defined,
+		 * so ignore it.
+		 */
+		if (! partial->command || ! *partial->command) {
+			nih_info ("XXX:%s:%d:ignoring process[%d] which has no command",
+					__func__, __LINE__, i);
+			processes[i] = NULL;
+			continue;
+		}
+
 		process = NIH_MUST (process_new (parent));
-		process->command = NIH_MUST (nih_strdup	(process, partial->command));
+		process->command = NIH_MUST (nih_strdup (processes, partial->command));
 		process->script = partial->script;
+
+		processes[i] = process;
 	}
 
 	return 0;

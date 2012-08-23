@@ -1,5 +1,15 @@
 /* FIXME: TODO: Thoughts:
  *
+ * - remove all conf.c:debug_show_*() functions as we can now use the
+ *   serialisation calls instead.
+ *
+ * - remove DebugSerialise and DebugDeserialise
+ *   from dbus/com.ubuntu.Upstart.xml (or only allow root to call these
+ *   methods [since they expose unflushed log data owned by the root
+ *   user]).
+ *
+ * - XXX: log deserialisation.
+ *
  *--------------------------------------------------------------------
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *
@@ -27,6 +37,12 @@
  *
  *     Note too that (2)+(3) are the only reliable method for Upstart to
  *     detect that is *has* changed filesystem context.
+ *
+ *   - Since ConfSources are NOT serialised, it is currently not possible
+ *     to support user jobs and chroot jobs (because the only ConfSource
+ *     objects created are those at startup (for '/etc/init/'): any
+ *     pre-existing ConfSources with non-NULL sessions representing
+ *     user jobs will be ignored).
  *
  *   - ptrace handling: unlikely to hit that scenario.
  *
@@ -142,6 +158,11 @@
  * - invalid JSON entries:
  *
  *   - only strategy is to error immediately.
+ *
+ * Note that the deserialisation process does NOT read and validate every
+ * part of the JSON - it merely looks for, validates and consumes expected data.
+ * This makes for a more flexible design that could accommondate downgrade
+ * scenarios for example.
  *
  * == Macros ==
  *
@@ -315,10 +336,37 @@
  * STATE_WAIT_SECS:
  *
  * Time to wait in seconds for the re-exec state file descriptor to be
- * ready for writing. If this timeout is reached, the new PID 1 instance
- * must either have got into trouble or not support stateful re-exec.
+ * ready for reading/writing. If this timeout is reached, the new PID 1
+ * instance must either have got into trouble or not support stateful
+ * re-exec.
  **/
 #define STATE_WAIT_SECS 3
+
+/**
+ * STATE_WAIT_SECS_ENV:
+ *
+ * Name of environment variable that if set to an integer value will
+ * take preference over STATE_WAIT_SECS. Special cases:
+ *
+ * If 0, do not wait.
+ * If -1, wait forever.
+ **/
+#define STATE_WAIT_SECS_ENV "UPSTART_STATE_WAIT_SECS"
+
+/**
+ * state_get_timeout:
+ *
+ * @var: name of long integer var to set to timeout value.
+ *
+ * Set @var to timeout.
+ */
+#define state_get_timeout(var) \
+{ \
+	char *timeout_env_var; \
+	timeout_env_var = getenv (STATE_WAIT_SECS_ENV); \
+ \
+	var = timeout_env_var ? atol (timeout_env_var) : STATE_WAIT_SECS; \
+}
 
 /**
  * state_enum_to_str:
@@ -555,6 +603,7 @@
  *
  * @json: json_object pointer,
  * @name: string name to search for in @json,
+ * @parent: parent of @var,
  * @var: string variable to set to value of @name in @json.
  *
  * Specialisation of state_get_json_var_full() that works for
@@ -562,15 +611,14 @@
  *
  * Query @json, setting @var to be string value of @name.
  *
- * Caller must not free @var on successful completion of this macro,
- * and should copy memory @var is set to.
- *
  * Returns: TRUE on success, or FALSE on error.
  **/
-#define state_get_json_string_var(json, name, var) \
+#define state_get_json_string_var(json, name, parent, var) \
 	({json_object *_json_var; \
-	state_get_json_var_full (json, name, string, _json_var) && \
-	 (var = json_object_get_string (_json_var));})
+	 const char *value = NULL; \
+	 state_get_json_var_full (json, name, string, _json_var) && \
+	 (value = json_object_get_string (_json_var)) && \
+	 (var = nih_strdup (parent, value));})
 
 
 /**
@@ -581,7 +629,8 @@
  * @name: name of element within @object to be deserialised,
  *
  * Extract stringified @name from @json and set string element named
- * @name in @object to a newly allocated string copy.
+ * @name in @object to a newly allocated string copy. @name will have
+ * parent @object.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
@@ -644,10 +693,10 @@
  **/
 #define state_get_json_enum_var(json, func, name, var) \
 	 ({int tmp = -1; \
-	  const char *_value = NULL; \
+	  nih_local char *_value = NULL; \
 	  EnumDeserialiser f = (EnumDeserialiser)func; \
 	  int ret; \
-	  ret = state_get_json_string_var (json, name, _value); \
+	  ret = state_get_json_string_var (json, name, NULL, _value); \
 	  if (ret) { \
 		tmp = f (_value); \
 		if (tmp != -1) \
@@ -1070,7 +1119,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 			      struct rlimit *(*rlimits)[])
 	__attribute__ ((warn_unused_result));
 
-char *state_collapse_env (char **env)
+char *state_collapse_env (const char **env)
 	__attribute__ ((malloc, warn_unused_result));
 
 enum json_type

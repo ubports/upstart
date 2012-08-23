@@ -54,7 +54,7 @@ int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));
 void control_server_close         (void);
 
-int  control_bus_open             (void)
+int  control_bus_open             (int restart)
 	__attribute__ ((warn_unused_result));
 void control_bus_close            (void);
 
@@ -103,6 +103,9 @@ int control_conn_to_index (const DBusConnection *connection)
 
 DBusConnection *
 control_conn_from_index (int conn_index)
+	__attribute__ ((warn_unused_result));
+
+int control_bus_release_name (void)
 	__attribute__ ((warn_unused_result));
 
 /* FIXME: DEBUG/TEST only */

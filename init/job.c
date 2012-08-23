@@ -1548,6 +1548,7 @@ job_serialise (const Job *job)
 	json_object      *json;
 	json_object      *json_pid;
 	json_object      *json_fds;
+	json_object      *json_logs;
 	nih_local char   *stop_on = NULL;
 
 	nih_assert (job);
@@ -1593,10 +1594,8 @@ job_serialise (const Job *job)
 	if (! stop_on)
 		goto error;
 
-	if (! state_set_json_string_var (json, "stop_on", stop_on)) {
-		nih_free (stop_on);
+	if (! state_set_json_string_var (json, "stop_on", stop_on))
 		goto error;
-	}
 
 	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
 	if (! json_fds)
@@ -1715,9 +1714,26 @@ job_serialise (const Job *job)
 				"trace_state", job->trace_state))
 		goto error;
 
-	/* FIXME: log */
+	json_logs = json_object_new_array ();
+
+	if (! json_logs)
+		goto error;
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		json_object *json_log;
+
+		json_log = log_serialise (job->log[i]);
+		if (! json_log)
+			goto error;
+
+		if (json_object_array_add (json_logs, json_log) < 0)
+			goto error;
+	}
+
+	json_object_object_add (json, "log", json_logs);
+
 #if 1
-	nih_info ("XXX: WARNING (%s:%d) job->log NOT handled", __func__, __LINE__);
+	nih_info ("XXX: WARNING (%s:%d) job->log NOT fully handled yet", __func__, __LINE__);
 #endif
 
 	return json;
@@ -1821,12 +1837,10 @@ job_deserialise (json_object *json)
 		goto error;
 
 	if (json_object_object_get (json, "stop_on")) {
-		const char  *stop_on = NULL;
+		nih_local char *stop_on = NULL;
 
-		if (! state_get_json_string_var (json, "stop_on", stop_on))
+		if (! state_get_json_string_var (json, "stop_on", NULL, stop_on))
 			goto error;
-
-		nih_message ("%s:%d:stop_on='%s'", __func__, __LINE__, stop_on);
 
 		if (*stop_on) {
 			nih_local JobClass *tmp = NULL;
@@ -1851,13 +1865,6 @@ job_deserialise (json_object *json)
 			partial->stop_on = event_operator_copy (partial, tmp->stop_on);
 			if (! partial->stop_on)
 				goto error;
-
-#if 1
-			nih_message ("%s:%d: stop_on='%s'",
-					__func__, __LINE__,
-					event_operator_collapse (partial->stop_on));
-#endif
-
 		}
 	}
 
@@ -1869,17 +1876,11 @@ job_deserialise (json_object *json)
 	blocker = json_object_object_get (json, "blocker");
 
 	if (blocker) {
-		int event_index;
+		int event_index = -1;
 
 		if (! state_get_json_int_var (json, "blocker", event_index))
 			goto error;
 		partial->blocker = event_from_index (event_index);
-
-#if 1
-		/* FIXME */
-		nih_info ("%s:%d:XXXXXXXXXXXXXXXXX: event_index=%d, event=%p",
-				__func__, __LINE__, event_index, partial->blocker);
-#endif
 
 		if (! partial->blocker)
 			goto error;

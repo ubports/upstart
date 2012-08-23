@@ -54,6 +54,7 @@ enum {
 
 	/* Errors while handling control requests */
 	CONTROL_NAME_TAKEN,
+	CONTROL_REEXEC_ERROR,
 };
 
 /* Error strings for defined messages */
@@ -76,5 +77,6 @@ enum {
 #define PARSE_EXPECTED_VARIABLE_STR	N_("Expected variable name before value")
 #define PARSE_MISMATCHED_PARENS_STR	N_("Mismatched parentheses")
 #define CONTROL_NAME_TAKEN_STR		N_("Name already taken")
+#define CONTROL_REEXEC_ERROR_STR	N_("No existing control bus")
 
 #endif /* INIT_ERRORS_H */

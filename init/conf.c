@@ -1227,7 +1227,7 @@ conf_select_job (const char *name, const Session *session)
 	return NULL;
 }
 
-#ifdef DEBUG
+//#ifdef DEBUG
 
 size_t
 debug_count_list_entries (const NihList *list)
@@ -1250,52 +1250,58 @@ debug_count_hash_entries (const NihHash *hash)
 }
 
 void
-debug_show_job_class (const JobClass *job)
+debug_show_job_class (const JobClass *class)
 {
-	int i;
-	char **env    = (char **)job->env;
-	char **export = (char **)job->export;
+	nih_local char *start_on = NULL;
+	nih_local char *stop_on = NULL;
 
-	nih_assert (job);
+	nih_assert (class);
 
 	nih_debug ("JobClass %p: name='%s', path='%s', task=%d, "
 			"respawn=%d, console=%x, deleted=%d, debug=%d",
-			job, job->name, job->path, job->task,
-			job->respawn, job->console, job->deleted, job->debug);
+			class, class->name, class->path, class->task,
+			class->respawn, class->console, class->deleted, class->debug);
 
-	nih_debug ("\tstart_on=%p, stop_on=%p, emits=%p, process=%p",
-			job->start_on, job->stop_on, job->emits, job->process);
+	if (class->start_on) start_on = event_operator_collapse (class->start_on);
+	if (class->stop_on)  stop_on = event_operator_collapse (class->stop_on);
+
+	nih_debug ("\tstart_on=%p (%s), stop_on=%p (%s), emits=%p, process=%p",
+			class->start_on, start_on ? start_on : "",
+			class->stop_on, stop_on ? stop_on : "",
+			class->emits, class->process);
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		if (class->process[i]) {
+			nih_debug ("Process[%d]=%p: script=%d, cmd='%s'",
+					i, class->process[i],
+					class->process[i]->script,
+					class->process[i]->command);
+		} else {
+			nih_debug ("Process[%d]=%p",
+					i, class->process[i]);
+		}
+
+
+	}
 
 	nih_debug ("\tauthor='%s', description='%s'",
-			job->author, job->description);
+			class->author, class->description);
 
-	if (env && *env) {
-		nih_debug ("\tenv:");
-		i = 0;
-		while ( *env ) {
-			nih_debug ("\t\tenv[%d]='%s' (len=%u+1)",
-					i, *env, strlen (*env));
-			env++;
-			++i;
-		}
+	if (class->env && *class->env) {
+		nih_local char *env = state_collapse_env ((const char **)class->env);
+		nih_debug ("\tenv:%s", env);
 	} else {
 		nih_debug ("\tenv: none.");
 	}
 
-
-	if (export && *export) {
-		nih_debug ("\texport:");
-		i = 0;
-		while ( *export ) {
-			nih_debug ("\t\tenv[%d]='%s' (len=%u+1)",
-					i, *export, strlen (*export));
-			export++;
-			++i;
-		}
-	}
-	else {
+	if (class->export && *class->export) {
+		nih_local char *export = state_collapse_env ((const char **)class->export);
+		nih_debug ("\texport:%s", export);
+	} else {
 		nih_debug ("\texport: none");
 	}
+
+	debug_show_jobs (class->instances);
 }
 
 void
@@ -1306,6 +1312,58 @@ debug_show_job_classes (void)
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *job = (JobClass *)iter;
 		debug_show_job_class (job);
+	}
+}
+
+void
+debug_show_job (const Job *job)
+{
+	nih_local char *env = NULL;
+	nih_local char *start_env = NULL;
+	nih_local char *stop_env = NULL;
+	nih_local char *stop_on = NULL;
+
+	nih_assert (job);
+
+	if (job->env)
+		env = state_collapse_env ((const char **)job->env);
+
+	if (job->start_env)
+		start_env = state_collapse_env ((const char **)job->start_env);
+
+	if (job->stop_env)
+		stop_env = state_collapse_env ((const char **)job->stop_env);
+
+	if (job->stop_on)
+		stop_on = event_operator_collapse (job->stop_on);
+
+	nih_debug ("Job %p: name=%s, class=%p (%s), path=%s, env='%s'"
+			"start_env='%s', stop_env='%s', stop_on='%s', "
+			"goal=%d, state=%d, failed=%d, exit_status=%d",
+			job,
+			job->name ? job->name : "",
+			job->class, job->class->name,
+			job->path,
+			env ? env : "",
+			start_env ? start_env : "",
+			stop_env ? stop_env : "",
+			stop_on ? stop_on : "",
+			job->goal,
+			job->state,
+			job->failed,
+			job->exit_status);
+}
+
+void
+debug_show_jobs (const NihHash *instances)
+{
+	nih_assert (instances);
+
+	nih_debug ("jobs:");
+
+	NIH_HASH_FOREACH (instances, iter) {
+		Job *job = (Job *)iter;
+		debug_show_job (job);
 	}
 }
 
@@ -1370,5 +1428,5 @@ debug_show_conf_sources (void)
 	}
 }
 
-#endif /* DEBUG */
+//#endif /* DEBUG */
 

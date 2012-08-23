@@ -196,7 +196,7 @@ typedef struct job_class {
 	int             task;
 
 	time_t          kill_timeout;
-	int		kill_signal;
+	int             kill_signal;
 
 	int             respawn;
 	int             respawn_limit;

@@ -85,9 +85,8 @@ ProcessType process_from_name (const char *process)
 
 int
 process_deserialise_all (json_object *json, const void *parent,
-		Process ***processes)
+			 Process **processes)
 	__attribute__ ((warn_unused_result));
-
 
 const char *
 process_type_enum_to_str (ProcessType type)

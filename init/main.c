@@ -480,6 +480,8 @@ main (int   argc,
 
 			/* Out of options */
 			nih_assert_not_reached ();
+		} else {
+			nih_info ("Stateful re-exec completed");
 		}
 	}
 
@@ -506,9 +508,10 @@ main (int   argc,
 	}
 
 	/* Open connection to the appropriate D-Bus bus; we normally expect this to
-	 * fail and will try again later - don't let ENOMEM stop us though.
+	 * fail (since dbus-daemon probably isn't running yet) and will try again
+	 * later - don't let ENOMEM stop us though.
 	 */
-	while (control_bus_open () < 0) {
+	while (control_bus_open (restart) < 0) {
 		NihError *err;
 		int       number;
 
@@ -844,7 +847,7 @@ usr1_handler (void      *data,
 	if (! control_bus) {
 		nih_info (_("Reconnecting to system bus"));
 
-		if (control_bus_open () < 0) {
+		if (control_bus_open (restart) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -1059,13 +1062,25 @@ stateful_reexec (void)
 
 		nih_info (_("Passing state from PID %d to parent"), (int)getpid ());
 
+		/* D-Bus name must be relinquished now to allow parent
+		 * from acquiring it.
+		 */
+		if (control_bus_release_name () < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error (_("Failed to release D-Bus name: %s"),
+					err->message);
+			nih_free (err);
+		}
+
 		if (state_write (fds[1]) < 0) {
 			nih_error ("%s",
-				_("failed to write serialisation data"));
+				_("Failed to write serialisation data"));
 			exit (1);
 		}
 
-		/* The baton has been passed */
+		/* The baton has now been passed */
 		exit (0);
 	}
 

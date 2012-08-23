@@ -721,9 +721,6 @@ event_operator_collapse (EventOperator *condition)
 
 	nih_assert (condition);
 
-	/* Start with a string we can append to */
-	str = NIH_MUST (nih_strdup (NULL, ""));
-
 	NIH_TREE_FOREACH (&condition->node, iter) {
 		EventOperator *oper = (EventOperator *)iter;
 
@@ -733,13 +730,13 @@ event_operator_collapse (EventOperator *condition)
 			{
 				right_parens++;
 				NIH_MUST (nih_strcat_sprintf (&str, NULL, " %s ",
-							oper->type == EVENT_OR ? "or" : "and"));
+					oper->type == EVENT_OR ? "or" : "and"));
 				break;
 			}
 		case EVENT_MATCH:
 			{
-				char *b, *e;
-				char *env = NULL;
+				char           *b, *e;
+				nih_local char *env = NULL;
 
 				if (! oper->node.parent) {
 					/* condition comprises a single event */
@@ -753,36 +750,28 @@ event_operator_collapse (EventOperator *condition)
 				}
 
 				if (oper->env)
-					env = state_collapse_env (oper->env);
+					env = state_collapse_env ((const char **)oper->env);
 
-#if 0
-				nih_message ("XXX: job_class_collapse_env returned: '%s'",
-						env ? env : "");
-
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s%s%s",
-							b, oper->name,
-							oper->env ? env : "", e));
-#endif
 				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s",
-							b, oper->name));
+						b, oper->name));
+
 				if (env)
-					NIH_MUST (nih_strcat (&str, NULL, env));
+					NIH_MUST (nih_strcat_sprintf(&str, NULL,
+								" %s", env));
 
 				NIH_MUST (nih_strcat (&str, NULL, e));
-
-				if (env)
-					nih_free (env);
 			}
 			break;
 
+		default:
+			nih_assert_not_reached ();
 		}
-
 	}
+
 	right_parens--;
 
-	for (int i = 0; i < right_parens; ++i) {
+	for (int i = 0; i < right_parens; ++i)
 		NIH_MUST (nih_strcat (&str, NULL, ")"));
-	}
 
 	return str;
 }

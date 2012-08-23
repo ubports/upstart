@@ -1780,10 +1780,8 @@ job_class_serialise (const JobClass *class)
 	if (! start_on)
 		goto error;
 
-	if (! state_set_json_string_var (json, "start_on", start_on)) {
-		nih_free (start_on);
+	if (! state_set_json_string_var (json, "start_on", start_on))
 		goto error;
-	}
 
 	stop_on = class->stop_on
 		? event_operator_collapse (class->stop_on)
@@ -1791,10 +1789,8 @@ job_class_serialise (const JobClass *class)
 	if (! stop_on)
 		goto error;
 
-	if (! state_set_json_string_var (json, "stop_on", stop_on)) {
-		nih_free (stop_on);
+	if (! state_set_json_string_var (json, "stop_on", stop_on))
 		goto error;
-	}
 
 	json_emits = class->emits
 		? state_serialise_str_array (class->emits)
@@ -1969,6 +1965,13 @@ job_class_deserialise (json_object *json)
 	/* can't check return value here (as all values are legitimate) */
 	partial->session = session_from_index (session_index);
 
+	if (partial->session != NULL) {
+		nih_warn ("XXX: WARNING (%s:%d): deserialisation of "
+				"user jobs and chroot sessions not currently supported",
+				__func__, __LINE__);
+		goto error;
+	}
+
 	if (! state_get_json_string_var_to_obj (json, partial, instance))
 		goto error;
 
@@ -1989,9 +1992,9 @@ job_class_deserialise (json_object *json)
 
 	/* start and stop conditions are optional */
 	if (json_object_object_get (json, "start_on")) {
-		const char  *start_on = NULL;
+		nih_local char *start_on = NULL;
 
-		if (! state_get_json_string_var (json, "start_on", start_on))
+		if (! state_get_json_string_var (json, "start_on", NULL, start_on))
 			goto error;
 
 		if (*start_on) {
@@ -2013,9 +2016,9 @@ job_class_deserialise (json_object *json)
 	}
 
 	if (json_object_object_get (json, "stop_on")) {
-		const char  *stop_on = NULL;
+		nih_local char *stop_on = NULL;
 
-		if (! state_get_json_string_var (json, "stop_on", stop_on))
+		if (! state_get_json_string_var (json, "stop_on", NULL, stop_on))
 			goto error;
 
 		if (*stop_on) {
@@ -2234,7 +2237,7 @@ job_class_deserialise_all (json_object *json)
 		if (! state_copy_event_oper_to_obj (class, partial, stop_on))
 			goto error;
 
-		if (process_deserialise_all (json_class, class, &class->process) < 0)
+		if (process_deserialise_all (json_class, class->process, class->process) < 0)
 			goto error;
 
 		/* instance must have a value, but only set it if the
@@ -2247,21 +2250,11 @@ job_class_deserialise_all (json_object *json)
 			class->instance = NIH_MUST (nih_strdup (class, partial->instance));
 		}
 
-#if 0
-		/* FIXME:
+		/* Force class to be known.
 		 *
-		 * - should only add this if no class already exists.
-		 *   This *should* never happen but we need to handle
-		 *   the scenario in case of invalid JSON.
-		 *
-		 *   We cannot use job_class_*consider() since the
-		 *   JobClasses have no associated ConfFile.
-		 *
-		 *   Plan may have to be to create a dummy ConfFile for
-		 *   all jobs that have been passed across an exec.
+		 * We cannot use job_class_*consider() since the
+		 * JobClasses have no associated ConfFile.
 		 */
-#endif
-		/* Force class to be known */
 		job_class_add_safe (class);
 
 		/* Any jobs must be added after the class is registered

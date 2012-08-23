@@ -112,7 +112,7 @@ state_read (int fd)
 	if (use_session_bus == FALSE)
 		nih_assert (getpid () == (pid_t)1);
 
-	timeout.tv_sec  = STATE_WAIT_SECS;
+	state_get_timeout (timeout.tv_sec);
 	timeout.tv_usec = 0;
 
 	FD_ZERO (&readfds);
@@ -122,7 +122,8 @@ state_read (int fd)
 	nfds = 1 + fd;
 
 	while (TRUE) {
-		ret = select (nfds, &readfds, NULL, NULL, &timeout);
+		ret = select (nfds, &readfds, NULL, NULL,
+				timeout.tv_sec < 0 ? NULL : &timeout);
 
 		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
 			return -1;
@@ -168,7 +169,7 @@ state_write (int fd)
 	/* must be called from child process */
 	nih_assert (getpid () != (pid_t)1);
 
-	timeout.tv_sec  = STATE_WAIT_SECS;
+	state_get_timeout (timeout.tv_sec);
 	timeout.tv_usec = 0;
 
 	FD_ZERO (&writefds);
@@ -178,7 +179,8 @@ state_write (int fd)
 	nfds = 1 + fd;
 
 	while (TRUE) {
-		ret = select (nfds, NULL, &writefds, NULL, &timeout);
+		ret = select (nfds, NULL, &writefds, NULL,
+				timeout.tv_sec < 0 ? NULL : &timeout);
 
 		if (ret < 0 && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK))
 			return -1;
@@ -295,6 +297,17 @@ state_write_objects (int fd)
 
 	if (state_to_string (&json_string, &len) < 0)
 		return -1;
+
+#if 1
+	/* FIXME */
+	{
+		FILE *fo = fopen("/tmp/state.json", "w");
+		if (fo) {
+			(void)fwrite (json_string, len, 1, fo);
+			fclose (fo);
+		}
+	}
+#endif
 
 	ret = write (fd, json_string, len);
 
@@ -424,21 +437,19 @@ state_from_string (const char *state)
 
 	nih_assert (state);
 
-	json = json_tokener_parse_verbose (state, &error);
-
-	if (! json) {
-		/* FIXME */
-		nih_error ("XXX:ERROR: json error='%s'",
-				json_tokener_error_desc (error));
-		return ret;
-	}
-
-
 	/* This function is called before conf_source_new (), so setup
 	 * the environment.
 	 */
 	conf_init ();
 
+	json = json_tokener_parse_verbose (state, &error);
+
+	if (! json) {
+		nih_error ("%s: %s",
+				_("Detected invalid serialisation data"),
+				json_tokener_error_desc (error));
+		return ret;
+	}
 
 	/* FIXME */
 #if 1
@@ -982,10 +993,10 @@ error:
 static struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
-	struct rlimit  *rlimit;
-	const char     *rlim_cur;
-	const char     *rlim_max;
-	char           *endptr;
+	struct rlimit   *rlimit;
+	nih_local char  *rlim_cur = NULL;
+	nih_local char  *rlim_max = NULL;
+	char            *endptr;
 
 	nih_assert (json);
 
@@ -998,7 +1009,7 @@ state_rlimit_deserialise (json_object *json)
 
 	memset (rlimit, '\0', sizeof (struct rlimit));
 
-	if (! state_get_json_string_var (json, "rlim_cur", rlim_cur))
+	if (! state_get_json_string_var (json, "rlim_cur", NULL, rlim_cur))
 		goto error;
 
 	errno = 0;
@@ -1006,7 +1017,7 @@ state_rlimit_deserialise (json_object *json)
 	if (errno || *endptr)
 		goto error;
 
-	if (! state_get_json_string_var (json, "rlim_max", rlim_max))
+	if (! state_get_json_string_var (json, "rlim_max", NULL, rlim_max))
 		goto error;
 
 	errno = 0;
@@ -1094,19 +1105,14 @@ error:
  * success, or NULL on error.
  **/
 char *
-state_collapse_env (char **env)
+state_collapse_env (const char **env)
 {
-	char   *p;
-	char   *flattened;
-	char  **elem;
-
-	nih_assert (env);
+	char          *p;
+	char          *flattened = NULL;
+	const char  **elem;
 
 	if (! env)
 		return NULL;
-
-	/* Start with a string we can append to */
-	flattened = NIH_MUST (nih_strdup (NULL, ""));
 
 	for (elem = env; elem && *elem; ++elem) {
 		p = strchr (*elem, '=');
@@ -1116,7 +1122,9 @@ state_collapse_env (char **env)
 		 */
 		if (p && strpbrk (p, " \t")) {
 			/* append name and equals */
-			NIH_MUST (nih_strcat_sprintf (&flattened, NULL, " %.*s",
+			NIH_MUST (nih_strcat_sprintf (&flattened, NULL,
+						"%s%.*s",
+						elem == env ? "" : " ",
 						(int)((p - *elem) + 1), *elem));
 			p++;
 
@@ -1131,9 +1139,11 @@ state_collapse_env (char **env)
 			 * value part.
 			 */
 			NIH_MUST (nih_strcat_sprintf
-					(&flattened, NULL, " %s", *elem));
+					(&flattened, NULL,
+					 "%s%s",
+					 elem == env ? "" : " ",
+					 *elem));
 		}
-
 	}
 
 	return flattened;
@@ -1251,10 +1261,10 @@ state_deserialise_resolve_deps (json_object *json)
 
 		/* look for jobs in JSON with associated blocked entries */
 		for (int j = 0; j < json_object_array_length (json_jobs); j++) {
-			json_object  *json_blocking;
-			json_object  *json_job;
-			Job          *job = NULL;
-			const char   *job_name;
+			json_object     *json_blocking;
+			json_object     *json_job;
+			Job             *job = NULL;
+			nih_local char  *job_name = NULL;
 
 			json_job = json_object_array_get_idx (json_jobs, j);
 			if (! json_job)
@@ -1267,7 +1277,7 @@ state_deserialise_resolve_deps (json_object *json)
 			if (! json_blocking)
 				continue;
 
-			if (! state_get_json_string_var (json_job, "name", job_name))
+			if (! state_get_json_string_var (json_job, "name", NULL, job_name))
 				goto error;
 
 			/* lookup job */
@@ -1401,10 +1411,8 @@ state_serialise_blocked (const Blocked *blocked)
 			if (! dbus_message_data_str)
 				goto error;
 
-			/* returned memory is not managed by NIH, hence use
-			 * libc facilities.
-			 */
-			free (dbus_message_data_raw);
+			/* returned memory is managed by D-Bus, not NIH */
+			dbus_free (dbus_message_data_raw);
 
 			if (! state_set_json_string_var (json_blocked_data,
 						"msg-data",
@@ -1474,6 +1482,9 @@ state_serialise_blocking (const NihList *blocking)
 					__func__, __LINE__);
 			continue;
 		}
+#else
+		nih_warn ("XXX: WARNING (%s:%d): D-Bus blocked objects being serialised using experimental D-Bus API",
+				__func__, __LINE__);
 #endif
 
 		json_blocked = state_serialise_blocked (blocked);
@@ -1508,17 +1519,18 @@ Blocked *
 state_deserialise_blocked (void *parent, json_object *json,
 		NihList *list)
 {
-	json_object  *json_blocked_data;
-	Blocked      *blocked = NULL;
-	const char   *blocked_type_str;
-	BlockedType   blocked_type;
-	int           ret;
+	json_object     *json_blocked_data;
+	Blocked         *blocked = NULL;
+	nih_local char  *blocked_type_str = NULL;
+	BlockedType      blocked_type;
+	int             ret;
 
 	nih_assert (parent);
 	nih_assert (json);
 	nih_assert (list);
+	nih_assert (control_conns);
 
-	if (! state_get_json_string_var (json, "type", blocked_type_str))
+	if (! state_get_json_string_var (json, "type", NULL, blocked_type_str))
 		goto error;
 
 	blocked_type = blocked_type_str_to_enum (blocked_type_str);
@@ -1532,15 +1544,15 @@ state_deserialise_blocked (void *parent, json_object *json,
 	switch (blocked_type) {
 	case BLOCKED_JOB:
 		{
-			const char  *job_name;
-			const char  *job_class_name;
-			Job         *job;
+			nih_local char  *job_name = NULL;
+			nih_local char  *job_class_name = NULL;
+			Job             *job;
 
 			if (! state_get_json_string_var (json_blocked_data,
-						"name", job_name))
+						"name", NULL, job_name))
 				goto error;
 			if (! state_get_json_string_var (json_blocked_data,
-						"class", job_class_name))
+						"class", NULL, job_class_name))
 				goto error;
 
 			job = state_get_job (job_class_name, job_name);
@@ -1555,7 +1567,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 	case BLOCKED_EVENT:
 		{
 			Event  *event = NULL;
-			int     event_index;
+			int     event_index = -1;
 
 			if (! state_get_json_int_var (json_blocked_data,
 						"index", event_index))
@@ -1583,12 +1595,13 @@ state_deserialise_blocked (void *parent, json_object *json,
 			DBusError        error;
 			dbus_uint32_t    serial;
 			size_t           raw_len;
-			const char      *dbus_message_data_str = NULL;
+			nih_local char  *dbus_message_data_str = NULL;
 			nih_local char  *dbus_message_data_raw = NULL;
 			int              conn_index;
 
 			if (! state_get_json_string_var (json_blocked_data,
 						"msg-data",
+						NULL,
 						dbus_message_data_str))
 				goto error;
 
