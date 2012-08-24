@@ -60,30 +60,6 @@ AC_PROG_CC_C99
 AM_PROG_CC_C_O
 NIH_C_THREAD
 
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(uid_t)
-AC_CHECK_SIZEOF(pid_t)
-AC_CHECK_SIZEOF(time_t)
-AC_CHECK_SIZEOF(mode_t)
-AC_CHECK_SIZEOF(size_t)
-AC_CHECK_SIZEOF(ssize_t)
-
-AS_IF(
-	[test "$ac_cv_sizeof_size_t" -ne "$ac_cv_sizeof_ssize_t"],
-	AC_MSG_ERROR([init/log.c requires size_t and ssize_t to be of the same size])
-)
-
-
-AS_IF(
-	[test "$ac_cv_sizeof_time_t" -gt "$ac_cv_sizeof_int"],
-	AC_MSG_ERROR([JSON-C requires time_t to fit within an integer])
-)
-
-AS_IF(
-	[test "$ac_cv_sizeof_size_t" -gt "$ac_cv_sizeof_int"],
-	AC_MSG_ERROR([JSON-C requires size_t to be same size as int])
-)
-
 # Unlikely to hit this limit for a while, but it pays to be safe.
 for type in int uid_t pid_t time_t mode_t size_t ssize_t
 do
