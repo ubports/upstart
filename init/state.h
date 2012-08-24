@@ -77,6 +77,8 @@
  * - we are not being consistent wrt calling NIH_MUST() - resolve!!
  *
  * - XXX: write tests!
+ *   - ensure we have a test to check complete list of expected fds to
+ *   be open in child!
  */
 
 /*

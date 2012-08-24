@@ -960,7 +960,7 @@ control_prepare_reexec (void)
 
 	control_bus_flush ();
 
-#if 0
+#if 1
 	/* FIXME */
 	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
 			__func__, __LINE__);
@@ -1004,9 +1004,6 @@ control_serialise (DBusConnection *connection)
 	if (! state_set_json_int_var (json, "fd", fd))
 		goto error;
 
-	/* FIXME: TODO: wrap into control_get_address() for
-	 * consistency with control_get_connection_fd().
-	 */
 	address = dbus_connection_get_address (connection);
 	if (! address)
 		goto error;
@@ -1055,8 +1052,9 @@ control_serialise_all (void)
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry    *entry = (NihListEntry *)iter;
 		DBusConnection  *conn = entry->data;
-		int              fd;
 		json_object     *json_conn;
+#if 0
+		int              fd;
 
 		fd = control_get_connection_fd (conn);
 
@@ -1064,6 +1062,11 @@ control_serialise_all (void)
 			nih_error (_("Failed to clear control connection CLOEXEC flag"));
 			goto error;
 		}
+#else
+	/* FIXME */
+	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
+			__func__, __LINE__);
+#endif
 
 		json_conn = control_serialise (conn);
 

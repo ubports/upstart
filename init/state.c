@@ -897,16 +897,10 @@ error:
  *
  * Returns: JSON-serialised rlimit structure, or NULL on error.
  **/
-
-#if 1
-/* FIXME: encode as int/int64 rather than string! */
-#endif
-
 static json_object *
 state_rlimit_serialise (const struct rlimit *rlimit)
 {
-	json_object    *json;
-	nih_local char *buffer = NULL;
+	json_object  *json;
 
 	nih_assert (rlimit);
 
@@ -914,18 +908,10 @@ state_rlimit_serialise (const struct rlimit *rlimit)
 	if (! json)
 		return NULL;
 
-	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_cur);
-	if (! buffer)
+	if (! state_set_json_int_var_from_obj (json, rlimit, rlim_cur))
 		goto error;
 
-	if (! state_set_json_string_var (json, "rlim_cur", buffer))
-		goto error;
-
-	buffer = nih_sprintf (buffer, "0x%lx", rlimit->rlim_max);
-	if (! buffer)
-		goto error;
-
-	if (! state_set_json_string_var (json, "rlim_max", buffer))
+	if (! state_set_json_int_var_from_obj (json, rlimit, rlim_max))
 		goto error;
 
 	return json;
@@ -959,7 +945,7 @@ state_rlimit_serialise_all (struct rlimit * const *rlimits)
 
 	for (int i = 0; i < RLIMIT_NLIMITS; i++) {
 		/* We must encode a blank entry for missing array elements
-		 * to ensure correct deserialisation.
+		 * to ensure correct ordering of limits on deserialisation.
 		 */
 		json_rlimit = state_rlimit_serialise (rlimits[i]
 				? rlimits[i] : &dummy);
@@ -994,9 +980,6 @@ static struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
 	struct rlimit   *rlimit;
-	nih_local char  *rlim_cur = NULL;
-	nih_local char  *rlim_max = NULL;
-	char            *endptr;
 
 	nih_assert (json);
 
@@ -1009,20 +992,10 @@ state_rlimit_deserialise (json_object *json)
 
 	memset (rlimit, '\0', sizeof (struct rlimit));
 
-	if (! state_get_json_string_var (json, "rlim_cur", NULL, rlim_cur))
+	if (! state_get_json_int_var_to_obj (json, rlimit, rlim_cur))
 		goto error;
 
-	errno = 0;
-	rlimit->rlim_cur = strtoul (rlim_cur, &endptr, 16);
-	if (errno || *endptr)
-		goto error;
-
-	if (! state_get_json_string_var (json, "rlim_max", NULL, rlim_max))
-		goto error;
-
-	errno = 0;
-	rlimit->rlim_max = strtoul (rlim_max, &endptr, 16);
-	if (errno || *endptr)
+	if (! state_get_json_int_var_to_obj (json, rlimit, rlim_cur))
 		goto error;
 
 	return rlimit;
@@ -1049,6 +1022,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 		struct rlimit *(*rlimits)[])
 {
 	json_object        *json_limits;
+	struct rlimit      *rlimit;
 	int                 i;
 
 	nih_assert (json);
@@ -1075,21 +1049,34 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 		if (! state_check_json_type (json_rlimit, object))
 			goto error;
 
-		(*rlimits)[i] = state_rlimit_deserialise (json_rlimit);
-		if (! (*rlimits)[i])
+		rlimit = state_rlimit_deserialise (json_rlimit);
+		if (! rlimit)
 			goto error;
+
+		if (! rlimit->rlim_cur && ! rlimit->rlim_max) {
+			/* This limit was simply a placeholder so
+			 * don't set it. Arguably, it is possible to set
+			 * a limit of zero, but that is non-sensical with
+			 * the exception of the nice and rtprio limits,
+			 * which conveniently the kernel defaults to zero
+			 * anyway ;-)
+			 */
+			nih_free (rlimit);
+			(*rlimits)[i] = NULL;
+			continue;
+		}
+
+		(*rlimits)[i] = rlimit;
+		nih_ref ((*rlimits)[i], parent);
 	}
 
 	return 0;
 
 error:
-	/* FIXME: trace alloc path to see if this is necessary, and if
-	 * so add it for all equivalent functions!
-	 */
-#if 0
-	while (i--)
-		nih_free (rlimits[i]);
-#endif
+	/* Clean up what we can */
+	for (; i >= 0; i--)
+		if ((*rlimits)[i])
+			nih_free ((*rlimits)[i]);
 
 	return -1;
 }

@@ -481,6 +481,8 @@ main (int   argc,
 			/* Out of options */
 			nih_assert_not_reached ();
 		} else {
+			close (state_fd);
+
 			nih_info ("Stateful re-exec completed");
 		}
 	}
