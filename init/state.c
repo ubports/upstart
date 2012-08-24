@@ -83,11 +83,6 @@ state_hex_to_data (void *parent, const void *hex_data,
 		   size_t *data_len)
 	__attribute__ ((warn_unused_result));
 
-/* FIXME */
-#if 1
-#include "nih_iterators.h"
-#endif
-
 /**
  * state_read:
  *
@@ -333,7 +328,7 @@ state_to_string (char **json_string, size_t *len)
 	const char         *value;
 
 /* FIXME */
-#if 1
+#if 0
 	extern NihList *conf_sources;
 
 	session_init ();
@@ -452,7 +447,7 @@ state_from_string (const char *state)
 	}
 
 	/* FIXME */
-#if 1
+#if 0
 	extern NihList *conf_sources;
 
 	nih_message ("#-----------------------------------------");
@@ -492,7 +487,7 @@ state_from_string (const char *state)
 		goto out;
 
 /* FIXME */
-#if 1
+#if 0
 	nih_message ("#-----------------------------------------");
 	nih_message ("# Deserialisation summary");
 	nih_message (" ");
