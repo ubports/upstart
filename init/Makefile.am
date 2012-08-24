@@ -226,9 +226,7 @@ test_log_LDADD = \
 	$(JSON_LIBS) \
 	-lutil
 
-# FIXME: remove nih_iterators.*
-test_state_SOURCES = tests/test_state.c \
-		nih_iterators.c nih_iterators.h
+test_state_SOURCES = tests/test_state.c
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
