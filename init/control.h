@@ -27,6 +27,8 @@
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_message.h>
 
+#include <json.h>
+
 /**
  * USE_SESSION_BUS_ENV:
  *
