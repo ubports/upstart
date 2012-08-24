@@ -4549,7 +4549,7 @@ test_source_reload (void)
 	strcat (filename, "/baz");
 	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
-	conf_reload ();
+	conf_reload (FALSE);
 
 	TEST_HASH_NOT_EMPTY (source1->files);
 
