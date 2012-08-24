@@ -486,7 +486,7 @@ test_bus_open (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	ret = control_bus_open ();
+	ret = control_bus_open (FALSE);
 
 	TEST_EQ (ret, 0);
 	TEST_NE_P (control_bus, NULL);
@@ -571,7 +571,7 @@ test_bus_open (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	ret = control_bus_open ();
+	ret = control_bus_open (FALSE);
 
 	TEST_EQ (ret, 0);
 	TEST_NE_P (control_bus, NULL);
@@ -675,7 +675,7 @@ test_bus_open (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	ret = control_bus_open ();
+	ret = control_bus_open (FALSE);
 
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
@@ -739,7 +739,7 @@ test_bus_open (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	ret = control_bus_open ();
+	ret = control_bus_open (FALSE);
 
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
@@ -767,7 +767,7 @@ test_bus_open (void)
 	setenv ("DBUS_SYSTEM_BUS_ADDRESS",
 		"unix:abstract=/com/ubuntu/upstart/test", TRUE);
 
-	ret = control_bus_open ();
+	ret = control_bus_open (FALSE);
 
 	TEST_LT (ret, 0);
 	TEST_EQ_P (control_bus, NULL);
@@ -802,7 +802,7 @@ test_bus_close (void)
 
 	assert (NIH_LIST_EMPTY (control_conns));
 
-	assert0 (control_bus_open ());
+	assert0 (control_bus_open (FALSE));
 	assert (control_bus != NULL);
 
 	assert (! NIH_LIST_EMPTY (control_conns));
@@ -856,7 +856,7 @@ test_disconnected (void)
 
 	TEST_DBUS (dbus_pid);
 
-	assert0 (control_bus_open ());
+	assert0 (control_bus_open (FALSE));
 	assert (control_bus != NULL);
 
 	assert (! NIH_LIST_EMPTY (control_conns));
