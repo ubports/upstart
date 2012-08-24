@@ -1407,7 +1407,7 @@ debug_show_conf_source (const ConfSource *source)
 			source, source->path, source->type, source->flag);
 
 	nih_debug ("ConfSource %p files (%d):", source,
-			debug_count_hash_entries (source->files));
+			(int)debug_count_hash_entries (source->files));
 
 	NIH_HASH_FOREACH (source->files, file_iter) {
 		ConfFile *file = (ConfFile *)file_iter;
