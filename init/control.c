@@ -984,7 +984,7 @@ control_serialise (DBusConnection *connection)
 {
 	json_object  *json;
 	int           fd;
-	const char   *address;
+	//const char   *address;
 
 	nih_assert (connection);
 	nih_assert (control_bus);
@@ -1004,12 +1004,18 @@ control_serialise (DBusConnection *connection)
 	if (! state_set_json_int_var (json, "fd", fd))
 		goto error;
 
+	/* FIXME */
+#if 0
 	address = dbus_connection_get_address (connection);
 	if (! address)
 		goto error;
 
 	if (! state_set_json_string_var (json, "address", address))
 		goto error;
+#else
+	nih_warn ("XXX: WARNING (%s:%d): NOT serialising D-Bus connection address yet",
+			__func__, __LINE__);
+#endif
 
 	if (connection == control_bus)
 		if (! state_set_json_int_var (json, "control_bus", 1))
