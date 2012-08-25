@@ -135,10 +135,10 @@ test_new (void)
 		TEST_LIST_EMPTY (&job->blocking);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, (ProcessType)-1);
+		TEST_EQ (job->kill_process, PROCESS_INVALID);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ (job->respawn_count, 0);
@@ -834,7 +834,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -923,7 +923,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1011,7 +1011,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1044,7 +1044,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_START);
@@ -1075,7 +1075,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1110,7 +1110,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_START);
@@ -1148,7 +1148,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1184,7 +1184,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
@@ -1269,7 +1269,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNED);
@@ -1307,7 +1307,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1337,7 +1337,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNED);
@@ -1375,7 +1375,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1417,7 +1417,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNED);
@@ -1456,7 +1456,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1492,7 +1492,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNED);
@@ -1520,7 +1520,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1556,7 +1556,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
@@ -1643,7 +1643,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNED);
@@ -1674,7 +1674,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1712,7 +1712,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_POST_START);
@@ -1744,7 +1744,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1779,7 +1779,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_POST_START);
@@ -1808,7 +1808,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1842,7 +1842,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
@@ -1874,7 +1874,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: Failed to spawn test "
@@ -1913,7 +1913,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_RUNNING);
@@ -1942,7 +1942,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -1974,7 +1974,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_RUNNING);
@@ -2005,7 +2005,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2043,7 +2043,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_STOP);
@@ -2075,7 +2075,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2110,7 +2110,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_STOP);
@@ -2153,7 +2153,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2183,7 +2183,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_STOP);
@@ -2226,7 +2226,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2268,7 +2268,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_STOP);
@@ -2312,7 +2312,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2348,7 +2348,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
@@ -2394,7 +2394,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_FILE_EQ (output, ("test: Failed to spawn test "
@@ -2827,7 +2827,7 @@ test_change_state (void)
 		TEST_FREE_TAG (env1);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_goal (job, JOB_START);
@@ -2850,7 +2850,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2880,7 +2880,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_STOPPING);
@@ -2922,7 +2922,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -2957,7 +2957,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_KILLED);
@@ -2983,7 +2983,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_NE_P (job->kill_timer, NULL);
@@ -2991,7 +2991,7 @@ test_change_state (void)
 
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
-		job->kill_process = -1;
+		job->kill_process = PROCESS_INVALID;
 
 		nih_free (job);
 	}
@@ -3021,7 +3021,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_KILLED);
@@ -3052,11 +3052,11 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, (ProcessType)-1);
+		TEST_EQ (job->kill_process, PROCESS_INVALID);
 
 		nih_free (job);
 	}
@@ -3085,7 +3085,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_POST_STOP);
@@ -3116,7 +3116,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3210,7 +3210,7 @@ test_change_state (void)
 		TEST_FREE_TAG (blocked);
 
 		job->failed = FALSE;
-		job->failed_process = -1;
+		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
 		TEST_FREE_TAG (job);
@@ -3643,7 +3643,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -3726,7 +3726,7 @@ test_change_state (void)
 		TEST_LIST_EMPTY (events);
 
 		TEST_EQ (job->failed, FALSE);
-		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
 
 		nih_free (job);
@@ -5013,7 +5013,7 @@ test_emit_event (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = -1;
 
 	TEST_ALLOC_FAIL {
@@ -5059,7 +5059,7 @@ test_emit_event (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_STOPPING;
 	job->failed = TRUE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = -1;
 
 	TEST_ALLOC_FAIL {
@@ -5469,7 +5469,7 @@ test_emit_event (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = -1;
 
 	TEST_ALLOC_FAIL {
@@ -5506,7 +5506,7 @@ test_emit_event (void)
 	job->goal = JOB_STOP;
 	job->state = JOB_WAITING;
 	job->failed = TRUE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = -1;
 
 	TEST_ALLOC_FAIL {
