@@ -1411,66 +1411,6 @@ job_class_get_start_on (JobClass *      class,
 	return 0;
 }
 
-int
-job_class_get_stop_on_str (JobClass  *class,
-			   void      *parent,
-		       	   char   ****stop_on)
-{
-	size_t len = 0;
-
-	nih_assert (class != NULL);
-	nih_assert (parent != NULL);
-	nih_assert (stop_on != NULL);
-
-	*stop_on = nih_alloc (parent, sizeof (char ***));
-	if (! *stop_on)
-		nih_return_no_memory_error (-1);
-
-	len = 0;
-	(*stop_on)[len] = NULL;
-
-	if (class->stop_on) {
-		NIH_TREE_FOREACH_POST (&class->stop_on->node, iter) {
-			EventOperator *oper = (EventOperator *)iter;
-
-			*stop_on = nih_realloc (*stop_on, parent,
-						 sizeof (char ***) * (len + 2));
-			if (! *stop_on)
-				nih_return_no_memory_error (-1);
-
-			(*stop_on)[len] = nih_str_array_new (*stop_on);
-			if (! (*stop_on)[len])
-				nih_return_no_memory_error (-1);
-
-			switch (oper->type) {
-			case EVENT_OR:
-				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
-							 NULL, "/OR"))
-					nih_return_no_memory_error (-1);
-				break;
-			case EVENT_AND:
-				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
-							 NULL, "/AND"))
-					nih_return_no_memory_error (-1);
-				break;
-			case EVENT_MATCH:
-				if (! nih_str_array_add (&(*stop_on)[len], *stop_on,
-							 NULL, oper->name))
-					nih_return_no_memory_error (-1);
-				if (oper->env)
-					if (! nih_str_array_append (&(*stop_on)[len], *stop_on,
-								    NULL, oper->env))
-						nih_return_no_memory_error (-1);
-				break;
-			}
-
-			(*stop_on)[++len] = NULL;
-		}
-	}
-
-	return 0;
-}
-
 /**
  * job_class_get_stop_on:
  * @class: class to obtain events from,
@@ -1496,7 +1436,6 @@ job_class_get_stop_on (JobClass *      class,
 		       char ****       stop_on)
 {
 	int ret;
-#if 0
 	size_t len = 0;
 
 	nih_assert (class != NULL);
@@ -1550,54 +1489,6 @@ job_class_get_stop_on (JobClass *      class,
 	}
 
 	return 0;
-#endif
-	ret = job_class_get_stop_on_str (class, message, stop_on);
-
-#if 0
-	{
-		char ***s;
-
-		for (s=*stop_on; s && *s; s++) {
-			nih_message ("stop_on: '%s'", **s);
-		}
-	}
-#endif
-	{
-		char ***s;
-		char  **c;
-		char  **list;
-		json_object *json;
-
-		list = nih_str_array_new (message);
-		if (! list)
-			nih_return_system_error (-1);
-
-		for (s=*stop_on; s && *s; ++s) {
-			for (c = *s; c && *c; c++) {
-				nih_message ("XXX: c='%s'", *c);
-				nih_assert (nih_str_array_add (&list, NULL, NULL, *c));
-
-				json = state_serialise_str_array (c);
-				if (!json ) {
-					nih_message ("XXX: state_serialise_str_array failed");
-					nih_return_no_memory_error (-1);
-				}
-
-				nih_message ("YYY: json='%s'", json_object_to_json_string (json));
-				json_object_put (json);
-			}
-		}
-
-		for (c = list; c && *c; ++c) {
-			nih_message ("ZZZ: list: '%s'", *c);
-
-		}
-
-
-
-	}
-
-	return ret;
 }
 
 /**
