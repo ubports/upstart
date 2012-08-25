@@ -1553,7 +1553,7 @@ job_process_terminated (Job         *job,
 						  job_name (job));
 
 					failed = FALSE;
-					job_failed (job, -1, 0);
+					job_failed (job, PROCESS_INVALID, 0);
 				} else {
 					nih_warn (_("%s %s process ended, respawning"),
 						  job_name (job),
