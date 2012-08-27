@@ -431,7 +431,7 @@ control_reload_configuration (void           *data,
 	nih_info (_("Reloading configuration"));
 
 	/* This can only be called after deserialisation */
-	conf_reload (FALSE);
+	conf_reload ();
 
 	return 0;
 }
