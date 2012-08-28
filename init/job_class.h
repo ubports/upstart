@@ -293,12 +293,6 @@ int         job_class_get_version          (JobClass *class,
 					    char **version)
 	__attribute__ ((warn_unused_result));
 
-int
-job_class_get_stop_on_str (JobClass  *class,
-			   void      *parent,
-		       	   char   ****stop_on)
-	__attribute__ ((warn_unused_result));
-
 int         job_class_get_start_on         (JobClass *class,
 					    NihDBusMessage *message,
 					    char ****start_on);
