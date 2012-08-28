@@ -1816,15 +1816,7 @@ error:
  * job_class_deserialise:
  * @json: JSON-serialised JobClass object to deserialise.
  *
- * Note that the object returned is not a true JobClass since not all
- * structure elements are encoded in the JSON.
- *
- * Further, note that limits, process, instances (jobs), and normalexit
- * are NOT handled by this function - use state_rlimit_deserialise_all(),
- * process_deserialise_all(), job_deserialise_all() and
- * state_deserialise_int_array() respectively.
- *
- * Returns: partial JobClass object, or NULL on error.
+ * Returns: JobClass object, or NULL on error.
  **/
 static JobClass *
 job_class_deserialise (json_object *json)
