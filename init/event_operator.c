@@ -702,21 +702,12 @@ event_operator_reset (EventOperator *root)
  *
  * @condition: start on/stop on condition.
  *
- * Collapsed condition will be fully bracketed. Note that as such it may
- * not be lexicographically identical to the original expression that
- * resulted in @condition, but it will be logically identical.
- *
  * Returns: newly-allocated flattened string representing @condition
  * on success, or NULL on error.
  **/
 char *
 event_operator_collapse (EventOperator *condition)
 {
-	/* count of number of closing brackets to insert at end
-	 * of tree traversal.
-	 */
-	int right_parens = 0;
-
 	char *str = NULL;
 
 	nih_assert (condition);
@@ -728,38 +719,22 @@ event_operator_collapse (EventOperator *condition)
 		case EVENT_OR: 
 		case EVENT_AND:
 			{
-				right_parens++;
 				NIH_MUST (nih_strcat_sprintf (&str, NULL, " %s ",
 					oper->type == EVENT_OR ? "or" : "and"));
 				break;
 			}
 		case EVENT_MATCH:
 			{
-				char           *b, *e;
 				nih_local char *env = NULL;
-
-				if (! oper->node.parent) {
-					/* condition comprises a single event */
-					b = e = "";
-				} else if (oper->node.parent->left == &oper->node) {
-					b = "(";
-					e = "";
-				} else {
-					b = "";
-					e = ")";
-				}
 
 				if (oper->env)
 					env = state_collapse_env ((const char **)oper->env);
 
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, "%s%s",
-						b, oper->name));
+				NIH_MUST (nih_strcat (&str, NULL, oper->name));
 
 				if (env)
 					NIH_MUST (nih_strcat_sprintf(&str, NULL,
 								" %s", env));
-
-				NIH_MUST (nih_strcat (&str, NULL, e));
 			}
 			break;
 
@@ -767,11 +742,6 @@ event_operator_collapse (EventOperator *condition)
 			nih_assert_not_reached ();
 		}
 	}
-
-	right_parens--;
-
-	for (int i = 0; i < right_parens; ++i)
-		NIH_MUST (nih_strcat (&str, NULL, ")"));
 
 	return str;
 }

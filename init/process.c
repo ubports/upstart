@@ -304,8 +304,6 @@ process_deserialise_all (json_object *json, const void *parent,
 		 * so ignore it.
 		 */
 		if (! partial->command || ! *partial->command) {
-			nih_info ("XXX:%s:%d:ignoring process[%d] which has no command",
-					__func__, __LINE__, i);
 			processes[i] = NULL;
 			continue;
 		}

@@ -1411,6 +1411,7 @@ job_class_get_start_on (JobClass *      class,
 	return 0;
 }
 
+
 /**
  * job_class_get_stop_on:
  * @class: class to obtain events from,
@@ -1435,7 +1436,6 @@ job_class_get_stop_on (JobClass *      class,
 		       NihDBusMessage *message,
 		       char ****       stop_on)
 {
-	int ret;
 	size_t len = 0;
 
 	nih_assert (class != NULL);
@@ -1895,8 +1895,9 @@ job_class_deserialise (json_object *json)
 
 				err = nih_error_get ();
 
-				nih_error ("%s: %s",
-						_("BUG: parse error"),
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("'start on' parse error"),
 						err->message);
 
 				nih_free (err);
@@ -1919,8 +1920,9 @@ job_class_deserialise (json_object *json)
 
 				err = nih_error_get ();
 
-				nih_error ("%s: %s",
-						_("BUG: parse error"),
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("'stop on' parse error"),
 						err->message);
 
 				nih_free (err);
