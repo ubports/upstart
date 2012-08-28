@@ -28,6 +28,8 @@
 
 #include "event_operator.h"
 #include "blocked.h"
+#include "parse_job.h"
+#include "conf.h"
 
 
 void
@@ -1320,6 +1322,57 @@ test_operator_reset (void)
 	event_poll ();
 }
 
+void
+test_operator_serialisation (void)
+{
+	JobClass        *job = NULL;
+	char             buf[1024];
+	EventOperator   *oper1, *oper2;
+	char		*oper1_string;
+
+	/* Check correct serialisation/deserialisation of complex
+	 * operators, to be sure that we can generate a correct round-trip
+	 * during re-exec.
+	 */
+	TEST_FUNCTION ("event_operator_serialisation");
+
+	nih_error_init ();
+	job_class_init ();
+	conf_init ();
+
+	job = job_class_new (NULL, "operator_test", NULL);
+
+        TEST_FEATURE ("with simple operator");
+        strcpy (buf, "started JOB=second_test\n");
+
+	oper1 = parse_on_simple (job, "start", buf);
+	/* Ideally we would exercise allocation here,
+	 * but NIH_MUST is being used.
+	 */
+	oper1_string = event_operator_collapse (oper1);
+	oper2 = parse_on_simple (job, "start", oper1_string);
+
+	TEST_EQ (oper1->value, oper2->value);
+	TEST_EQ (oper1->type, oper2->type);
+	TEST_EQ_STR (oper1->name, oper2->name);
+
+	/* We don't get to use the macros here because we need to
+	 * walk both trees in tandem */
+	for (NihTree *iter1 = nih_tree_next (&oper1->node, NULL),
+	             *iter2 = nih_tree_next (&oper2->node, NULL);
+	     iter1 != NULL && iter2 != NULL;
+	     iter1 = nih_tree_next (&oper1->node, iter1),
+	     iter2 = nih_tree_next (&oper2->node, iter2))
+	{
+		EventOperator *oper1_sub = (EventOperator *)iter1;
+		EventOperator *oper2_sub = (EventOperator *)iter2;
+
+		TEST_EQ (oper1_sub->value, oper2_sub->value);
+		TEST_EQ (oper1_sub->type, oper2_sub->type);
+		TEST_EQ_STR (oper1_sub->name, oper2_sub->name);
+	}
+
+}
 
 int
 main (int   argc,
@@ -1337,6 +1390,7 @@ main (int   argc,
 	test_operator_environment ();
 	test_operator_events ();
 	test_operator_reset ();
+	test_operator_serialisation ();
 
 	return 0;
 }
