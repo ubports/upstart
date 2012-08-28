@@ -1799,17 +1799,17 @@ job_class_serialise_all (void)
 
 		json_class = job_class_serialise (class);
 
+		/* No object returned means the class doesn't need to be
+		 * serialised.  Even if this is a real failure, it's always
+		 * better to serialise as much of the state as possible.
+		 */
 		if (! json_class)
-			goto error;
+			continue;
 
 		json_object_array_add (json, json_class);
 	}
 
 	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
 }
 
 /**
