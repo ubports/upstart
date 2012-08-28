@@ -1863,8 +1863,9 @@ job_deserialise (JobClass *parent, json_object *json)
 
 				err = nih_error_get ();
 
-				nih_error ("%s: %s",
-						_("BUG: parse error"),
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("instance 'stop on' parse error"),
 						err->message);
 
 				nih_free (err);
