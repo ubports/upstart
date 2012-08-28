@@ -2055,7 +2055,6 @@ job_class_deserialise_all (json_object *json)
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
 		json_object         *json_class;
-		nih_local JobClass  *class = NULL;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
