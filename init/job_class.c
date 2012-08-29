@@ -1411,7 +1411,6 @@ job_class_get_start_on (JobClass *      class,
 	return 0;
 }
 
-
 /**
  * job_class_get_stop_on:
  * @class: class to obtain events from,
