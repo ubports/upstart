@@ -28,6 +28,8 @@
 
 #include "event_operator.h"
 #include "blocked.h"
+#include "parse_job.h"
+#include "conf.h"
 
 
 void
@@ -1320,6 +1322,106 @@ test_operator_reset (void)
 	event_poll ();
 }
 
+void
+test_operator_serialisation (void)
+{
+	JobClass        *job = NULL;
+	EventOperator   *oper1, *oper2;
+	char		*oper1_string;
+	char		*oper2_string;
+
+	struct test_operator {
+		char *description;
+		char *value;
+	};
+
+	struct test_operator test_operators[] = {
+		{ "with simple operator", "started JOB=second_test\n" },
+		{ "with or operator", "runlevel [23] or not-container" },
+		{ "with and operator", "(local-filesystems and net-device-up)" },
+		{ "with complex operator", "runlevel [23] and (\n"
+"not-container or\n"
+"container CONTAINER=lxc or\n"
+"container CONTAINER=lxc-libvirt)" },
+		{ NULL, NULL }
+	};
+	struct test_operator *test;
+
+	/* Check correct serialisation/deserialisation of complex
+	 * operators, to be sure that we can generate a correct round-trip
+	 * during re-exec.
+	 */
+	TEST_FUNCTION ("event_operator_serialisation");
+
+	nih_error_init ();
+	job_class_init ();
+	conf_init ();
+
+	job = job_class_new (NULL, "operator_test", NULL);
+
+	for (test = test_operators; test && test->value; test++)
+	{
+		TEST_FEATURE (test->description);
+
+		oper1 = parse_on_simple (job, "start", test->value);
+		/* Ideally we would exercise allocation here,
+		 * but NIH_MUST is being used.
+		 */
+		oper1_string = event_operator_collapse (oper1);
+		nih_message ("oper1_string: '%s' (from '%s')", oper1_string, test->value);
+
+		oper2 = parse_on_simple (job, "start", oper1_string);
+
+		oper2_string = event_operator_collapse (oper2);
+		nih_message ("oper2_string: '%s' (from '%s')", oper2_string, oper1_string);
+
+		{
+			char *str = "(((runlevel [23] and not-container) or container CONTAINER=lxc) or container CONTAINER=lxc-libvirt)";
+			EventOperator   *oper3;
+			char		*oper3_string;
+
+			oper3 = parse_on_simple (job, "start", str);
+
+			oper3_string = event_operator_collapse (oper3);
+			nih_message ("oper3_string: '%s' (from '%s')", oper3_string, str);
+		}
+		{
+			char *str = "runlevel [23] and not-container or container CONTAINER=lxc or container CONTAINER=lxc-libvirt";
+			EventOperator   *oper4;
+			char		*oper4_string;
+
+			oper4 = parse_on_simple (job, "start", str);
+
+			oper4_string = event_operator_collapse (oper4);
+			nih_message ("oper4_string: '%s' (from '%s')", oper4_string, str);
+		}
+
+		TEST_EQ (oper1->value, oper2->value);
+		TEST_EQ (oper1->type, oper2->type);
+		if (oper1->name || oper2->name) {
+			TEST_EQ_STR (oper1->name, oper2->name);
+		}
+
+		/* We don't get to use the macros here because we need to
+		 * walk both trees in tandem */
+		for (NihTree *iter1 = nih_tree_next (&oper1->node, NULL),
+		             *iter2 = nih_tree_next (&oper2->node, NULL);
+		     iter1 != NULL && iter2 != NULL;
+		     iter1 = nih_tree_next (&oper1->node, iter1),
+		     iter2 = nih_tree_next (&oper2->node, iter2))
+		{
+			EventOperator *oper1_sub = (EventOperator *)iter1;
+			EventOperator *oper2_sub = (EventOperator *)iter2;
+
+			TEST_EQ (oper1_sub->value, oper2_sub->value);
+			TEST_EQ (oper1_sub->type, oper2_sub->type);
+			if (oper1_sub->name || oper2_sub->name) {
+				TEST_EQ_STR (oper1_sub->name, oper2_sub->name);
+			}
+		}
+	}
+
+}
 
 int
 main (int   argc,
@@ -1337,6 +1439,7 @@ main (int   argc,
 	test_operator_environment ();
 	test_operator_events ();
 	test_operator_reset ();
+	test_operator_serialisation ();
 
 	return 0;
 }
