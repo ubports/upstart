@@ -118,7 +118,7 @@ Note that User Jobs can be created within a chroot environment.
 Each line begins with a configuration stanza and continues until either
 the end of the line or a line containing a closing stanza.  Line breaks
 within a stanza are permitted within single or double quotes, or if
-preceeded by a blackslash.
+preceded by a blackslash.
 
 If a stanza is duplicated, the last occurence will be used. Unrecognized
 stanzas will generate parse errors, which will stop a job from running.
@@ -236,7 +236,7 @@ such as removing temporary directories.
 All of these processes, including the main process, are optional.
 Services without a main process will appear to be running until they are
 stopped: this is commonly used to define states such as runlevels.  It
-is permissable to have no main process, but to have
+is permissible to have no main process, but to have
 .B pre\-start
 and
 .B post\-stop
@@ -250,7 +250,7 @@ post\-stop exec ifdown \-a
 .RE
 .\"
 .SS Event definition
-Jobs can be manually started and stopped at any time by a system adminstrator
+Jobs can be manually started and stopped at any time by a system administrator
 using the
 .BR start (8)
 and
@@ -393,7 +393,7 @@ utility to default to acting on the job the commands are called from.
 
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
-Defines a default environment variable, the value of which may be overriden
+Defines a default environment variable, the value of which may be overridden
 by the event or command that starts the job.
 If \'KEY=VALUE\' is specified, the variable KEY is given the value VALUE.
 If only \'KEY\' is given, then the value is taken from the

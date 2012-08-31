@@ -1,3 +1,9 @@
+2012-08-31  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	[ A. Costa <agcosta@gis.net> ]
+	* init/man/init.5, util/man/runlevel.7, util/man/initctl.8: fix a
+	number of typos.
+
 2012-08-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: main(): Remove checks for /dev/kmsg, /dev/null,
