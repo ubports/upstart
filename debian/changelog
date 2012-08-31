@@ -23,6 +23,9 @@ upstart (1.5-1) UNRELEASED; urgency=low
     VCS handling.
   * Add versioned dependencies on ifupdown and udev for the prerequisite
     boot events.
+  * util/shutdown.c: look for sysvinit at /run/initctl before /dev/initctl,
+    so that we're compatible with both the old and new paths used by
+    sysvinit in Debian.  Closes: #659540.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
 
