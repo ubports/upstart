@@ -1328,7 +1328,6 @@ test_operator_serialisation (void)
 	JobClass        *job = NULL;
 	EventOperator   *oper1, *oper2;
 	char		*oper1_string;
-	char		*oper2_string;
 
 	struct test_operator {
 		char *description;
@@ -1343,6 +1342,21 @@ test_operator_serialisation (void)
 "not-container or\n"
 "container CONTAINER=lxc or\n"
 "container CONTAINER=lxc-libvirt)" },
+		{ "with complex operator (2)", "((filesystem "
+"and runlevel [!06] "
+"and started dbus "
+"and (drm-device-added card0 PRIMARY_DEVICE_FOR_DISPLAY=1 "
+"or stopped udev-fallback-graphics)) "
+"or runlevel PREVLEVEL=S)"},
+		{ "with complex operator (3)", "(started plymouth\n"
+"and (graphics-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or drm-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or stopped udev-fallback-graphics))" },
+		{ "with complex operator (4)", "(startup and\n"
+"(graphics-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or drm-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or stopped udevtrigger or container))"},
+
 		{ NULL, NULL }
 	};
 	struct test_operator *test;
@@ -1364,37 +1378,16 @@ test_operator_serialisation (void)
 		TEST_FEATURE (test->description);
 
 		oper1 = parse_on_simple (job, "start", test->value);
+		TEST_NE_P (oper1, NULL);
+
 		/* Ideally we would exercise allocation here,
 		 * but NIH_MUST is being used.
 		 */
 		oper1_string = event_operator_collapse (oper1);
-		nih_message ("oper1_string: '%s' (from '%s')", oper1_string, test->value);
+		TEST_NE_P (oper1_string, NULL);
 
 		oper2 = parse_on_simple (job, "start", oper1_string);
-
-		oper2_string = event_operator_collapse (oper2);
-		nih_message ("oper2_string: '%s' (from '%s')", oper2_string, oper1_string);
-
-		{
-			char *str = "(((runlevel [23] and not-container) or container CONTAINER=lxc) or container CONTAINER=lxc-libvirt)";
-			EventOperator   *oper3;
-			char		*oper3_string;
-
-			oper3 = parse_on_simple (job, "start", str);
-
-			oper3_string = event_operator_collapse (oper3);
-			nih_message ("oper3_string: '%s' (from '%s')", oper3_string, str);
-		}
-		{
-			char *str = "runlevel [23] and not-container or container CONTAINER=lxc or container CONTAINER=lxc-libvirt";
-			EventOperator   *oper4;
-			char		*oper4_string;
-
-			oper4 = parse_on_simple (job, "start", str);
-
-			oper4_string = event_operator_collapse (oper4);
-			nih_message ("oper4_string: '%s' (from '%s')", oper4_string, str);
-		}
+		TEST_NE_P (oper2, NULL);
 
 		TEST_EQ (oper1->value, oper2->value);
 		TEST_EQ (oper1->type, oper2->type);

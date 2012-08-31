@@ -702,46 +702,148 @@ event_operator_reset (EventOperator *root)
  *
  * @condition: start on/stop on condition.
  *
+ * Collapsed condition will be fully bracketed. Note that as such it may
+ * not be lexicographically identical to the original expression that
+ * resulted in @condition, but it will be logically identical.
+ *
+ * The condition is reconstructed from the EventOperator tree by using
+ * a post-order traversal (since this allows the tree to be traversed
+ * bottom-to-top). Leaf nodes (EVENT_MATCH) are ignored when visited,
+ * allowing non-leaf nodes (EVENT_AND and EVENT_OR) to simply grab the
+ * value of their children, construct a bracketed expression and add it
+ * to a stack. If a child is a leaf node, the value can be read
+ * directly. If a child is a non-leaf node, the value is obtained by
+ * popping the stack before adding the new value back onto the stack.
+ * When finally the root node is visited, the final expression can be
+ * removed from the stack and returned. A single-node tree (comprising a
+ * lone EVENT_MATCH at the root) is special-cased.
+ *
  * Returns: newly-allocated flattened string representing @condition
  * on success, or NULL on error.
  **/
 char *
 event_operator_collapse (EventOperator *condition)
 {
-	char *str = NULL;
+	nih_local NihList       *stack = NULL;
+	nih_local NihListEntry  *latest = NULL;
+	NihTree                 *root;
 
 	nih_assert (condition);
 
-	NIH_TREE_FOREACH (&condition->node, iter) {
-		EventOperator *oper = (EventOperator *)iter;
+	root = &condition->node;
 
-		switch (oper->type) {
-		case EVENT_OR: 
-		case EVENT_AND:
-			{
-				NIH_MUST (nih_strcat_sprintf (&str, NULL, " %s ",
-					oper->type == EVENT_OR ? "or" : "and"));
-				break;
-			}
-		case EVENT_MATCH:
-			{
+	stack = NIH_MUST (nih_list_new (NULL));
+
+	NIH_TREE_FOREACH_POST (root, iter) {
+		EventOperator   *oper = (EventOperator *)iter;
+		EventOperator   *left;
+		EventOperator   *right;
+		NihListEntry    *expr;
+		NihTree         *tree;
+		nih_local char  *left_expr = NULL;
+		nih_local char  *right_expr = NULL;
+
+		tree = &oper->node;
+
+		left = (EventOperator *)tree->left;
+		right = (EventOperator *)tree->right;
+
+		if (oper->type == EVENT_MATCH) {
+			/* Entire expression comprises a single event,
+			 * so push it and leave.
+			 */
+			if (tree == root) {
 				nih_local char *env = NULL;
 
 				if (oper->env)
-					env = state_collapse_env ((const char **)oper->env);
+					env = NIH_MUST (state_collapse_env ((const char **)oper->env));
 
-				NIH_MUST (nih_strcat (&str, NULL, oper->name));
-
-				if (env)
-					NIH_MUST (nih_strcat_sprintf(&str, NULL,
-								" %s", env));
+				expr = NIH_MUST (nih_list_entry_new (stack));
+				expr->str = NIH_MUST (nih_sprintf (expr, "%s%s%s",
+							oper->name,
+							env ? " " : "",
+							env ? env : ""));
+				nih_list_add_after (stack, &expr->entry);
+				break;
 			}
-			break;
-
-		default:
-			nih_assert_not_reached ();
+			else {
+				/* We build the expression from visiting the logical
+				 * operators (and their children) only.
+				 */
+				continue;
+			}
 		}
+
+		/* oper cannot now be a leaf node, so must have children */
+		nih_assert (left);
+		nih_assert (right);
+
+		expr = NIH_MUST (nih_list_entry_new (stack));
+
+		/* If a child is an EVENT_MATCH, expand its event
+		 * details and push onto the stack.
+		 * If a child is not an EVENT_MATCH, to obtains it
+		 * value, pop the stack.
+		 *
+		 * Having obtained the child values, construct a new
+		 * bracketed expression and push onto the stack.
+		 *
+		 * Note that we must consider the right child first.
+		 * This is because since the tree is traversed
+		 * left-child first, any value pushed onto the stack by
+		 * a right child is at the top so must be removed before
+		 * any left child value. Failure to do this results in
+		 * tree reflection which although logically equivalent
+		 * to the original could confuse as the resultant
+		 * expression will look rather different.
+		 */
+		if (right->type != EVENT_MATCH) {
+			nih_assert (! NIH_LIST_EMPTY (stack));
+
+			latest = (NihListEntry *)nih_list_remove (stack->next);
+			right_expr = NIH_MUST (nih_strdup (NULL, latest->str));
+		} else {
+			nih_local char *env = NULL;
+
+			if (right->env)
+				env = NIH_MUST (state_collapse_env ((const char **)right->env));
+
+			right_expr = NIH_MUST (nih_sprintf (NULL, "%s%s%s",
+						right->name,
+						env ? " " : "",
+						env ? env : ""));
+		}
+
+		if (left->type != EVENT_MATCH) {
+			nih_assert (! NIH_LIST_EMPTY (stack));
+
+			latest = (NihListEntry *)nih_list_remove (stack->next);
+			left_expr = NIH_MUST (nih_strdup (NULL, latest->str));
+		} else {
+			nih_local char *env = NULL;
+
+			if (left->env)
+				env = NIH_MUST (state_collapse_env ((const char **)left->env));
+
+			left_expr = NIH_MUST (nih_sprintf (NULL, "%s%s%s",
+						left->name,
+						env ? " " : "",
+						env ? env : ""));
+		}
+
+		expr->str = NIH_MUST (nih_sprintf (expr, "(%s %s %s)",
+					left_expr,
+					oper->type == EVENT_OR ? "or" : "and",
+					right_expr));
+
+		nih_list_add_after (stack, &expr->entry);
 	}
 
-	return str;
+	nih_assert (! NIH_LIST_EMPTY (stack));
+
+	latest = (NihListEntry *)nih_list_remove (stack->next);
+
+	nih_assert (NIH_LIST_EMPTY (stack));
+
+	return NIH_MUST (nih_strdup (NULL, latest->str));
 }
