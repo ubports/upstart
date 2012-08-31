@@ -534,13 +534,7 @@ session_deserialise_all (json_object *json)
 
 	session_init ();
 
-	/* FIXME: enable for final build */
-#if PRODUCTION_BUILD
 	nih_assert (NIH_LIST_EMPTY (sessions));
-#else
-	nih_warn ("XXX: WARNING (%s:%d): NIH_LIST_EMPTY(sessions) check disabled",
-			__func__, __LINE__);
-#endif
 
 	json_sessions = json_object_object_get (json, "sessions");
 

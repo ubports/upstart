@@ -713,12 +713,7 @@ event_deserialise_all (json_object *json)
 
 	event_init ();
 
-	/* FIXME: enable for final build */
-#if PRODUCTION_BUILD
 	nih_assert (NIH_LIST_EMPTY (events));
-#else
-	nih_warn ("XXX: WARNING (%s:%d): NIH_LIST_EMPTY(events) check disabled", __func__, __LINE__);
-#endif
 	json_events = json_object_object_get (json, "events");
 
 	if (! json_events)
