@@ -11,7 +11,7 @@ Homepage: http://upstart.ubuntu.com/
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5)
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts, mountall, ifupdown (>= 0.7.3), udev (>= 175-7.1)
 Suggests: python, graphviz, bash-completion
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest

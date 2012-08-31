@@ -21,6 +21,8 @@ upstart (1.5-1) UNRELEASED; urgency=low
     re-exec.
   * Switch to source format 1.0 for consistency with Ubuntu and for sane(r)
     VCS handling.
+  * Add versioned dependencies on ifupdown and udev for the prerequisite
+    boot events.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
 
