@@ -42,7 +42,7 @@ init_SOURCES = \
 	environ.c environ.h \
 	process.c process.h \
 	session.c session.h \
-        state.c state.h \
+	state.c state.h \
 	job_class.c job_class.h \
 	job_process.c job_process.h \
 	job.c job.h \
