@@ -57,8 +57,6 @@
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *--------------------------------------------------------------------
  *
- * - remove all PRODUCTION_BUILD macros and adopt production flow.
- *
  * - check "NULL session" deserialisation handling.
  *
  * - XXX: audit memory management for all *_deserialise() and

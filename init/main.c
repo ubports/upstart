@@ -1033,6 +1033,9 @@ stateful_reexec (void)
 	/* retain the D-Bus connection across the re-exec */
 	control_prepare_reexec ();
 
+	/* Clear CLOEXEC flag for any job log objects prior to re-exec */
+	job_class_prepare_reexec ();
+
 	pid = fork ();
 
 	if (pid < 0)

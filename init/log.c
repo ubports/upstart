@@ -821,7 +821,7 @@ log_clear_unflushed (void)
  * Returns: JSON-serialised Log object, or NULL on error.
  **/
 json_object *
-log_serialise (const Log *log)
+log_serialise (Log *log)
 {
 	json_object  *json;
 
@@ -829,10 +829,23 @@ log_serialise (const Log *log)
 	if (! json)
 		return NULL;
 
-	if (! log)
+	if (! log) {
+		/* Create a "placeholder" log object */
+		if (! state_set_json_string_var (json, "path", ""))
+			goto error;
 		return json;
+	}
+
+	nih_assert (log->io);
+	nih_assert (log->io->watch);
+
+	/* Attempt to flush any cached data */
+	log_flush (log);
 
 	if (! state_set_json_int_var_from_obj (json, log, fd))
+		goto error;
+
+	if (! state_set_json_int_var (json, "io_watch_fd", log->io->watch->fd))
 		goto error;
 
 	if (! state_set_json_string_var_from_obj (json, log, path))
@@ -843,10 +856,8 @@ log_serialise (const Log *log)
 	if (! state_set_json_int_var_from_obj (json, log, uid))
 		goto error;
 
-	if (log->unflushed->len) {
-	       if (! state_set_json_string_var (json, "unflushed", log->unflushed->buf))
-		       goto error;
-	}
+	if (! state_set_json_string_var (json, "unflushed", log->unflushed->buf))
+		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, log, detached))
 		goto error;
@@ -894,11 +905,22 @@ log_deserialise (json_object *json)
 
 	memset (partial, '\0', sizeof (Log));
 
+	if (! state_get_json_string_var_to_obj (json, partial, path))
+		goto error;
+
+	if (! *partial->path) {
+		/* placeholder log object */
+		return partial;
+	}
+
 	if (! state_get_json_int_var_to_obj (json, partial, fd))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, path))
-		goto error;
+	/* Stop fd leaking to children */
+	if (partial->fd != -1) {
+		if (state_toggle_cloexec (partial->fd, TRUE) < 0)
+			goto error;
+	}
 
 	if (! state_get_json_int_var_to_obj (json, partial, uid))
 		goto error;

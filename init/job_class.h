@@ -318,6 +318,8 @@ int job_class_deserialise_all (json_object *json)
 JobClass * job_class_get (const char *name, Session *session)
 	__attribute__ ((warn_unused_result));
 
+void job_class_prepare_reexec (void);
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

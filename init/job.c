@@ -1719,10 +1719,10 @@ job_serialise (const Job *job)
 	if (! json_logs)
 		goto error;
 
-	for (int i = 0; i < PROCESS_LAST; i++) {
+	for (int process = 0; process < PROCESS_LAST; process++) {
 		json_object *json_log;
 
-		json_log = log_serialise (job->log[i]);
+		json_log = log_serialise (job->log[process]);
 		if (! json_log)
 			goto error;
 
@@ -1731,10 +1731,6 @@ job_serialise (const Job *job)
 	}
 
 	json_object_object_add (json, "log", json_logs);
-
-#if 1
-	nih_info ("XXX: WARNING (%s:%d) job->log NOT fully handled yet", __func__, __LINE__);
-#endif
 
 	return json;
 
@@ -1934,10 +1930,7 @@ job_deserialise (json_object *json)
 				"trace_state", partial->trace_state))
 		goto error;
 
-	/* FIXME: log!! */
-#if 1
-	nih_info ("XXX: WARNING (%s:%d) job->log NOT handled", __func__, __LINE__);
-#endif
+	/* log handled by caller */
 
 	return partial;
 
@@ -1963,6 +1956,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 	json_object  *json_jobs;
 	json_object  *json_fds;
 	json_object  *json_pid;
+	json_object  *json_logs;
 	Job          *job;
 	size_t        len;
 	int           ret;
@@ -1986,6 +1980,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
 		json_object    *json_job;
 		nih_local Job  *partial = NULL;
+		Log            *partial_log = NULL;
 
 		json_job = json_object_array_get_idx (json_jobs, i);
 		if (! json_job)
@@ -2084,11 +2079,59 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		}
 #endif
 
+		json_logs = json_object_object_get (json_job, "log");
 
-#if 1
-		/* FIXME: log!!! */
-#endif
+		if (! json_logs)
+			continue;
 
+		if (! state_check_json_type (json_logs, array))
+			goto error;
+
+		for (int process = 0; process < PROCESS_LAST; process++) {
+			json_object  *json_log;
+			int           io_watch_fd = -1;
+
+			json_log = json_object_array_get_idx (json_logs, process);
+			if (! json_log)
+				goto error;
+
+			partial_log = log_deserialise (json_log);
+			if (! partial_log)
+				goto error;
+
+			if (! *partial_log->path) {
+				/* This log object was simply a
+				 * placeholder so don't apply it.
+				 */
+				nih_free (partial_log);
+				job->log[process] = NULL;
+				continue;
+			}
+
+			if (! state_get_json_int_var (json_log, "io_watch_fd", io_watch_fd))
+				goto error;
+
+			/* re-apply CLOEXEC flag to stop fd being leaked to children */
+			if (io_watch_fd != -1 && state_toggle_cloexec (io_watch_fd, TRUE) < 0)
+				goto error;
+
+			job->log[process] = log_new (job->log, partial_log->path, io_watch_fd, partial_log->uid);
+			if (! job->log[process])
+				goto error;
+
+			state_partial_copy_int (job->log[process], partial_log, fd);
+			state_partial_copy_int (job->log[process], partial_log, detached);
+			state_partial_copy_int (job->log[process], partial_log, remote_closed);
+			state_partial_copy_int (job->log[process], partial_log, open_errno);
+
+			if (partial_log->unflushed->len) {
+				ret = nih_io_buffer_push (job->log[process]->unflushed,
+						partial_log->unflushed->buf,
+						partial_log->unflushed->len);
+				if (ret < 0)
+					goto error;
+			}
+		}
 	}
 
 	return 0;
