@@ -987,7 +987,6 @@ control_serialise (DBusConnection *connection)
 	//const char   *address;
 
 	nih_assert (connection);
-	nih_assert (control_bus);
 
 	control_init ();
 
@@ -1314,7 +1313,8 @@ control_bus_release_name (void)
 	DBusError  error;
 	int        ret;
 
-	nih_assert (control_bus);
+	if (! control_bus)
+		return 0;
 
 	dbus_error_init (&error);
 	ret = dbus_bus_release_name (control_bus,

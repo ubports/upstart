@@ -829,21 +829,22 @@ log_serialise (Log *log)
 	if (! json)
 		return NULL;
 
-	if (! log) {
-		/* Create a "placeholder" log object */
+	if (! log || ! log->io || log->remote_closed) {
+		/* Create a "placeholder" log object for non-existent
+		 * log objects and for those that are no longer usable.
+		 */
 		if (! state_set_json_string_var (json, "path", ""))
 			goto error;
 		return json;
 	}
-
-	nih_assert (log->io);
-	nih_assert (log->io->watch);
 
 	/* Attempt to flush any cached data */
 	log_flush (log);
 
 	if (! state_set_json_int_var_from_obj (json, log, fd))
 		goto error;
+
+	nih_assert (log->io->watch);
 
 	if (! state_set_json_int_var (json, "io_watch_fd", log->io->watch->fd))
 		goto error;
