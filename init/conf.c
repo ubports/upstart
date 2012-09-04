@@ -986,7 +986,6 @@ conf_reload_path (ConfSource *source,
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
 	const char     *path_to_load;
-	JobClass       *existing;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
@@ -1227,7 +1226,7 @@ conf_select_job (const char *name, const Session *session)
 	return NULL;
 }
 
-//#ifdef DEBUG
+#ifdef DEBUG
 
 size_t
 debug_count_list_entries (const NihList *list)
@@ -1428,5 +1427,5 @@ debug_show_conf_sources (void)
 	}
 }
 
-//#endif /* DEBUG */
+#endif /* DEBUG */
 
