@@ -130,7 +130,7 @@ JobClass *  conf_select_job    (const char *name, const Session *session);
 char *toggle_conf_name         (const void *parent, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
 
-//#ifdef DEBUG
+#ifdef DEBUG
 
 /* used for debugging only */
 #include "job.h"
@@ -173,7 +173,7 @@ void
 debug_show_conf_sources(void)
 	__attribute__ ((unused));
 
-//#endif
+#endif
 
 NIH_END_EXTERN
 

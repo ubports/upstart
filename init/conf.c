@@ -1227,7 +1227,7 @@ conf_select_job (const char *name, const Session *session)
 	return NULL;
 }
 
-//#ifdef DEBUG
+#ifdef DEBUG
 
 size_t
 debug_count_list_entries (const NihList *list)
@@ -1428,5 +1428,5 @@ debug_show_conf_sources (void)
 	}
 }
 
-//#endif /* DEBUG */
+#endif /* DEBUG */
 
