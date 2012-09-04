@@ -2260,23 +2260,28 @@ job_class_console_type_str_to_enum (const char *console)
 void
 job_class_prepare_reexec (void)
 {
+	job_class_init ();
+
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		NIH_HASH_FOREACH (class->instances, iter) {
-			Job *job = (Job *)iter;
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			nih_assert (job->log);
 
 			for (int process = 0; process < PROCESS_LAST; process++) {
 				int  fd;
 				Log *log;
 
-				if (! job->log[process])
-					continue;
-
 				log = job->log[process];
 
-				nih_assert (log);
-				nih_assert (log->io);
+				/* No associated job process or logger has detected
+				 * remote end of pty has closed.
+				 */
+				if (! log || ! log->io)
+					continue;
+
 				nih_assert (log->io->watch);
 
 				fd = log->io->watch->fd;
