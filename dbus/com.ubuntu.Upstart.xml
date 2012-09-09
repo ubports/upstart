@@ -42,14 +42,6 @@
       <arg name="job" type="o" />
     </signal>
 
-    <method name="DebugSerialise">
-      <arg name="json" type="s" direction="out" />
-    </method>
-
-    <method name="DebugDeserialise">
-      <arg name="json" type="s" direction="in" />
-    </method>
-
     <!-- Event emission -->
     <method name="EmitEvent">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
