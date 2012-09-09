@@ -540,8 +540,6 @@ event_serialise (const Event *event)
 	nih_assert (event);
 	nih_assert (event->name);
 
-	event_init ();
-
 	json = json_object_new_object ();
 	if (! json)
 		return NULL;
