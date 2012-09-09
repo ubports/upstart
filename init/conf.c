@@ -358,7 +358,6 @@ conf_reload (void)
 			nih_free (err);
 		}
 	}
-
 }
 
 /**
@@ -935,7 +934,7 @@ conf_file_visitor (ConfSource  *source,
  * @path: path of conf file to be reloaded.
  * @override_path: if not NULL and @path refers to a path associated with @source,
  * overlay the contents of @path into the existing @source entry for
- * @path. If FALSE, discard any existing knowledge of @path,
+ * @path. If FALSE, discard any existing knowledge of @path.
  *
  * This function is used to parse the file at @path (or @override_path) in the
  * context of the given configuration @source.  Necessary ConfFile structures
@@ -963,7 +962,6 @@ conf_reload_path (ConfSource *source,
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
 	const char     *path_to_load;
-	JobClass       *existing;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
