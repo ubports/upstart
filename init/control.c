@@ -203,8 +203,6 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
- * @restart: specify TRUE on restart, else FALSE.
- *
  * Open a connection to the appropriate D-Bus bus and store it in the
  * control_bus global. The connection is handled automatically
  * in the main loop.
@@ -212,45 +210,26 @@ control_server_close (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_bus_open (int restart)
+control_bus_open (void)
 {
 	DBusConnection *conn;
 	DBusError       error;
 	NihListEntry   *entry;
 	int             ret;
 
-#if 0
-	if (restart) {
-		conn = control_bus;
-		if (! conn) {
-			nih_error_raise (CONTROL_REEXEC_ERROR,
-					_(CONTROL_REEXEC_ERROR_STR));
-			return -1;
-		}
-		dbus_connection_set_exit_on_disconnect (conn, FALSE);
+	nih_assert (control_bus == NULL);
 
-		if (nih_dbus_setup (conn, control_disconnected) < 0) {
-			dbus_connection_unref (conn);
-			nih_return_no_memory_error (-1);
-		}
-	} else {
-#endif
-		nih_assert (control_bus == NULL);
+	control_init ();
 
-		control_init ();
+	control_handle_bus_type ();
 
-		control_handle_bus_type ();
-
-		/* Connect to the D-Bus System Bus and hook everything up into
-		 * our own main loop automatically.
-		 */
-		conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
-				control_disconnected);
-		if (! conn)
-			return -1;
-#if 0
-	}
-#endif
+	/* Connect to the D-Bus System Bus and hook everything up into
+	 * our own main loop automatically.
+	 */
+	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+			control_disconnected);
+	if (! conn)
+		return -1;
 
 	/* Register objects on the bus. */
 	control_register_all (conn);
@@ -279,20 +258,14 @@ control_bus_open (int restart)
 	}
 
 
-#if 0
-	if (! restart) {
-#endif
-		/* Add the connection to the list */
-		entry = NIH_MUST (nih_list_entry_new (NULL));
+	/* Add the connection to the list */
+	entry = NIH_MUST (nih_list_entry_new (NULL));
 
-		entry->data = conn;
+	entry->data = conn;
 
-		nih_list_add (control_conns, &entry->entry);
+	nih_list_add (control_conns, &entry->entry);
 
-		control_bus = conn;
-#if 0
-	}
-#endif
+	control_bus = conn;
 
 	return 0;
 }

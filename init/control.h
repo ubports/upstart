@@ -56,7 +56,7 @@ int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));
 void control_server_close         (void);
 
-int  control_bus_open             (int restart)
+int  control_bus_open             (void)
 	__attribute__ ((warn_unused_result));
 void control_bus_close            (void);
 
