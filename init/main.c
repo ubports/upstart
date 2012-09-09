@@ -491,7 +491,7 @@ main (int   argc,
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
-	conf_reload (restart);
+	conf_reload ();
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {
@@ -831,7 +831,7 @@ hup_handler (void      *data,
 	     NihSignal *signal)
 {
 	nih_info (_("Reloading configuration"));
-	conf_reload (restart);
+	conf_reload ();
 }
 
 /**
