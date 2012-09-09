@@ -65,8 +65,6 @@ static void  control_register_all   (DBusConnection *conn);
 
 static void  control_bus_flush      (void);
 
-extern json_object *json_control_conns;;
-
 /**
  * use_session_bus:
  *

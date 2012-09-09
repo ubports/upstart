@@ -46,7 +46,6 @@
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
-json_object *json_control_conns = NULL;
 
 extern int use_session_bus;
 
@@ -1191,7 +1190,6 @@ state_deserialise_resolve_deps (json_object *json)
 	nih_assert (json_sessions);
 	nih_assert (json_events);
 	nih_assert (json_classes);
-	nih_assert (json_control_conns);
 
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
 		json_object  *json_event;
