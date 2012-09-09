@@ -104,21 +104,6 @@ control_conn_from_index (int conn_index)
 int control_bus_release_name (void)
 	__attribute__ ((warn_unused_result));
 
-/* FIXME: DEBUG/TEST only */
-#if 1
-int
-control_debug_serialise (void   *data,
-		NihDBusMessage  *message,
-		char           **json)
-	__attribute__ ((warn_unused_result));
-
-int
-control_debug_deserialise (void *data,
-		NihDBusMessage  *message,
-		char           *json)
-	__attribute__ ((warn_unused_result));
-#endif
-
 NIH_END_EXTERN
 
 #endif /* INIT_CONTROL_H */
