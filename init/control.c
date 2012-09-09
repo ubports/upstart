@@ -227,7 +227,7 @@ control_bus_open (void)
 	 * our own main loop automatically.
 	 */
 	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
-			control_disconnected);
+			     control_disconnected);
 	if (! conn)
 		return -1;
 
@@ -264,6 +264,7 @@ control_bus_open (void)
 	entry->data = conn;
 
 	nih_list_add (control_conns, &entry->entry);
+
 
 	control_bus = conn;
 
@@ -308,15 +309,6 @@ control_disconnected (DBusConnection *conn)
 		dbus_error_init (&error);
 
 		nih_warn (_("Disconnected from system bus"));
-
-#if 0
-		if (dbus_bus_release_name (conn, DBUS_SERVICE_UPSTART, &error) < 0) {
-			nih_error ("Unable to release D-Bus name '%s'", DBUS_SERVICE_UPSTART);
-			dbus_error_free (&error);
-			return;
-		}
-		control_bus_flush ();
-#endif
 
 		control_bus = NULL;
 	}
