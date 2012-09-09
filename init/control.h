@@ -94,12 +94,6 @@ void control_handle_bus_type      (void);
 
 void control_prepare_reexec       (void);
 
-json_object * control_serialise_all (void)
-	__attribute__ ((malloc, warn_unused_result));
-
-int control_deserialise_all (json_object *json)
-	__attribute__ ((warn_unused_result));
-
 int control_conn_to_index (const DBusConnection *connection)
 	__attribute__ ((warn_unused_result));
 

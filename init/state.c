@@ -369,12 +369,6 @@ state_to_string (char **json_string, size_t *len)
 
 	json_object_object_add (json, "sessions", json_sessions);
 
-	json_control_conns = control_serialise_all ();
-	if (! json_control_conns)
-		goto error;
-
-	json_object_object_add (json, "control_conns", json_control_conns);
-
 	json_events = event_serialise_all ();
 	if (! json_events)
 		goto error;
@@ -478,9 +472,6 @@ state_from_string (const char *state)
 		goto out;
 
 	if (job_class_deserialise_all (json) < 0)
-		goto out;
-
-	if (control_deserialise_all (json) < 0)
 		goto out;
 
 	if (state_deserialise_resolve_deps (json) < 0)
