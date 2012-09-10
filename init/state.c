@@ -46,7 +46,6 @@
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
-json_object *json_control_conns = NULL;
 
 extern int use_session_bus;
 
@@ -369,12 +368,6 @@ state_to_string (char **json_string, size_t *len)
 
 	json_object_object_add (json, "sessions", json_sessions);
 
-	json_control_conns = control_serialise_all ();
-	if (! json_control_conns)
-		goto error;
-
-	json_object_object_add (json, "control_conns", json_control_conns);
-
 	json_events = event_serialise_all ();
 	if (! json_events)
 		goto error;
@@ -478,9 +471,6 @@ state_from_string (const char *state)
 		goto out;
 
 	if (job_class_deserialise_all (json) < 0)
-		goto out;
-
-	if (control_deserialise_all (json) < 0)
 		goto out;
 
 	if (state_deserialise_resolve_deps (json) < 0)
@@ -644,7 +634,6 @@ state_deserialise_str_array (void *parent, json_object *json, int env)
 	size_t    len = 0;
 	char    **array = NULL;
 
-	nih_assert (parent);
 	nih_assert (json);
 
 	if (! state_check_json_type (json, array))
@@ -1200,7 +1189,6 @@ state_deserialise_resolve_deps (json_object *json)
 	nih_assert (json_sessions);
 	nih_assert (json_events);
 	nih_assert (json_classes);
-	nih_assert (json_control_conns);
 
 	for (int i = 0; i < json_object_array_length (json_events); i++) {
 		json_object  *json_event;

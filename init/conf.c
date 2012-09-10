@@ -94,13 +94,6 @@ NihList *conf_sources = NULL;
 
 
 /**
- * deserialised:
- *
- * TRUE if configuration is being parsed after deserialisation.
- **/
-static int deserialised = FALSE;
-
-/**
  * is_conf_file_std:
  * @path: path to check.
  *
@@ -336,9 +329,6 @@ conf_file_new (ConfSource *source,
 /**
  * conf_reload:
  *
- * @_deserialised: TRUE if called _immediately_ after deserialisation,
- * else FALSE.
- *
  * Reloads all configuration sources.
  *
  * Watches on new configuration sources are established so that future
@@ -350,15 +340,9 @@ conf_file_new (ConfSource *source,
  * parse no configuration without error.
  **/
 void
-conf_reload (int _deserialised)
+conf_reload (void)
 {
 	conf_init ();
-
-	/* Indicate that existing JobClasses are to be used, rather than
-	 * reparsing configuration files.
-	 */
-	if (_deserialised)
-		deserialised = TRUE;
 
 	NIH_LIST_FOREACH (conf_sources, iter) {
 		ConfSource *source = (ConfSource *)iter;
@@ -374,14 +358,6 @@ conf_reload (int _deserialised)
 			nih_free (err);
 		}
 	}
-
-	/* Now the ConfFiles are associated with the deserialised
-	 * JobClasses, we can forget about deserialisation such that all
-	 * future file changes will recreate the JobClasses if
-	 * necessary.
-	 */
-	if (_deserialised)
-		deserialised = FALSE;
 }
 
 /**
@@ -958,7 +934,7 @@ conf_file_visitor (ConfSource  *source,
  * @path: path of conf file to be reloaded.
  * @override_path: if not NULL and @path refers to a path associated with @source,
  * overlay the contents of @path into the existing @source entry for
- * @path. If FALSE, discard any existing knowledge of @path,
+ * @path. If FALSE, discard any existing knowledge of @path.
  *
  * This function is used to parse the file at @path (or @override_path) in the
  * context of the given configuration @source.  Necessary ConfFile structures
@@ -986,7 +962,6 @@ conf_reload_path (ConfSource *source,
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
 	const char     *path_to_load;
-	JobClass       *existing;
 
 	nih_assert (source != NULL);
 	nih_assert (path != NULL);
@@ -1067,29 +1042,13 @@ conf_reload_path (ConfSource *source,
 			nih_debug ("Loading %s from %s", name, path);
 		}
 
-		if (deserialised) {
-			job_class_init ();
+		file->job = parse_job (NULL, source->session, file->job,
+				name, buf, len, &pos, &lineno);
 
-			existing = job_class_get (name, source->session);
-
-			/* Found an existing job class created via the
-			 * deserialisation process, so use that rather
-			 * than reparsing the file.
-			 */
-			if (existing) {
-				file->job = existing;
-				nih_debug ("Using existing deserialised JobClass for %s", name);
-			}
-
+		if (file->job) {
+			job_class_consider (file->job);
 		} else {
-			file->job = parse_job (NULL, source->session, file->job,
-					name, buf, len, &pos, &lineno);
-
-			if (file->job) {
-				job_class_consider (file->job);
-			} else {
-				err = nih_error_get ();
-			}
+			err = nih_error_get ();
 		}
 
 		break;

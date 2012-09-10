@@ -1553,11 +1553,6 @@ job_serialise (const Job *job)
 
 	nih_assert (job);
 
-	/* FIXME:
-	 *
-	 * log !!!
-	 */
-
 	json = json_object_new_object ();
 	if (! json)
 		return NULL;
@@ -1587,15 +1582,15 @@ job_serialise (const Job *job)
 	if (! state_set_json_str_array_from_obj (json, job, stop_env))
 		goto error;
 
-	stop_on = job->stop_on
-		? event_operator_collapse (job->stop_on)
-		: NIH_MUST (nih_strdup (NULL, ""));
+	if (job->stop_on)
+	{
+		stop_on = event_operator_collapse (job->stop_on);
+		if (! stop_on)
+			goto error;
 
-	if (! stop_on)
-		goto error;
-
-	if (! state_set_json_string_var (json, "stop_on", stop_on))
-		goto error;
+		if (! state_set_json_string_var (json, "stop_on", stop_on))
+			goto error;
+	}
 
 	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
 	if (! json_fds)
@@ -1611,11 +1606,8 @@ job_serialise (const Job *job)
 	json_object_object_add (json, "pid", json_pid);
 
 	/* Encode the blocking event as an index number which represents
-	 * the events position in the JSON events array.
+	 * the event's position in the JSON events array.
 	 */
-#if 1
-	/* FIXME: we're only encoding if there *IS* a blocker!?! */
-#endif
 	if (job->blocker) {
 		int event_index;
 
@@ -1633,9 +1625,6 @@ job_serialise (const Job *job)
 
 	}
 
-	/* FIXME: should we remove the if test and always encode
-	 * something in the JSON here?
-	 */
 	if (! NIH_LIST_EMPTY (&job->blocking)) {
 		json_object *json_blocking;
 
@@ -1645,11 +1634,6 @@ job_serialise (const Job *job)
 
 		json_object_object_add (json, "blocking", json_blocking);
 	}
-
-	/* FIXME */
-#if 1
-	nih_info ("XXX:%s:%d:warning job->kill_timer NEEDS TESTING", __func__, __LINE__);
-#endif
 
 	/* conditionally encode kill timer */
 	if (job->kill_timer) {
@@ -1689,7 +1673,6 @@ job_serialise (const Job *job)
 		goto error;
 
 	/* FIXME: handle ptraced jobs across re-exec */
-#if 1	
 	if (job->trace_state != TRACE_NONE) {
 		nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will stop after re-exec",
 				__func__, __LINE__,
@@ -1707,7 +1690,6 @@ job_serialise (const Job *job)
 					i, job->pid[i]);
 		}
 	}
-#endif
 
 	if (! state_set_json_enum_var (json,
 				job_trace_state_enum_to_str,
@@ -1883,10 +1865,8 @@ job_deserialise (json_object *json)
 			goto error;
 	}
 
-#if 1
 	/* FIXME: kill_timer */
 	nih_info ("XXX: WARNING (%s:%d) job->kill_timer needs testing", __func__, __LINE__);
-#endif
 	/* Check to see if a kill timer exists first since we do not
 	 * want to end up creating a real but empty timer.
 	 */
@@ -1971,11 +1951,6 @@ job_deserialise_all (JobClass *parent, json_object *json)
 
 	if (! state_check_json_type (json_jobs, array))
 		goto error;
-
-	/* FIXME: finish!!
-	 *
-	 * - log!!
-	 */
 
 	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
 		json_object    *json_job;
@@ -2069,15 +2044,13 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		state_partial_copy_int (job, partial, trace_forks);
 		state_partial_copy_int (job, partial, trace_state);
 
-	/* FIXME: handle ptraced jobs across re-exec */
-#if 1	
+		/* FIXME: handle ptraced jobs across re-exec */
 		if (partial->trace_state != TRACE_NONE) {
 			nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will now stop",
 					__func__, __LINE__,
 					job->name ? job->name : "",
 					job->class->name);
 		}
-#endif
 
 		json_logs = json_object_object_get (json_job, "log");
 

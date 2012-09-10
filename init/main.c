@@ -491,7 +491,7 @@ main (int   argc,
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
-	conf_reload (restart);
+	conf_reload ();
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {
@@ -513,7 +513,7 @@ main (int   argc,
 	 * fail (since dbus-daemon probably isn't running yet) and will try again
 	 * later - don't let ENOMEM stop us though.
 	 */
-	while (control_bus_open (restart) < 0) {
+	while (control_bus_open () < 0) {
 		NihError *err;
 		int       number;
 
@@ -831,7 +831,7 @@ hup_handler (void      *data,
 	     NihSignal *signal)
 {
 	nih_info (_("Reloading configuration"));
-	conf_reload (restart);
+	conf_reload ();
 }
 
 /**
@@ -849,7 +849,7 @@ usr1_handler (void      *data,
 	if (! control_bus) {
 		nih_info (_("Reconnecting to system bus"));
 
-		if (control_bus_open (restart) < 0) {
+		if (control_bus_open () < 0) {
 			NihError *err;
 
 			err = nih_error_get ();

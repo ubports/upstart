@@ -56,7 +56,7 @@ int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));
 void control_server_close         (void);
 
-int  control_bus_open             (int restart)
+int  control_bus_open             (void)
 	__attribute__ ((warn_unused_result));
 void control_bus_close            (void);
 
@@ -94,12 +94,6 @@ void control_handle_bus_type      (void);
 
 void control_prepare_reexec       (void);
 
-json_object * control_serialise_all (void)
-	__attribute__ ((malloc, warn_unused_result));
-
-int control_deserialise_all (json_object *json)
-	__attribute__ ((warn_unused_result));
-
 int control_conn_to_index (const DBusConnection *connection)
 	__attribute__ ((warn_unused_result));
 
@@ -109,21 +103,6 @@ control_conn_from_index (int conn_index)
 
 int control_bus_release_name (void)
 	__attribute__ ((warn_unused_result));
-
-/* FIXME: DEBUG/TEST only */
-#if 1
-int
-control_debug_serialise (void   *data,
-		NihDBusMessage  *message,
-		char           **json)
-	__attribute__ ((warn_unused_result));
-
-int
-control_debug_deserialise (void *data,
-		NihDBusMessage  *message,
-		char           *json)
-	__attribute__ ((warn_unused_result));
-#endif
 
 NIH_END_EXTERN
 

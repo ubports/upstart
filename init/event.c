@@ -46,6 +46,7 @@
 
 #include "com.ubuntu.Upstart.h"
 
+
 /* Prototypes for static functions */
 static void event_pending              (Event *event);
 static void event_pending_handle_jobs  (Event *event);
@@ -539,8 +540,6 @@ event_serialise (const Event *event)
 	nih_assert (event);
 	nih_assert (event->name);
 
-	event_init ();
-
 	json = json_object_new_object ();
 	if (! json)
 		return NULL;
@@ -572,9 +571,6 @@ event_serialise (const Event *event)
 	if (! state_set_json_int_var_from_obj (json, event, blockers))
 		goto error;
 
-	/* FIXME: should we remove the if test and always encode
-	 * something in the JSON here?
-	 */
 	if (! NIH_LIST_EMPTY (&event->blocking)) {
 		json_object *json_blocking;
 
@@ -804,7 +800,7 @@ event_to_index (const Event *event)
 	int found = FALSE;
 
 	nih_assert (event);
-	nih_assert (events);
+	event_init ();
 
 	NIH_LIST_FOREACH (events, iter) {
 		Event *tmp = (Event *)iter;
@@ -838,7 +834,7 @@ event_from_index (int event_index)
 	int i = 0;
 
 	nih_assert (event_index >= 0);
-	nih_assert (events);
+	event_init ();
 
 	NIH_LIST_FOREACH (events, iter) {
 		Event *event = (Event *)iter;

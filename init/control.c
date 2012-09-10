@@ -63,26 +63,7 @@ static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
 
-/* FIXME: temporary function attribute */
-#if 1
-static void  control_clear_cloexec  (void)
-	__attribute__ ((unused));
-#endif
-
 static void  control_bus_flush      (void);
-static int   control_get_connection_fd (DBusConnection *connection)
-	__attribute__ ((warn_unused_result));
-static json_object * control_serialise (DBusConnection *connection)
-	__attribute__ ((malloc, warn_unused_result));
-static DBusConnection *control_deserialise (json_object *json)
-#if 0
-	__attribute__ ((malloc, warn_unused_result));
-#else
-/* FIXME: temporary function attribute */
-	__attribute__ ((unused));
-#endif
-
-extern json_object *json_control_conns;;
 
 /**
  * use_session_bus:
@@ -222,8 +203,6 @@ control_server_close (void)
 /**
  * control_bus_open:
  *
- * @restart: specify TRUE on restart, else FALSE.
- *
  * Open a connection to the appropriate D-Bus bus and store it in the
  * control_bus global. The connection is handled automatically
  * in the main loop.
@@ -231,45 +210,26 @@ control_server_close (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_bus_open (int restart)
+control_bus_open (void)
 {
 	DBusConnection *conn;
 	DBusError       error;
 	NihListEntry   *entry;
 	int             ret;
 
-#if 0
-	if (restart) {
-		conn = control_bus;
-		if (! conn) {
-			nih_error_raise (CONTROL_REEXEC_ERROR,
-					_(CONTROL_REEXEC_ERROR_STR));
-			return -1;
-		}
-		dbus_connection_set_exit_on_disconnect (conn, FALSE);
+	nih_assert (control_bus == NULL);
 
-		if (nih_dbus_setup (conn, control_disconnected) < 0) {
-			dbus_connection_unref (conn);
-			nih_return_no_memory_error (-1);
-		}
-	} else {
-#endif
-		nih_assert (control_bus == NULL);
+	control_init ();
 
-		control_init ();
+	control_handle_bus_type ();
 
-		control_handle_bus_type ();
-
-		/* Connect to the D-Bus System Bus and hook everything up into
-		 * our own main loop automatically.
-		 */
-		conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
-				control_disconnected);
-		if (! conn)
-			return -1;
-#if 0
-	}
-#endif
+	/* Connect to the D-Bus System Bus and hook everything up into
+	 * our own main loop automatically.
+	 */
+	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+			     control_disconnected);
+	if (! conn)
+		return -1;
 
 	/* Register objects on the bus. */
 	control_register_all (conn);
@@ -298,20 +258,15 @@ control_bus_open (int restart)
 	}
 
 
-#if 0
-	if (! restart) {
-#endif
-		/* Add the connection to the list */
-		entry = NIH_MUST (nih_list_entry_new (NULL));
+	/* Add the connection to the list */
+	entry = NIH_MUST (nih_list_entry_new (NULL));
 
-		entry->data = conn;
+	entry->data = conn;
 
-		nih_list_add (control_conns, &entry->entry);
+	nih_list_add (control_conns, &entry->entry);
 
-		control_bus = conn;
-#if 0
-	}
-#endif
+
+	control_bus = conn;
 
 	return 0;
 }
@@ -354,15 +309,6 @@ control_disconnected (DBusConnection *conn)
 		dbus_error_init (&error);
 
 		nih_warn (_("Disconnected from system bus"));
-
-#if 0
-		if (dbus_bus_release_name (conn, DBUS_SERVICE_UPSTART, &error) < 0) {
-			nih_error ("Unable to release D-Bus name '%s'", DBUS_SERVICE_UPSTART);
-			dbus_error_free (&error);
-			return;
-		}
-		control_bus_flush ();
-#endif
 
 		control_bus = NULL;
 	}
@@ -431,7 +377,7 @@ control_reload_configuration (void           *data,
 	nih_info (_("Reloading configuration"));
 
 	/* This can only be called after deserialisation */
-	conf_reload (FALSE);
+	conf_reload ();
 
 	return 0;
 }
@@ -871,60 +817,6 @@ control_notify_disk_writeable (void   *data,
 }
 
 /**
- * control_get_connection_fd:
- *
- * @connection: DBusConnection.
- *
- * Obtain the file descriptor associated with the specified connection.
- *
- * Returns: file descriptor, or -1 on error.
- **/
-int
-control_get_connection_fd (DBusConnection *connection)
-{
-	int fd;
-
-	nih_assert (connection);
-
-	if (! dbus_connection_get_unix_fd (connection, &fd))
-		return -1;
-
-	return fd;
-}
-
-/**
- * control_clear_cloexec:
- *
- * Clear the close-on-exec flag for the D-Bus control bus.
- *
- * Required to ensure D-Bus connections are maintained across a re-exec
- * since the default is for D-Bus to mark all fds close-on-exec.
- **/
-static void
-control_clear_cloexec (void)
-{
-	control_init ();
-
-	nih_assert (control_bus);
-
-	NIH_LIST_FOREACH (control_conns, iter) {
-		NihListEntry    *entry = (NihListEntry *)iter;
-		DBusConnection  *conn = entry->data;
-		int              fd;
-
-		fd = control_get_connection_fd (conn);
-
-		if (state_toggle_cloexec (fd, FALSE) < 0)
-			nih_warn (_("Failed to clear control connection CLOEXEC flag"));
-#if 1
-		/* FIXME */
-		nih_message ("XXX: found D-Bus connection %p (fd=%d, control bus=%s)",
-				conn, fd, conn == control_bus ? "yes" : "no");
-#endif
-	}
-}
-
-/**
  * control_bus_flush:
  *
  * Drain any remaining messages in the D-Bus queue.
@@ -960,280 +852,8 @@ control_prepare_reexec (void)
 
 	control_bus_flush ();
 
-#if 1
-	/* FIXME */
-	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
-			__func__, __LINE__);
-#else
-	control_clear_cloexec ();
-#endif
 }
 
-
-/**
- * control_serialise:
- *
- * @connection: DBusConnection.
- *
- * Convert DBusConnection to JSON representation.
- *
- * Returns: JSON object encoding @connection, or NULL on error.
- */
-static json_object *
-control_serialise (DBusConnection *connection)
-{
-	json_object  *json;
-	int           fd;
-	//const char   *address;
-
-	nih_assert (connection);
-
-	control_init ();
-
-	control_handle_bus_type ();
-
-	json = json_object_new_object ();
-	if (! json)
-		return NULL;
-
-	fd = control_get_connection_fd (connection);
-	if (fd < 0)
-		goto error;
-
-	if (! state_set_json_int_var (json, "fd", fd))
-		goto error;
-
-	/* FIXME */
-#if 0
-	address = dbus_connection_get_address (connection);
-	if (! address)
-		goto error;
-
-	if (! state_set_json_string_var (json, "address", address))
-		goto error;
-#else
-	nih_warn ("XXX: WARNING (%s:%d): NOT serialising D-Bus connection address yet",
-			__func__, __LINE__);
-#endif
-
-	if (connection == control_bus)
-		if (! state_set_json_int_var (json, "control_bus", 1))
-			goto error;
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
-
-}
-
-
-/**
- * control_serialise_all:
- *
- * Convert existing control connections to JSON representation.
- *
- * This is achieved minimally by:
- *
- * - identifying all file descriptors relating to control connections.
- * - clearing the close-on-exec flag on each file descriptor.
- * - storing all file descriptor values in the JSON.
- *
- * Returns: JSON object containing array of control connection details,
- * or NULL on error.
- **/
-json_object *
-control_serialise_all (void)
-{
-	json_object  *json;
-
-	control_init ();
-
-	json = json_object_new_array ();
-	if (! json)
-		return NULL;
-
-	NIH_LIST_FOREACH (control_conns, iter) {
-		NihListEntry    *entry = (NihListEntry *)iter;
-		DBusConnection  *conn = entry->data;
-		json_object     *json_conn;
-#if 0
-		int              fd;
-
-		fd = control_get_connection_fd (conn);
-
-		if (state_toggle_cloexec (fd, FALSE) < 0) {
-			nih_error (_("Failed to clear control connection CLOEXEC flag"));
-			goto error;
-		}
-#else
-	/* FIXME */
-	nih_warn ("XXX: WARNING (%s:%d): NOT clearing close-on-exec bit for D-Bus connections yet",
-			__func__, __LINE__);
-#endif
-
-		json_conn = control_serialise (conn);
-
-		if (! json_conn)
-			goto error;
-
-		json_object_array_add (json, json_conn);
-	}
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
-}
-
-/**
- * control_deserialise:
- * @json: JSON-serialised DBusConnection object to deserialise.
- *
- * Convert @json into a DBusConnection object.
- *
- * Returns: DBusConnection object, or NULL on error.
- **/
-static DBusConnection *
-control_deserialise (json_object *json)
-{
-	DBusConnection        *conn = NULL;
-	DBusError              error;
-	int                    fd;
-	nih_local char  *address = NULL;
-	NihListEntry    *entry;
-
-	nih_assert (json);
-
-	if (! state_check_json_type (json, object))
-		return NULL;
-
-	if (! state_get_json_int_var (json, "fd", fd))
-		goto error;
-
-	if (! state_fd_valid (fd))
-		goto error;
-
-	if (! state_get_json_string_var (json, "address", NULL, address))
-		goto error;
-
-	dbus_error_init (&error);
-
-	/* FIXME: this isn't currently possible as
-	 * dbus_connection_open_from_fd() has not been added to D-Bus.
-	 *
-	 * References:
-	 *
-	 * See: lp:~jamesodhunt/dbus/create-connection-from-fd
-	 */
-
-	/* (Re)create the D-Bus connections from the file descriptors
-	 * passed from the original PID 1.
-	 */
-
-/* FIXME */
-#if 0
-	nih_warn ("XXX: WARNING(%s:%d): using unofficial D-Bus API dbus_connection_open_from_fd()",
-			__func__, __LINE__);
-
-	conn = dbus_connection_open_from_fd (address, fd, &error);
-	if (! conn || dbus_error_is_set (&error)) {
-		nih_error ("%s: %s",
-				_("failed to recreate D-Bus connection from fd"),
-				error.message);
-		dbus_error_free (&error);
-		goto error;
-	}
-#else
-	nih_warn ("XXX: WARNING (%s:%d): unable to maintain D-Bus connections "
-			"- bridges must be restarted",
-			__func__, __LINE__);
-
-	/* FIXME: keep compiler happy */
-	conn = NULL;
-#endif
-
-	/* Re-apply close-on-exec flag to stop fd from leaking
-	 * to child processes.
-	 */
-	if (state_toggle_cloexec (fd, 1) < 0)
-		goto error;
-
-	/* Add the connection to the list */
-	entry = NIH_MUST (nih_list_entry_new (NULL));
-
-	entry->data = conn;
-
-	nih_list_add (control_conns, &entry->entry);
-
-	if (json_object_object_get_ex (json, "control_bus", NULL))
-		control_bus = conn;
-
-	return conn;
-
-error:
-	dbus_free (conn);
-	return NULL;
-}
-
-/**
- * control_deserialise_all:
- *
- * @json: root of JSON-serialised state.
- *
- * Convert JSON representation of control connections back into
- * DBusConnection objects.
- *
- * Returns: 0 on success, -1 on error.
- **/
-int
-control_deserialise_all (json_object *json)
-{
-	nih_assert (json);
-
-	control_init ();
-
-	nih_assert (! control_bus);
-	nih_assert (NIH_LIST_EMPTY (control_conns));
-
-	json_control_conns = json_object_object_get (json, "control_conns");
-
-	if (! json_control_conns)
-		goto error;
-
-	if (! state_check_json_type (json_control_conns, array))
-		goto error;
-
-	for (int i = 0; i < json_object_array_length (json_control_conns); i++) {
-		json_object   *json_control_conn;
-
-		json_control_conn = json_object_array_get_idx (json_control_conns, i);
-		if (! json_control_conn)
-			goto error;
-
-		/* FIXME */
-#if 0
-		if (! control_deserialise (json_control_conn))
-			goto error;
-#else
-		nih_warn ("XXX: WARNING (%s:%d): D-Bus connections NOT being deserialised yet",
-				__func__, __LINE__);
-#endif
-	}
-
-#if 0
-	if (! control_bus)
-		goto error;
-#endif
-
-	return 0;
-
-error:
-	return -1;
-
-}
 
 /**
  * control_conn_to_index:
@@ -1328,77 +948,3 @@ control_bus_release_name (void)
 
 	return 0;
 }
-
-
-/* FIXME: TEST/DEBUG only */
-#if 1
-/**
- * control_debug_serialise:
- *
- * @data: not used,
- * @message: D-Bus connection and message received,
- * @json: output string returned to client.
- *
- * Convert internal state to JSON string.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-control_debug_serialise (void           *data,
-			NihDBusMessage  *message,
-			char           **json)
-{
-	size_t len;
-
-	nih_assert (message != NULL);
-	nih_assert (json != NULL);
-
-	control_prepare_reexec ();
-
-	if (state_to_string (json, &len) < 0)
-		goto error;
-
-	nih_ref (*json, message);
-
-	return 0;
-
-error:
-	nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
-			_("Out of Memory"));
-	return -1;
-}
-
-/**
- * control_debug_deserialise:
- *
- * @data: not used,
- * @message: D-Bus connection and message received,
- * @json: JSON string to be deserialised.
- *
- * Convert JSON string to internal state.
- *
- * Returns: zero on success, negative value on raised error.
- **/
-int
-control_debug_deserialise (void *data,
-		NihDBusMessage  *message,
-		char            *json)
-{
-	int    ret;
-	nih_assert (message != NULL);
-	nih_assert (json != NULL);
-
-	ret = state_from_string (json);
-
-	if (ret < 0)
-		goto error;
-
-	return 0;
-
-error:
-	nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
-			_("Out of Memory"));
-	return -1;
-}
-
-#endif
