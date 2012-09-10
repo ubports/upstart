@@ -1956,8 +1956,6 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, partial, respawn_interval))
 			goto error;
 
-	/* normalexit and normalexit_len handled by caller */
-
 	if (! state_get_json_enum_var (json,
 				job_class_console_type_str_to_enum,
 				"console", partial->console))
