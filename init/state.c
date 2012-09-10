@@ -634,7 +634,6 @@ state_deserialise_str_array (void *parent, json_object *json, int env)
 	size_t    len = 0;
 	char    **array = NULL;
 
-	nih_assert (parent);
 	nih_assert (json);
 
 	if (! state_check_json_type (json, array))
