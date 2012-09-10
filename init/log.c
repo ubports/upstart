@@ -823,7 +823,8 @@ log_clear_unflushed (void)
 json_object *
 log_serialise (Log *log)
 {
-	json_object  *json;
+	json_object     *json;
+	nih_local char  *unflushed_hex = NULL;
 
 	json = json_object_new_object ();
 	if (! json)
@@ -857,8 +858,20 @@ log_serialise (Log *log)
 	if (! state_set_json_int_var_from_obj (json, log, uid))
 		goto error;
 
-	if (! state_set_json_string_var (json, "unflushed", log->unflushed->buf))
-		goto error;
+	/* Encode unflushed data as hex to ensure any embedded
+	 * nulls are handled.
+	 */
+	if (log->unflushed->len) {
+		unflushed_hex = state_data_to_hex (NULL,
+				log->unflushed->buf,
+				log->unflushed->len);
+
+		if (! unflushed_hex)
+			goto error;
+
+		if (! state_set_json_string_var (json, "unflushed", unflushed_hex))
+			goto error;
+	}
 
 	if (! state_set_json_int_var_from_obj (json, log, detached))
 		goto error;
@@ -891,7 +904,11 @@ Log *
 log_deserialise (json_object *json)
 {
 	Log             *partial;
+	nih_local char  *unflushed_hex = NULL;
 	nih_local char  *unflushed = NULL;
+	int              ret;
+	size_t           len;
+	json_object     *json_unflushed;
 
 	nih_assert (json);
 
@@ -930,11 +947,23 @@ log_deserialise (json_object *json)
 	if (! partial->unflushed)
 		goto error;
 
-	if (! state_get_json_string_var (json, "unflushed", NULL, unflushed))
-		goto error;
+	json_unflushed = json_object_object_get (json, "unflushed");
+	if (json_unflushed) {
+		if (! state_get_json_string_var (json, "unflushed", NULL, unflushed_hex))
+			goto error;
 
-	if (nih_io_buffer_push (partial->unflushed, unflushed, strlen (unflushed)) < 0)
-		goto error;
+		ret = state_hex_to_data (NULL,
+				unflushed_hex,
+				strlen (unflushed_hex),
+				&unflushed,
+				&len);
+
+		if (ret < 0)
+			goto error;
+
+		if (nih_io_buffer_push (partial->unflushed, unflushed, len) < 0)
+			goto error;
+	}
 
 	if (! state_get_json_int_var_to_obj (json, partial, detached))
 		goto error;
