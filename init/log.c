@@ -638,6 +638,8 @@ log_read_watch (Log *log)
 		if (nih_io_buffer_resize (io->recv_buf, LOG_READ_SIZE) < 0)
 			break;
 
+		errno = 0;
+
 		/* Append to buffer */
 		len = read (io->watch->fd,
 				io->recv_buf->buf + io->recv_buf->len,
@@ -680,22 +682,23 @@ log_read_watch (Log *log)
 		 * causes the loop to be exited.
 		 */
 		if (len <= 0) {
+			/* Job process has ended and we've drained all the data the job
+			 * produced, so remote end must have closed.
+			 *
+			 * This cannot be handled entirely by log_io_error_handler()
+			 * since the job may produce some output prior to disks being
+			 * writeable, then end without producing further output.
+			 * In this scenario the error handler is never called.
+			 *
+			 */
+			if (saved && saved != EAGAIN && saved != EWOULDBLOCK)
+				log->remote_closed = 1;
+
 			close (log->fd);
 			log->fd = -1;
 			break;
 		}
 	}
-
-	/* Job process has ended and we've drained all the data the job
-	 * produced, so remote end must have closed.
-	 *
-	 * This cannot be handled entirely by log_io_error_handler()
-	 * since the job may produce some output prior to disks being
-	 * writeable, then end without producing further output.
-	 * In this scenario the error handler is never called.
-	 *
-	 */
-	log->remote_closed = 1;
 }
 
 /**
