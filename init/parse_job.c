@@ -520,7 +520,7 @@ finish:
  * Returns: EventOperator at root of expression tree on success, NULL
  * on raised error.
  **/
-EventOperator *
+static EventOperator *
 parse_on (JobClass        *class,
 	  NihConfigStanza *stanza,
 	  const char      *file,

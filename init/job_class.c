@@ -1659,28 +1659,25 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "export", json_export);
 
-	/* set "start/stop on" in the JSON even if no condition specified.
-	 */
-#if 1
-	/* FIXME: shouldn't we just encode condition if it exists?? */
-#endif
-	start_on = class->start_on
-		? event_operator_collapse (class->start_on)
-		: NIH_MUST (nih_strdup (NULL, ""));
-	if (! start_on)
-		goto error;
+	if (class->start_on)
+	{
+		start_on = event_operator_collapse (class->start_on);
+		if (! start_on)
+			goto error;
 
-	if (! state_set_json_string_var (json, "start_on", start_on))
-		goto error;
+		if (! state_set_json_string_var (json, "start_on", start_on))
+			goto error;
+	}
 
-	stop_on = class->stop_on
-		? event_operator_collapse (class->stop_on)
-		: NIH_MUST (nih_strdup (NULL, ""));
-	if (! stop_on)
-		goto error;
+	if (class->stop_on)
+	{
+		stop_on = event_operator_collapse (class->stop_on);
+		if (! stop_on)
+			goto error;
 
-	if (! state_set_json_string_var (json, "stop_on", stop_on))
-		goto error;
+		if (! state_set_json_string_var (json, "stop_on", stop_on))
+			goto error;
+	}
 
 	json_emits = class->emits
 		? state_serialise_str_array (class->emits)
@@ -1955,8 +1952,6 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, class, respawn_interval))
 			goto error;
 
-	/* normalexit and normalexit_len handled by caller */
-
 	if (! state_get_json_enum_var (json,
 				job_class_console_type_str_to_enum,
 				"console", class->console))
@@ -2068,7 +2063,6 @@ job_class_deserialise_all (json_object *json)
 		if (! class)
 			goto error;
 
-#if 1
 		/* FIXME:
 		 *
 		 * If user sessions exist (ie 'initctl --session list'
@@ -2078,7 +2072,6 @@ job_class_deserialise_all (json_object *json)
 		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
 		 *
 		 */
-#endif
 
 	}
 
