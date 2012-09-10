@@ -1661,9 +1661,8 @@ job_class_serialise (const JobClass *class)
 
 	/* set "start/stop on" in the JSON even if no condition specified.
 	 */
-#if 1
+
 	/* FIXME: shouldn't we just encode condition if it exists?? */
-#endif
 	start_on = class->start_on
 		? event_operator_collapse (class->start_on)
 		: NIH_MUST (nih_strdup (NULL, ""));
