@@ -566,7 +566,9 @@ session_deserialise_all (json_object *json)
 		}
 
 		/* Create a new session and associated ConfSource */
-		session = NIH_MUST (session_new (NULL, partial->chroot, partial->user));
+		session = NIH_MUST (session_new (NULL,
+			*partial->chroot ? partial->chroot : NULL, 
+			partial->user));
 		session->conf_path = NIH_MUST (nih_strdup (session, partial->conf_path));
 		session_create_conf_source (session, TRUE);
 	}
