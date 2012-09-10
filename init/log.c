@@ -880,18 +880,19 @@ error:
  * log_deserialise:
  * @json: JSON-serialised Log object to deserialise.
  *
- * Convert @json into a partial Log object.
+ * Convert @json into a Log object.
  *
- * Note that the object returned is not a true Log since not all
- * structure elements are encoded in the JSON.
- *
- * Returns: partial Log object, or NULL on error.
+ * Returns: Log object, or NULL on error.
  **/
 Log *
-log_deserialise (json_object *json)
+log_deserialise (const void *parent,
+		 json_object *json)
 {
-	Log             *partial;
+	Log             *log;
 	nih_local char  *unflushed = NULL;
+	nih_local char  *path = NULL;
+	int              fd;
+	uid_t            uid;
 
 	nih_assert (json);
 
@@ -900,54 +901,59 @@ log_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	partial = nih_new (NULL, Log);
-	if (! partial)
+	if (! state_get_json_string_var (json, "path", NULL, path))
 		return NULL;
 
-	memset (partial, '\0', sizeof (Log));
-
-	if (! state_get_json_string_var_to_obj (json, partial, path))
-		goto error;
-
-	if (! *partial->path) {
+	if (! *path) {
 		/* placeholder log object */
-		return partial;
+		return NULL;
 	}
 
-	if (! state_get_json_int_var_to_obj (json, partial, fd))
+	if (! state_get_json_int_var (json, "io_watch_fd", fd))
+		return NULL;
+
+	/* re-apply CLOEXEC flag to stop fd being leaked to children */
+	if (fd != -1 && state_toggle_cloexec (fd, TRUE) < 0)
+		return NULL;
+
+	if (! state_get_json_int_var (json, "uid", uid))
+		return NULL;
+
+	log = log_new (parent, path, fd, uid);
+	if (! log)
+		return NULL;
+
+	if (! state_get_json_int_var_to_obj (json, log, fd))
 		goto error;
 
 	/* Stop fd leaking to children */
-	if (partial->fd != -1) {
-		if (state_toggle_cloexec (partial->fd, TRUE) < 0)
+	if (log->fd != -1) {
+		if (state_toggle_cloexec (log->fd, TRUE) < 0)
 			goto error;
 	}
 
-	if (! state_get_json_int_var_to_obj (json, partial, uid))
-		goto error;
-
-	partial->unflushed = nih_io_buffer_new (partial);
-	if (! partial->unflushed)
+	log->unflushed = nih_io_buffer_new (log);
+	if (! log->unflushed)
 		goto error;
 
 	if (! state_get_json_string_var (json, "unflushed", NULL, unflushed))
 		goto error;
 
-	if (nih_io_buffer_push (partial->unflushed, unflushed, strlen (unflushed)) < 0)
+	if (nih_io_buffer_push (log->unflushed, unflushed, strlen (unflushed)) < 0)
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, detached))
+	if (! state_get_json_int_var_to_obj (json, log, detached))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, remote_closed))
+	if (! state_get_json_int_var_to_obj (json, log, remote_closed))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, open_errno))
+	if (! state_get_json_int_var_to_obj (json, log, open_errno))
 		goto error;
 
-	return partial;
+	return log;
 
 error:
-	nih_free (partial);
+	nih_free (log);
 	return NULL;
 }

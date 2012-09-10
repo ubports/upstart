@@ -1992,49 +1992,15 @@ job_deserialise (JobClass *parent, json_object *json)
 
 	for (int process = 0; process < PROCESS_LAST; process++) {
 		json_object  *json_log;
-		Log          *partial_log = NULL;
-		int           io_watch_fd = -1;
 
 		json_log = json_object_array_get_idx (json_logs, process);
 		if (! json_log)
 			goto error;
 
-		partial_log = log_deserialise (json_log);
-		if (! partial_log)
-			goto error;
-
-		if (! *partial_log->path) {
-			/* This log object was simply a
-			 * placeholder so don't apply it.
-			 */
-			nih_free (partial_log);
-			job->log[process] = NULL;
-			continue;
-		}
-
-		if (! state_get_json_int_var (json_log, "io_watch_fd", io_watch_fd))
-			goto error;
-
-		/* re-apply CLOEXEC flag to stop fd being leaked to children */
-		if (io_watch_fd != -1 && state_toggle_cloexec (io_watch_fd, TRUE) < 0)
-			goto error;
-
-		job->log[process] = log_new (job->log, partial_log->path, io_watch_fd, partial_log->uid);
-		if (! job->log[process])
-			goto error;
-
-		state_partial_copy_int (job->log[process], partial_log, fd);
-		state_partial_copy_int (job->log[process], partial_log, detached);
-		state_partial_copy_int (job->log[process], partial_log, remote_closed);
-		state_partial_copy_int (job->log[process], partial_log, open_errno);
-
-		if (partial_log->unflushed->len) {
-			ret = nih_io_buffer_push (job->log[process]->unflushed,
-					partial_log->unflushed->buf,
-					partial_log->unflushed->len);
-			if (ret < 0)
-				goto error;
-		}
+		/* NULL if there was no log configured, or we failed to
+		 * deserialise it; either way, this should be non-fatal.
+		 */
+		job->log[process] = log_deserialise (job->log, json_log);
 	}
 
 	return job;
