@@ -127,34 +127,6 @@
 #endif
 
 /**
- * UPSTART:
- *
- * The upstart binary.
- **/
-#ifndef UPSTART
-
-/* * * * * * * *  * * *** * * * * * * * * * ** * * * * * ** * *  * * */
-/* * * * ** * **** * ** ** * * * * * **  * * ** * * * * * *  * * *  */
-/* FIXME */
-/* FIXME */
-/* FIXME: 
- *
- */
-
-#if 0
-#define UPSTART SBINDIR "/init"
-#endif
-#define UPSTART "/data/bzr/upstart/upstart/init/init"
-
-/* FIXME */
-/* FIXME */
-/* * * * ** * **** * ** ** * * * * * **  * * ** * * * * * *  * * *  */
-/* * * * * * * *  * * *** * * * * * * * * * ** * * * * * ** * *  * * */
-/* * * * ** * **** * ** ** * * * * * **  * * ** * * * * * *  * * *  */
-
-#endif
-
-/**
  * JOB_LOGDIR:
  *
  * Directory that jobs which specify CONSOLE_LOG will have their output
