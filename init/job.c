@@ -1582,15 +1582,15 @@ job_serialise (const Job *job)
 	if (! state_set_json_str_array_from_obj (json, job, stop_env))
 		goto error;
 
-	stop_on = job->stop_on
-		? event_operator_collapse (job->stop_on)
-		: NIH_MUST (nih_strdup (NULL, ""));
+	if (job->stop_on)
+	{
+		stop_on = event_operator_collapse (job->stop_on);
+		if (! stop_on)
+			goto error;
 
-	if (! stop_on)
-		goto error;
-
-	if (! state_set_json_string_var (json, "stop_on", stop_on))
-		goto error;
+		if (! state_set_json_string_var (json, "stop_on", stop_on))
+			goto error;
+	}
 
 	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
 	if (! json_fds)
