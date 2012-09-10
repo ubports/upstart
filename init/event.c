@@ -794,7 +794,7 @@ event_to_index (const Event *event)
 	int found = FALSE;
 
 	nih_assert (event);
-	nih_assert (events);
+	event_init ();
 
 	NIH_LIST_FOREACH (events, iter) {
 		Event *tmp = (Event *)iter;
@@ -828,7 +828,7 @@ event_from_index (int event_index)
 	int i = 0;
 
 	nih_assert (event_index >= 0);
-	nih_assert (events);
+	event_init ();
 
 	NIH_LIST_FOREACH (events, iter) {
 		Event *event = (Event *)iter;

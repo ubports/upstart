@@ -725,7 +725,7 @@ char *
 event_operator_collapse (EventOperator *condition)
 {
 	nih_local NihList       *stack = NULL;
-	nih_local NihListEntry  *latest = NULL;
+	NihListEntry            *latest = NULL;
 	NihTree                 *root;
 
 	nih_assert (condition);
