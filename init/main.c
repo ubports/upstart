@@ -513,7 +513,7 @@ main (int   argc,
 	 * fail (since dbus-daemon probably isn't running yet) and will try again
 	 * later - don't let ENOMEM stop us though.
 	 */
-	while (control_bus_open (restart) < 0) {
+	while (control_bus_open () < 0) {
 		NihError *err;
 		int       number;
 
@@ -849,7 +849,7 @@ usr1_handler (void      *data,
 	if (! control_bus) {
 		nih_info (_("Reconnecting to system bus"));
 
-		if (control_bus_open (restart) < 0) {
+		if (control_bus_open () < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -1032,6 +1032,9 @@ stateful_reexec (void)
 
 	/* retain the D-Bus connection across the re-exec */
 	control_prepare_reexec ();
+
+	/* Clear CLOEXEC flag for any job log objects prior to re-exec */
+	job_class_prepare_reexec ();
 
 	pid = fork ();
 

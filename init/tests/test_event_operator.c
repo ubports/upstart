@@ -1327,7 +1327,7 @@ test_operator_serialisation (void)
 {
 	JobClass        *job = NULL;
 	EventOperator   *oper1, *oper2;
-	char		*oper1_string;
+	char		    *oper1_string;
 
 	struct test_operator {
 		char *description;

@@ -88,7 +88,7 @@ int   log_handle_unflushed   (void *parent, Log *log)
 int   log_clear_unflushed    (void)
 	__attribute__ ((warn_unused_result));
 void  log_unflushed_init     (void);
-json_object * log_serialise (const Log *log)
+json_object * log_serialise (Log *log)
 	__attribute__ ((warn_unused_result, malloc));
 Log * log_deserialise (json_object *json)
 	__attribute__ ((warn_unused_result, malloc));

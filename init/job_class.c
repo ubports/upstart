@@ -2171,3 +2171,59 @@ job_class_console_type_str_to_enum (const char *console)
 
 	return -1;
 }
+
+/**
+ * job_class_prepare_reexec:
+ *
+ * Prepare for a re-exec by clearing the CLOEXEC bit on all log object
+ * file descriptors associated with their parent jobs.
+ **/
+void
+job_class_prepare_reexec (void)
+{
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			nih_assert (job->log);
+
+			for (int process = 0; process < PROCESS_LAST; process++) {
+				int  fd;
+				Log *log;
+
+				log = job->log[process];
+
+				/* No associated job process or logger has detected
+				 * remote end of pty has closed.
+				 */
+				if (! log || ! log->io)
+					continue;
+
+				nih_assert (log->io->watch);
+
+				fd = log->io->watch->fd;
+				if (fd < 0)
+					continue;
+
+				if (state_toggle_cloexec (fd, FALSE) < 0)
+					goto error;
+
+				fd = log->fd;
+				if (fd < 0)
+					continue;
+
+				if (state_toggle_cloexec (fd, FALSE) < 0)
+					goto error;
+			}
+		}
+	}
+
+	return;
+
+error:
+	nih_warn (_("unable to clear CLOEXEC bit on log fd"));
+}
