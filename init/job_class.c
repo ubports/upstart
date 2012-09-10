@@ -2043,7 +2043,6 @@ job_class_deserialise_all (json_object *json)
 
 		class = NIH_MUST (job_class_new (NULL, partial->name, partial->session));
 
-#if 1
 		/* FIXME:
 		 *
 		 * If user sessions exist (ie 'initctl --session list'
@@ -2053,7 +2052,6 @@ job_class_deserialise_all (json_object *json)
 		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
 		 *
 		 */
-#endif
 
 		/* job_class_new() sets path */
 		nih_assert (! strcmp (class->path, partial->path));
