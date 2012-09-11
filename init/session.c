@@ -498,7 +498,7 @@ session_deserialise (json_object *json)
 	if (! state_get_json_int_var (json, "user", user))
 		return NULL;
 
-	/* Create a new session and associated ConfSource */
+	/* Create a new session */
 	session = NIH_MUST (session_new (NULL, chroot, user));
 
 	if (! state_get_json_string_var_to_obj (json, session, conf_path))
@@ -565,6 +565,7 @@ session_deserialise_all (json_object *json)
 		if (! session)
 			continue;
 
+		/* Create the associated ConfSource */
 		session_create_conf_source (session, TRUE);
 	}
 
