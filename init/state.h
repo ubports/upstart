@@ -1063,7 +1063,7 @@ typedef const char *(*EnumSerialiser) (int value);
  **/
 typedef int (*EnumDeserialiser) (const char *name);
 
-int  state_read          (int fd)
+int  state_read          (int fd, int allow_non_pid_one)
 	__attribute__ ((warn_unused_result));
 
 int  state_write         (int fd)
@@ -1150,6 +1150,12 @@ int state_hex_to_data (void *parent, const void *hex_data,
 		       size_t hex_len, char **data,
 		       size_t *data_len)
 	__attribute__ ((warn_unused_result));
+
+extern char **args_copy;
+extern int restart;
+
+void perform_reexec  (void);
+void stateful_reexec (void);
 
 NIH_END_EXTERN
 

@@ -1,8 +1,8 @@
 /* upstart
  *
- * test_log.c - test suite for init/state.c
+ * test_state.c - test suite for init/state.c
  *
- * Copyright © 2021 Canonical Ltd.
+ * Copyright © 2012 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>
  *
  * This program is free software; you can redistribute it and/or modify
