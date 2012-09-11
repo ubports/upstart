@@ -3,13 +3,6 @@
  * - remove all conf.c:debug_show_*() functions as we can now use the
  *   serialisation calls instead.
  *
- * - remove DebugSerialise and DebugDeserialise
- *   from dbus/com.ubuntu.Upstart.xml (or only allow root to call these
- *   methods [since they expose unflushed log data owned by the root
- *   user]).
- *
- * - XXX: log deserialisation.
- *
  *--------------------------------------------------------------------
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *
@@ -44,15 +37,11 @@
  *     pre-existing ConfSources with non-NULL sessions representing
  *     user jobs will be ignored).
  *
- *   - ptrace handling: unlikely to hit that scenario.
- *
- *   - Log objects (so after stateful re-exec, no further log output
- *     will be produced).
- *
  *   - parent/child timeout handling: we won't support down-grading initially.
  *
  *   - dbus-connections: only be re-exec'ing post-boot so bridges won't
- *     suffer too much.
+ *     suffer too much. Bridges could be modified to auto-reconnect on
+ *     disconnect.
  *
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *--------------------------------------------------------------------
@@ -295,6 +284,13 @@
  *   - create any event->blocking links to any jobs.
  *   - create any event->blocking links to any D-Bus messages.
  *
+ * == Ptrace handling ==
+ *
+ * Fortuitously, it transpires that if a process is ptrace(2)-ing one
+ * or more other processes and that parent "debugger" process _itself_
+ * execs, post-exec, it still continues to be a debugger. What this
+ * means is that NO special handling needs to be performed for jobs
+ * which are being ptraced prior to the re-exec.
  *--------------------------------------------------------------------
  */
 

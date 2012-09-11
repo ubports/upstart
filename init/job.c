@@ -1672,25 +1672,6 @@ job_serialise (const Job *job)
 	if (! state_set_json_int_var_from_obj (json, job, trace_forks))
 		goto error;
 
-	/* FIXME: handle ptraced jobs across re-exec */
-	if (job->trace_state != TRACE_NONE) {
-		nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will stop after re-exec",
-				__func__, __LINE__,
-				job->name ? job->name : "",
-				job->class->name);
-
-		for (int i = 0; i < PROCESS_LAST; i++) {
-			if (! job->pid[i])
-				continue;
-
-			nih_info ("XXX: WARNING (%s:%d) job instance '%s' (class '%s') pid[%d]=%d",
-					__func__, __LINE__,
-					job->name ? job->name : "",
-					job->class->name,
-					i, job->pid[i]);
-		}
-	}
-
 	if (! state_set_json_enum_var (json,
 				job_trace_state_enum_to_str,
 				"trace_state", job->trace_state))
@@ -2043,14 +2024,6 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		state_partial_copy_int (job, partial, respawn_count);
 		state_partial_copy_int (job, partial, trace_forks);
 		state_partial_copy_int (job, partial, trace_state);
-
-		/* FIXME: handle ptraced jobs across re-exec */
-		if (partial->trace_state != TRACE_NONE) {
-			nih_info ("XXX: WARNING (%s:%d) tracking of ptraced job instance '%s' (class '%s') will now stop",
-					__func__, __LINE__,
-					job->name ? job->name : "",
-					job->class->name);
-		}
 
 		json_logs = json_object_object_get (json_job, "log");
 
