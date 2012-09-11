@@ -508,6 +508,11 @@ session_deserialise (json_object *json)
 	if (! *session->chroot && ! session->user && ! *session->conf_path)
 		goto error;
 
+	if (! *session->chroot)
+	{
+		nih_free (session->chroot);
+		session->chroot = NULL;
+	}
 	return session;
 
 error:

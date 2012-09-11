@@ -1125,6 +1125,15 @@ state_deserialise_blocking (void *parent, NihList *list,
 int state_fd_valid (int fd)
 	__attribute__ ((warn_unused_result));
 
+char * state_data_to_hex (void *parent, const void *data,
+			  size_t len)
+	__attribute__ ((warn_unused_result));
+
+int state_hex_to_data (void *parent, const void *hex_data,
+		       size_t hex_len, char **data,
+		       size_t *data_len)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_STATE_H */

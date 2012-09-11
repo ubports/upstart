@@ -72,16 +72,6 @@ static Job *
 state_get_job (const char *job_class, const char *job_name)
 	__attribute__ ((warn_unused_result));
 
-static char *
-state_data_to_hex (void *parent, const void *data, size_t len)
-	__attribute__ ((warn_unused_result));
-
-static int
-state_hex_to_data (void *parent, const void *hex_data,
-		   size_t hex_len, char **data,
-		   size_t *data_len)
-	__attribute__ ((warn_unused_result));
-
 /**
  * state_read:
  *
@@ -1766,7 +1756,7 @@ error:
  * Returns: newly-allocated hex-encoded string,
  * or NULL on error.
  **/
-static char *
+char *
 state_data_to_hex (void *parent, const void *data, size_t len)
 {
 	unsigned char  *p;
@@ -1806,8 +1796,8 @@ error:
  *
  * Returns: 0 on success, -1 on error.
  **/
-static int
-state_hex_to_data (void         *parent,
+int
+state_hex_to_data (void      *parent,
 		const void   *hex_data,
 		size_t        hex_len,
 		char        **data,

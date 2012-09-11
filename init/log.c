@@ -638,6 +638,8 @@ log_read_watch (Log *log)
 		if (nih_io_buffer_resize (io->recv_buf, LOG_READ_SIZE) < 0)
 			break;
 
+		errno = 0;
+
 		/* Append to buffer */
 		len = read (io->watch->fd,
 				io->recv_buf->buf + io->recv_buf->len,
@@ -680,22 +682,23 @@ log_read_watch (Log *log)
 		 * causes the loop to be exited.
 		 */
 		if (len <= 0) {
+			/* Job process has ended and we've drained all the data the job
+			 * produced, so remote end must have closed.
+			 *
+			 * This cannot be handled entirely by log_io_error_handler()
+			 * since the job may produce some output prior to disks being
+			 * writeable, then end without producing further output.
+			 * In this scenario the error handler is never called.
+			 *
+			 */
+			if (saved && saved != EAGAIN && saved != EWOULDBLOCK)
+				log->remote_closed = 1;
+
 			close (log->fd);
 			log->fd = -1;
 			break;
 		}
 	}
-
-	/* Job process has ended and we've drained all the data the job
-	 * produced, so remote end must have closed.
-	 *
-	 * This cannot be handled entirely by log_io_error_handler()
-	 * since the job may produce some output prior to disks being
-	 * writeable, then end without producing further output.
-	 * In this scenario the error handler is never called.
-	 *
-	 */
-	log->remote_closed = 1;
 }
 
 /**
@@ -823,7 +826,8 @@ log_clear_unflushed (void)
 json_object *
 log_serialise (Log *log)
 {
-	json_object  *json;
+	json_object     *json;
+	nih_local char  *unflushed_hex = NULL;
 
 	json = json_object_new_object ();
 	if (! json)
@@ -857,8 +861,20 @@ log_serialise (Log *log)
 	if (! state_set_json_int_var_from_obj (json, log, uid))
 		goto error;
 
-	if (! state_set_json_string_var (json, "unflushed", log->unflushed->buf))
-		goto error;
+	/* Encode unflushed data as hex to ensure any embedded
+	 * nulls are handled.
+	 */
+	if (log->unflushed->len) {
+		unflushed_hex = state_data_to_hex (NULL,
+				log->unflushed->buf,
+				log->unflushed->len);
+
+		if (! unflushed_hex)
+			goto error;
+
+		if (! state_set_json_string_var (json, "unflushed", unflushed_hex))
+			goto error;
+	}
 
 	if (! state_set_json_int_var_from_obj (json, log, detached))
 		goto error;
@@ -889,7 +905,11 @@ log_deserialise (const void *parent,
 		 json_object *json)
 {
 	Log             *log;
+	nih_local char  *unflushed_hex = NULL;
 	nih_local char  *unflushed = NULL;
+	int              ret;
+	size_t           len;
+	json_object     *json_unflushed;
 	nih_local char  *path = NULL;
 	int              fd;
 	uid_t            uid;
@@ -936,11 +956,23 @@ log_deserialise (const void *parent,
 	if (! log->unflushed)
 		goto error;
 
-	if (! state_get_json_string_var (json, "unflushed", NULL, unflushed))
-		goto error;
+	json_unflushed = json_object_object_get (json, "unflushed");
+	if (json_unflushed) {
+		if (! state_get_json_string_var (json, "unflushed", NULL, unflushed_hex))
+			goto error;
 
-	if (nih_io_buffer_push (log->unflushed, unflushed, strlen (unflushed)) < 0)
-		goto error;
+		ret = state_hex_to_data (NULL,
+				unflushed_hex,
+				strlen (unflushed_hex),
+				&unflushed,
+				&len);
+
+		if (ret < 0)
+			goto error;
+
+		if (nih_io_buffer_push (log->unflushed, unflushed, len) < 0)
+			goto error;
+	}
 
 	if (! state_get_json_int_var_to_obj (json, log, detached))
 		goto error;
