@@ -629,20 +629,17 @@ error:
  * event_deserialise:
  * @json: JSON-serialised Event object to deserialise.
  *
- * Convert @json into a partial Event object.
+ * Convert @json into an Event object.
  *
- * Note that the object returned is not a true Event since not all
- * structure elements are encoded in the JSON. Of particular note are
- * that event->blocking and event->blockers are handled by
- * state_serialise_resolve_deps().
- *
- * Returns: partial Event object, or NULL on error.
+ * Returns: Event object, or NULL on error.
  **/
 static Event *
 event_deserialise (json_object *json)
 {
 	json_object        *json_env;
-	Event              *partial;
+	Event              *event;
+	nih_local char     *name;
+        char              **env;
 	int                 session_index;
 
 	nih_assert (json);
@@ -650,43 +647,41 @@ event_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	partial = nih_new (NULL, Event);
-	if (! partial)
-		return NULL;
-
-	memset (partial, '\0', sizeof (Event));
-
-	if (! state_get_json_string_var_to_obj (json, partial, name))
+	if (! state_get_json_string_var (json, "name", NULL, name))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, fd))
+	if (! state_get_json_var_full (json, "env", array, json_env))
+			goto error;
+
+	env = state_deserialise_str_array (NULL, json_env, TRUE);
+	if (! env)
+		goto error;
+
+	event = event_new (NULL, name, env);
+	if (! event)
+		return NULL;
+
+	if (! state_get_json_int_var_to_obj (json, event, fd))
 		goto error;
 
 	if (! state_get_json_int_var (json, "session", session_index))
 		goto error;
 
 	/* can't check return value here (as all values are legitimate) */
-	partial->session = session_from_index (session_index);
-
-	if (! state_get_json_var_full (json, "env", array, json_env))
-			goto error;
-
-	partial->env = state_deserialise_str_array (partial, json_env, TRUE);
-	if (! partial->env)
-		goto error;
+	event->session = session_from_index (session_index);
 
 	if (! state_get_json_enum_var (json,
 				event_progress_str_to_enum,
-				"progress", partial->progress))
+				"progress", event->progress))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, partial, failed))
+	if (! state_set_json_int_var_from_obj (json, event, failed))
 		goto error;
 
-	return partial;
+	return event;
 
 error:
-	nih_free (partial);
+	nih_free (event);
 	return NULL;
 }
 
@@ -702,7 +697,6 @@ error:
 int
 event_deserialise_all (json_object *json)
 {
-	nih_local Event  *partial = NULL;
 	Event            *event;
 
 	nih_assert (json);
@@ -728,14 +722,9 @@ event_deserialise_all (json_object *json)
 		if (! state_check_json_type (json_event, object))
 			goto error;
 
-		partial = event_deserialise (json_event);
-		if (! partial)
+		event = event_deserialise (json_event);
+		if (! event)
 			goto error;
-
-		/* Create a new event */
-		event = NIH_MUST (event_new (NULL, partial->name, partial->env));
-
-		event->session = partial->session;
 	}
 
 	return 0;

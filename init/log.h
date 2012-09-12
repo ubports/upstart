@@ -90,7 +90,7 @@ int   log_clear_unflushed    (void)
 void  log_unflushed_init     (void);
 json_object * log_serialise (Log *log)
 	__attribute__ ((warn_unused_result, malloc));
-Log * log_deserialise (json_object *json)
+Log * log_deserialise (const void *parent, json_object *json)
 	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN

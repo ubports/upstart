@@ -209,16 +209,8 @@ error:
  *
  * Convert @json into a Process object.
  *
- * Caller must manually nih_ref() returned object to a parent object.
- *
  * Returns: Process object, or NULL on error.
  **/
-
-#if 1
-/* FIXME: should we just make this the same as the other partial
- * objects for consistency?
- */
-#endif
 
 static Process *
 process_deserialise (json_object *json, const void *parent)
@@ -232,12 +224,20 @@ process_deserialise (json_object *json, const void *parent)
 
 	process = NIH_MUST (process_new (parent));
 
-	memset (process, '\0', sizeof (Process));
-
 	if (! state_get_json_int_var_to_obj (json, process, script))
 			goto error;
 
 	if (! state_get_json_string_var_to_obj (json, process, command))
+		goto error;
+
+	/* All Process slots have to be serialised in the JSON to
+	 * guarantee ordering on deserialisation.
+	 *
+	 * However, here we've found a Process that was merely
+	 * an ordering placeholder - no command has been defined,
+	 * so ignore it.
+	 */
+	if (! process->command || ! *process->command)
 		goto error;
 
 	return process;
@@ -264,8 +264,6 @@ process_deserialise_all (json_object *json, const void *parent,
 			 Process **processes)
 {
 	json_object        *json_processes;
-	Process            *process;
-	nih_local Process  *partial = NULL;
 	int                 i;
 
 	nih_assert (json);
@@ -292,27 +290,8 @@ process_deserialise_all (json_object *json, const void *parent,
 		if (! state_check_json_type (json_process, object))
 			goto error;
 
-		partial = process_deserialise (json_process, partial);
-		if (! partial)
-			goto error;
+		processes[i] = process_deserialise (json_process, parent);
 
-		/* All Process slots have to be serialised in the JSON to
-		 * guarantee ordering on deserialisation.
-		 *
-		 * However, here we've found a Process that was merely
-		 * an ordering placeholder - no command has been defined,
-		 * so ignore it.
-		 */
-		if (! partial->command || ! *partial->command) {
-			processes[i] = NULL;
-			continue;
-		}
-
-		process = NIH_MUST (process_new (parent));
-		process->command = NIH_MUST (nih_strdup (processes, partial->command));
-		process->script = partial->script;
-
-		processes[i] = process;
 	}
 
 	return 0;

@@ -476,42 +476,47 @@ error:
  * session_deserialise:
  * @json: JSON-serialised Session object to deserialise.
  *
- * Convert @json into a partial Session object.
+ * Convert @json into a Session object.
  *
- * Note that the object returned is not a true Session since not all
- * structure elements are encoded in the JSON.
- *
- * Returns: partial Session object, or NULL on error.
+ * Returns: Session object, or NULL on error.
  **/
 static Session *
 session_deserialise (json_object *json)
 {
-	Session       *partial;
+	Session              *session;
+	nih_local const char *chroot;
+	uid_t                 user;
 
 	nih_assert (json);
 
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	partial = nih_new (NULL, Session);
-	if (! partial)
+	if (! state_get_json_string_var (json, "chroot", NULL, chroot))
 		return NULL;
 
-	memset (partial, '\0', sizeof (Session));
+	if (! state_get_json_int_var (json, "user", user))
+		return NULL;
 
-	if (! state_get_json_string_var_to_obj (json, partial, chroot))
+	/* Create a new session */
+	session = NIH_MUST (session_new (NULL, chroot, user));
+
+	if (! state_get_json_string_var_to_obj (json, session, conf_path))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, user))
-			goto error;
+	/* Not an error, just the representation of the "NULL session" */
+	if (! *session->chroot && ! session->user && ! *session->conf_path)
+		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, conf_path))
-			goto error;
-
-	return partial;
+	if (! *session->chroot)
+	{
+		nih_free (session->chroot);
+		session->chroot = NULL;
+	}
+	return session;
 
 error:
-	nih_free (partial);
+	nih_free (session);
 	return NULL;
 }
 
@@ -528,7 +533,6 @@ int
 session_deserialise_all (json_object *json)
 {
 	Session            *session;
-	nih_local Session  *partial = NULL;
 
 	nih_assert (json);
 
@@ -554,22 +558,14 @@ session_deserialise_all (json_object *json)
 		if (! state_check_json_type (json_session, object))
 			goto error;
 
-		partial = session_deserialise (json_session);
-		if (! partial)
-			goto error;
-
-		if (! *partial->chroot && ! partial->user && ! *partial->conf_path) {
-			/* Ignore the "NULL session" which is represented
-			 * by NULL, not an "empty session" internally.
-			 */
+		session = session_deserialise (json_session);
+		/* Ignore the "NULL session" which is represented
+		 * by NULL, not an "empty session" internally.
+		 */
+		if (! session)
 			continue;
-		}
 
-		/* Create a new session and associated ConfSource */
-		session = NIH_MUST (session_new (NULL,
-			*partial->chroot ? partial->chroot : NULL, 
-			partial->user));
-		session->conf_path = NIH_MUST (nih_strdup (session, partial->conf_path));
+		/* Create the associated ConfSource */
 		session_create_conf_source (session, TRUE);
 	}
 
