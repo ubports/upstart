@@ -316,37 +316,6 @@ state_to_string (char **json_string, size_t *len)
 	json_object        *json;
 	const char         *value;
 
-/* FIXME */
-#if 0
-	extern NihList *conf_sources;
-
-	session_init ();
-	event_init ();
-
-	nih_message ("#-----------------------------------------");
-	nih_message ("# Serialisation summary");
-	nih_message (" ");
-	nih_message ("DEBUG:hash: job_classes=%d", nih_hash_count (job_classes));
-	{
-		NIH_HASH_FOREACH (job_classes, iter) {
-			JobClass *class = (JobClass *)iter;
-			int count = nih_hash_count (class->instances);
-
-			nih_message ("DEBUG:hash: job_class '%s' has %d job%s",
-					class->name,
-					count,
-					count == 1 ? "" : "s");
-					
-		}
-	}
-	nih_message ("DEBUG:list: sessions=%d", nih_list_count (sessions));
-	nih_message ("DEBUG:list: events=%d", nih_list_count (events));
-	nih_message ("DEBUG:list: conf_sources=%d", nih_list_count (conf_sources));
-	nih_message ("DEBUG:list: control_conns=%d", nih_list_count (control_conns));
-	nih_message (" ");
-	nih_message ("#-----------------------------------------");
-#endif
-
 	json = json_object_new_object ();
 
 	if (! json)
@@ -370,14 +339,6 @@ state_to_string (char **json_string, size_t *len)
 		goto error;
 
 	json_object_object_add (json, "job_classes", json_classes);
-
-	/* FIXME */
-#if 1
-	fprintf(stderr, "sessions='%s'\n", json_object_to_json_string (json_sessions));
-	fprintf(stderr, "events='%s'\n", json_object_to_json_string (json_events));
-	fprintf(stderr, "job_classes='%s'\n", json_object_to_json_string (json_classes));
-	fprintf(stderr, "json='%s'\n", json_object_to_json_string (json));
-#endif
 
 	/* Note that the returned value is managed by json-c! */
 	value = json_object_to_json_string (json);
@@ -429,28 +390,6 @@ state_from_string (const char *state)
 		return ret;
 	}
 
-	/* FIXME */
-#if 0
-	extern NihList *conf_sources;
-
-	nih_message ("#-----------------------------------------");
-	nih_message ("DEBUG:PRE:hash: job_classes=%d",
-			job_classes ? nih_hash_count (job_classes) : 0);
-
-	nih_message ("DEBUG:PRE:list: sessions=%d",
-			sessions ? nih_list_count (sessions) : 0);
-
-	nih_message ("DEBUG:PRE:list: events=%d",
-			events ? nih_list_count (events) : 0);
-
-	nih_message ("DEBUG:PRE:list: conf_sources=%d",
-			conf_sources ? nih_list_count (conf_sources) : 0);
-
-	nih_message ("DEBUG:PRE:list: control_conns=%d",
-			control_conns ? nih_list_count (control_conns) : 0);
-	nih_message ("#-----------------------------------------");
-#endif
-
 	if (! state_check_json_type (json, object))
 		goto out;
 
@@ -465,32 +404,6 @@ state_from_string (const char *state)
 
 	if (state_deserialise_resolve_deps (json) < 0)
 		goto out;
-
-/* FIXME */
-#if 0
-	nih_message ("#-----------------------------------------");
-	nih_message ("# Deserialisation summary");
-	nih_message (" ");
-	nih_message ("DEBUG:POST:hash: job_classes=%d", nih_hash_count (job_classes));
-	{
-		NIH_HASH_FOREACH (job_classes, iter) {
-			JobClass *class = (JobClass *)iter;
-			int count = nih_hash_count (class->instances);
-
-			nih_message ("DEBUG:POST:hash: job_class '%s' has %d job%s",
-					class->name,
-					count,
-					count == 1 ? "" : "s");
-					
-		}
-	}
-	nih_message ("DEBUG:POST:list: sessions=%d", nih_list_count (sessions));
-	nih_message ("DEBUG:POST:list: events=%d", nih_list_count (events));
-	nih_message ("DEBUG:POST:list: conf_sources=%d", nih_list_count (conf_sources));
-	nih_message ("DEBUG:POST:list: control_conns=%d", nih_list_count (control_conns));
-	nih_message (" ");
-	nih_message ("#-----------------------------------------");
-#endif
 
 	ret = 0;
 
@@ -1599,7 +1512,6 @@ state_deserialise_blocked (void *parent, json_object *json,
 
 			dbus_message_set_serial (dbus_msg, serial);
 
-#if 1
 			/* FIXME:
 			 *
 			 * *EITHER*:
@@ -1615,7 +1527,6 @@ state_deserialise_blocked (void *parent, json_object *json,
 			 * NihDBusMessage, but does *NOT* ref() the
 			 * msg+connection (again).
 			 */
-#endif
 			/* FIXME: parent is incorrect?!? */
 			nih_dbus_msg = nih_dbus_message_new (NULL, dbus_conn, dbus_msg);
 			if (! nih_dbus_msg)
