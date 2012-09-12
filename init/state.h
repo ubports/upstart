@@ -95,23 +95,6 @@
  *   into an array of Process objects which are then hooked onto a
  *   JobClass object).
  *
- * Note that objects returned by <object_>_deserialise() are generally
- * _partial_ objects: they are not true objects since they have not
- * been constructed. They are like templates for the real objects with
- * those elements filled in that the JSON encodes.
- *
- * Each partial object needs to be converted into a real object by:
- *
- * - creating an instance of that object (using <object_>_new()).
- * - copying the element data from the partial object back into the real
- *   object.
- *
- * These steps happens in <object_>_deserialise_all(). It is rather
- * tedious but does ensure that the resultant object is "sane". It
- * is also essential since the JSON representation of most objects does
- * _NOT_ encode all information about an object (for example the JSON
- * encoding for an Event does not encode 'blockers' and 'blocking').
- *
  * == Error Handling ==
  *
  * If stateful re-exec fails, Upstart must perform a stateless reexec:

@@ -63,7 +63,7 @@
 
 /* Prototypes for static functions */
 static json_object *job_serialise (const Job *job);
-static Job *job_deserialise (json_object *json);
+static Job *job_deserialise (JobClass *parent, json_object *json);
 
 static const char *
 job_goal_enum_to_str (JobGoal goal)
@@ -93,7 +93,7 @@ job_serialise_kill_timer (NihTimer *timer)
 	__attribute__ ((malloc, warn_unused_result));
 
 static NihTimer *
-job_deserialise_kill_timer (void *parent, json_object *json)
+job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
 /**
@@ -155,6 +155,7 @@ job_new (JobClass   *class,
 	job->stop_env = NULL;
 
 	job->stop_on = NULL;
+
 	if (class->stop_on) {
 		job->stop_on = event_operator_copy (job, class->stop_on);
 		if (! job->stop_on)
@@ -1680,7 +1681,7 @@ job_serialise (const Job *job)
 	json_logs = json_object_new_array ();
 
 	if (! json_logs)
-		goto error;
+		return json;
 
 	for (int process = 0; process < PROCESS_LAST; process++) {
 		json_object *json_log;
@@ -1712,6 +1713,7 @@ error:
 json_object *
 job_serialise_all (const NihHash *jobs)
 {
+	int          count = 0;
 	json_object *json;
 
 	nih_assert (jobs);
@@ -1724,6 +1726,7 @@ job_serialise_all (const NihHash *jobs)
 		json_object  *json_job;
 		Job *job = (Job *)iter;
 
+		count++;
 		json_job = job_serialise (job);
 
 		if (! json_job)
@@ -1731,6 +1734,12 @@ job_serialise_all (const NihHash *jobs)
 
 		json_object_array_add (json, json_job);
 	}
+
+	/* Raise an error to avoid serialising job classes with
+	 * no associated jobs.
+	 */
+	if (!count)
+		goto error;
 
 	return json;
 
@@ -1741,58 +1750,60 @@ error:
 
 /**
  * job_deserialise:
+ * @parent: job class for JSON-encoded jobs,
  * @json: JSON-serialised Job object to deserialise.
- *
- * Note that the object returned is not a true Job since not all
- * structure elements are encoded in the JSON. Of particular note are
- * that job->blocking is handled by state_serialise_resolve_deps().
  *
  * XXX: All events must have been deserialised prior to this function
  * XXX: being called.
  *
- * Returns: partial Job object, or NULL on error.
+ * Returns: Job object, or NULL on error.
  **/
 static Job *
-job_deserialise (json_object *json)
+job_deserialise (JobClass *parent, json_object *json)
 {
-	Job          *partial;
-	json_object  *kill_timer;
-	json_object  *blocker;
+	nih_local char *name = NULL;
+	Job            *job;
+	json_object    *json_kill_timer;
+	json_object    *blocker;
+	json_object    *json_fds;
+	json_object    *json_pid;
+	json_object    *json_logs;
+	size_t          len;
+	int             ret;
 
 	nih_assert (json);
 
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	partial = nih_new (NULL, Job);
-	if (! partial)
-		return NULL;
-
-	memset (partial, '\0', sizeof (Job));
-
-	if (! state_get_json_string_var_to_obj (json, partial, name))
+	if (! state_get_json_string_var (json, "name", NULL, name))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, path))
+	job = NIH_MUST (job_new (parent, name));
+
+	if (! job)
+		return NULL;
+
+	if (! state_get_json_string_var_to_obj (json, job, path))
 		goto error;
 
 	if (! state_get_json_enum_var (json,
 				job_goal_str_to_enum,
-				"goal", partial->goal))
+				"goal", job->goal))
 		goto error;
 
 	if (! state_get_json_enum_var (json,
 				job_state_str_to_enum,
-				"state", partial->state))
+				"state", job->state))
 		goto error;
 
-	if (! state_get_json_env_array_to_obj (json, partial, env))
+	if (! state_get_json_env_array_to_obj (json, job, env))
 		goto error;
 
-	if (! state_get_json_env_array_to_obj (json, partial, start_env))
+	if (! state_get_json_env_array_to_obj (json, job, start_env))
 		goto error;
 
-	if (! state_get_json_env_array_to_obj (json, partial, stop_env))
+	if (! state_get_json_env_array_to_obj (json, job, stop_env))
 		goto error;
 
 	if (json_object_object_get (json, "stop_on")) {
@@ -1822,8 +1833,9 @@ job_deserialise (json_object *json)
 				goto error;
 			}
 
-			partial->stop_on = event_operator_copy (partial, tmp->stop_on);
-			if (! partial->stop_on)
+			nih_free (job->stop_on);
+			job->stop_on = event_operator_copy (job, tmp->stop_on);
+			if (! job->stop_on)
 				goto error;
 		}
 	}
@@ -1840,63 +1852,122 @@ job_deserialise (json_object *json)
 
 		if (! state_get_json_int_var (json, "blocker", event_index))
 			goto error;
-		partial->blocker = event_from_index (event_index);
+		job->blocker = event_from_index (event_index);
 
-		if (! partial->blocker)
+		if (! job->blocker)
 			goto error;
 	}
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"kill_process", job->kill_process))
+		goto error;
 
 	/* FIXME: kill_timer */
 	nih_info ("XXX: WARNING (%s:%d) job->kill_timer needs testing", __func__, __LINE__);
 	/* Check to see if a kill timer exists first since we do not
 	 * want to end up creating a real but empty timer.
 	 */
-	kill_timer = json_object_object_get (json, "kill_timer");
+	json_kill_timer = json_object_object_get (json, "kill_timer");
 
-	if (kill_timer) {
-		partial->kill_timer = job_deserialise_kill_timer (partial, json);
-		if (! partial->kill_timer)
+	if (json_kill_timer) {
+		/* Found a partial kill timer, so create a new one and
+		 * adjust its due time. By the time the main loop gets
+		 * called, the due time will probably be in the past
+		 * such that the job will be stopped.
+		 *
+		 * To be completely fair we should:
+		 *
+		 * - encode the time at the point of serialisation in a
+		 *   JSON 'meta' header.
+		 * - query the time post-deserialisation and calculate
+		 *   the delta (being the time to perform the stateful
+		 *   re-exec).
+		 * - add that time to all jobs with active kill timers
+		 *   to give their processes the full amount of time to
+		 *   end.
+		 */
+		nih_local NihTimer *kill_timer = job_deserialise_kill_timer (json_kill_timer);
+		if (! kill_timer)
 			goto error;
-	} else {
-		partial->kill_timer = NULL;
+
+		nih_assert (job->kill_process);
+		job_process_set_kill_timer (job, job->kill_process,
+		                            kill_timer->timeout);
+		job_process_adj_kill_timer (job, kill_timer->due);
 	}
 
-	if (! state_get_json_enum_var (json,
-				process_type_str_to_enum,
-				"kill_process", partial->kill_process))
-		goto error;
-
-	if (! state_get_json_int_var_to_obj (json, partial, failed))
+	if (! state_get_json_int_var_to_obj (json, job, failed))
 			goto error;
 
 	if (! state_get_json_enum_var (json,
 				process_type_str_to_enum,
-				"failed_process", partial->failed_process))
+				"failed_process", job->failed_process))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, exit_status))
+	if (! state_get_json_int_var_to_obj (json, job, exit_status))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, respawn_time))
+	if (! state_get_json_int_var_to_obj (json, job, respawn_time))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, respawn_count))
+	if (! state_get_json_int_var_to_obj (json, job, respawn_count))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, trace_forks))
+	json_fds = json_object_object_get (json, "fds");
+	if (! json_fds)
+		goto error;
+
+	ret = state_deserialise_int_array (job, json_fds,
+			int, &job->fds, &job->num_fds);
+	if (ret < 0)
+		goto error;
+
+	json_pid = json_object_object_get (json, "pid");
+	if (! json_pid)
+		goto error;
+
+	ret = state_deserialise_int_array (job, json_pid,
+			pid_t, &job->pid, &len);
+	if (ret < 0)
+		goto error;
+
+	if (len != PROCESS_LAST)
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, job, trace_forks))
 			goto error;
 
 	if (! state_get_json_enum_var (json,
 				job_trace_state_str_to_enum,
-				"trace_state", partial->trace_state))
+				"trace_state", job->trace_state))
 		goto error;
 
-	/* log handled by caller */
+	json_logs = json_object_object_get (json, "log");
 
-	return partial;
+	if (! json_logs)
+		goto error;
+
+	if (! state_check_json_type (json_logs, array))
+		goto error;
+
+	for (int process = 0; process < PROCESS_LAST; process++) {
+		json_object  *json_log;
+
+		json_log = json_object_array_get_idx (json_logs, process);
+		if (! json_log)
+			goto error;
+
+		/* NULL if there was no log configured, or we failed to
+		 * deserialise it; either way, this should be non-fatal.
+		 */
+		job->log[process] = log_deserialise (job->log, json_log);
+	}
+
+	return job;
 
 error:
-	nih_free (partial);
+	nih_free (job);
 	return NULL;
 }
 
@@ -1915,12 +1986,7 @@ int
 job_deserialise_all (JobClass *parent, json_object *json)
 {
 	json_object  *json_jobs;
-	json_object  *json_fds;
-	json_object  *json_pid;
-	json_object  *json_logs;
 	Job          *job;
-	size_t        len;
-	int           ret;
 
 	nih_assert (parent);
 	nih_assert (json);
@@ -1935,8 +2001,6 @@ job_deserialise_all (JobClass *parent, json_object *json)
 
 	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
 		json_object    *json_job;
-		nih_local Job  *partial = NULL;
-		Log            *partial_log = NULL;
 
 		json_job = json_object_array_get_idx (json_jobs, i);
 		if (! json_job)
@@ -1945,139 +2009,9 @@ job_deserialise_all (JobClass *parent, json_object *json)
 		if (! state_check_json_type (json_job, object))
 			goto error;
 
-		partial = job_deserialise (json_job);
-		if (! partial)
+		job = job_deserialise (parent, json_job);
+		if (! job)
 			goto error;
-
-		job = NIH_MUST (job_new (parent, partial->name));
-
-		state_partial_copy_int (job, partial, goal);
-		state_partial_copy_int (job, partial, state);
-
-		if (! state_copy_str_array_to_obj (job, partial, env))
-			goto error;
-
-		if (! state_copy_str_array_to_obj (job, partial, start_env))
-			goto error;
-		if (! state_copy_str_array_to_obj (job, partial, stop_env))
-			goto error;
-
-		if (! state_copy_event_oper_to_obj (job, partial, stop_on))
-			goto error;
-
-		json_fds = json_object_object_get (json_job, "fds");
-		if (! json_fds)
-			goto error;
-
-		ret = state_deserialise_int_array (job, json_fds,
-				int, &job->fds, &job->num_fds);
-		if (ret < 0)
-			goto error;
-
-		json_pid = json_object_object_get (json_job, "pid");
-		if (! json_pid)
-			goto error;
-
-		ret = state_deserialise_int_array (job, json_pid,
-				pid_t, &job->pid, &len);
-		if (ret < 0)
-			goto error;
-
-		if (len != PROCESS_LAST)
-			goto error;
-
-		state_partial_copy_ptr (job, partial, blocker);
-
-		/* 'blocking' handled by state_deserialise_blocking() */
-
-		state_partial_copy_int (job, partial, kill_process);
-
-		/* Found a partial kill timer, so create a new one and
-		 * adjust its due time. By the time the main loop gets
-		 * called, the due time will probably be in the past
-		 * such that the job will be stopped.
-		 *
-		 * To be completely fair we should:
-		 *
-		 * - encode the time at the point of serialisation in a
-		 *   JSON 'meta' header.
-		 * - query the time post-deserialisation and calculate
-		 *   the delta (being the time to perform the stateful
-		 *   re-exec).
-		 * - add that time to all jobs with active kill timers
-		 *   to give their processes the full amount of time to
-		 *   end.
-		 */
-		if (partial->kill_timer) {
-			nih_assert (job->kill_process);
-			job_process_set_kill_timer (job,
-					job->kill_process,
-					partial->kill_timer->timeout);
-			job_process_adj_kill_timer (job,
-					partial->kill_timer->due);
-		}
-
-		state_partial_copy_int (job, partial, failed);
-		state_partial_copy_int (job, partial, failed_process);
-		state_partial_copy_int (job, partial, exit_status);
-		state_partial_copy_int (job, partial, respawn_time);
-		state_partial_copy_int (job, partial, respawn_count);
-		state_partial_copy_int (job, partial, trace_forks);
-		state_partial_copy_int (job, partial, trace_state);
-
-		json_logs = json_object_object_get (json_job, "log");
-
-		if (! json_logs)
-			continue;
-
-		if (! state_check_json_type (json_logs, array))
-			goto error;
-
-		for (int process = 0; process < PROCESS_LAST; process++) {
-			json_object  *json_log;
-			int           io_watch_fd = -1;
-
-			json_log = json_object_array_get_idx (json_logs, process);
-			if (! json_log)
-				goto error;
-
-			partial_log = log_deserialise (json_log);
-			if (! partial_log)
-				goto error;
-
-			if (! *partial_log->path) {
-				/* This log object was simply a
-				 * placeholder so don't apply it.
-				 */
-				nih_free (partial_log);
-				job->log[process] = NULL;
-				continue;
-			}
-
-			if (! state_get_json_int_var (json_log, "io_watch_fd", io_watch_fd))
-				goto error;
-
-			/* re-apply CLOEXEC flag to stop fd being leaked to children */
-			if (io_watch_fd != -1 && state_toggle_cloexec (io_watch_fd, TRUE) < 0)
-				goto error;
-
-			job->log[process] = log_new (job->log, partial_log->path, io_watch_fd, partial_log->uid);
-			if (! job->log[process])
-				goto error;
-
-			state_partial_copy_int (job->log[process], partial_log, fd);
-			state_partial_copy_int (job->log[process], partial_log, detached);
-			state_partial_copy_int (job->log[process], partial_log, remote_closed);
-			state_partial_copy_int (job->log[process], partial_log, open_errno);
-
-			if (partial_log->unflushed->len) {
-				ret = nih_io_buffer_push (job->log[process]->unflushed,
-						partial_log->unflushed->buf,
-						partial_log->unflushed->len);
-				if (ret < 0)
-					goto error;
-			}
-		}
 	}
 
 	return 0;
@@ -2252,7 +2186,6 @@ error:
 /**
  * job_deserialise_kill_timer:
  *
- * @parent: parent for timer.
  * @json: JSON representation of NihTimer.
  *
  * Deserialise @json back into an NihTimer.
@@ -2260,14 +2193,13 @@ error:
  * Returns: NihTimer on NULL on error.
  **/
 static NihTimer *
-job_deserialise_kill_timer (void *parent, json_object *json)
+job_deserialise_kill_timer (json_object *json)
 {
 	NihTimer *timer;
 
-	nih_assert (parent);
 	nih_assert (json);
 
-	timer = nih_new (parent, NihTimer);
+	timer = nih_new (NULL, NihTimer);
 	if (! timer)
 		return NULL;
 

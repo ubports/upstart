@@ -1795,38 +1795,34 @@ job_class_serialise_all (void)
 
 		json_class = job_class_serialise (class);
 
+		/* No object returned means the class doesn't need to be
+		 * serialised.  Even if this is a real failure, it's always
+		 * better to serialise as much of the state as possible.
+		 */
 		if (! json_class)
-			goto error;
+			continue;
 
 		json_object_array_add (json, json_class);
 	}
 
 	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
 }
 
 /**
  * job_class_deserialise:
  * @json: JSON-serialised JobClass object to deserialise.
  *
- * Note that the object returned is not a true JobClass since not all
- * structure elements are encoded in the JSON.
- *
- * Further, note that limits, process, instances (jobs), and normalexit
- * are NOT handled by this function - use state_rlimit_deserialise_all(),
- * process_deserialise_all(), job_deserialise_all() and
- * state_deserialise_int_array() respectively.
- *
- * Returns: partial JobClass object, or NULL on error.
+ * Returns: JobClass object, or NULL on error.
  **/
 static JobClass *
 job_class_deserialise (json_object *json)
 {
-	JobClass       *partial;
+	json_object    *json_normalexit;
+	JobClass       *class = NULL;
 	int             session_index;
+	int             ret;
+	nih_local char *name = NULL;
+	nih_local char *path = NULL;
 
 	nih_assert (json);
 	nih_assert (job_classes);
@@ -1834,47 +1830,47 @@ job_class_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		goto error;
 
-	partial = nih_new (NULL, JobClass);
-	if (! partial)
-		return NULL;
-
-	memset (partial, '\0', sizeof (JobClass));
-
-	if (! state_get_json_string_var_to_obj (json, partial, name))
-		goto error;
-
-	if (! state_get_json_string_var_to_obj (json, partial, path))
-		goto error;
-
 	if (! state_get_json_int_var (json, "session", session_index))
-			goto error;
+		goto error;
 
-	/* can't check return value here (as all values are legitimate) */
-	partial->session = session_from_index (session_index);
+	if (! state_get_json_string_var (json, "name", NULL, name))
+		goto error;
 
-	if (partial->session != NULL) {
+	class = NIH_MUST (job_class_new (NULL, name,
+	                                 session_from_index (session_index)));
+	if (! class)
+		goto error;
+
+	if (class->session != NULL) {
 		nih_warn ("XXX: WARNING (%s:%d): deserialisation of "
 				"user jobs and chroot sessions not currently supported",
 				__func__, __LINE__);
 		goto error;
 	}
 
-	if (! state_get_json_string_var_to_obj (json, partial, instance))
+	/* job_class_new() sets path */
+	if (! state_get_json_string_var (json, "path", NULL, path))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, description))
+	nih_assert (! strcmp (class->path, path));
+
+	nih_free (class->instance);
+	if (! state_get_json_string_var_to_obj (json, class, instance))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, author))
+	if (! state_get_json_string_var_to_obj (json, class, description))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, version))
+	if (! state_get_json_string_var_to_obj (json, class, author))
 		goto error;
 
-	if (! state_get_json_env_array_to_obj (json, partial, env))
+	if (! state_get_json_string_var_to_obj (json, class, version))
 		goto error;
 
-	if (! state_get_json_env_array_to_obj (json, partial, export))
+	if (! state_get_json_env_array_to_obj (json, class, env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, class, export))
 		goto error;
 
 	/* start and stop conditions are optional */
@@ -1885,8 +1881,8 @@ job_class_deserialise (json_object *json)
 			goto error;
 
 		if (*start_on) {
-			partial->start_on = parse_on_simple (partial, "start", start_on);
-			if (! partial->start_on) {
+			class->start_on = parse_on_simple (class, "start", start_on);
+			if (! class->start_on) {
 				NihError *err;
 
 				err = nih_error_get ();
@@ -1910,8 +1906,8 @@ job_class_deserialise (json_object *json)
 			goto error;
 
 		if (*stop_on) {
-			partial->stop_on = parse_on_simple (partial, "stop", stop_on);
-			if (! partial->stop_on) {
+			class->stop_on = parse_on_simple (class, "stop", stop_on);
+			if (! class->stop_on) {
 				NihError *err;
 
 				err = nih_error_get ();
@@ -1928,73 +1924,102 @@ job_class_deserialise (json_object *json)
 		}
 	}
 
-	if (! state_get_json_str_array_to_obj (json, partial, emits))
+	if (! state_get_json_str_array_to_obj (json, class, emits))
 		goto error;
 
 	/* 'process' must be handled by caller */
 
 	if (! state_get_json_enum_var (json,
 				job_class_expect_type_str_to_enum,
-				"expect", partial->expect))
+				"expect", class->expect))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, task))
+	if (! state_get_json_int_var_to_obj (json, class, task))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, kill_timeout))
+	if (! state_get_json_int_var_to_obj (json, class, kill_timeout))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, kill_signal))
+	if (! state_get_json_int_var_to_obj (json, class, kill_signal))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, respawn))
+	if (! state_get_json_int_var_to_obj (json, class, respawn))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, respawn_limit))
+	if (! state_get_json_int_var_to_obj (json, class, respawn_limit))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, respawn_interval))
+	if (! state_get_json_int_var_to_obj (json, class, respawn_interval))
 			goto error;
 
 	if (! state_get_json_enum_var (json,
 				job_class_console_type_str_to_enum,
-				"console", partial->console))
+				"console", class->console))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, umask))
+	if (! state_get_json_int_var_to_obj (json, class, umask))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, nice))
+	if (! state_get_json_int_var_to_obj (json, class, nice))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, oom_score_adj))
+	if (! state_get_json_int_var_to_obj (json, class, oom_score_adj))
 			goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, chroot))
+	if (! state_get_json_string_var_to_obj (json, class, chroot))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, chdir))
+	if (! state_get_json_string_var_to_obj (json, class, chdir))
 		goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, setuid))
+	if (! state_get_json_string_var_to_obj (json, class, setuid))
 			goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, setgid))
+	if (! state_get_json_string_var_to_obj (json, class, setgid))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, deleted))
+	if (! state_get_json_int_var_to_obj (json, class, deleted))
 			goto error;
 
-	if (! state_get_json_int_var_to_obj (json, partial, debug))
+	if (! state_get_json_int_var_to_obj (json, class, debug))
 			goto error;
 
-	if (! state_get_json_string_var_to_obj (json, partial, usage))
+	if (! state_get_json_string_var_to_obj (json, class, usage))
 		goto error;
 
-	return partial;
+	json_normalexit = json_object_object_get (json, "normalexit");
+	if (! json_normalexit)
+		goto error;
+
+	ret = state_deserialise_int_array (class, json_normalexit,
+			int, &class->normalexit, &class->normalexit_len);
+	if (ret < 0)
+		goto error;
+
+	if (state_rlimit_deserialise_all (json, class, &class->limits) < 0)
+		goto error;
+
+	if (process_deserialise_all (json, class->process, class->process) < 0)
+		goto error;
+
+	/* Force class to be known.
+	 *
+	 * We cannot use job_class_*consider() since the
+	 * JobClasses have no associated ConfFile.
+	 */
+	job_class_add_safe (class);
+
+	/* Any jobs must be added after the class is registered
+	 * (since you cannot add a job to a partially-created
+	 * class).
+	 */
+	if (job_deserialise_all (class, json) < 0)
+		goto error;
+
+	return class;
 
 error:
-	nih_free (partial);
+	nih_free (class);
 	return NULL;
 }
 
@@ -2010,9 +2035,7 @@ error:
 int
 job_class_deserialise_all (json_object *json)
 {
-	json_object  *json_normalexit;
 	JobClass     *class = NULL;
-	int           ret;
 
 	nih_assert (json);
 
@@ -2028,7 +2051,6 @@ job_class_deserialise_all (json_object *json)
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
 		json_object         *json_class;
-		nih_local JobClass  *partial = NULL;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
@@ -2037,11 +2059,9 @@ job_class_deserialise_all (json_object *json)
 		if (! state_check_json_type (json_class, object))
 			goto error;
 
-		partial = job_class_deserialise (json_class);
-		if (! partial)
+		class = job_class_deserialise (json_class);
+		if (! class)
 			goto error;
-
-		class = NIH_MUST (job_class_new (NULL, partial->name, partial->session));
 
 		/* FIXME:
 		 *
@@ -2053,105 +2073,6 @@ job_class_deserialise_all (json_object *json)
 		 *
 		 */
 
-		/* job_class_new() sets path */
-		nih_assert (! strcmp (class->path, partial->path));
-
-		if (! state_partial_copy_string (class, partial, description))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, author))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, version))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, chroot))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, chdir))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, setuid))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, setgid))
-			goto error;
-
-		if (! state_partial_copy_string (class, partial, usage))
-			goto error;
-
-		state_partial_copy_int (class, partial, expect);
-		state_partial_copy_int (class, partial, task);
-		state_partial_copy_int (class, partial, kill_timeout);
-		state_partial_copy_int (class, partial, kill_signal);
-		state_partial_copy_int (class, partial, respawn);
-		state_partial_copy_int (class, partial, respawn_limit);
-		state_partial_copy_int (class, partial, respawn_interval);
-
-		json_normalexit = json_object_object_get (json_class, "normalexit");
-		if (! json_normalexit)
-			goto error;
-
-		ret = state_deserialise_int_array (class, json_normalexit,
-				int, &class->normalexit, &class->normalexit_len);
-		if (ret < 0)
-			goto error;
-
-		state_partial_copy_int (class, partial, console);
-		state_partial_copy_int (class, partial, umask);
-		state_partial_copy_int (class, partial, nice);
-		state_partial_copy_int (class, partial, oom_score_adj);
-		state_partial_copy_int (class, partial, deleted);
-		state_partial_copy_int (class, partial, debug);
-
-		if (state_rlimit_deserialise_all (json_class, class, &class->limits) < 0)
-			goto error;
-
-		if (! state_copy_str_array_to_obj (class, partial, env))
-			goto error;
-
-		if (! state_copy_str_array_to_obj (class, partial, export))
-			goto error;
-
-		if (! state_copy_str_array_to_obj (class, partial, emits))
-			goto error;
-
-		if (! state_copy_event_oper_to_obj (class, partial, start_on))
-			goto error;
-
-		if (! state_copy_event_oper_to_obj (class, partial, stop_on))
-			goto error;
-
-		if (process_deserialise_all (json_class, class->process, class->process) < 0)
-			goto error;
-
-		/* instance must have a value, but only set it if the
-		 * partial value differs from the default set by
-		 * job_class_new().
-		 */
-		if (partial->instance && *partial->instance) {
-			nih_free (class->instance);
-
-			class->instance = NIH_MUST (nih_strdup (class, partial->instance));
-		}
-
-		/* Force class to be known.
-		 *
-		 * We cannot use job_class_*consider() since the
-		 * JobClasses have no associated ConfFile.
-		 */
-		job_class_add_safe (class);
-
-		/* Any jobs must be added after the class is registered
-		 * (since you cannot add a job to a partially-created
-		 * class).
-		 *
-		 * Associated jobs are handled here rather than in
-		 * job_class_deserialise() to avoid yet more data copying
-		 * from 'partial' to 'class'.
-		 */
-		if (job_deserialise_all (class, json_class) < 0)
-			goto error;
 	}
 
 	return 0;
