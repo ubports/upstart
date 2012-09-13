@@ -76,6 +76,12 @@ Process *   process_new       (const void *parent)
 const char *process_name      (ProcessType process)
 	__attribute__ ((const));
 
+json_object *process_serialise (const Process *process)
+	__attribute__ ((malloc, warn_unused_result));
+
+Process *process_deserialise (json_object *json, const void *parent)
+	__attribute__ ((malloc, warn_unused_result));
+
 json_object *
 process_serialise_all (const Process * const * const processes)
 	__attribute__ ((malloc, warn_unused_result));

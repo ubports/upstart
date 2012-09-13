@@ -52,12 +52,6 @@ static void event_pending              (Event *event);
 static void event_pending_handle_jobs  (Event *event);
 static void event_finished             (Event *event);
 
-static json_object *event_serialise (const Event *event)
-	__attribute__ ((malloc, warn_unused_result));
-
-static Event *event_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
-
 static const char * event_progress_enum_to_str (EventProgress progress)
 	__attribute__ ((warn_unused_result));
 
@@ -531,7 +525,7 @@ event_finished (Event *event)
  *
  * Returns: JSON-serialised Event object, or NULL on error.
  **/
-static json_object *
+json_object *
 event_serialise (const Event *event)
 {
 	json_object  *json;
@@ -554,8 +548,10 @@ event_serialise (const Event *event)
 	if (! state_set_json_string_var_from_obj (json, event, name))
 		goto error;
 
-	if (! state_set_json_str_array_from_obj (json, event, env))
-		goto error;
+	if (event->env) {
+		if (! state_set_json_str_array_from_obj (json, event, env))
+			goto error;
+	}
 
 	if (! state_set_json_int_var_from_obj (json, event, fd))
 		goto error;
@@ -633,13 +629,13 @@ error:
  *
  * Returns: Event object, or NULL on error.
  **/
-static Event *
+Event *
 event_deserialise (json_object *json)
 {
 	json_object        *json_env;
 	Event              *event;
 	nih_local char     *name = NULL;
-        char              **env;
+        char              **env = NULL;
 	int                 session_index;
 
 	nih_assert (json);
@@ -650,12 +646,14 @@ event_deserialise (json_object *json)
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
-	if (! state_get_json_var_full (json, "env", array, json_env))
+	if (json_object_object_get (json, "env")) {
+		if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
-	env = state_deserialise_str_array (NULL, json_env, TRUE);
-	if (! env)
-		goto error;
+		env = state_deserialise_str_array (NULL, json_env, TRUE);
+		if (! env)
+			goto error;
+	}
 
 	event = event_new (NULL, name, env);
 	if (! event)

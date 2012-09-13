@@ -34,12 +34,6 @@
 #include "process.h"
 #include "state.h"
 
-/* Prototypes for static functions */
-static json_object *process_serialise (const Process *process)
-	__attribute__ ((malloc, warn_unused_result));
-
-static Process *process_deserialise (json_object *json, const void *parent)
-	__attribute__ ((malloc, warn_unused_result));
 
 /**
  * process_new:
@@ -134,7 +128,7 @@ process_from_name (const char *process)
  *
  * Returns: JSON-serialised Process object, or NULL on error.
  **/
-static json_object *
+json_object *
 process_serialise (const Process *process)
 {
 	json_object  *json;
@@ -212,7 +206,7 @@ error:
  * Returns: Process object, or NULL on error.
  **/
 
-static Process *
+Process *
 process_deserialise (json_object *json, const void *parent)
 {
 	Process  *process;
