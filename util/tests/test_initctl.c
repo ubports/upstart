@@ -123,11 +123,6 @@
 	assert (pid);                                                \
 	                                                             \
 	if (kill (pid, 0) == 0) {                                    \
-		TEST_EQ (kill (pid, SIGTERM), 0);                    \
-		sleep (1);                                           \
-	}                                                            \
-	                                                             \
-	if (kill (pid, 0) == 0) {                                    \
 		TEST_EQ (kill (pid, SIGKILL), 0);                    \
 	}                                                            \
 }
