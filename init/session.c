@@ -344,6 +344,9 @@ session_create_conf_source (Session *session, int deserialised)
 					    CONF_JOB_DIR));
 	source->session = session;
 
+	if (getenv ("UPSTART_TESTS"))
+		return;
+
 	if (conf_source_reload (source) < 0) {
 		NihError *err;
 
@@ -365,8 +368,7 @@ session_create_conf_source (Session *session, int deserialised)
  * session_serialise:
  * @session: session to serialise.
  *
- * Convert @session (which may be the NULL session) into a
- * JSON representation for serialisation.
+ * Convert @session into a JSON representation for serialisation.
  *
  * Caller must free returned value using json_object_put().
  *
@@ -376,9 +378,11 @@ static json_object *
 session_serialise (const Session *session)
 {
 	json_object  *json;
-	json_object  *chroot;
+	json_object  *conf_path = NULL;
+	json_object  *chroot = NULL;
 	json_object  *user;
-	json_object  *conf_path;
+
+	nih_assert (session);
 
 	session_init ();
 
@@ -386,36 +390,26 @@ session_serialise (const Session *session)
 	if (! json)
 		return NULL;
 
-	/* Requirement for NULL session handling disallows use of helper
-	 * macros.
-	 */
-	chroot = json_object_new_string (
-			session
-			? session->chroot
-				? session->chroot
-				: ""
-			: "");
-
-	if (! chroot)
-		goto error;
+	if (session->chroot) {
+		chroot = json_object_new_string (session->chroot);
+		if (! chroot)
+			goto error;
+	}
 
 	json_object_object_add (json, "chroot", chroot);
 
-	user = state_new_json_int (session ? session->user : 0,
-			session ? session->user : 0);
-
+	user = state_new_json_int (session->user);
 	if (! user)
 		goto error;
 
 	json_object_object_add (json, "user", user);
 
-	conf_path = json_object_new_string (session
-			? session->conf_path
-				? session->conf_path
-				: ""
-			: "");
-	if (! conf_path)
-		goto error;
+	if (session->conf_path) {
+		conf_path = json_object_new_string (session->conf_path);
+		if (! conf_path)
+			goto error;
+	}
+
 	json_object_object_add (json, "conf_path", conf_path);
 
 	return json;
@@ -444,14 +438,6 @@ session_serialise_all (void)
 	json = json_object_new_array ();
 	if (! json)
 		return NULL;
-
-	/* Add the null session first */
-	json_session = session_serialise (NULL);
-	if (! json_session)
-		goto error;
-
-	if (json_object_array_add (json, json_session) < 0)
-		goto error;
 
 	NIH_LIST_FOREACH (sessions, iter) {
 		Session      *session = (Session *)iter;
@@ -484,7 +470,7 @@ static Session *
 session_deserialise (json_object *json)
 {
 	Session              *session;
-	nih_local const char *chroot;
+	nih_local const char *chroot = NULL;
 	uid_t                 user;
 
 	nih_assert (json);
@@ -492,6 +478,7 @@ session_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		return NULL;
 
+	/* Note no check on value returned since chroot may be NULL */
 	if (! state_get_json_string_var (json, "chroot", NULL, chroot))
 		return NULL;
 
@@ -504,15 +491,6 @@ session_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, session, conf_path))
 		goto error;
 
-	/* Not an error, just the representation of the "NULL session" */
-	if (! *session->chroot && ! session->user && ! *session->conf_path)
-		goto error;
-
-	if (! *session->chroot)
-	{
-		nih_free (session->chroot);
-		session->chroot = NULL;
-	}
 	return session;
 
 error:
@@ -532,7 +510,7 @@ error:
 int
 session_deserialise_all (json_object *json)
 {
-	Session            *session;
+	Session  *session;
 
 	nih_assert (json);
 
@@ -559,13 +537,9 @@ session_deserialise_all (json_object *json)
 			goto error;
 
 		session = session_deserialise (json_session);
-		/* Ignore the "NULL session" which is represented
-		 * by NULL, not an "empty session" internally.
-		 */
 		if (! session)
-			continue;
+			goto error;
 
-		/* Create the associated ConfSource */
 		session_create_conf_source (session, TRUE);
 	}
 

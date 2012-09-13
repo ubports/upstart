@@ -921,7 +921,7 @@ log_deserialise (const void *parent,
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	if (! state_get_json_string_var (json, "path", NULL, path))
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
 		return NULL;
 
 	if (! *path) {
@@ -958,7 +958,7 @@ log_deserialise (const void *parent,
 
 	json_unflushed = json_object_object_get (json, "unflushed");
 	if (json_unflushed) {
-		if (! state_get_json_string_var (json, "unflushed", NULL, unflushed_hex))
+		if (! state_get_json_string_var_strict (json, "unflushed", NULL, unflushed_hex))
 			goto error;
 
 		ret = state_hex_to_data (NULL,

@@ -1833,7 +1833,7 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_int_var (json, "session", session_index))
 		goto error;
 
-	if (! state_get_json_string_var (json, "name", NULL, name))
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
 	class = NIH_MUST (job_class_new (NULL, name,
@@ -1849,7 +1849,7 @@ job_class_deserialise (json_object *json)
 	}
 
 	/* job_class_new() sets path */
-	if (! state_get_json_string_var (json, "path", NULL, path))
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
 		goto error;
 
 	nih_assert (! strcmp (class->path, path));
@@ -1877,7 +1877,7 @@ job_class_deserialise (json_object *json)
 	if (json_object_object_get (json, "start_on")) {
 		nih_local char *start_on = NULL;
 
-		if (! state_get_json_string_var (json, "start_on", NULL, start_on))
+		if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
 			goto error;
 
 		if (*start_on) {
@@ -1902,7 +1902,7 @@ job_class_deserialise (json_object *json)
 	if (json_object_object_get (json, "stop_on")) {
 		nih_local char *stop_on = NULL;
 
-		if (! state_get_json_string_var (json, "stop_on", NULL, stop_on))
+		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
 			goto error;
 
 		if (*stop_on) {

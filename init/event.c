@@ -638,7 +638,7 @@ event_deserialise (json_object *json)
 {
 	json_object        *json_env;
 	Event              *event;
-	nih_local char     *name;
+	nih_local char     *name = NULL;
         char              **env;
 	int                 session_index;
 
@@ -647,7 +647,7 @@ event_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	if (! state_get_json_string_var (json, "name", NULL, name))
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
 	if (! state_get_json_var_full (json, "env", array, json_env))

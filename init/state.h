@@ -140,10 +140,9 @@
  *
  * Some of the macros defind here may appear needlessly trivial.
  * However, their value lies in their ability to avoid having to
- * duplicate element names when copying data from partial objects and
- * JSON (where it would be easy to forget to update some part of an
- * expresion and end up corrupting/duplicating data elements).
- * Safety first! :)
+ * duplicate element names (where it would be easy to forget to
+ * update some part of an expresion and end up corrupting/duplicating
+ * data elements). Safety first! :)
  *
  * == Data Types ==
  *
@@ -382,7 +381,9 @@
  **/
 
 #define state_check_json_type(object, type) \
-    (json_object_get_type (object) == state_get_json_type (#type))
+    ((json_object_get_type (object) == state_get_json_type (#type)) || \
+     (state_get_json_type (#type) == json_type_string && \
+      json_object_is_type (object, json_type_null)))
 
 
 /**
@@ -394,8 +395,8 @@
  *
  * Returns: json_object that encodes @value.
  */
-#define state_new_json_int(size, value) \
-	 ((size_t)(size) > sizeof (int) \
+#define state_new_json_int(value) \
+	 (sizeof (value) > sizeof (int) \
 	 ? json_object_new_int64 (value) \
 	 : json_object_new_int (value))
 
@@ -417,7 +418,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_var_full(json, name, type, json_var) \
-	((json_var = json_object_object_get (json, name)) && \
+	((json_object_object_get_ex (json, name, &(json_var))) && \
 	  state_check_json_type (json_var, type))
 
 
@@ -588,37 +589,83 @@
  * Specialisation of state_get_json_var_full() that works for
  * the JSON string type.
  *
- * Query @json, setting @var to be string value of @name.
+ * Query @json, setting @var to be a newly allocated string copy of
+ * value of @name (or NULL if value is JSON 'null').
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_string_var(json, name, parent, var) \
-	({json_object *_json_var; \
-	 const char *value = NULL; \
-	 state_get_json_var_full (json, name, string, _json_var) && \
-	 (value = json_object_get_string (_json_var)) && \
-	 (var = nih_strdup (parent, value));})
+	({int         ret; \
+	 json_object *_json_var; \
+	 ret = state_get_json_var_full (json, name, string, _json_var); \
+	 if (ret) { \
+		 if (json_object_is_type (_json_var, json_type_null)) { \
+		 	var = NULL; \
+		 } else { \
+	 		const char *value = NULL; \
+		 	ret = ((value = json_object_get_string (_json_var)) \
+				&& (var = nih_strdup (parent, value))); \
+	 	 } \
+	 } \
+	 ret ;})
 
 
 /**
- * state_get_json_string_var_to_obj;
+ * state_get_json_string_var_strict:
+ *
+ * @json: json_object pointer,
+ * @name: string name to search for in @json,
+ * @parent: parent of @var,
+ * @var: string variable to set to value of @name in @json.
+ *
+ * Specialisation of state_get_json_string_var() where @var value
+ * must not be NULL.
+ *
+ * Query @json, setting @var to be a newly allocated string copy of
+ * value of @name.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_string_var_strict(json, name, parent, var) \
+	 (state_get_json_string_var (json, name, parent, var) && var != NULL)
+
+/**
+ * state_get_json_string_var_to_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
  * @name: name of element within @object to be deserialised,
  *
  * Extract stringified @name from @json and set string element named
- * @name in @object to a newly allocated string copy. @name will have
- * parent @object.
+ * @name in @object to a newly allocated string copy or NULL if
+ * JSON-encoded value was of type 'null'.
+ *
+ * @name will have a parent of @object.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_string_var_to_obj(json, object, name) \
-	({json_object *_json_var; \
-	 const char *value = NULL; \
-	 state_get_json_var_full (json, #name, string, _json_var) && \
-	 (value = json_object_get_string (_json_var)) \
-	 && (object->name = nih_strdup (object, value));})
+	state_get_json_string_var (json, #name, object, (object->name))
+
+/**
+ * state_get_json_string_var_to_obj_strict:
+ *
+ * @json: json_object pointer,
+ * @object: pointer to internal object that is to be deserialised,
+ * @name: name of element within @object to be deserialised,
+ *
+ * Specialisation of state_get_json_string_var_to_obj() where value
+ * of @name must not be NULL.
+ *
+ * Extract stringified @name from @json and set string element named
+ * @name in @object to a newly allocated string copy.
+ *
+ * @name will have a parent of @object.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_get_json_string_var_to_obj_strict(json, object, name) \
+	state_get_json_string_var_strict (json, #name, object, (object->name))
 
 /**
  * state_get_json_str_array_to_obj:
@@ -675,7 +722,7 @@
 	  nih_local char *_value = NULL; \
 	  EnumDeserialiser f = (EnumDeserialiser)func; \
 	  int ret; \
-	  ret = state_get_json_string_var (json, name, NULL, _value); \
+	  ret = state_get_json_string_var_strict (json, name, NULL, _value); \
 	  if (ret) { \
 		tmp = f (_value); \
 		if (tmp != -1) \
@@ -928,63 +975,6 @@
 	(sizeof (type) == (size_t)4 \
 	 ? state_deserialise_int32_array (parent, json, (int32_t **)array, len) \
 	 : state_deserialise_int64_array (parent, json, (int64_t **)array, len))
-
-/**
- * state_partial_copy_int:
- *
- * @to: object to assign @name to,
- * @from: object from which to take value from,
- * @name: name of integer element in @from to assign to @to.
- *
- * Copy integer value of @name element from @from to @to.
- *
- * Trivial, but removes any risk of incorrect assignment due to
- * "name mixups".
- *
- * Returns: value of @name.
- *
- **/
-#define state_partial_copy_int(parent, source, name) \
-	((parent)->name = (source)->name)
-
-/**
- * state_partial_copy_ptr:
- *
- * @to: object to assign @name to,
- * @from: object from which to take value from,
- * @name: name of pointer element in @from to assign to @to.
- *
- * Copy pointer value of @name element from @from to @to.
- *
- * Trivial, but removes any risk of incorrect assignment due to
- * "name mixups".
- *
- * Returns: value of @name.
- *
- **/
-#define state_partial_copy_ptr(parent, source, name) \
-	((parent)->name = (source)->name)
-
-/**
- * state_partial_copy_string:
- *
- * @parent: parent object for new string (parent of @var),
- * @source: object that is a partial object of the same type as @parent,
- * @name: string element in @source that is to be copied to @parent.
- *
- * Copy string @name from within @source to @parent.
- *
- * XXX: If @source's version of @name is either NULL or the nul string,
- * @parents @name will be set to NULL.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_partial_copy_string(parent, source, name) \
-	({typeof (source->name) _name = source->name; \
-	 	parent->name = _name && *(_name) \
-	 	? NIH_MUST (nih_strdup (parent, _name)) \
-	 	: NULL; \
-	 	_name && *(_name) ? parent->name ? 1 : 0: 1;})
 
 /**
  * state_copy_str_array_to_obj:

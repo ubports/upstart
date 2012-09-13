@@ -1150,7 +1150,7 @@ state_deserialise_resolve_deps (json_object *json)
 			if (! json_blocking)
 				continue;
 
-			if (! state_get_json_string_var (json_job, "name", NULL, job_name))
+			if (! state_get_json_string_var_strict (json_job, "name", NULL, job_name))
 				goto error;
 
 			/* lookup job */
@@ -1403,7 +1403,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 	nih_assert (list);
 	nih_assert (control_conns);
 
-	if (! state_get_json_string_var (json, "type", NULL, blocked_type_str))
+	if (! state_get_json_string_var_strict (json, "type", NULL, blocked_type_str))
 		goto error;
 
 	blocked_type = blocked_type_str_to_enum (blocked_type_str);
@@ -1421,10 +1421,11 @@ state_deserialise_blocked (void *parent, json_object *json,
 			nih_local char  *job_class_name = NULL;
 			Job             *job;
 
-			if (! state_get_json_string_var (json_blocked_data,
+			if (! state_get_json_string_var_strict (json_blocked_data,
 						"name", NULL, job_name))
 				goto error;
-			if (! state_get_json_string_var (json_blocked_data,
+
+			if (! state_get_json_string_var_strict (json_blocked_data,
 						"class", NULL, job_class_name))
 				goto error;
 
@@ -1472,7 +1473,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 			nih_local char  *dbus_message_data_raw = NULL;
 			int              conn_index;
 
-			if (! state_get_json_string_var (json_blocked_data,
+			if (! state_get_json_string_var_strict (json_blocked_data,
 						"msg-data",
 						NULL,
 						dbus_message_data_str))

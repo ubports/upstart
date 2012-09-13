@@ -1583,8 +1583,7 @@ job_serialise (const Job *job)
 	if (! state_set_json_str_array_from_obj (json, job, stop_env))
 		goto error;
 
-	if (job->stop_on)
-	{
+	if (job->stop_on) {
 		stop_on = event_operator_collapse (job->stop_on);
 		if (! stop_on)
 			goto error;
@@ -1771,12 +1770,13 @@ job_deserialise (JobClass *parent, json_object *json)
 	size_t          len;
 	int             ret;
 
+	nih_assert (parent);
 	nih_assert (json);
 
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	if (! state_get_json_string_var (json, "name", NULL, name))
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
 	job = NIH_MUST (job_new (parent, name));
@@ -1784,7 +1784,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (! job)
 		return NULL;
 
-	if (! state_get_json_string_var_to_obj (json, job, path))
+	if (! state_get_json_string_var_to_obj_strict (json, job, path))
 		goto error;
 
 	if (! state_get_json_enum_var (json,
@@ -1809,7 +1809,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (json_object_object_get (json, "stop_on")) {
 		nih_local char *stop_on = NULL;
 
-		if (! state_get_json_string_var (json, "stop_on", NULL, stop_on))
+		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
 			goto error;
 
 		if (*stop_on) {
