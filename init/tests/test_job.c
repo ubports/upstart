@@ -7246,12 +7246,16 @@ test_deserialise_ptrace (void)
 	nih_error_init ();
 	job_class_init ();
 
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_CHILD_WAIT (parent_pid, child_wait_fd) {
 		class = job_class_new (NULL, "test", NULL);
+		TEST_NE_P (class, NULL);
 		class->console = CONSOLE_OUTPUT;
 		class->expect = EXPECT_FORK;
-		class->chdir = nih_strdup (class, ".");
+		class->chdir = NIH_MUST (nih_strdup (class, "."));
 		class->process[PROCESS_MAIN] = process_new (class);
+		TEST_NE_P (class->process[PROCESS_MAIN], NULL);
 		job_class_add_safe (class);
 
 		TEST_CHILD (pid) {
@@ -7267,6 +7271,7 @@ test_deserialise_ptrace (void)
 		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
 
 		job = job_new (class, "");
+		TEST_NE_P (job, NULL);
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 		job->pid[PROCESS_MAIN] = pid;
@@ -7309,7 +7314,10 @@ deserialise_ptrace_next (void)
 				       job_process_handler, NULL));
 
 	TEST_NE (state_fd, -1);
-	ret = state_read (state_fd, TRUE);
+
+	TEST_HASH_EMPTY (job_classes);
+
+	ret = state_read (state_fd);
 	TEST_GE (ret, 0);
 	close (state_fd);
 
@@ -7318,6 +7326,7 @@ deserialise_ptrace_next (void)
 	TEST_HASH_NOT_EMPTY (class->instances);
 
 	job = (Job *)nih_hash_lookup (class->instances, "");
+	TEST_NE_P (job, NULL);
 
 	TEST_EQ (job->goal, JOB_START);
 	pid = job->pid[PROCESS_MAIN];

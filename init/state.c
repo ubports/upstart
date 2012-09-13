@@ -93,6 +93,8 @@ state_get_job (const char *job_class, const char *job_name)
 /**
  * state_read:
  *
+ * @fd: Open file descriptor to read JSON from.
+ *
  * Read JSON-encoded state from specified file descriptor and recreate
  * all internal objects based on JSON representation. The read will
  * timeout, resulting in a failure after STATE_WAIT_SECS seconds
@@ -101,7 +103,7 @@ state_get_job (const char *job_class, const char *job_name)
  * Returns: 0 on success, or -1 on error.
  **/
 int
-state_read (int fd, int allow_non_pid_one)
+state_read (int fd)
 {
 	int             nfds;
 	int             ret;
@@ -109,10 +111,6 @@ state_read (int fd, int allow_non_pid_one)
 	struct timeval  timeout;
 
 	nih_assert (fd != -1);
-
-	/* Must be called by the parent */
-	if (use_session_bus == FALSE && ! allow_non_pid_one)
-		nih_assert (getpid () == (pid_t)1);
 
 	state_get_timeout (timeout.tv_sec);
 	timeout.tv_usec = 0;
@@ -145,6 +143,8 @@ state_read (int fd, int allow_non_pid_one)
 
 /**
  * state_write:
+ *
+ * @fd: Open file descriptor to write JSON to.
  *
  * Write internal state to specified file descriptor in JSON format.
  *

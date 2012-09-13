@@ -1032,7 +1032,7 @@ typedef const char *(*EnumSerialiser) (int value);
  **/
 typedef int (*EnumDeserialiser) (const char *name);
 
-int  state_read          (int fd, int allow_non_pid_one)
+int  state_read          (int fd)
 	__attribute__ ((warn_unused_result));
 
 int  state_write         (int fd)
