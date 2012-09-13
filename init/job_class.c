@@ -63,7 +63,6 @@ extern json_object *json_classes;
 
 /* Prototypes for static functions */
 static void  job_class_add (JobClass *class);
-static void  job_class_add_safe (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
 static json_object *job_class_serialise (const JobClass *class)
@@ -389,7 +388,7 @@ job_class_add (JobClass *class)
  * Adds @class to the hash table iff no existing entry of the
  * same name exists.
  **/
-static void
+void
 job_class_add_safe (JobClass *class)
 {
 	JobClass *existing = NULL;

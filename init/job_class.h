@@ -238,6 +238,8 @@ JobClass  * job_class_new                  (const void *parent,
 int         job_class_consider             (JobClass *class);
 int         job_class_reconsider           (JobClass *class);
 
+void        job_class_add_safe             (JobClass *class);
+
 void        job_class_register             (JobClass *class,
 					    DBusConnection *conn, int signal);
 void        job_class_unregister           (JobClass *class,

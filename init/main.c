@@ -79,27 +79,7 @@ static void usr1_handler    (void *data, NihSignal *signal);
 static void handle_confdir      (void);
 static void handle_logdir       (void);
 static int  console_type_setter (NihOption *option, const char *arg);
-static void perform_reexec      (void);
-static void stateful_reexec     (void);
-static void clean_args          (void);
 
-
-/**
- * args_copy:
- *
- * Copy of original argv used when re-executing to ensure same
- * command-line is used. Required since we clear the actual args for
- * ps(1) et al.
- */
-char **args_copy = NULL;
-
-/**
- * restart:
- *
- * This is set to TRUE if we're being re-exec'd by an existing init
- * process.
- **/
-static int restart = FALSE;
 
 /**
  * state_fd:
@@ -438,7 +418,7 @@ main (int   argc,
 		if (state_fd == -1) {
 			nih_warn ("%s",
 				_("Stateful re-exec supported but stateless re-exec requested"));
-		} else if (state_read (state_fd) < 0) {
+		} else if (state_read (state_fd, FALSE) < 0) {
 			nih_local char *arg = NULL;
 
 			/* Stateful re-exec has failed so try once more by
@@ -728,33 +708,12 @@ static void
 term_handler (void      *data,
 	      NihSignal *signal)
 {
-	sigset_t    mask, oldmask;
-
 	nih_assert (args_copy[0] != NULL);
 	nih_assert (signal != NULL);
 
 	nih_warn (_("Re-executing %s"), args_copy[0]);
 
-	/* Block signals while we work.  We're the last signal handler
-	 * installed so this should mean that they're all handled now.
-	 *
-	 * The child must make sure that it unblocks these again when
-	 * it's ready.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
 	stateful_reexec ();
-
-	/* We should never end up here since it likely indicates the
-	 * new init binary is damaged.
-	 *
-	 * All we can do is restore the signal handler and drop back into
-	 * the main loop.
-	 */
-
-	/* Restore */
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
 }
 
 
@@ -925,216 +884,3 @@ console_type_setter (NihOption *option, const char *arg)
 	 return 0;
 }
 
-
-/**
- * perform_reexec:
- *
- * Perform a bare re-exec.
- *
- * Note that unless the appropriate command-line option has
- * _already_ been specified in @args_copy, all internal state will be lost.
- **/
-static void
-perform_reexec (void)
-{
-	NihError    *err;
-	const char  *loglevel = NULL;
-
-	/* Although we have a copy of the original arguments (which may
-	 * have included an option to modify the log level), we need to
-	 * handle the case where the log priority has been changed at
-	 * runtime which potentially invalidates the original command-line
-	 * option value.
-	 *
-	 * Fortuitously, this can be handled easily: NIH option parsing
-	 * semantics allow any option to be specified multiple times -
-	 * the last value seen is used. Therefore, we just append the
-	 * current log-level option and ignore any existing (earlier)
-	 * log level options.
-	 *
-	 * Note that should Upstart be re-exec'ed too many times,
-	 * eventually an unexpected log level may result if the
-	 * command-line becomes too large (and thus truncates).
-	 *
-	 * The correct way to handle this would be to prune now invalid
-	 * options from the command-line to ensure it does not continue
-	 * to increase. That said, if we hit the limit, worse things
-	 * are probably going on so for now we'll settle for the
-	 * simplistic approach.
-	 */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		/* User has not modified default log level of
-		 * NIH_LOG_MESSAGE.
-		 */
-		loglevel = NULL;
-	}
-
-	if (loglevel)
-		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, loglevel));
-
-	/* if the currently running instance wasn't invoked as
-	 * part of a re-exec, ensure that the next instance is (since
-	 * otherwise, why would this function be being called!? :)
-	 */
-	if (! restart)
-		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, "--restart"));
-
-	execv (args_copy[0], args_copy);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"), args_copy[0], err->message);
-	nih_free (err);
-}
-
-
-/**
- * stateful_reexec:
- *
- * Perform re-exec with state-passing. UPSTART must be capable of
- * stateful re-exec for this routine to be called. Any failures
- * result in a basic re-exec being performed where all state
- * will be lost.
- *
- * The process involves the initial Upstart instance (PID 1) creating a
- * pipe and then forking. The child then writes its serialised state
- * over the pipe back to PID 1 which has now re-exec'd itself.
- *
- * Once the state has been passed, the child can exit.
- **/
-static void
-stateful_reexec (void)
-{
-	int    fds[2] = { -1 };
-	pid_t  pid;
-
-	if (pipe (fds) < 0)
-		goto reexec;
-
-	nih_info (_("Performing stateful re-exec"));
-
-	/* retain the D-Bus connection across the re-exec */
-	control_prepare_reexec ();
-
-	/* Clear CLOEXEC flag for any job log objects prior to re-exec */
-	job_class_prepare_reexec ();
-
-	pid = fork ();
-
-	if (pid < 0)
-		goto reexec;
-	else if (pid > 0) {
-		nih_local char *arg = NULL;
-
-		/* Parent */
-		close (fds[1]);
-
-		/* Tidy up from any previous re-exec */
-		clean_args ();
-
-		/* Tell the new instance where to read the
-		 * serialisation data from.
-		 *
-		 * Note that if the "new" instance is actually an older
-		 * version of Upstart (that does not understand stateful
-		 * re-exec), due to the way NIH handles command-line
-		 * paring, this option will be ignored and the new instance
-		 * will therefore not be able to read the state and overall
-		 * a stateless re-exec will therefore be performed.
-		 */
-		arg = NIH_MUST (nih_strdup (NULL, "--state-fd"));
-		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
-
-		arg = NIH_MUST (nih_sprintf (NULL, "%d", fds[0]));
-		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, arg));
-	} else {
-		/* Child */
-		close (fds[0]);
-
-		nih_info (_("Passing state from PID %d to parent"), (int)getpid ());
-
-		/* D-Bus name must be relinquished now to allow parent
-		 * from acquiring it.
-		 */
-		if (control_bus_release_name () < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error (_("Failed to release D-Bus name: %s"),
-					err->message);
-			nih_free (err);
-		}
-
-		if (state_write (fds[1]) < 0) {
-			nih_error ("%s",
-				_("Failed to write serialisation data"));
-			exit (1);
-		}
-
-		/* The baton has now been passed */
-		exit (0);
-	}
-
-reexec:
-	/* Attempt stateful re-exec */
-	perform_reexec ();
-}
-
-/**
- * clean_args:
- *
- * Remove any existing state fd and log-level-altering arguments.
- *
- * This stops command-line exhaustion if stateful re-exec is
- * performed many times.
- **/
-static void
-clean_args (void)
-{
-	int i;
-
-	nih_assert (args_copy);
-
-	for (i = 1; args_copy[i]; i++) {
-		int tmp = i;
-
-		if (! strcmp (args_copy[i], "--state-fd")) {
-			/* Remove existing option and associated fd
-			 * paramter.
-			 */
-			nih_free (args_copy[tmp]);
-			nih_free (args_copy[tmp+1]);
-
-			/* shuffle up the remaining args */
-			for (int j = tmp+2; args_copy[j]; tmp++, j++)
-				args_copy[tmp] = args_copy[j];
-
-			/* terminate */
-			args_copy[tmp] = NULL;
-
-			/* reconsider the newly-shuffled index entry */
-			i--;
-		} else if ((! strcmp (args_copy[i], "--debug")) ||
-			   (! strcmp (args_copy[i], "--verbose")) ||
-			   (! strcmp (args_copy[i], "--error"))) {
-			/* Remove existing option */
-			nih_free (args_copy[i]);
-
-			/* shuffle up the remaining args */
-			for (int j = tmp+1; args_copy[j]; tmp++, j++)
-				args_copy[tmp] = args_copy[j];
-
-			/* terminate */
-			args_copy[tmp] = NULL;
-
-			/* reconsider the newly-shuffled index entry */
-			i--;
-		}
-	}
-}

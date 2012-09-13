@@ -23,6 +23,7 @@
 #include <dbus/dbus.h>
 
 #include <nih/macros.h>
+#include <nih/list.h>
 
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_message.h>
