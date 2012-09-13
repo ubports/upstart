@@ -81,6 +81,7 @@ static void handle_logdir       (void);
 static int  console_type_setter (NihOption *option, const char *arg);
 static void perform_reexec      (void);
 static void stateful_reexec     (void);
+static void clean_args          (void);
 
 
 /**
@@ -454,23 +455,11 @@ main (int   argc,
 				_("Failed to read serialisation data"),
 				_("reverting to stateless re-exec"));
 
-			/* Remove any existing state fd args which will effectively
-			 * disable stateful re-exec.
+			/* Remove any existing (but now stale) state fd
+			 * args which will effectively disable stateful
+			 * re-exec.
 			 */
-			for (int i = 1; args_copy[i]; i++) {
-				if (! strcmp (args_copy[i], "--state-fd")) {
-
-					/* Remove existing entry and fd value */
-					nih_free (args_copy[i]);
-					nih_free (args_copy[i+1]);
-
-					/* shuffle up the remaining args */
-					for (int j = i+2; args_copy[j]; i++, j++)
-						args_copy[i] = args_copy[j];
-					args_copy[i] = NULL;
-					break;
-				}
-			}
+			clean_args ();
 
 			/* Attempt stateless re-exec */
 			perform_reexec ();
@@ -1046,6 +1035,9 @@ stateful_reexec (void)
 		/* Parent */
 		close (fds[1]);
 
+		/* Tidy up from any previous re-exec */
+		clean_args ();
+
 		/* Tell the new instance where to read the
 		 * serialisation data from.
 		 *
@@ -1092,4 +1084,57 @@ stateful_reexec (void)
 reexec:
 	/* Attempt stateful re-exec */
 	perform_reexec ();
+}
+
+/**
+ * clean_args:
+ *
+ * Remove any existing state fd and log-level-altering arguments.
+ *
+ * This stops command-line exhaustion if stateful re-exec is
+ * performed many times.
+ **/
+static void
+clean_args (void)
+{
+	int i;
+
+	nih_assert (args_copy);
+
+	for (i = 1; args_copy[i]; i++) {
+		int tmp = i;
+
+		if (! strcmp (args_copy[i], "--state-fd")) {
+			/* Remove existing option and associated fd
+			 * paramter.
+			 */
+			nih_free (args_copy[tmp]);
+			nih_free (args_copy[tmp+1]);
+
+			/* shuffle up the remaining args */
+			for (int j = tmp+2; args_copy[j]; tmp++, j++)
+				args_copy[tmp] = args_copy[j];
+
+			/* terminate */
+			args_copy[tmp] = NULL;
+
+			/* reconsider the newly-shuffled index entry */
+			i--;
+		} else if ((! strcmp (args_copy[i], "--debug")) ||
+			   (! strcmp (args_copy[i], "--verbose")) ||
+			   (! strcmp (args_copy[i], "--error"))) {
+			/* Remove existing option */
+			nih_free (args_copy[i]);
+
+			/* shuffle up the remaining args */
+			for (int j = tmp+1; args_copy[j]; tmp++, j++)
+				args_copy[tmp] = args_copy[j];
+
+			/* terminate */
+			args_copy[tmp] = NULL;
+
+			/* reconsider the newly-shuffled index entry */
+			i--;
+		}
+	}
 }
