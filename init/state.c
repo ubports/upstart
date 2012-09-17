@@ -381,7 +381,7 @@ error:
  *
  * @state: JSON-encoded state.
  *
- * Convert JSON string to a pseudo-internal representation for testing.
+ * Convert JSON string back to an internal representation.
  *
  * Returns: 0 on success, -1 on error.
  **/

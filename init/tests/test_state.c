@@ -345,11 +345,14 @@ test_process_serialise (void)
 void
 test_event_serialise (void)
 {
-	json_object       *json;
-	Event             *event = NULL;
-	Event             *new_event = NULL;
-	nih_local char   **env = NULL;
-	size_t             len = 0;
+	json_object         *json;
+	Event               *event = NULL;
+	Event               *new_event = NULL;
+	nih_local char     **env = NULL;
+	Session             *session;
+	size_t               len = 0;
+	nih_local char      *json_string = NULL;
+
 
 	TEST_GROUP ("Event serialisation and deserialisation");
 
@@ -408,10 +411,122 @@ test_event_serialise (void)
 	nih_free (event);
 	nih_free (new_event);
 	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("with progress values");
+
+	TEST_LIST_EMPTY (events);
+
+	/* Advance beyond last legitimate value to test failure behaviour */
+	for (int progress = 0; progress <= EVENT_FINISHED+1; progress++) {
+		TEST_LIST_EMPTY (events);
+
+		event = event_new (NULL, "foo", NULL);
+		TEST_NE_P (event, NULL);
+		event->progress = progress;
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		json = event_serialise (event);
+		if (progress > EVENT_FINISHED) {
+			TEST_EQ_P (json, NULL);
+			nih_free (event);
+			continue;
+		}
+
+		TEST_NE_P (json, NULL);
+
+		nih_list_remove (&event->entry);
+
+		new_event = event_deserialise (json);
+		TEST_NE_P (json, NULL);
+
+		assert0 (event_diff (event, new_event));
+
+		nih_free (event);
+		nih_free (new_event);
+		json_object_put (json);
+	}
+
+	/*******************************/
+	TEST_FEATURE ("with various fd values");
+
+	TEST_LIST_EMPTY (events);
+
+	for (int fd = -1; fd < 4; fd++) {
+		TEST_LIST_EMPTY (events);
+
+		event = event_new (NULL, "foo", NULL);
+		TEST_NE_P (event, NULL);
+		event->fd = fd;
+
+		TEST_LIST_NOT_EMPTY (events);
+
+		json = event_serialise (event);
+		TEST_NE_P (json, NULL);
+
+		nih_list_remove (&event->entry);
+
+		new_event = event_deserialise (json);
+		TEST_NE_P (json, NULL);
+
+		assert0 (event_diff (event, new_event));
+
+		nih_free (event);
+		nih_free (new_event);
+		json_object_put (json);
+	}
+
+	/*******************************/
+	TEST_FEATURE ("with env+session");
+
+	env = nih_str_array_new (NULL);
+	TEST_NE_P (env, NULL);
+	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"), NULL);
+
+	TEST_LIST_EMPTY (sessions);
+
+	session = session_new (NULL, "/abc", getuid ());
+	TEST_NE_P (session, NULL);
+	session->conf_path = NIH_MUST (nih_strdup (session, "/def/ghi"));
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	event = event_new (NULL, "foo", env);
+	TEST_NE_P (event, NULL);
+	TEST_LIST_NOT_EMPTY (events);
+	event->session = session;
+
+	assert0 (state_to_string (&json_string, &len));
+
+	nih_list_remove (&event->entry);
+	nih_list_remove (&session->entry);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+
+	new_event = (Event *)nih_list_remove (events->next);
+	assert0 (event_diff (event, new_event));
+
+	nih_free (event);
+	nih_free (new_event);
+	nih_free (sessions);
+	nih_free (events);
+
+	/*******************************/
 }
 
 void
 test_job_class_serialise (void)
+{
+}
+
+void
+test_job_serialise (void)
 {
 }
 
