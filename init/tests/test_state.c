@@ -40,6 +40,9 @@
 #include "process.h"
 #include "event.h"
 #include "environ.h"
+#include "job_class.h"
+#include "job.h"
+#include "log.h"
 
 /**
  * obj_string_check:
@@ -136,11 +139,14 @@ fail:
  *
  * Compare two Process objects for equivalence.
  *
- * Returns: 0 if @a and @b are identical, else 1;
+ * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
 process_diff (const Process *a, const Process *b)
 {
+	if ((a == b) && !a)
+		return 0;
+
 	if (!a || !b)
 		goto fail;
 
@@ -163,13 +169,16 @@ fail:
  *
  * Compare two Event objects for equivalence.
  *
- * Returns: 0 if @a and @b are identical, else 1;
+ * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
 event_diff (const Event *a, const Event *b)
 {
 	nih_local char *env_a = NULL;
 	nih_local char *env_b = NULL;
+
+	if ((a == b) && !a)
+		return 0;
 
 	if (!a || !b)
 		goto fail;
@@ -205,6 +214,218 @@ event_diff (const Event *a, const Event *b)
 fail:
 	return 1;
 }
+
+/**
+ * nih_timer_diff:
+ * @a: first NihTimer,
+ * @b: second NihTimer.
+ *
+ * Compare two NihTimer objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+nih_timer_diff (const NihTimer *a, const NihTimer *b)
+{
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		goto fail;
+
+	if (obj_num_check (a, b, timeout))
+		goto fail;
+
+	if (obj_num_check (a, b, due))
+		goto fail;
+
+	return 0;
+
+fail:
+	return 1;
+}
+
+/**
+ * log_diff:
+ * @a: first Log,
+ * @b: second Log.
+ *
+ * Compare two Log objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+log_diff (const Log *a, const Log *b)
+{
+	if (!a || !b)
+		goto fail;
+
+	if (obj_num_check (a, b, fd))
+		goto fail;
+
+	if (obj_string_check (a, b, path))
+		goto fail;
+
+
+	if (a->io && b->io) {
+		if (a->io->watch && b->io->watch) {
+			if (obj_num_check ((a->io->watch), (b->io->watch), fd))
+				goto fail;
+		} else if (a->io->watch || b->io->watch)
+			goto fail;
+	} else if (a->io || b->io)
+		goto fail;
+
+	if (a->unflushed && b->unflushed) {
+		if (obj_num_check (a->unflushed, b->unflushed, len))
+			goto fail;
+		if (obj_string_check (a->unflushed, b->unflushed, buf))
+			goto fail;
+	} else if (a->unflushed || b->unflushed)
+		goto fail;
+
+	if (obj_num_check (a, b, uid))
+		goto fail;
+
+	if (obj_num_check (a, b, detached))
+		goto fail;
+
+	if (obj_num_check (a, b, remote_closed))
+		goto fail;
+
+	if (obj_num_check (a, b, open_errno))
+		goto fail;
+
+	return 0;
+
+fail:
+	return 1;
+
+}
+
+/**
+ * job_diff:
+ * @a: first Job,
+ * @b: second Job.
+ *
+ * Compare two Job objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+job_diff (const Job *a, const Job *b)
+{
+	size_t          i;
+	nih_local char *env_a = NULL;
+	nih_local char *env_b = NULL;
+
+	nih_local char *stop_on_a = NULL;
+	nih_local char *stop_on_b = NULL;
+
+	if (!a || !b)
+		goto fail;
+
+	if (obj_string_check (a, b, name))
+		goto fail;
+
+	/* FIXME: compare actual class if non-NULL */
+	nih_error ("ERROR: no job_class_diff() yet!");
+	if (a->class != b->class)
+		goto fail;
+
+	if (obj_string_check (a, b, path))
+		goto fail;
+
+	if (obj_num_check (a, b, goal))
+		goto fail;
+
+	if (obj_num_check (a, b, state))
+		goto fail;
+
+	env_a = state_collapse_env ((const char **)a->env);
+	env_b = state_collapse_env ((const char **)b->env);
+
+	if (string_check (env_a, env_b))
+		goto fail;
+
+	env_a = state_collapse_env ((const char **)a->start_env);
+	env_b = state_collapse_env ((const char **)b->start_env);
+
+	if (string_check (env_a, env_b))
+		goto fail;
+
+	env_a = state_collapse_env ((const char **)a->stop_env);
+	env_b = state_collapse_env ((const char **)b->stop_env);
+
+	if (string_check (env_a, env_b))
+		goto fail;
+
+	if (a->stop_on)
+		stop_on_a = event_operator_collapse (a->stop_on);
+
+	if (b->stop_on)
+		stop_on_b = event_operator_collapse (b->stop_on);
+
+	if (string_check (stop_on_a, stop_on_b))
+		goto fail;
+
+	if (obj_num_check (a, b, num_fds))
+		goto fail;
+
+	for (i = 0; i < a->num_fds; i++) {
+		if (a->fds[i] != b->fds[i])
+			goto fail;
+	}
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (a->pid[i] != b->pid[i])
+			goto fail;
+	}
+
+	assert0 (event_diff (a->blocker, b->blocker));
+
+	/* FIXME: blocking */
+
+	if (nih_timer_diff (a->kill_timer, b->kill_timer))
+		goto fail;
+
+	if (obj_num_check (a, b, kill_process))
+		goto fail;
+
+	if (obj_num_check (a, b, failed))
+		goto fail;
+
+	if (obj_num_check (a, b, failed_process))
+		goto fail;
+
+	if (obj_num_check (a, b, exit_status))
+		goto fail;
+
+	if (obj_num_check (a, b, respawn_time))
+		goto fail;
+
+	if (obj_num_check (a, b, respawn_count))
+		goto fail;
+
+	if (obj_num_check (a, b, trace_forks))
+		goto fail;
+
+	if (obj_num_check (a, b, trace_state))
+		goto fail;
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (! a->log[i] && ! b->log[i])
+			continue;
+		if (log_diff (a->log[i], b->log[i]))
+			goto fail;
+	}
+
+	return 0;
+
+fail:
+	return 1;
+}
+
 
 void
 test_session_serialise (void)
@@ -528,6 +749,46 @@ test_job_class_serialise (void)
 void
 test_job_serialise (void)
 {
+	nih_local JobClass   *class = NULL;
+	Job                  *job;
+	Job                  *new_job;
+	json_object          *json;
+
+
+	TEST_GROUP ("Job serialisation and deserialisation");
+
+	TEST_HASH_EMPTY (job_classes);
+
+	class = job_class_new (NULL, "class", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (class->instances);
+
+	/*******************************/
+	TEST_FEATURE ("basic job");
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	json = job_serialise (job);
+	TEST_NE_P (json, NULL);
+
+	nih_list_remove (&job->entry);
+	TEST_HASH_EMPTY (class->instances);
+
+	new_job = job_deserialise (class, json);
+	TEST_NE_P (new_job, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	assert0 (job_diff (job, new_job));
+
+	nih_free (job);
+	json_object_put (json);
+
+	/*******************************/
 }
 
 int
@@ -545,6 +806,7 @@ main (int   argc,
 	test_session_serialise ();
 	test_process_serialise ();
 	test_event_serialise ();
+	test_job_serialise ();
 
 	return 0;
 }

@@ -62,9 +62,6 @@
 #include "com.ubuntu.Upstart.Instance.h"
 
 /* Prototypes for static functions */
-static json_object *job_serialise (const Job *job);
-static Job *job_deserialise (JobClass *parent, json_object *json);
-
 static const char *
 job_goal_enum_to_str (JobGoal goal)
 	__attribute__ ((warn_unused_result));
@@ -1543,7 +1540,7 @@ job_get_processes (Job *                  job,
  *
  * Returns: JSON-serialised Job object, or NULL on error.
  **/
-static json_object *
+json_object *
 job_serialise (const Job *job)
 {
 	json_object      *json;
@@ -1757,7 +1754,7 @@ error:
  *
  * Returns: Job object, or NULL on error.
  **/
-static Job *
+Job *
 job_deserialise (JobClass *parent, json_object *json)
 {
 	nih_local char *name = NULL;
