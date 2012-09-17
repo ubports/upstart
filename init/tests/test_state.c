@@ -300,7 +300,212 @@ log_diff (const Log *a, const Log *b)
 
 fail:
 	return 1;
+}
 
+/**
+ * rlimit_diff:
+ * @a: first rlimit,
+ * @b: second rlimit.
+ *
+ * Compare two rlimit structs for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical (may be NULL),
+ * else 1.
+ **/
+int
+rlimit_diff (const struct rlimit *a, const struct rlimit *b)
+{
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		goto fail;
+
+	if (obj_num_check (a, b, rlim_cur))
+		goto fail;
+
+	if (obj_num_check (a, b, rlim_max))
+		goto fail;
+
+	return 0;
+
+fail:
+	return 1;
+}
+
+/**
+ * job_diff:
+ * @a: first Job,
+ * @b: second Job,
+ * @jobs: if TRUE, also compare Jobs.
+ *
+ * Compare two JobClass objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+job_class_diff (const JobClass *a, const JobClass *b, int jobs)
+{
+	size_t          i;
+	nih_local char *env_a = NULL;
+	nih_local char *env_b = NULL;
+	nih_local char *export_a = NULL;
+	nih_local char *export_b = NULL;
+	nih_local char *condition_a = NULL;
+	nih_local char *condition_b = NULL;
+	nih_local char *emits_a = NULL;
+	nih_local char *emits_b = NULL;
+
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		goto fail;
+
+	if (obj_string_check (a, b, name))
+		goto fail;
+
+	if (obj_string_check (a, b, path))
+		goto fail;
+
+	if (session_diff (a->session, b->session))
+		goto fail;
+
+	if (obj_string_check (a, b, instance))
+		goto fail;
+
+	if (jobs) {
+		/* FIXME: instances */
+	}
+
+	if (obj_string_check (a, b, description))
+		goto fail;
+
+	if (obj_string_check (a, b, author))
+		goto fail;
+
+	if (obj_string_check (a, b, version))
+		goto fail;
+
+	env_a = state_collapse_env ((const char **)a->env);
+	env_b = state_collapse_env ((const char **)b->env);
+
+	if (string_check (env_a, env_b))
+		goto fail;
+
+	export_a = state_collapse_env ((const char **)a->export);
+	export_b = state_collapse_env ((const char **)b->export);
+
+	if (string_check (export_a, export_b))
+		goto fail;
+
+	if (a->start_on)
+		condition_a = event_operator_collapse (a->start_on);
+
+	if (b->start_on)
+		condition_b = event_operator_collapse (b->start_on);
+
+	if (string_check (condition_a, condition_b))
+		goto fail;
+
+	if (a->stop_on)
+		condition_a = event_operator_collapse (a->stop_on);
+
+	if (b->stop_on)
+		condition_b = event_operator_collapse (b->stop_on);
+
+	if (string_check (condition_a, condition_b))
+		goto fail;
+
+	emits_a = state_collapse_env ((const char **)a->emits);
+	emits_b = state_collapse_env ((const char **)b->emits);
+
+	if (string_check (emits_a, emits_b))
+		goto fail;
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (a->process[i] && b->process[i])
+			assert0 (process_diff (a->process[i], b->process[i]));
+		else if (a->process[i] || b->process[i])
+			goto fail;
+	}
+
+	if (obj_num_check (a, b, expect))
+		goto fail;
+
+	if (obj_num_check (a, b, task))
+		goto fail;
+
+	if (obj_num_check (a, b, kill_timeout))
+		goto fail;
+
+	if (obj_num_check (a, b, kill_signal))
+		goto fail;
+
+	if (obj_num_check (a, b, respawn))
+		goto fail;
+
+	if (obj_num_check (a, b, respawn_limit))
+		goto fail;
+
+	if (obj_num_check (a, b, respawn_interval))
+		goto fail;
+
+	if (obj_num_check (a, b, normalexit_len))
+		goto fail;
+
+	if (a->normalexit_len) {
+		for (i = 0; i < a->normalexit_len; i++) {
+			if (a->normalexit[i] != b->normalexit[i])
+				goto fail;
+		}
+	}
+
+	if (obj_num_check (a, b, console))
+		goto fail;
+
+	if (obj_num_check (a, b, umask))
+		goto fail;
+
+	if (obj_num_check (a, b, nice))
+		goto fail;
+
+	if (obj_num_check (a, b, oom_score_adj))
+		goto fail;
+
+	for (i = 0; i < RLIMIT_NLIMITS; i++) {
+		if (! a->limits[i] && ! b->limits[i])
+			continue;
+		if (rlimit_diff (a->limits[i], b->limits[i]))
+			goto fail;
+	}
+
+	if (obj_string_check (a, b, chroot))
+		goto fail;
+
+	if (obj_string_check (a, b, chdir))
+		goto fail;
+
+	if (obj_string_check (a, b, setuid))
+		goto fail;
+
+	if (obj_string_check (a, b, setgid))
+		goto fail;
+
+	if (obj_num_check (a, b, deleted))
+		goto fail;
+
+	if (obj_num_check (a, b, debug))
+		goto fail;
+
+	if (obj_string_check (a, b, usage))
+		goto fail;
+
+
+	return 0;
+
+fail:
+	return 1;
 }
 
 /**
@@ -319,8 +524,11 @@ job_diff (const Job *a, const Job *b)
 	nih_local char *env_a = NULL;
 	nih_local char *env_b = NULL;
 
-	nih_local char *stop_on_a = NULL;
-	nih_local char *stop_on_b = NULL;
+	nih_local char *condition_a = NULL;
+	nih_local char *condition_b = NULL;
+
+	if ((a == b) && !a)
+		return 0;
 
 	if (!a || !b)
 		goto fail;
@@ -328,9 +536,7 @@ job_diff (const Job *a, const Job *b)
 	if (obj_string_check (a, b, name))
 		goto fail;
 
-	/* FIXME: compare actual class if non-NULL */
-	nih_error ("ERROR: no job_class_diff() yet!");
-	if (a->class != b->class)
+	if (job_class_diff (a->class, b->class, FALSE))
 		goto fail;
 
 	if (obj_string_check (a, b, path))
@@ -361,12 +567,12 @@ job_diff (const Job *a, const Job *b)
 		goto fail;
 
 	if (a->stop_on)
-		stop_on_a = event_operator_collapse (a->stop_on);
+		condition_a = event_operator_collapse (a->stop_on);
 
 	if (b->stop_on)
-		stop_on_b = event_operator_collapse (b->stop_on);
+		condition_b = event_operator_collapse (b->stop_on);
 
-	if (string_check (stop_on_a, stop_on_b))
+	if (string_check (condition_a, condition_b))
 		goto fail;
 
 	if (obj_num_check (a, b, num_fds))
