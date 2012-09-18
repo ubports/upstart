@@ -1238,9 +1238,7 @@ state_serialise_blocked (const Blocked *blocked)
 
 			if (! state_set_json_string_var (json_blocked_data,
 						"name",
-						blocked->job->name
-						? blocked->job->name
-						: ""))
+						blocked->job->name))
 				goto error;
 
 			json_object_object_add (json, "data", json_blocked_data);

@@ -40,6 +40,7 @@
 #include "process.h"
 #include "event.h"
 #include "environ.h"
+#include "conf.h"
 #include "job_class.h"
 #include "job.h"
 #include "log.h"
@@ -950,6 +951,156 @@ test_event_serialise (void)
 void
 test_job_class_serialise (void)
 {
+	ConfSource     *source;
+	ConfFile       *file;
+	JobClass       *class;
+	JobClass       *new_class;
+	Job            *job1;
+	Job            *job2;
+	Job            *job3;
+	json_object    *json;
+
+	TEST_GROUP ("JobClass serialisation and deserialisation");
+
+
+	/*******************************/
+	TEST_FEATURE ("JobClass with no Jobs");
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "bar", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	/* JobClass with no associated Jobs does not need to be
+	 * serialised.
+	 */
+	json = job_class_serialise (class);
+	TEST_EQ_P (json, NULL);
+
+	nih_free (source);
+
+	/*******************************/
+	TEST_FEATURE ("JobClass with 1 Job");
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "bar", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job1 = job_new (class, "");
+	TEST_NE_P (job1, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	class->process[PROCESS_MAIN] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_MAIN], NULL);
+	class->process[PROCESS_MAIN]->command = "echo";
+
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_PRE_STOP], NULL);
+	class->process[PROCESS_PRE_STOP]->command = "echo";
+
+	job1->goal = JOB_START;
+	job1->state = JOB_PRE_STOP;
+	job1->pid[PROCESS_MAIN] = 1234;
+	job1->pid[PROCESS_PRE_STOP] = 5678;
+
+	json = job_class_serialise (class);
+	TEST_NE_P (json, NULL);
+
+	nih_list_remove (&class->entry);
+	TEST_HASH_EMPTY (job_classes);
+
+	new_class = job_class_deserialise (json);
+	TEST_NE_P (new_class, NULL);
+
+	assert0 (job_class_diff (class, new_class, TRUE));
+
+	nih_free (source);
+	nih_free (new_class);
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("JobClass with >1 Jobs");
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "bar", NULL);
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job1 = job_new (class, "a");
+	TEST_NE_P (job1, NULL);
+
+	job2 = job_new (class, "b");
+	TEST_NE_P (job1, NULL);
+
+	job3 = job_new (class, "c");
+	TEST_NE_P (job1, NULL);
+
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	class->process[PROCESS_MAIN] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_MAIN], NULL);
+	class->process[PROCESS_MAIN]->command = "echo";
+
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_PRE_STOP], NULL);
+	class->process[PROCESS_PRE_STOP]->command = "echo";
+
+	job1->goal = JOB_START;
+	job1->state = JOB_PRE_STOP;
+	job1->pid[PROCESS_MAIN] = 1234;
+	job1->pid[PROCESS_PRE_STOP] = 5678;
+
+	job2->goal = JOB_STOP;
+	job2->state = JOB_WAITING;
+
+	job3->goal = JOB_START;
+	job3->state = JOB_RUNNING;
+	job3->pid[PROCESS_MAIN] = 1;
+
+	json = job_class_serialise (class);
+	TEST_NE_P (json, NULL);
+
+	nih_list_remove (&class->entry);
+	TEST_HASH_EMPTY (job_classes);
+
+	new_class = job_class_deserialise (json);
+	TEST_NE_P (new_class, NULL);
+
+	assert0 (job_class_diff (class, new_class, TRUE));
+
+	nih_free (source);
+	nih_free (new_class);
+	json_object_put (json);
+
+	/*******************************/
 }
 
 void
@@ -1013,6 +1164,7 @@ main (int   argc,
 	test_process_serialise ();
 	test_event_serialise ();
 	test_job_serialise ();
+	test_job_class_serialise ();
 
 	return 0;
 }

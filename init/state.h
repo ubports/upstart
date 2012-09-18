@@ -889,18 +889,19 @@
  * state_set_json_string_var:
  *
  * @json: json_object pointer,
- * @name: name of element to add to @json,
+ * @name: string name of element to add to @json,
  * @value: value to assign @name in @json.
  *
- * Add @name to @json with value @value.
+ * Add @name to @json with value @value. If @value is NULL, it will be
+ * encoded as a JSON null.
  *
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_string_var(json, name, value) \
-	({json_object *_json_var = \
-	 json_object_new_string (value ? value : ""); \
-	 if (_json_var) json_object_object_add (json, name, _json_var); \
-	 _json_var;})
+	({json_object *_json_var = NULL; \
+	 if (value != NULL) _json_var = json_object_new_string (value); \
+	 if (_json_var || value == NULL) json_object_object_add (json, name, _json_var); \
+	 value ? _json_var != NULL : TRUE;})
 
 /**
  * state_set_json_string_var_from_obj:
@@ -910,8 +911,8 @@
  * @name: name of element withing @object to be serialised,
  * @type: JSON type (without prefix) for field to be added.
  *
- * Add stringified @name to @json taking the value from the
- * @object element of name @name.
+ * Add @name (which will be stringified) to @json taking the value
+ * from the @object element of name @name.
  *
  * String specialisation that can also handle NULL strings (by encoding
  * them with a nul string value).
@@ -919,10 +920,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_string_var_from_obj(json, object, name) \
-	({json_object *_json_var = \
-	 json_object_new_string (object->name ? object->name : ""); \
-	 if (_json_var) json_object_object_add (json, #name, _json_var); \
-	 _json_var;})
+	 state_set_json_string_var (json, #name, (object->name))
 
 /**
  * state_set_json_str_array_from_obj:

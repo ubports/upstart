@@ -65,12 +65,6 @@ extern json_object *json_classes;
 static void  job_class_add (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
-static json_object *job_class_serialise (const JobClass *class)
-	__attribute__ ((warn_unused_result, malloc));
-
-static JobClass *job_class_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
-
 static const char *
 job_class_expect_type_enum_to_str (ExpectType expect)
 	__attribute__ ((warn_unused_result));
@@ -1594,7 +1588,7 @@ job_class_get_usage (JobClass *      class,
  *
  * Returns: JSON-serialised JobClass object, or NULL on error.
  **/
-static json_object *
+json_object *
 job_class_serialise (const JobClass *class)
 {
 	json_object      *json;
@@ -1813,7 +1807,7 @@ job_class_serialise_all (void)
  *
  * Returns: JobClass object, or NULL on error.
  **/
-static JobClass *
+JobClass *
 job_class_deserialise (json_object *json)
 {
 	json_object    *json_normalexit;

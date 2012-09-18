@@ -837,7 +837,7 @@ log_serialise (Log *log)
 		/* Create a "placeholder" log object for non-existent
 		 * log objects and for those that are no longer usable.
 		 */
-		if (! state_set_json_string_var (json, "path", ""))
+		if (! state_set_json_string_var (json, "path", NULL))
 			goto error;
 		return json;
 	}
@@ -921,10 +921,10 @@ log_deserialise (const void *parent,
 	if (! state_check_json_type (json, object))
 		return NULL;
 
-	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+	if (! state_get_json_string_var (json, "path", NULL, path))
 		return NULL;
 
-	if (! *path) {
+	if (! path) {
 		/* placeholder log object */
 		return NULL;
 	}
