@@ -226,7 +226,7 @@ test_log_LDADD = \
 	$(JSON_LIBS) \
 	-lutil
 
-test_state_SOURCES = tests/test_state.c
+test_state_SOURCES = tests/test_state.c tests/test_util.c
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -237,7 +237,8 @@ test_state_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lutil
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \

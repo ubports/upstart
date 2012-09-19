@@ -833,7 +833,7 @@ log_serialise (Log *log)
 	if (! json)
 		return NULL;
 
-	if (! log || ! log->io || log->remote_closed) {
+	if (! log || (! log->io && log->unflushed && ! log->unflushed->len)) {
 		/* Create a "placeholder" log object for non-existent
 		 * log objects and for those that are no longer usable.
 		 */
@@ -843,7 +843,17 @@ log_serialise (Log *log)
 	}
 
 	/* Attempt to flush any cached data */
-	log_flush (log);
+	if (log->unflushed->len) {
+		/* Don't check return values since if this fails and
+		 * unflushed data remains, we encode it below.
+		 */
+		if (log->fd < 0)
+			(void)log_file_open (log);
+		if (log->fd != -1)
+			(void)log_file_write (log, NULL, 0);
+	}
+
+	nih_assert (log->io);
 
 	if (! state_set_json_int_var_from_obj (json, log, fd))
 		goto error;
@@ -856,7 +866,7 @@ log_serialise (Log *log)
 	if (! state_set_json_string_var_from_obj (json, log, path))
 		goto error;
 
-	/* log->io is not encoded */
+	/* log->io itself is not encoded */
 
 	if (! state_set_json_int_var_from_obj (json, log, uid))
 		goto error;
@@ -911,7 +921,7 @@ log_deserialise (const void *parent,
 	size_t           len;
 	json_object     *json_unflushed;
 	nih_local char  *path = NULL;
-	int              fd;
+	int              io_watch_fd = -1;
 	uid_t            uid;
 
 	nih_assert (json);
@@ -929,28 +939,28 @@ log_deserialise (const void *parent,
 		return NULL;
 	}
 
-	if (! state_get_json_int_var (json, "io_watch_fd", fd))
+	if (! state_get_json_int_var (json, "io_watch_fd", io_watch_fd))
 		return NULL;
 
-	/* re-apply CLOEXEC flag to stop fd being leaked to children */
-	if (fd != -1 && state_toggle_cloexec (fd, TRUE) < 0)
+	nih_assert (io_watch_fd != -1);
+
+	/* re-apply CLOEXEC flag to stop job fd being leaked to children */
+	if (state_toggle_cloexec (io_watch_fd, TRUE) < 0)
 		return NULL;
 
 	if (! state_get_json_int_var (json, "uid", uid))
 		return NULL;
 
-	log = log_new (parent, path, fd, uid);
+	log = log_new (parent, path, io_watch_fd, uid);
 	if (! log)
 		return NULL;
 
 	if (! state_get_json_int_var_to_obj (json, log, fd))
 		goto error;
 
-	/* Stop fd leaking to children */
-	if (log->fd != -1) {
-		if (state_toggle_cloexec (log->fd, TRUE) < 0)
-			goto error;
-	}
+	/* re-apply CLOEXEC flag to stop log file fd being leaked to children */
+	if (log->fd != -1 && state_toggle_cloexec (log->fd, TRUE) < 0)
+		return NULL;
 
 	log->unflushed = nih_io_buffer_new (log);
 	if (! log->unflushed)

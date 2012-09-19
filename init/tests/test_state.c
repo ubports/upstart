@@ -44,60 +44,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "log.h"
-
-/**
- * obj_string_check:
- *
- * @a: first object,
- * @b: second object,
- * @name: name of string element.
- *
- * Compare string element @name in objects @a and @b.
- *
- * Returns: 0 if strings are identical
- * (or both NULL), else 1.
- **/
-#define obj_string_check(a, b, name) \
-	string_check ((a)->name, (b)->name)
-
-/**
- * obj_num_check:
- *
- * @a: first object,
- * @b: second object.
- * @name: name of numeric element.
- *
- * Compare numeric element @name in objects @a and @b.
- *
- * Returns: 0 if @a and @b are identical, else 1.
- **/
-#define obj_num_check(a, b, name) \
-	(a->name != b->name)
-
-/**
- * string_check:
- *
- * @a: first string,
- * @b: second string.
- *
- * Compare @a and @b either or both of which may be NULL.
- *
- * Returns 0 if strings are identical or both NULL, else 1.
- **/
-int
-string_check (const char *a, const char *b)
-{
-	if ((a == b) && !a)
-		return 0;
-
-	if (!a || !b)
-		return 1;
-
-	if (strcmp (a, b))
-		return 1;
-
-	return 0;
-}
+#include "test_util.h"
 
 /**
  * session_diff:
@@ -280,6 +227,7 @@ log_diff (const Log *a, const Log *b)
 	if (a->unflushed && b->unflushed) {
 		if (obj_num_check (a->unflushed, b->unflushed, len))
 			goto fail;
+
 		if (obj_string_check (a->unflushed, b->unflushed, buf))
 			goto fail;
 	} else if (a->unflushed || b->unflushed)
@@ -948,6 +896,160 @@ test_event_serialise (void)
 	/*******************************/
 }
 
+/* Data with some embedded nulls */
+const char log_str[] = {
+	'h', 'e', 'l', 'l', 'o', 0x0, 0x0, 0x0, ' ', 'w', 'o', 'r', 'l', 'd', '\n', '\r', '\0'
+};
+
+void
+test_log_serialise (void)
+{
+	json_object     *json;
+	json_object     *json_unflushed = NULL;
+	Log             *log;
+	Log             *new_log;
+	int              pty_master;
+	int              pty_slave;
+	size_t           len;
+	ssize_t          ret;
+	char             filename[PATH_MAX];
+	pid_t            pid;
+	int              wait_fd;
+	int              fds[2] = { -1 };
+	struct stat      statbuf;
+	mode_t           old_perms;
+	int              status;
+
+	TEST_GROUP ("Log serialisation and deserialisation");
+
+	/*******************************/
+	/* XXX: No test for uid > 0 since user logging not currently
+	 * XXX: available.
+	 */
+	TEST_FEATURE ("with uid 0");
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	log = log_new (NULL, "/foo", pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	json = log_serialise (log);
+	TEST_NE_P (json, NULL);
+
+	new_log = log_deserialise (NULL, json);
+	TEST_NE_P (new_log, NULL);
+
+	assert0 (log_diff (log, new_log));
+
+	close (pty_master);
+	close (pty_slave);
+	nih_free (log);
+	nih_free (new_log);
+
+	/*******************************/
+	TEST_FEATURE ("with unflushed data");
+
+	TEST_FILENAME (filename);
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	/* Provide a log file which is accessible initially */
+	log = log_new (NULL, filename, pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	assert0 (pipe (fds));
+
+	TEST_CHILD_WAIT (pid, wait_fd) {
+		char   *str = "hello\n";
+		char    buf[1];
+		size_t  str_len;
+
+		str_len = strlen (str);
+
+		close (fds[1]);
+		close (pty_master);
+
+		/* Write initial data */
+		ret = write (pty_slave, str, str_len);
+		TEST_EQ ((size_t)ret, str_len);
+
+		/* let parent continue */
+		TEST_CHILD_RELEASE (wait_fd);
+
+		/* now wait for parent */
+		assert (read (fds[0], buf, 1) == 1);
+
+		len = sizeof (log_str) / sizeof (char);
+		errno = 0;
+
+		/* Now write some data with embedded nulls */
+		ret = write (pty_slave, log_str, len);
+		TEST_EQ ((size_t)ret, len);
+
+		/* keep child running until the parent is ready (to
+		 * simulate a job which continues to run across
+		 * a re-exec).
+		 */
+		pause ();
+	}
+
+	close (pty_slave);
+	close (fds[0]);
+
+	/* Slurp the childs initial output */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_EQ (stat (filename, &statbuf), 0);
+
+	/* save */
+	old_perms = statbuf.st_mode;
+
+	/* Make file inaccessible to ensure data cannot be written
+	 * and will thus be added to the unflushed buffer.
+	 */
+	TEST_EQ (chmod (filename, 0x0), 0);
+
+	/* Artificially stop us writing to the already open log file with
+	 * perms 000.
+	 */
+	close (log->fd);
+	log->fd = -1;
+
+	/* release child */
+	assert (write (fds[1], "\n", 1) == 1);
+
+	/* Ensure that unflushed buffer contains data */
+	TEST_FORCE_WATCH_UPDATE ();
+
+	TEST_GT (log->unflushed->len, 0);
+
+	/* Serialise the log which will now contain the unflushed data */
+	json = log_serialise (log);
+	TEST_NE_P (json, NULL);
+
+	/* Sanity check */
+	ret = json_object_object_get_ex (json, "unflushed", &json_unflushed);
+	TEST_EQ (ret, TRUE);
+	TEST_NE_P (json_unflushed, NULL);
+
+	new_log = log_deserialise (NULL, json);
+	TEST_NE_P (new_log, NULL);
+
+	assert0 (log_diff (log, new_log));
+
+	/* Wait for child to finish */
+	assert0 (kill (pid, SIGTERM));
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+
+	/* Restore access to allow log to be written on destruction */
+	TEST_EQ (chmod (filename, old_perms), 0);
+
+	nih_free (log);
+	nih_free (new_log);
+
+	/*******************************/
+}
+
 void
 test_job_class_serialise (void)
 {
@@ -1163,6 +1265,7 @@ main (int   argc,
 	test_session_serialise ();
 	test_process_serialise ();
 	test_event_serialise ();
+	test_log_serialise ();
 	test_job_serialise ();
 	test_job_class_serialise ();
 
