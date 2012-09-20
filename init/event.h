@@ -47,6 +47,8 @@ typedef enum event_progress {
  * @session: session the event is attached to,
  * @name: string name of the event,
  * @env: NULL-terminated array of environment variables,
+ * @fd: open file descriptor associated with a particular
+ *      socket-bridge socket (see socket-event(8)),
  * @progress: progress of event,
  * @failed: whether this event has failed,
  * @blockers: number of blockers for finishing,

@@ -103,6 +103,9 @@ typedef enum trace_state {
  * @start_env: environment to use next time the job is started,
  * @stop_env: environment to add for the next pre-stop script,
  * @stop_on: event operator expression that can stop this job.
+ * @fds: array of file descriptors associated with events in parent
+ *       JobClasses @start_on condition,
+ * @num_fds: number of elements in @fds,
  * @pid: current process ids,
  * @blocker: emitted event we're waiting to finish,
  * @blocking: list of events we're blocking from finishing,
@@ -136,8 +139,8 @@ typedef struct job {
 	char          **stop_env;
 	EventOperator  *stop_on;
 
-	int *fds;
-	size_t num_fds;
+	int            *fds;
+	size_t          num_fds;
 
 	pid_t          *pid;
 	Event          *blocker;

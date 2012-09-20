@@ -552,14 +552,31 @@ event_operator_environment (EventOperator   *root,
 	return *env;
 }
 
+/**
+ * event_operator_fds:
+ * @root: operator tree to update,
+ * @parent: parent object for new array,
+ * @fds: output location for array of ints
+ * @num_fds: number of elements in @fds,
+ * @env: NULL-terminated array of environment variables to add to,
+ * @len: length of @env,
+ * @key: key of variable to contain event names.
+ *
+ * Iterate over tree rooted at @root adding all file descriptor values found
+ * to the dynamically allocated @fds array. In addition, all file
+ * descriptors found are also added to @env will contain a new entry with key @key
+ * whose value is a space-separated list of file descriptor numbers.
+ *
+ * Returns: 1 on success, NULL on failure.
+ **/
 int *
-event_operator_fds (EventOperator *root,
-		    const void *parent,
-		    int **fds,
-		    size_t *num_fds,
-		    char          ***env,
-		    size_t          *len,
-		    const char      *key)
+event_operator_fds (EventOperator  *root,
+		    const void     *parent,
+		    int           **fds,
+		    size_t         *num_fds,
+		    char         ***env,
+		    size_t         *len,
+		    const char     *key)
 {
 	nih_local char *evlist = NULL;
 
