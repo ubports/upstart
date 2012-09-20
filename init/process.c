@@ -167,7 +167,7 @@ process_serialise_all (const Process * const * const processes)
 {
 	json_object *json;
 	json_object *json_process;
-	Process      dummy = { 0, "" };
+	Process      dummy = { 0, NULL };
 
 	nih_assert (processes);
 
@@ -231,7 +231,7 @@ process_deserialise (json_object *json, const void *parent)
 	 * an ordering placeholder - no command has been defined,
 	 * so ignore it.
 	 */
-	if (! process->command || ! *process->command)
+	if (! process->command)
 		goto error;
 
 	return process;
