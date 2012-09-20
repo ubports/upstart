@@ -191,7 +191,8 @@ control_server_connect (DBusServer     *server,
 void
 control_server_close (void)
 {
-	nih_assert (control_server != NULL);
+	if (! control_server)
+		return;
 
 	dbus_server_disconnect (control_server);
 	dbus_server_unref (control_server);

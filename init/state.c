@@ -143,7 +143,9 @@ state_read (int fd)
 /**
  * state_write:
  *
- * @fd: Open file descriptor to write JSON to.
+ * @fd: Open file descriptor to write JSON to,
+ * @state_data: JSON string representing internal object state,
+ * @len: length of @state_data.
  *
  * Write internal state to specified file descriptor in JSON format.
  *
@@ -158,7 +160,7 @@ state_read (int fd)
  * Returns: 0 on success, or -1 on error.
  **/
 int
-state_write (int fd)
+state_write (int fd, const char *state_data, size_t len)
 {
 	int             nfds;
 	int             ret;
@@ -166,6 +168,8 @@ state_write (int fd)
 	struct timeval  timeout;
 
 	nih_assert (fd != -1);
+	nih_assert (state_data);
+	nih_assert (len);
 
 	/* must be called from child process */
 	nih_assert (getpid () != (pid_t)1);
@@ -191,7 +195,7 @@ state_write (int fd)
 
 	nih_assert (ret == 1);
 
-	if (state_write_objects (fd) < 0)
+	if (state_write_objects (fd, state_data, len) < 0)
 		return -1;
 
 	return 0;
@@ -254,7 +258,9 @@ error:
 /**
  * state_write_objects:
  *
- * @fd: file descriptor to write serialisation data on.
+ * @fd: file descriptor to write serialisation data on,
+ * @state_data: JSON string representing internal object state,
+ * @len: length of @state_data.
  *
  * Write serialisation data to specified file descriptor.
  * @fd is assumed to be open and valid to write to.
@@ -287,31 +293,26 @@ error:
  * Returns: 0 on success, -1 on error.
  **/
 int
-state_write_objects (int fd)
+state_write_objects (int fd, const char *state_data, size_t len)
 {
-	char     *json_string;
-	size_t    len;
 	ssize_t   ret;
 
 	nih_assert (fd != -1);
-
-	if (state_to_string (&json_string, &len) < 0)
-		return -1;
+	nih_assert (state_data);
+	nih_assert (len);
 
 #if 1
-	/* FIXME */
+	/* FIXME: useful debug aid! */
 	{
 		FILE *fo = fopen("/tmp/state.json", "w");
 		if (fo) {
-			(void)fwrite (json_string, len, 1, fo);
+			(void)fwrite (state_data, len, 1, fo);
 			fclose (fo);
 		}
 	}
 #endif
 
-	ret = write (fd, json_string, len);
-
-	nih_free (json_string);
+	ret = write (fd, state_data, len);
 
 	return (ret < 0 ? -1 : 0);
 }
@@ -331,6 +332,9 @@ state_to_string (char **json_string, size_t *len)
 {
 	json_object        *json;
 	const char         *value;
+
+	nih_assert (json_string);
+	nih_assert (len);
 
 	json = json_object_new_object ();
 
@@ -447,6 +451,8 @@ state_toggle_cloexec (int fd, int set)
 	long   flags;
 	int    ret;
 
+	nih_assert (fd >= 0);
+
 	flags = fcntl (fd, F_GETFD);
 
 	if (flags < 0)
@@ -538,7 +544,7 @@ error:
 /**
  * state_deserialise_str_array:
  *
- * @parent: parent object for new array,
+ * @parent: parent object for new array (may be NULL),
  * @json: JSON array object representing a string array,
  * @env: TRUE if @json represents an array of environment
  * variables, FALSE for simple strings.
@@ -1864,9 +1870,12 @@ perform_reexec (void)
 void
 stateful_reexec (void)
 {
-	int      fds[2] = { -1 };
-	pid_t    pid;
-	sigset_t mask, oldmask;
+	int             fds[2] = { -1 };
+	pid_t           pid;
+	sigset_t        mask, oldmask;
+	nih_local char *state_data = NULL;
+	size_t          len;
+
 
 	/* Block signals while we work.  We're the last signal handler
 	 * installed so this should mean that they're all handled now.
@@ -1876,6 +1885,13 @@ stateful_reexec (void)
 	 */
 	sigfillset (&mask);
 	sigprocmask (SIG_BLOCK, &mask, &oldmask);
+
+	if (state_to_string (&state_data, &len) < 0) {
+		nih_error ("%s - %s",
+				_("Failed to generate serialisation data"),
+				_("reverting to stateless re-exec"));
+		goto reexec;
+	}
 
 	if (pipe (fds) < 0)
 		goto reexec;
@@ -1922,8 +1938,8 @@ stateful_reexec (void)
 
 		nih_info (_("Passing state from PID %d to parent"), (int)getpid ());
 
-		/* D-Bus name must be relinquished now to allow parent
-		 * from acquiring it.
+		/* D-Bus name and the private control server connection must be
+		 * relinquished now to allow parent to acquire them.
 		 */
 		if (control_bus_release_name () < 0) {
 			NihError *err;
@@ -1934,7 +1950,9 @@ stateful_reexec (void)
 			nih_free (err);
 		}
 
-		if (state_write (fds[1]) < 0) {
+		control_server_close ();
+
+		if (state_write (fds[1], state_data, len) < 0) {
 			nih_error ("%s",
 				_("Failed to write serialisation data"));
 			exit (1);

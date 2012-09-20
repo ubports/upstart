@@ -1,8 +1,4 @@
-/* FIXME: TODO: Thoughts:
- *
- * - remove all conf.c:debug_show_*() functions as we can now use the
- *   serialisation calls instead.
- *
+/*
  *--------------------------------------------------------------------
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *
@@ -43,29 +39,22 @@
  *     suffer too much. Bridges could be modified to auto-reconnect on
  *     disconnect.
  *
+ *   - log_handle_unflushed(): This data is not currently serialised.
+ *     However, it is unlikely that this will be an issue since
+ *     it implies that Upstart is being upgraded before the log disk
+ *     becomes writeable :-)
+ *
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *--------------------------------------------------------------------
  *
- * - check "NULL session" deserialisation handling.
- *
  * - XXX: audit memory management for all *_deserialise() and
  *   XXX: *_deserialise_all() functions!!
- *
- * - create meta header and encode/decode code!!
- *
- * - should we only serialise settings that have a value? (This might
- *   simplify logic for scenarios where a new Upstart that deserialises
- *   data from an old Upstart doesn't find some expected values).
  *
  * - clear up strategy around failure - if we fail to
  *   serialise/deserialise any data, do we revert to stateless re-exec?
  *   (tied to above).
  *
  * - we are not being consistent wrt calling NIH_MUST() - resolve!!
- *
- * - XXX: write tests!
- *   - ensure we have a test to check complete list of expected fds to
- *   be open in child!
  */
 
 /*
@@ -1033,13 +1022,13 @@ typedef int (*EnumDeserialiser) (const char *name);
 int  state_read          (int fd)
 	__attribute__ ((warn_unused_result));
 
-int  state_write         (int fd)
+int  state_write         (int fd, const char *state_data, size_t len)
 	__attribute__ ((warn_unused_result));
 
 int  state_read_objects  (int fd)
 	__attribute__ ((warn_unused_result));
 
-int  state_write_objects (int fd)
+int  state_write_objects (int fd, const char *state_data, size_t len)
 	__attribute__ ((warn_unused_result));
 
 int  state_to_string (char **json_string, size_t *len)
