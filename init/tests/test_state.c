@@ -713,9 +713,8 @@ test_process_serialise (void)
 
 	num = (int)sizeof (test_procs) / sizeof (Process);
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < num; i++)
 		run_process_test (&test_procs[i]);
-	}
 }
 
 void
@@ -1019,7 +1018,7 @@ test_log_serialise (void)
 	assert (write (fds[1], "\n", 1) == 1);
 
 	/* Ensure that unflushed buffer contains data */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_GT (log->unflushed->len, 0);
 

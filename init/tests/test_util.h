@@ -34,48 +34,67 @@
 }
 
 /**
+ * _TEST_WATCH_UPDATE:
+ * @force: if TRUE, force an update,
+ * @timeout: struct timeval pointer, or NULL if no timeout required.
+ *
+ * Request NIH look for a file event relating to any NihIo objects,
+ * with an optional timeout. Behaviour can be forced via @force.
+ **/
+#define _TEST_WATCH_UPDATE(force, timeout)                           \
+{                                                                    \
+	int         nfds = 0;                                        \
+	int         ret = 0;                                         \
+	fd_set      readfds, writefds, exceptfds;                    \
+	                                                             \
+	FD_ZERO (&readfds);                                          \
+	FD_ZERO (&writefds);                                         \
+	FD_ZERO (&exceptfds);                                        \
+	                                                             \
+	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
+	if (! force) {                                               \
+	  ret = select (nfds, &readfds, &writefds,                   \
+			&exceptfds, timeout);                        \
+	}                                                            \
+	if (force || ret > 0)                                        \
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
+}
+
+/**
+ * TEST_WATCH_UPDATE:
+ *
+ * Request NIH look for a file event relating to any NihIo objects,
+ * */
+#define TEST_WATCH_UPDATE()                                          \
+	_TEST_WATCH_UPDATE (0, NULL)
+
+/**
+ * TEST_WATCH_UPDATE_TIMEOUT:
+ * @timeout: struct timeval pointer.
+ *
+ * Request NIH look for a file event relating to any NihIo objects
+ * within time period @timeout.
+ **/
+#define TEST_WATCH_UPDATE_TIMEOUT(timeout)                           \
+	_TEST_WATCH_UPDATE (0, timeout)
+
+/**
  * TEST_FORCE_WATCH_UPDATE:
  *
  * Force NIH to look for a file event relating to any NihIo objects.
  **/
 #define TEST_FORCE_WATCH_UPDATE()                                    \
-{                                                                    \
-	int         nfds = 0;                                        \
-	int         ret = 0;                                         \
-	fd_set      readfds, writefds, exceptfds;                    \
-	                                                             \
-	FD_ZERO (&readfds);                                          \
-	FD_ZERO (&writefds);                                         \
-	FD_ZERO (&exceptfds);                                        \
-	                                                             \
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	ret = select (nfds, &readfds, &writefds, &exceptfds, NULL);  \
-	if (ret > 0)                                                 \
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
-}
+	_TEST_WATCH_UPDATE (1, NULL)
 
 /**
  * TEST_FORCE_WATCH_UPDATE_TIMEOUT:
- * @t: struct timeval timeout.
+ * @timeout: struct timeval pointer.
  *
- * As per TEST_FORCE_WATCH_UPDATE(), but allow the specification
- * of a timeout.
- */
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(t)                           \
-{                                                                    \
-	int         nfds = 0;                                        \
-	int         ret = 0;                                         \
-	fd_set      readfds, writefds, exceptfds;                    \
-	                                                             \
-	FD_ZERO (&readfds);                                          \
-	FD_ZERO (&writefds);                                         \
-	FD_ZERO (&exceptfds);                                        \
-	                                                             \
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	ret = select (nfds, &readfds, &writefds, &exceptfds, &t);    \
-	if (ret > 0)                                                 \
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
-}
+ * Force NIH to look for a file event relating to any NihIo objects
+ * within time period @timeout.
+ **/
+#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(timeout)                     \
+	_TEST_WATCH_UPDATE (1, timeout)
 
 /**
  * ENSURE_DIRECTORY_EMPTY:

@@ -112,7 +112,6 @@ $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
 		--default-interface=com.ubuntu.Upstart0_6.Instance \
 		--output=$@ $<
 
-
 # These have to be built sources because we can't compile object files
 # without the header file existing first
 BUILT_SOURCES = \
@@ -128,6 +127,8 @@ CLEANFILES = \
 
 EXTRA_DIST = init.supp
 
+TEST_UTIL = \
+	tests/test_util.c
 
 TESTS = \
 	test_system \
@@ -160,7 +161,7 @@ test_environ_LDADD = \
 	environ.o \
 	$(NIH_LIBS)
 
-test_process_SOURCES = tests/test_process.c
+test_process_SOURCES = tests/test_process.c $(TEST_UTIL)
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -186,7 +187,7 @@ test_job_class_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS)
 
-test_job_process_SOURCES = tests/test_job_process.c
+test_job_process_SOURCES = tests/test_job_process.c $(TEST_UTIL)
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -212,7 +213,7 @@ test_job_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS)
 
-test_log_SOURCES = tests/test_log.c
+test_log_SOURCES = tests/test_log.c $(TEST_UTIL)
 test_log_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -226,7 +227,7 @@ test_log_LDADD = \
 	$(JSON_LIBS) \
 	-lutil
 
-test_state_SOURCES = tests/test_state.c tests/test_util.c
+test_state_SOURCES = tests/test_state.c $(TEST_UTIL)
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -305,7 +306,7 @@ test_parse_conf_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS)
 
-test_conf_SOURCES = tests/test_conf.c
+test_conf_SOURCES = tests/test_conf.c $(TEST_UTIL)
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \

@@ -58,6 +58,7 @@
 #include "blocked.h"
 #include "conf.h"
 #include "errors.h"
+#include "test_util.h"
 
 
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
@@ -76,63 +77,6 @@
  * meta-characters.
  */
 #define TEST_CMD_DD               "/bin/dd"
-
-/* Force an inotify watch update */
-#define TEST_FORCE_WATCH_UPDATE()                                    \
-{                                                                    \
-	int         nfds = 0;                                        \
-	int         ret = 0;                                         \
-	fd_set      readfds, writefds, exceptfds;                    \
-	                                                             \
-	FD_ZERO (&readfds);                                          \
-	FD_ZERO (&writefds);                                         \
-	FD_ZERO (&exceptfds);                                        \
-	                                                             \
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	ret = select (nfds, &readfds, &writefds, &exceptfds, NULL);  \
-	if (ret > 0)                                                 \
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
-}
-
-/* Force an inotify watch update (allowing a struct timeval
- * timeout to be specified
- */
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(t)                           \
-{                                                                    \
-	int         nfds = 0;                                        \
-	int         ret = 0;                                         \
-	fd_set      readfds, writefds, exceptfds;                    \
-	                                                             \
-	FD_ZERO (&readfds);                                          \
-	FD_ZERO (&writefds);                                         \
-	FD_ZERO (&exceptfds);                                        \
-	                                                             \
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	ret = select (nfds, &readfds, &writefds, &exceptfds, &t);    \
-	if (ret > 0)                                                 \
-		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
-}
-
-#define ENSURE_DIRECTORY_EMPTY(path)                                 \
-{                                                                    \
-	DIR            *dp = NULL;                                   \
-	struct dirent  *file = NULL;                                 \
-	int             count = 0;                                   \
-                                                                     \
-	dp = opendir (path);                                         \
-	TEST_NE_P (dp, NULL);                                        \
-                                                                     \
-	while((file = readdir (dp))) {                               \
-		if (!strcmp (".", file->d_name) ||                   \
-				!strcmp ("..", file->d_name))        \
-			continue;                                    \
-		count++;                                             \
-	}                                                            \
-                                                                     \
-	closedir (dp);                                               \
-                                                                     \
-	TEST_EQ (count, 0);                                          \
-}
 
 /* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
@@ -1430,7 +1374,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	ENSURE_DIRECTORY_EMPTY (dirname);
 
@@ -1466,7 +1410,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	ENSURE_DIRECTORY_EMPTY (dirname);
 
@@ -1511,7 +1455,7 @@ test_run (void)
 		/* be generous */
 		t.tv_sec  = 2;
 		t.tv_usec = 0;
-		TEST_FORCE_WATCH_UPDATE_TIMEOUT (t);
+		TEST_WATCH_UPDATE_TIMEOUT (&t);
 	}
 
 	ENSURE_DIRECTORY_EMPTY (dirname);
@@ -1545,7 +1489,7 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/* XXX: call 1: wait for script write to child shell */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -1554,7 +1498,7 @@ test_run (void)
 	TEST_EQ (WEXITSTATUS (status), 1);
 
 	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	ENSURE_DIRECTORY_EMPTY (dirname);
 
@@ -1601,7 +1545,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -1654,7 +1598,7 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/*  wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -1714,7 +1658,7 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/*  wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (kill (job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -1800,10 +1744,10 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/* XXX: call 1: wait for script write to child shell */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -1861,7 +1805,7 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/*  wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (kill (-job->pid[PROCESS_MAIN], SIGKILL), 0);
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -1929,14 +1873,14 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/* XXX: call 1: wait for script write to child shell */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2002,7 +1946,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2035,7 +1979,7 @@ test_run (void)
 
 	/* XXX: Note that all tests which use multi-line scripts (but
 	 * XXX: *NOT* commands!) and produce output must call
-	 * XXX: TEST_FORCE_WATCH_UPDATE() *TWICE* to ensure select(2) is
+	 * XXX: TEST_WATCH_UPDATE() *TWICE* to ensure select(2) is
 	 * XXX: called twice.
 	 *
 	 * This is required since job_process_run() uses an NihIo object
@@ -2046,7 +1990,7 @@ test_run (void)
 	 * associated with the pty which will trigger the log file to be
 	 * written.
 	 *
-	 * Note that the 2nd call to TEST_FORCE_WATCH_UPDATE would not be
+	 * Note that the 2nd call to TEST_WATCH_UPDATE would not be
 	 * required should job_process_run() simple invoke write(2) to
 	 * send the data.
 	 */
@@ -2074,14 +2018,14 @@ test_run (void)
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 	/* XXX: call 1: wait for script write to child shell */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
 	/* XXX: call 2: wait for read from pty allowing logger to write to log file */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2137,7 +2081,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2195,7 +2139,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2258,7 +2202,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2314,11 +2258,11 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2376,7 +2320,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2437,7 +2381,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2491,13 +2435,13 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2555,7 +2499,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2619,7 +2563,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2675,13 +2619,13 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2741,7 +2685,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2801,7 +2745,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2859,7 +2803,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -2922,7 +2866,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_NE (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3055,7 +2999,7 @@ test_run (void)
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
 		 */
-		TEST_FORCE_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -3131,14 +3075,14 @@ test_run (void)
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
 		 */
-		TEST_FORCE_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
 		/* Allow the log to be written */
-		TEST_FORCE_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -3211,7 +3155,7 @@ test_run (void)
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
 		 */
-		TEST_FORCE_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -3336,7 +3280,7 @@ test_run (void)
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
 		 */
-		TEST_FORCE_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		/* Expect a log file */
 		TEST_EQ (stat (filename, &statbuf), 0);
@@ -3386,11 +3330,11 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_NE (WEXITSTATUS (status), 0);
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3446,13 +3390,13 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3507,13 +3451,13 @@ test_run (void)
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3678,7 +3622,7 @@ test_run (void)
 			t.tv_sec  = 1;
 			t.tv_usec = 0;
 
-			TEST_FORCE_WATCH_UPDATE_TIMEOUT (t);
+			TEST_WATCH_UPDATE_TIMEOUT (&t);
 
 			TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3913,7 +3857,7 @@ test_run (void)
 	pid = job->pid[PROCESS_MAIN];
 	TEST_GT (pid, 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3936,7 +3880,7 @@ test_run (void)
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -3963,7 +3907,7 @@ test_run (void)
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -4590,7 +4534,7 @@ test_spawn (void)
 	/* The main process is now running, but paused. It should have
 	 * produced some output so check that now.
 	 */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -4750,7 +4694,7 @@ test_spawn (void)
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -4804,7 +4748,7 @@ test_spawn (void)
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
@@ -4912,7 +4856,7 @@ test_spawn (void)
 	ret = log_handle_unflushed (job->log, job->log[PROCESS_MAIN]);
 	TEST_EQ (ret, 1);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	/* This will eventually call the log destructor */
 	nih_free (class);
@@ -4964,7 +4908,7 @@ test_spawn (void)
 	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
 	TEST_GT (pid, 0);
 
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 	TEST_TRUE (WIFEXITED (status));
