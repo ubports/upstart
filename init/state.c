@@ -115,13 +115,12 @@ state_read (int fd)
 	state_get_timeout (timeout.tv_sec);
 	timeout.tv_usec = 0;
 
-	FD_ZERO (&readfds);
-
-	FD_SET (fd, &readfds);
-
 	nfds = 1 + fd;
 
 	while (TRUE) {
+		FD_ZERO (&readfds);
+		FD_SET (fd, &readfds);
+
 		ret = select (nfds, &readfds, NULL, NULL,
 				timeout.tv_sec < 0 ? NULL : &timeout);
 
@@ -174,13 +173,12 @@ state_write (int fd)
 	state_get_timeout (timeout.tv_sec);
 	timeout.tv_usec = 0;
 
-	FD_ZERO (&writefds);
-
-	FD_SET (fd, &writefds);
-
 	nfds = 1 + fd;
 
 	while (TRUE) {
+		FD_ZERO (&writefds);
+		FD_SET (fd, &writefds);
+
 		ret = select (nfds, NULL, &writefds, NULL,
 				timeout.tv_sec < 0 ? NULL : &timeout);
 

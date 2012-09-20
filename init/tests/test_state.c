@@ -1045,6 +1045,7 @@ test_log_serialise (void)
 
 	nih_free (log);
 	nih_free (new_log);
+	TEST_EQ (unlink (filename), 0);
 
 	/*******************************/
 }
