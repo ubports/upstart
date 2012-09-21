@@ -563,7 +563,7 @@ session_get_index (const Session *session)
 {
 	int i;
 
-	/* Handle NULL session */
+	/* Handle NULL session (which is not encoded) */
 	if (! session)
 		return 0;
 
