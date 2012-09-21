@@ -30,7 +30,7 @@
 #include "blocked.h"
 #include "parse_job.h"
 #include "conf.h"
-
+#include "test_util.h"
 
 void
 test_operator_new (void)
@@ -1397,12 +1397,7 @@ test_operator_serialisation (void)
 
 		/* We don't get to use the macros here because we need to
 		 * walk both trees in tandem */
-		for (NihTree *iter1 = nih_tree_next (&oper1->node, NULL),
-		             *iter2 = nih_tree_next (&oper2->node, NULL);
-		     iter1 != NULL && iter2 != NULL;
-		     iter1 = nih_tree_next (&oper1->node, iter1),
-		     iter2 = nih_tree_next (&oper2->node, iter2))
-		{
+		TEST_TWO_TREES_FOREACH (&oper1->node, &oper2->node, iter1, iter2) {
 			EventOperator *oper1_sub = (EventOperator *)iter1;
 			EventOperator *oper2_sub = (EventOperator *)iter2;
 

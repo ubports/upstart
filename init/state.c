@@ -1212,7 +1212,7 @@ error:
  *
  * Returns: JSON-serialised Blocked object, or NULL on error.
  **/
-json_object *
+static json_object *
 state_serialise_blocked (const Blocked *blocked)
 {
 	json_object  *json;
@@ -1408,7 +1408,7 @@ error:
  *
  * Returns: new Blocked object, or NULL on error.
  **/
-Blocked *
+static Blocked *
 state_deserialise_blocked (void *parent, json_object *json,
 		NihList *list)
 {

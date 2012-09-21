@@ -152,6 +152,57 @@
 #define obj_num_check(a, b, name) \
 	(a->name != b->name)
 
+/**
+ * TEST_TWO_LISTS_FOREACH:
+ * @list1: entry in the first list to iterate,
+ * @list2: entry in the second list to iterate,
+ * @iter1: name of iterator variable for @list1,
+ * @iter2: name of iterator variable for @list2.
+ *
+ * Dual version of NIH_LIST_FOREACH() which iterates 
+ * two lists in tandem.
+ **/
+#define TEST_TWO_LISTS_FOREACH(list1, list2, iter1, iter2) \
+	for (NihList *iter1 = (list1)->next, \
+		     *iter2 = (list2)->next; \
+		iter1 != (list1) && iter2 != (list2); \
+		iter1 = iter1->next, \
+		iter2 = iter2->next)
+
+/**
+ * TEST_TWO_HASHES_FOREACH:
+ * @hash1: entry in the first hash to iterate,
+ * @hash2: entry in the second hash to iterate,
+ * @iter1: name of iterator variable for @hash1,
+ * @iter2: name of iterator variable for @hash2.
+ *
+ * Dual version of NIH_HASH_FOREACH() which iterates
+ * two hashes in tandem.
+ **/
+#define TEST_TWO_HASHES_FOREACH(hash1, hash2, iter1, iter2) \
+	for (size_t _##iter##_i = 0; _##iter##_i < (hash1)->size; \
+	     _##iter##_i++) \
+		TEST_TWO_LISTS_FOREACH (&(hash1)->bins[_##iter##_i], \
+					&(hash2)->bins[_##iter##_i], \
+				iter1, iter2)
+
+/**
+ * TEST_TWO_TREES_FOREACH:
+ * @tree1: root of the first tree to iterate,
+ * @tree2: root of the second tree to iterate,
+ * @iter1: name of iterator variable for @tree1,
+ * @iter2: name of iterator variable for @tree2.
+ *
+ * Dual version of NIH_TREE_FOREACH() which walks
+ * two trees in tandem.
+ **/
+#define TEST_TWO_TREES_FOREACH(tree1, tree2, iter1, iter2) \
+	for (NihTree *iter1 = nih_tree_next (tree1, NULL), \
+			*iter2 = nih_tree_next (tree2, NULL); \
+			iter1 != NULL && iter2 != NULL; \
+			iter1 = nih_tree_next (tree1, iter1), \
+			iter2 = nih_tree_next (tree2, iter2))
+
 /* Prototypes */
 int string_check (const char *a, const char *b);
 

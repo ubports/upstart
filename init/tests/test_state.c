@@ -44,7 +44,39 @@
 #include "job_class.h"
 #include "job.h"
 #include "log.h"
+#include "blocked.h"
+#include "control.h"
 #include "test_util.h"
+
+int session_diff (const Session *a, const Session *b)
+	__attribute__ ((warn_unused_result));
+
+int process_diff (const Process *a, const Process *b)
+	__attribute__ ((warn_unused_result));
+
+int event_diff (const Event *a, const Event *b, int check_blocking)
+	__attribute__ ((warn_unused_result));
+
+int nih_timer_diff (const NihTimer *a, const NihTimer *b)
+	__attribute__ ((warn_unused_result));
+
+int log_diff (const Log *a, const Log *b)
+	__attribute__ ((warn_unused_result));
+
+int rlimit_diff (const struct rlimit *a, const struct rlimit *b)
+	__attribute__ ((warn_unused_result));
+
+int job_class_diff (const JobClass *a, const JobClass *b, int check_jobs)
+	__attribute__ ((warn_unused_result));
+
+int job_diff (const Job *a, const Job *b)
+	__attribute__ ((warn_unused_result));
+
+int blocking_diff (const NihList *a, const NihList *b)
+	__attribute__ ((warn_unused_result));
+
+int blocked_diff (const Blocked *a, const Blocked *b, int check_type)
+	__attribute__ ((warn_unused_result));
 
 /**
  * session_diff:
@@ -113,14 +145,16 @@ fail:
 /**
  * event_diff:
  * @a: first Event,
- * @b: second Event.
+ * @b: second Event,
+ * @check_blocking: if TRUE, also compare 'blocking'
+ * within @a and @b.
  *
  * Compare two Event objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-event_diff (const Event *a, const Event *b)
+event_diff (const Event *a, const Event *b, int check_blocking)
 {
 	nih_local char *env_a = NULL;
 	nih_local char *env_b = NULL;
@@ -155,7 +189,8 @@ event_diff (const Event *a, const Event *b)
 	if (obj_num_check (a, b, blockers))
 		goto fail;
 
-	/* FIXME: blocking */
+	if (check_blocking && blocking_diff (&a->blocking, &b->blocking))
+		goto fail;
 
 	return 0;
 
@@ -283,17 +318,18 @@ fail:
 }
 
 /**
- * job_diff:
+ * job_class_diff:
  * @a: first Job,
  * @b: second Job,
- * @jobs: if TRUE, also compare Jobs.
+ * @check_jobs: if TRUE, also compare job instances
+ * within @a and @b.
  *
  * Compare two JobClass objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-job_class_diff (const JobClass *a, const JobClass *b, int jobs)
+job_class_diff (const JobClass *a, const JobClass *b, int check_jobs)
 {
 	size_t          i;
 	nih_local char *env_a = NULL;
@@ -323,8 +359,17 @@ job_class_diff (const JobClass *a, const JobClass *b, int jobs)
 	if (obj_string_check (a, b, instance))
 		goto fail;
 
-	if (jobs) {
-		/* FIXME: instances */
+	if (check_jobs) {
+		if (obj_num_check (a->instances, b->instances, size))
+			goto fail;
+
+		TEST_TWO_HASHES_FOREACH (a->instances, b->instances, iter1, iter2) {
+			Job *job1 = (Job *)iter1;
+			Job *job2 = (Job *)iter2;
+
+			if (job_diff (job1, job2))
+				goto fail;
+		}
 	}
 
 	if (obj_string_check (a, b, description))
@@ -537,9 +582,10 @@ job_diff (const Job *a, const Job *b)
 			goto fail;
 	}
 
-	assert0 (event_diff (a->blocker, b->blocker));
+	assert0 (event_diff (a->blocker, b->blocker, TRUE));
 
-	/* FIXME: blocking */
+	if (blocking_diff (&a->blocking, &b->blocking))
+		goto fail;
 
 	if (nih_timer_diff (a->kill_timer, b->kill_timer))
 		goto fail;
@@ -581,6 +627,93 @@ fail:
 	return 1;
 }
 
+/**
+ * blocking_diff
+ * @a: first list of Blocked objects,
+ * @b: second list of Blocked objects.
+ *
+ * Compare two lists of Blocked objects.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+blocking_diff (const NihList *a, const NihList *b)
+{
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		goto fail;
+
+	/* walk both lists together */
+	TEST_TWO_LISTS_FOREACH (a, b, iter_a, iter_b) {
+		Blocked *blocked_a = (Blocked *)iter_a;
+		Blocked *blocked_b = (Blocked *)iter_b;
+
+		if (blocked_diff (blocked_a, blocked_b, FALSE))
+			goto fail;
+	}
+
+	return 0;
+
+fail:
+	return 1;
+}
+
+/**
+ * blocked_diff
+ * @a: first Blocked,
+ * @b: second Blocked,
+ * @check_type: if TRUE, also compare values of @a and @b's
+ * blocked type (event or job).
+ *
+ * Compare two Blocked objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+blocked_diff (const Blocked *a, const Blocked *b, int check_type)
+{
+	const char  *enum_str_a;
+	const char  *enum_str_b;
+	int          ret = 0;
+
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		goto fail;
+
+	if (obj_num_check (a, b, type))
+		goto fail;
+
+	enum_str_a = blocked_type_enum_to_str (a->type);
+	enum_str_b = blocked_type_enum_to_str (b->type);
+
+	if (string_check (enum_str_a, enum_str_b))
+		goto fail;
+
+	switch (a->type) {
+	case BLOCKED_JOB:
+		if (check_type)
+			ret = job_diff (a->job, b->job);
+		break;
+
+	case BLOCKED_EVENT:
+		if (check_type)
+			ret = event_diff (a->event, b->event, TRUE);
+		break;
+
+	default:
+		/* FIXME: cannot handle D-Bus types yet */
+		nih_assert_not_reached ();
+	}
+
+	return ret;
+
+fail:
+	return 1;
+}
 
 void
 test_session_serialise (void)
@@ -718,6 +851,110 @@ test_process_serialise (void)
 }
 
 void
+test_blocking (void)
+{
+	nih_local char        *json_string = NULL;
+	ConfSource            *source = NULL;
+	ConfFile              *file;
+	JobClass              *class;
+	JobClass              *new_class;
+	Job                   *job;
+	Event                 *event;
+	Event                 *new_event;
+	Blocked               *blocked;
+	size_t                 len;
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_GROUP ("Blocked serialisation and deserialisation");
+
+	/*******************************/
+	TEST_FEATURE ("event blocking a job");
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	event = event_new (NULL, "Christmas", NULL);
+	TEST_NE_P (event, NULL);
+	TEST_LIST_EMPTY (&event->blocking);
+
+	TEST_LIST_NOT_EMPTY (events);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+	class = file->job = job_class_new (NULL, "bar", NULL);
+
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	blocked = blocked_new (NULL, BLOCKED_JOB, job);
+	TEST_NE_P (blocked, NULL);
+
+	nih_list_add (&event->blocking, &blocked->entry);
+	job->blocker = event;
+
+	assert0 (state_to_string (&json_string, &len));
+	TEST_GT (len, 0);
+
+	/* XXX: We don't remove the source as these are not
+	 * recreated on re-exec, so we'll re-use the existing one.
+	 */
+	nih_list_remove (&event->entry);
+	nih_list_remove (&class->entry);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	new_class = (JobClass *)nih_hash_lookup (job_classes, "bar");
+	TEST_NE_P (new_class, NULL);
+	nih_list_remove (&new_class->entry);
+
+	new_event = (Event *)nih_list_remove (events->next);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_NOT_EMPTY (&new_event->blocking);
+
+	assert0 (event_diff (event, new_event, TRUE));
+
+	nih_free (event);
+
+	/* free the event created "on re-exec" */
+	nih_free (new_event);
+	nih_free (source);
+	nih_free (new_class);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/*******************************/
+}
+
+void
 test_event_serialise (void)
 {
 	json_object         *json;
@@ -725,17 +962,19 @@ test_event_serialise (void)
 	Event               *new_event = NULL;
 	nih_local char     **env = NULL;
 	Session             *session;
+	Session             *new_session;
 	size_t               len = 0;
 	nih_local char      *json_string = NULL;
 
+	event_init ();
+	session_init ();
 
 	TEST_GROUP ("Event serialisation and deserialisation");
-
-	event_init ();
 
 	/*******************************/
 	TEST_FEATURE ("without event environment");
 
+	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (events);
 
 	event = event_new (NULL, "foo", NULL);
@@ -747,11 +986,13 @@ test_event_serialise (void)
 	TEST_NE_P (json, NULL);
 
 	nih_list_remove (&event->entry);
+	TEST_LIST_EMPTY (events);
 
 	new_event = event_deserialise (json);
 	TEST_NE_P (json, NULL);
+	TEST_LIST_NOT_EMPTY (events);
 
-	assert0 (event_diff (event, new_event));
+	assert0 (event_diff (event, new_event, TRUE));
 
 	nih_free (event);
 	nih_free (new_event);
@@ -760,13 +1001,14 @@ test_event_serialise (void)
 	/*******************************/
 	TEST_FEATURE ("with event environment");
 
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
+
 	env = nih_str_array_new (NULL);
 	TEST_NE_P (env, NULL);
 	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"), NULL);
 	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "a="), NULL);
 	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "HELLO=world"), NULL);
-
-	TEST_LIST_EMPTY (events);
 
 	event = event_new (NULL, "foo", env);
 	TEST_NE_P (event, NULL);
@@ -781,20 +1023,25 @@ test_event_serialise (void)
 	new_event = event_deserialise (json);
 	TEST_NE_P (json, NULL);
 
-	assert0 (event_diff (event, new_event));
+	assert0 (event_diff (event, new_event, TRUE));
 
 	nih_free (event);
 	nih_free (new_event);
 	json_object_put (json);
 
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
+
 	/*******************************/
 	TEST_FEATURE ("with progress values");
 
 	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
 
 	/* Advance beyond last legitimate value to test failure behaviour */
 	for (int progress = 0; progress <= EVENT_FINISHED+1; progress++) {
 		TEST_LIST_EMPTY (events);
+		TEST_LIST_EMPTY (sessions);
 
 		event = event_new (NULL, "foo", NULL);
 		TEST_NE_P (event, NULL);
@@ -816,7 +1063,7 @@ test_event_serialise (void)
 		new_event = event_deserialise (json);
 		TEST_NE_P (json, NULL);
 
-		assert0 (event_diff (event, new_event));
+		assert0 (event_diff (event, new_event, TRUE));
 
 		nih_free (event);
 		nih_free (new_event);
@@ -827,9 +1074,11 @@ test_event_serialise (void)
 	TEST_FEATURE ("with various fd values");
 
 	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
 
 	for (int fd = -1; fd < 4; fd++) {
 		TEST_LIST_EMPTY (events);
+		TEST_LIST_EMPTY (sessions);
 
 		event = event_new (NULL, "foo", NULL);
 		TEST_NE_P (event, NULL);
@@ -845,7 +1094,7 @@ test_event_serialise (void)
 		new_event = event_deserialise (json);
 		TEST_NE_P (json, NULL);
 
-		assert0 (event_diff (event, new_event));
+		assert0 (event_diff (event, new_event, TRUE));
 
 		nih_free (event);
 		nih_free (new_event);
@@ -855,11 +1104,13 @@ test_event_serialise (void)
 	/*******************************/
 	TEST_FEATURE ("with env+session");
 
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_EMPTY (job_classes);
+
 	env = nih_str_array_new (NULL);
 	TEST_NE_P (env, NULL);
 	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"), NULL);
-
-	TEST_LIST_EMPTY (sessions);
 
 	session = session_new (NULL, "/abc", getuid ());
 	TEST_NE_P (session, NULL);
@@ -872,6 +1123,7 @@ test_event_serialise (void)
 	event->session = session;
 
 	assert0 (state_to_string (&json_string, &len));
+	TEST_GT (len, 0);
 
 	nih_list_remove (&event->entry);
 	nih_list_remove (&session->entry);
@@ -885,12 +1137,19 @@ test_event_serialise (void)
 	TEST_LIST_NOT_EMPTY (events);
 
 	new_event = (Event *)nih_list_remove (events->next);
-	assert0 (event_diff (event, new_event));
+	assert0 (event_diff (event, new_event, TRUE));
 
 	nih_free (event);
+	nih_free (session);
+
+	new_session = (Session *)nih_list_remove (sessions->next);
+	TEST_NE_P (new_session, NULL);
+
 	nih_free (new_event);
-	nih_free (sessions);
-	nih_free (events);
+	nih_free (new_session);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
 
 	/*******************************/
 }
@@ -1264,6 +1523,7 @@ main (int   argc,
 
 	test_session_serialise ();
 	test_process_serialise ();
+	test_blocking ();
 	test_event_serialise ();
 	test_log_serialise ();
 	test_job_serialise ();
