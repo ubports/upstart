@@ -256,7 +256,7 @@ session_from_dbus (const void     *parent,
 			continue;
 
 		/* Found a user with the same uid but different
-		 * conf_dir to the existing session user. Either the
+		 * conf_path to the existing session user. Either the
 		 * original user has been deleted and a new user created
 		 * with the same uid, or the original users home
 		 * directory has changed since they first started
@@ -358,8 +358,6 @@ session_create_conf_source (Session *session, int deserialised)
 		nih_free (err);
 
 		nih_free (source);
-		nih_free (session->conf_path);
-		session->conf_path = NULL;
 		return;
 	}
 }
