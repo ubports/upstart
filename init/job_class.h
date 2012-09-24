@@ -308,6 +308,22 @@ int         job_class_get_usage	           (JobClass *class,
 					    NihDBusMessage *message,
 					    char **usage);
 
+const char *
+job_class_console_type_enum_to_str (ConsoleType console)
+	__attribute__ ((warn_unused_result));
+
+ConsoleType
+job_class_console_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
+const char *
+job_class_expect_type_enum_to_str (ExpectType expect)
+	__attribute__ ((warn_unused_result));
+
+ExpectType
+job_class_expect_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
 ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 

@@ -65,22 +65,6 @@ extern json_object *json_classes;
 static void  job_class_add (JobClass *class);
 static int   job_class_remove (JobClass *class, const Session *session);
 
-static const char *
-job_class_expect_type_enum_to_str (ExpectType expect)
-	__attribute__ ((warn_unused_result));
-
-static ExpectType
-job_class_expect_type_str_to_enum (const char *name)
-	__attribute__ ((warn_unused_result));
-
-static const char *
-job_class_console_type_enum_to_str (ConsoleType console)
-	__attribute__ ((warn_unused_result));
-
-static ConsoleType
-job_class_console_type_str_to_enum (const char *name)
-	__attribute__ ((warn_unused_result));
-
 /**
  * default_console:
  *
@@ -2087,7 +2071,7 @@ error:
  *
  * Returns: string representation of @expect, or NULL if not known.
  **/
-static const char *
+const char *
 job_class_expect_type_enum_to_str (ExpectType expect)
 {
 	state_enum_to_str (EXPECT_NONE, expect);
@@ -2107,14 +2091,18 @@ job_class_expect_type_enum_to_str (ExpectType expect)
  *
  * Returns: ExpectType representing @expect, or -1 if not known.
  **/
-static ExpectType
+ExpectType
 job_class_expect_type_str_to_enum (const char *expect)
 {
+	if (! expect)
+		goto error;
+
 	state_str_to_enum (EXPECT_NONE, expect);
 	state_str_to_enum (EXPECT_STOP, expect);
 	state_str_to_enum (EXPECT_DAEMON, expect);
 	state_str_to_enum (EXPECT_FORK, expect);
 
+error:
 	return -1;
 }
 
@@ -2127,7 +2115,7 @@ job_class_expect_type_str_to_enum (const char *expect)
  *
  * Returns: string representation of @console, or NULL if not known.
  **/
-static const char *
+const char *
 job_class_console_type_enum_to_str (ConsoleType console)
 {
 	state_enum_to_str (CONSOLE_NONE, console);
@@ -2147,14 +2135,18 @@ job_class_console_type_enum_to_str (ConsoleType console)
  *
  * Returns: ExpectType representing @console, or -1 if not known.
  **/
-static ConsoleType
+ConsoleType
 job_class_console_type_str_to_enum (const char *console)
 {
+	if (! console)
+		goto error;
+
 	state_str_to_enum (CONSOLE_NONE, console);
 	state_str_to_enum (CONSOLE_OUTPUT, console);
 	state_str_to_enum (CONSOLE_OWNER, console);
 	state_str_to_enum (CONSOLE_LOG, console);
 
+error:
 	return -1;
 }
 

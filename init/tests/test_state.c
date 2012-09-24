@@ -48,13 +48,39 @@
 #include "control.h"
 #include "test_util.h"
 
+/**
+ * AlreadySeen:
+ *
+ * Used to allow objects that directly or indirectly reference on
+ * another to be inspected and compared without causing infinite
+ * recursion.
+ *
+ * For example, an Event can reference a Job via its event->blocking list.
+ * But the Job referenced by the Blocked object will have its job->blocker
+ * set to the original event. If inspecting the original Event, we can
+ * pass ALREADY_SEEN_EVENT such that we can detect that no further
+ * operations are required at the point we consider job->blocker.
+ *
+ * If ALREADY_SEEN_SET is specified, the first function that understands
+ * this type will _change_ the value to one of the other values based on
+ * the action the function performs (for example, job_diff() changes
+ * ALREADY_SEEN_SET to ALREADY_SEEN_JOB).
+ **/
+typedef enum {
+	ALREADY_SEEN_SET,
+	ALREADY_SEEN_EVENT,
+	ALREADY_SEEN_BLOCKED,
+	ALREADY_SEEN_JOB,
+	ALREADY_SEEN_LAST
+} AlreadySeen;
+
 int session_diff (const Session *a, const Session *b)
 	__attribute__ ((warn_unused_result));
 
 int process_diff (const Process *a, const Process *b)
 	__attribute__ ((warn_unused_result));
 
-int event_diff (const Event *a, const Event *b, int check_blocking)
+int event_diff (const Event *a, const Event *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
 int nih_timer_diff (const NihTimer *a, const NihTimer *b)
@@ -66,16 +92,18 @@ int log_diff (const Log *a, const Log *b)
 int rlimit_diff (const struct rlimit *a, const struct rlimit *b)
 	__attribute__ ((warn_unused_result));
 
-int job_class_diff (const JobClass *a, const JobClass *b, int check_jobs)
+int job_class_diff (const JobClass *a, const JobClass *b,
+		    AlreadySeen seen, int check_jobs)
 	__attribute__ ((warn_unused_result));
 
-int job_diff (const Job *a, const Job *b)
+int job_diff (const Job *a, const Job *b,
+	      AlreadySeen seen, int check_class)
 	__attribute__ ((warn_unused_result));
 
-int blocking_diff (const NihList *a, const NihList *b)
+int blocking_diff (const NihList *a, const NihList *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
-int blocked_diff (const Blocked *a, const Blocked *b, int check_type)
+int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
 /**
@@ -146,18 +174,23 @@ fail:
  * event_diff:
  * @a: first Event,
  * @b: second Event,
- * @check_blocking: if TRUE, also compare 'blocking'
- * within @a and @b.
+ * @seen: object type that has already been seen.
  *
  * Compare two Event objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-event_diff (const Event *a, const Event *b, int check_blocking)
+event_diff (const Event *a, const Event *b, AlreadySeen seen)
 {
 	nih_local char *env_a = NULL;
 	nih_local char *env_b = NULL;
+
+	if (seen == ALREADY_SEEN_EVENT)
+		return 0;
+
+	if (seen == ALREADY_SEEN_SET)
+		seen = ALREADY_SEEN_EVENT;
 
 	if ((a == b) && !a)
 		return 0;
@@ -189,7 +222,7 @@ event_diff (const Event *a, const Event *b, int check_blocking)
 	if (obj_num_check (a, b, blockers))
 		goto fail;
 
-	if (check_blocking && blocking_diff (&a->blocking, &b->blocking))
+	if (blocking_diff (&a->blocking, &b->blocking, seen))
 		goto fail;
 
 	return 0;
@@ -321,15 +354,16 @@ fail:
  * job_class_diff:
  * @a: first Job,
  * @b: second Job,
- * @check_jobs: if TRUE, also compare job instances
- * within @a and @b.
+ * @seen: object type that has already been seen,
+ * @check_jobs: if TRUE, consider job instances.
  *
  * Compare two JobClass objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-job_class_diff (const JobClass *a, const JobClass *b, int check_jobs)
+job_class_diff (const JobClass *a, const JobClass *b,
+		AlreadySeen seen, int check_jobs)
 {
 	size_t          i;
 	nih_local char *env_a = NULL;
@@ -359,15 +393,15 @@ job_class_diff (const JobClass *a, const JobClass *b, int check_jobs)
 	if (obj_string_check (a, b, instance))
 		goto fail;
 
-	if (check_jobs) {
-		if (obj_num_check (a->instances, b->instances, size))
-			goto fail;
+	if (obj_num_check (a->instances, b->instances, size))
+		goto fail;
 
+	if (check_jobs) {
 		TEST_TWO_HASHES_FOREACH (a->instances, b->instances, iter1, iter2) {
 			Job *job1 = (Job *)iter1;
 			Job *job2 = (Job *)iter2;
 
-			if (job_diff (job1, job2))
+			if (job_diff (job1, job2, seen, FALSE))
 				goto fail;
 		}
 	}
@@ -505,14 +539,16 @@ fail:
 /**
  * job_diff:
  * @a: first Job,
- * @b: second Job.
+ * @b: second Job,
+ * @seen: object type that has already been seen,
+ * @check_class: if TRUE, consider parent_class.
  *
  * Compare two Job objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-job_diff (const Job *a, const Job *b)
+job_diff (const Job *a, const Job *b, AlreadySeen seen, int check_class)
 {
 	size_t          i;
 	nih_local char *env_a = NULL;
@@ -520,6 +556,11 @@ job_diff (const Job *a, const Job *b)
 
 	nih_local char *condition_a = NULL;
 	nih_local char *condition_b = NULL;
+
+	if (seen == ALREADY_SEEN_JOB)
+		return 0;
+	if (seen == ALREADY_SEEN_SET)
+		seen = ALREADY_SEEN_JOB;
 
 	if ((a == b) && !a)
 		return 0;
@@ -530,8 +571,10 @@ job_diff (const Job *a, const Job *b)
 	if (obj_string_check (a, b, name))
 		goto fail;
 
-	if (job_class_diff (a->class, b->class, FALSE))
-		goto fail;
+	if (check_class) {
+		if (job_class_diff (a->class, b->class, seen, FALSE))
+			goto fail;
+	}
 
 	if (obj_string_check (a, b, path))
 		goto fail;
@@ -584,7 +627,7 @@ job_diff (const Job *a, const Job *b)
 
 	assert0 (event_diff (a->blocker, b->blocker, TRUE));
 
-	if (blocking_diff (&a->blocking, &b->blocking))
+	if (blocking_diff (&a->blocking, &b->blocking, seen))
 		goto fail;
 
 	if (nih_timer_diff (a->kill_timer, b->kill_timer))
@@ -630,14 +673,15 @@ fail:
 /**
  * blocking_diff
  * @a: first list of Blocked objects,
- * @b: second list of Blocked objects.
+ * @b: second list of Blocked objects,
+ * @seen: object type that has already been seen.
  *
  * Compare two lists of Blocked objects.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-blocking_diff (const NihList *a, const NihList *b)
+blocking_diff (const NihList *a, const NihList *b, AlreadySeen seen)
 {
 	if ((a == b) && !a)
 		return 0;
@@ -650,7 +694,7 @@ blocking_diff (const NihList *a, const NihList *b)
 		Blocked *blocked_a = (Blocked *)iter_a;
 		Blocked *blocked_b = (Blocked *)iter_b;
 
-		if (blocked_diff (blocked_a, blocked_b, FALSE))
+		if (blocked_diff (blocked_a, blocked_b, seen))
 			goto fail;
 	}
 
@@ -664,19 +708,23 @@ fail:
  * blocked_diff
  * @a: first Blocked,
  * @b: second Blocked,
- * @check_type: if TRUE, also compare values of @a and @b's
- * blocked type (event or job).
+ * @seen: object type that has already been seen.
  *
  * Compare two Blocked objects for equivalence.
  *
  * Returns: 0 if @a and @b are identical, else 1.
  **/
 int
-blocked_diff (const Blocked *a, const Blocked *b, int check_type)
+blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 {
 	const char  *enum_str_a;
 	const char  *enum_str_b;
 	int          ret = 0;
+
+	if (seen == ALREADY_SEEN_BLOCKED)
+		return 0;
+	if (seen == ALREADY_SEEN_SET)
+		seen = ALREADY_SEEN_BLOCKED;
 
 	if ((a == b) && !a)
 		return 0;
@@ -695,13 +743,11 @@ blocked_diff (const Blocked *a, const Blocked *b, int check_type)
 
 	switch (a->type) {
 	case BLOCKED_JOB:
-		if (check_type)
-			ret = job_diff (a->job, b->job);
+		ret = job_diff (a->job, b->job, seen, TRUE);
 		break;
 
 	case BLOCKED_EVENT:
-		if (check_type)
-			ret = event_diff (a->event, b->event, TRUE);
+		ret = event_diff (a->event, b->event, seen);
 		break;
 
 	default:
@@ -859,6 +905,7 @@ test_blocking (void)
 	JobClass              *class;
 	JobClass              *new_class;
 	Job                   *job;
+	Job                   *new_job;
 	Event                 *event;
 	Event                 *new_event;
 	Blocked               *blocked;
@@ -937,11 +984,87 @@ test_blocking (void)
 	TEST_LIST_EMPTY (events);
 	TEST_LIST_NOT_EMPTY (&new_event->blocking);
 
-	assert0 (event_diff (event, new_event, TRUE));
+	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 	nih_free (event);
 
 	/* free the event created "on re-exec" */
+	nih_free (new_event);
+	nih_free (source);
+	nih_free (new_class);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/*******************************/
+	TEST_FEATURE ("job blocking an event");
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	event = event_new (NULL, "bingo", NULL);
+	TEST_NE_P (event, NULL);
+	TEST_LIST_EMPTY (&event->blocking);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+	class = file->job = job_class_new (NULL, "bar", NULL);
+
+	TEST_NE_P (class, NULL);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	blocked = blocked_new (NULL, BLOCKED_EVENT, event);
+	TEST_NE_P (blocked, NULL);
+
+	nih_list_add (&job->blocking, &blocked->entry);
+	event_block (event);
+	TEST_EQ (event->blockers, 1);
+
+	assert0 (state_to_string (&json_string, &len));
+	TEST_GT (len, 0);
+
+	nih_list_remove (&event->entry);
+	nih_list_remove (&class->entry);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	new_class = (JobClass *)nih_hash_lookup (job_classes, "bar");
+	TEST_NE_P (new_class, NULL);
+	nih_list_remove (&new_class->entry);
+
+	new_event = (Event *)nih_list_remove (events->next);
+	TEST_LIST_EMPTY (events);
+
+	new_job = (Job *)nih_hash_lookup (new_class->instances, "");
+	TEST_NE_P (new_job, NULL);
+
+	assert0 (job_diff (job, new_job, ALREADY_SEEN_SET, TRUE));
+	assert0 (job_class_diff (class, new_class, ALREADY_SEEN_SET, TRUE));
+
+	nih_free (event);
 	nih_free (new_event);
 	nih_free (source);
 	nih_free (new_class);
@@ -992,7 +1115,7 @@ test_event_serialise (void)
 	TEST_NE_P (json, NULL);
 	TEST_LIST_NOT_EMPTY (events);
 
-	assert0 (event_diff (event, new_event, TRUE));
+	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 	nih_free (event);
 	nih_free (new_event);
@@ -1023,7 +1146,7 @@ test_event_serialise (void)
 	new_event = event_deserialise (json);
 	TEST_NE_P (json, NULL);
 
-	assert0 (event_diff (event, new_event, TRUE));
+	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 	nih_free (event);
 	nih_free (new_event);
@@ -1063,7 +1186,7 @@ test_event_serialise (void)
 		new_event = event_deserialise (json);
 		TEST_NE_P (json, NULL);
 
-		assert0 (event_diff (event, new_event, TRUE));
+		assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 		nih_free (event);
 		nih_free (new_event);
@@ -1094,7 +1217,7 @@ test_event_serialise (void)
 		new_event = event_deserialise (json);
 		TEST_NE_P (json, NULL);
 
-		assert0 (event_diff (event, new_event, TRUE));
+		assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 		nih_free (event);
 		nih_free (new_event);
@@ -1137,7 +1260,7 @@ test_event_serialise (void)
 	TEST_LIST_NOT_EMPTY (events);
 
 	new_event = (Event *)nih_list_remove (events->next);
-	assert0 (event_diff (event, new_event, TRUE));
+	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
 
 	nih_free (event);
 	nih_free (session);
@@ -1392,7 +1515,7 @@ test_job_class_serialise (void)
 	new_class = job_class_deserialise (json);
 	TEST_NE_P (new_class, NULL);
 
-	assert0 (job_class_diff (class, new_class, TRUE));
+	assert0 (job_class_diff (class, new_class, ALREADY_SEEN_SET, TRUE));
 
 	nih_free (source);
 	nih_free (new_class);
@@ -1455,7 +1578,7 @@ test_job_class_serialise (void)
 	new_class = job_class_deserialise (json);
 	TEST_NE_P (new_class, NULL);
 
-	assert0 (job_class_diff (class, new_class, TRUE));
+	assert0 (job_class_diff (class, new_class, ALREADY_SEEN_SET, TRUE));
 
 	nih_free (source);
 	nih_free (new_class);
@@ -1501,13 +1624,118 @@ test_job_serialise (void)
 	TEST_NE_P (new_job, NULL);
 	TEST_HASH_NOT_EMPTY (class->instances);
 
-	assert0 (job_diff (job, new_job));
+	assert0 (job_diff (job, new_job, ALREADY_SEEN_SET, TRUE));
 
 	nih_free (job);
 	json_object_put (json);
 
 	/*******************************/
 }
+
+void
+test_enums (void)
+{
+	int           blocked_value;
+	const char   *string_value;
+	int           i;
+
+	TEST_GROUP ("stateful re-exec enums");
+
+	/*******************************/
+	TEST_FEATURE ("BlockedType");
+
+	for (i = -3; i < BLOCKED_INSTANCE_RESTART_METHOD+3; i++) {
+
+		/* convert to string value */
+		string_value = blocked_type_enum_to_str (i);
+		if (i < 0 || i > BLOCKED_INSTANCE_RESTART_METHOD) {
+			TEST_EQ_P (string_value, NULL);
+		} else {
+			TEST_NE_P (string_value, NULL);
+		}
+
+		/* convert back to enum */
+		blocked_value = blocked_type_str_to_enum (string_value);
+		if (i < 0 || i > BLOCKED_INSTANCE_RESTART_METHOD) {
+			TEST_EQ (blocked_value, -1);
+		} else {
+			TEST_NE (blocked_value, -1);
+			TEST_EQ (blocked_value, i);
+		}
+	}
+
+	/*******************************/
+	TEST_FEATURE ("ProcessType");
+
+	for (i = PROCESS_INVALID-1; i < PROCESS_LAST+3; i++) {
+
+		/* convert to string value */
+		string_value = process_type_enum_to_str (i);
+		if ((i < 0 && i != -2) || (i+1) > PROCESS_LAST) {
+			TEST_EQ_P (string_value, NULL);
+		} else {
+			TEST_NE_P (string_value, NULL);
+		}
+
+		/* convert back to enum */
+		blocked_value = process_type_str_to_enum (string_value);
+		if ((i < 0 && i != -2) || (i+1) > PROCESS_LAST) {
+			TEST_EQ (blocked_value, -1);
+		} else {
+			TEST_NE (blocked_value, -1);
+			TEST_EQ (blocked_value, i);
+		}
+	}
+
+	/*******************************/
+	TEST_FEATURE ("ConsoleType");
+
+	for (i = -3; i < CONSOLE_LOG+3; i++) {
+
+		/* convert to string value */
+		string_value = job_class_console_type_enum_to_str (i);
+		if (i < 0 || i > CONSOLE_LOG) {
+			TEST_EQ_P (string_value, NULL);
+		} else {
+			TEST_NE_P (string_value, NULL);
+		}
+
+		/* convert back to enum */
+		blocked_value = job_class_console_type_str_to_enum (string_value);
+		if (i < 0 || i > CONSOLE_LOG) {
+			TEST_EQ (blocked_value, -1);
+		} else {
+			TEST_NE (blocked_value, -1);
+			TEST_EQ (blocked_value, i);
+		}
+	}
+
+	/*******************************/
+	TEST_FEATURE ("ExpectType");
+
+	for (i = -3; i < EXPECT_FORK+3; i++) {
+
+		/* convert to string value */
+		string_value = job_class_expect_type_enum_to_str (i);
+		if (i < 0 || i > EXPECT_FORK) {
+			TEST_EQ_P (string_value, NULL);
+		} else {
+			TEST_NE_P (string_value, NULL);
+		}
+
+		/* convert back to enum */
+		blocked_value = job_class_expect_type_str_to_enum (string_value);
+		if (i < 0 || i > EXPECT_FORK) {
+			TEST_EQ (blocked_value, -1);
+		} else {
+			TEST_NE (blocked_value, -1);
+			TEST_EQ (blocked_value, i);
+		}
+	}
+	/*******************************/
+
+}
+
 
 int
 main (int   argc,
@@ -1521,6 +1749,7 @@ main (int   argc,
 	 */
 	setenv ("UPSTART_TESTS", "1", 1);
 
+	test_enums ();
 	test_session_serialise ();
 	test_process_serialise ();
 	test_blocking ();
