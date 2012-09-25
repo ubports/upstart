@@ -1789,6 +1789,9 @@ job_class_serialise_all (void)
  * job_class_deserialise:
  * @json: JSON-serialised JobClass object to deserialise.
  *
+ * Create JobClass from provided JSON and add to the
+ * job classes table.
+ *
  * Returns: JobClass object, or NULL on error.
  **/
 JobClass *
@@ -1808,6 +1811,9 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	if (! state_get_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (session_index < 0)
 		goto error;
 
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
@@ -1831,7 +1837,11 @@ job_class_deserialise (json_object *json)
 
 	nih_assert (! strcmp (class->path, path));
 
+	/* Discard default instance as we're about to be handed a fresh
+	 * string from the JSON.
+	 */
 	nih_free (class->instance);
+
 	if (! state_get_json_string_var_to_obj (json, class, instance))
 		goto error;
 
@@ -1912,22 +1922,22 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, task))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, kill_timeout))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, kill_signal))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, respawn))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, respawn_limit))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, respawn_interval))
-			goto error;
+		goto error;
 
 	if (! state_get_json_enum_var (json,
 				job_class_console_type_str_to_enum,
@@ -1935,13 +1945,13 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, umask))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, nice))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, oom_score_adj))
-			goto error;
+		goto error;
 
 	if (! state_get_json_string_var_to_obj (json, class, chroot))
 		goto error;
@@ -1950,16 +1960,16 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	if (! state_get_json_string_var_to_obj (json, class, setuid))
-			goto error;
+		goto error;
 
 	if (! state_get_json_string_var_to_obj (json, class, setgid))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, deleted))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, class, debug))
-			goto error;
+		goto error;
 
 	if (! state_get_json_string_var_to_obj (json, class, usage))
 		goto error;

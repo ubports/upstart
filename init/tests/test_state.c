@@ -1,3 +1,9 @@
+/* TODO:
+ * - get/set state macros
+ * - str array ("deserialisation with env")
+ * - arrays of things (rlimit, process, pids, fds)
+ */
+
 /* upstart
  *
  * test_state.c - test suite for init/state.c
@@ -20,6 +26,7 @@
  */
 
 #include <unistd.h>
+#include <stdint.h>
 #include <limits.h>
 #include <errno.h>
 #include <pty.h>
@@ -47,6 +54,7 @@
 #include "blocked.h"
 #include "control.h"
 #include "test_util.h"
+
 
 /**
  * AlreadySeen:
@@ -1278,7 +1286,7 @@ test_event_serialise (void)
 }
 
 /* Data with some embedded nulls */
-const char log_str[] = {
+const char test_data[] = {
 	'h', 'e', 'l', 'l', 'o', 0x0, 0x0, 0x0, ' ', 'w', 'o', 'r', 'l', 'd', '\n', '\r', '\0'
 };
 
@@ -1360,11 +1368,11 @@ test_log_serialise (void)
 		/* now wait for parent */
 		assert (read (fds[0], buf, 1) == 1);
 
-		len = sizeof (log_str) / sizeof (char);
+		len = sizeof (test_data) / sizeof (char);
 		errno = 0;
 
 		/* Now write some data with embedded nulls */
-		ret = write (pty_slave, log_str, len);
+		ret = write (pty_slave, test_data, len);
 		TEST_EQ ((size_t)ret, len);
 
 		/* keep child running until the parent is ready (to
@@ -1736,6 +1744,226 @@ test_enums (void)
 
 }
 
+void
+test_int_arrays (void)
+{
+	int                 ret;
+	size_t              size32 = 7;
+	size_t              size64 = 9;
+	size_t              i;
+	size_t              new_size;
+	char               *parent = NULL;
+	json_object        *json;
+	nih_local int32_t  *array32 = NULL;
+	nih_local int64_t  *array64 = NULL;
+	int32_t	           *new_array32 = NULL;
+	int64_t	           *new_array64 = NULL;
+
+	array32 = nih_alloc (NULL, size32 * sizeof (int32_t));
+	TEST_NE_P (array32, NULL);
+
+	i = 0;
+	array32[i++] = INT32_MIN;
+	array32[i++] = -254;
+	array32[i++] = -1;
+	array32[i++] = 0;
+	array32[i++] = 1;
+	array32[i++] = 123456;
+	array32[i++] = INT32_MAX;
+
+	assert (size32 == i);
+
+	array64 = nih_alloc (NULL, size64 * sizeof (int64_t));
+	TEST_NE_P (array64, NULL);
+
+	i = 0;
+	array64[i++] = INT64_MIN;
+	array64[i++] = -255;
+	array64[i++] = -1;
+	array64[i++] = 0;
+	array64[i++] = 1;
+	array64[i++] = 7;
+	array64[i++] = 99;
+	array64[i++] = 123456;
+	array64[i++] = INT64_MAX;
+
+	assert (size64 == i);
+
+	TEST_GROUP ("integer array serialisation and deserialisation");
+
+	parent = nih_strdup (NULL, "");
+	TEST_NE_P (parent, NULL);
+
+	/*******************************/
+	TEST_FEATURE ("32-bit integer array");
+
+	json = state_serialise_int32_array (array32, size32);
+	TEST_NE_P (json, NULL);
+
+	ret = state_deserialise_int32_array (parent, json,
+			&new_array32, &new_size);
+	TEST_EQ (ret, 0);
+
+	ret = TEST_CMP_INT_ARRAYS (array32, new_array32, size32, new_size);
+	TEST_EQ (ret, 0);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("64-bit integer array");
+
+	json = state_serialise_int64_array (array64, size64);
+	TEST_NE_P (json, NULL);
+
+	ret = state_deserialise_int64_array (parent, json,
+			&new_array64, &new_size);
+	TEST_EQ (ret, 0);
+
+	ret = TEST_CMP_INT_ARRAYS (array64, new_array64, size64, new_size);
+	TEST_EQ (ret, 0);
+
+	json_object_put (json);
+
+	/*******************************/
+	/* parent frees the new arrays */
+	nih_free (parent);
+}
+
+void
+test_string_arrays (void)
+{
+	json_object      *json;
+	nih_local char  **array = NULL;
+	nih_local char  **new_array = NULL;
+	int               ret;
+	size_t            len = 0;
+	size_t            new_len = 0;
+
+	TEST_GROUP ("string array serialisation and deserialisation");
+
+	array = nih_str_array_new (NULL);
+	TEST_NE_P (array, NULL);
+
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "hello"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "wibble"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\n"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\t \n"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
+
+	/*******************************/
+	TEST_FEATURE ("serialisation");
+
+	json = state_serialise_str_array (array);
+	TEST_NE_P (json, NULL);
+
+	/*******************************/
+	TEST_FEATURE ("deserialisation");
+
+	new_array = state_deserialise_str_array (NULL, json, FALSE);
+	TEST_NE_P (json, NULL);
+
+	/* count elements */
+	for (char **p = new_array; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
+	TEST_EQ (ret, 0);
+
+
+	/* FIXME */
+#if 0
+	/*******************************/
+	TEST_FEATURE ("deserialisation with env");
+
+	new_array = state_deserialise_str_array (NULL, json, TRUE);
+	TEST_NE_P (json, NULL);
+
+	/* count elements */
+	for (char **p = new_array; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
+	TEST_EQ (ret, 0);
+#endif
+
+	/*******************************/
+	json_object_put (json);
+}
+
+void
+test_hex_encoding (void)
+{
+	int                ret;
+	nih_local char    *hex_data = NULL;
+	size_t             hex_data_len;
+	size_t             test_data_len;
+	nih_local char    *new_data = NULL;
+	size_t             new_data_len;
+
+	test_data_len = sizeof (test_data) / sizeof (char);
+
+	TEST_GROUP ("hex data encoding");
+
+	/*******************************/
+	TEST_FEATURE ("serialisation");
+
+	hex_data = state_data_to_hex (NULL, test_data, test_data_len);
+	TEST_NE_P (hex_data, NULL);
+	hex_data_len = strlen (hex_data);
+
+	/*******************************/
+	TEST_FEATURE ("deserialisation");
+
+	ret = state_hex_to_data (NULL, hex_data, hex_data_len,
+			&new_data, &new_data_len);
+	TEST_EQ (ret, 0);
+
+
+	ret = TEST_CMP_INT_ARRAYS (test_data, new_data, test_data_len, new_data_len);
+	TEST_EQ (ret, 0);
+}
+
+void
+test_rlimit_encoding (void)
+{
+	json_object              *json;
+	struct rlimit             limit;
+	nih_local struct rlimit  *new_limit = NULL;
+	int                       values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
+	int                       len;
+
+	TEST_GROUP ("rlimit encoding");
+
+	len = sizeof (values) / sizeof (values[0]);
+
+	for (int i = 0; i < len; i++) {
+
+		limit.rlim_cur = values[i];
+		limit.rlim_max = RLIM_INFINITY - values[i];
+		
+		json = state_rlimit_serialise (&limit);
+		TEST_NE_P (json, NULL);
+
+		new_limit = state_rlimit_deserialise (json);
+		TEST_NE_P (new_limit, NULL);
+
+		TEST_EQ (limit.rlim_cur, new_limit->rlim_cur);
+		TEST_EQ (limit.rlim_max, new_limit->rlim_max);
+	}
+
+/* FIXME */
+#if 0
+	struct rlimit  *limits[RLIMIT_NLIMITS];
+
+	for (i = 0; i < RLIMIT_NLIMITS; i++)
+		class->limits[i] = NULL;
+	class->limits[resource] = nih_new (class, struct rlimit);
+#endif
+
+}
 
 int
 main (int   argc,
@@ -1750,6 +1978,10 @@ main (int   argc,
 	setenv ("UPSTART_TESTS", "1", 1);
 
 	test_enums ();
+	test_int_arrays ();
+	test_string_arrays ();
+	test_hex_encoding ();
+	test_rlimit_encoding ();
 	test_session_serialise ();
 	test_process_serialise ();
 	test_blocking ();

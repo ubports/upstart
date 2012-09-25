@@ -1107,6 +1107,13 @@ int state_hex_to_data (void *parent, const void *hex_data,
 		       size_t *data_len)
 	__attribute__ ((warn_unused_result));
 
+json_object *state_rlimit_serialise (const struct rlimit *rlimit)
+	__attribute__ ((malloc, warn_unused_result));
+
+struct rlimit *state_rlimit_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
+
 extern char **args_copy;
 extern int restart;
 

@@ -1195,7 +1195,7 @@ job_process_kill (Job         *job,
 	nih_assert (job != NULL);
 	nih_assert (job->pid[process] > 0);
 	nih_assert (job->kill_timer == NULL);
-	nih_assert (job->kill_process = -1);
+	nih_assert (job->kill_process == PROCESS_INVALID);
 
 	nih_info (_("Sending %s signal to %s %s process (%d)"),
 		  nih_signal_to_name (job->class->kill_signal),
@@ -1276,13 +1276,13 @@ job_process_kill_timer (Job      *job,
 	nih_assert (job != NULL);
 	nih_assert (timer != NULL);
 	nih_assert (job->kill_timer == timer);
-	nih_assert (job->kill_process != (ProcessType)-1);
+	nih_assert (job->kill_process != PROCESS_INVALID);
 
 	process = job->kill_process;
 	nih_assert (job->pid[process] > 0);
 
 	job->kill_timer = NULL;
-	job->kill_process = -1;
+	job->kill_process = PROCESS_INVALID;
 
 	nih_info (_("Sending %s signal to %s %s process (%d)"),
 		  "KILL",
@@ -1637,7 +1637,7 @@ job_process_terminated (Job         *job,
 	if (job->kill_timer) {
 		nih_unref (job->kill_timer, job);
 		job->kill_timer = NULL;
-		job->kill_process = -1;
+		job->kill_process = PROCESS_INVALID;
 	}
 
 	if (job->class->console == CONSOLE_LOG && job->log[process]) {

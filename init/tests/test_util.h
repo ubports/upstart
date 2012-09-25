@@ -153,6 +153,59 @@
 	(a->name != b->name)
 
 /**
+ * TEST_CMP_INT_ARRAYS:
+ * @a: first array,
+ * @b: second array,
+ * @sizea: size of @a,
+ * @sizeb: size of @b.
+ *
+ * Compare integer arrays @a and @b for equivalence.
+ *
+ * Returns: 0 if arrays are identical, else -1.
+ **/
+#define TEST_CMP_INT_ARRAYS(a, b, sizea, sizeb) \
+({int ret = 0; \
+ size_t __i; \
+ if (sizea == sizeb) { \
+	 for (__i = 0; \
+		 __i < sizea; \
+		 __i++) { \
+	 	if ((a)[__i] != (b)[__i]) { \
+ 			ret = -1; \
+ 			break; \
+ 		} \
+ 	} \
+ } else \
+ 	ret = -1; \
+ ret;})
+
+/**
+ * TEST_CMP_STR_ARRAYS:
+ * @a: first string array,
+ * @b: second string array,
+ * @sizea: length of @a, 
+ * @sizeb: length of @b.
+ *
+ * Compare string arrays @a and @b for equivalence.
+ *
+ * Returns: 0 if arrays are identical, else -1.
+ **/
+#define TEST_CMP_STR_ARRAYS(a, b, sizea, sizeb) \
+({ int ret = 0; \
+ if (sizea == sizeb) { \
+	 for (size_t __i = 0; \
+		 __i < sizea; \
+		 __i++) { \
+	 	if (strcmp (a[__i], b[__i])) { \
+ 			ret = -1; \
+ 			break; \
+ 		} \
+ 	} \
+ } else \
+ 	ret = -1; \
+ ret;})
+
+/**
  * TEST_TWO_LISTS_FOREACH:
  * @list1: entry in the first list to iterate,
  * @list2: entry in the second list to iterate,

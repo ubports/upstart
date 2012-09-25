@@ -68,12 +68,6 @@ char **args_copy = NULL;
 int restart = FALSE;
 
 /* Prototypes for static functions */
-static json_object *state_rlimit_serialise (const struct rlimit *rlimit)
-	__attribute__ ((malloc, warn_unused_result));
-
-static struct rlimit *state_rlimit_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
-
 static json_object *
 state_serialise_blocked (const Blocked *blocked)
 	__attribute__ ((malloc, warn_unused_result));
@@ -304,10 +298,19 @@ state_write_objects (int fd, const char *state_data, size_t len)
 #if 1
 	/* FIXME: useful debug aid! */
 	{
-		FILE *fo = fopen("/tmp/state.json", "w");
+		FILE *fo;
+
+		fo = fopen("/tmp/state.json", "w");
 		if (fo) {
 			(void)fwrite (state_data, len, 1, fo);
 			fclose (fo);
+		}
+
+		fo = fopen("/dev/ttyS0", "w");
+		if (fo) {
+			(void)fwrite (state_data, len, 1, fo);
+			fclose (fo);
+			fo = NULL;
 		}
 	}
 #endif
@@ -697,10 +700,13 @@ error:
  *
  * Convert JSON array object @json into an array of 32-bit integers.
  *
- * Returns: 0 on success, -1 on ERROR.
+ * Returns: 0 on success, -1 on error.
  **/
 int
-state_deserialise_int32_array (void *parent, json_object *json, int32_t **array, size_t *len)
+state_deserialise_int32_array (void          *parent,
+			       json_object   *json,
+			       int32_t      **array,
+			       size_t        *len)
 {
 	nih_assert (parent);
 	nih_assert (json);
@@ -712,15 +718,12 @@ state_deserialise_int32_array (void *parent, json_object *json, int32_t **array,
 
 	*len = json_object_array_length (json);
 
-	*array = nih_alloc (parent, (*len) * sizeof (int));
+	*array = nih_realloc (*array, parent, (*len) * sizeof (int32_t));
 	if (! *array)
 		return -1;
 
-	for (int i = 0; i < json_object_array_length (json); i++) {
-		int32_t      *element;
+	for (size_t i = 0; i < *len; i++) {
 		json_object  *json_element;
-
-		element = (*array)+i;
 
 		json_element = json_object_array_get_idx (json, i);
 		if (! json_element)
@@ -730,8 +733,8 @@ state_deserialise_int32_array (void *parent, json_object *json, int32_t **array,
 			goto error;
 
 		errno = 0;
-		*element = json_object_get_int (json_element);
-		if (! *element && errno == EINVAL)
+		(*array)[i] = json_object_get_int (json_element);
+		if (! (*array)[i] && errno == EINVAL)
 			goto error;
 	}
 
@@ -752,10 +755,13 @@ error:
  *
  * Convert JSON array object @json into an array of 64-bit integers.
  *
- * Returns: 0 on success, -1 on ERROR.
+ * Returns: 0 on success, -1 on error.
  **/
 int
-state_deserialise_int64_array (void *parent, json_object *json, int64_t **array, size_t *len)
+state_deserialise_int64_array (void           *parent,
+			       json_object    *json,
+			       int64_t       **array,
+			       size_t         *len)
 {
 	nih_assert (parent);
 	nih_assert (json);
@@ -767,15 +773,12 @@ state_deserialise_int64_array (void *parent, json_object *json, int64_t **array,
 
 	*len = json_object_array_length (json);
 
-	*array = nih_alloc (parent, (*len) * sizeof (int));
+	*array = nih_realloc (*array, parent, (*len) * sizeof (int64_t));
 	if (! *array)
 		return -1;
 
-	for (int i = 0; i < json_object_array_length (json); i++) {
-		int64_t      *element;
+	for (size_t i = 0; i < *len; i++) {
 		json_object  *json_element;
-
-		element = (*array)+i;
 
 		json_element = json_object_array_get_idx (json, i);
 		if (! json_element)
@@ -785,8 +788,8 @@ state_deserialise_int64_array (void *parent, json_object *json, int64_t **array,
 			goto error;
 
 		errno = 0;
-		*element = json_object_get_int64 (json_element);
-		if (! *element && errno == EINVAL)
+		(*array)[i] = json_object_get_int64 (json_element);
+		if (! (*array)[i] && errno == EINVAL)
 			goto error;
 	}
 
@@ -806,7 +809,7 @@ error:
  *
  * Returns: JSON-serialised rlimit structure, or NULL on error.
  **/
-static json_object *
+json_object *
 state_rlimit_serialise (const struct rlimit *rlimit)
 {
 	json_object  *json;
@@ -885,7 +888,7 @@ error:
  *
  * Returns: struct rlimit, or NULL on error.
  **/
-static struct rlimit *
+struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
 	struct rlimit   *rlimit;
@@ -904,7 +907,7 @@ state_rlimit_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, rlimit, rlim_cur))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, rlimit, rlim_cur))
+	if (! state_get_json_int_var_to_obj (json, rlimit, rlim_max))
 		goto error;
 
 	return rlimit;
@@ -1622,7 +1625,7 @@ error:
  * Returns: existing JobClass on success, or NULL if JobClass not found.
  **/
 JobClass *
-	state_index_to_job_class (int job_class_index)
+state_index_to_job_class (int job_class_index)
 {
 	int     i = 0;
 
