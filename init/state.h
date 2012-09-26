@@ -963,38 +963,6 @@
 	 ? state_deserialise_int32_array (parent, json, (int32_t **)array, len) \
 	 : state_deserialise_int64_array (parent, json, (int64_t **)array, len))
 
-/**
- * state_copy_str_array_to_obj:
- *
- * @to: object to copy @array to,
- * @from: object from which to copy from,
- * @array: name of string array element in @from to copy.
- *
- * Copy string array @array from @from to @to.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_copy_str_array_to_obj(to, from, element) \
-	(to->element = nih_str_array_copy (to, NULL, from->element))
-
-/**
- * state_copy_event_oper_to_obj:
- *
- * @to: object to copy @event_oper to,
- * @from: object from which to copy from,
- * @event_oper: name of EventOperator element in @from to copy.
- *
- * Copy EventOperator @event_oper from @from to @to.
- *
- * Returns: TRUE on success, or FALSE on error.
- **/
-#define state_copy_event_oper_to_obj(to, from, event_oper) \
-	({if (from->event_oper) \
-	 	to->event_oper = event_operator_copy (to, from->event_oper); \
-	 else \
-	 	to->event_oper = NULL; \
-	 from->event_oper ? to->event_oper ? 1 : 0 : 1;})
-
 NIH_BEGIN_EXTERN
 
 /**

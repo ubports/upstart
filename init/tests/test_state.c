@@ -1,7 +1,6 @@
 /* TODO:
- * - get/set state macros
- * - str array ("deserialisation with env")
  * - arrays of things (rlimit, process, pids, fds)
+ *   process_deserialise_all()
  */
 
 /* upstart
@@ -94,6 +93,7 @@ typedef struct foo {
 	char           *str;
 	pid_t           pid;
 	struct rlimit   limit;
+	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char          **env;
 	char          **array;
 } Foo;
@@ -1817,7 +1817,7 @@ test_int_arrays (void)
 	TEST_NE_P (parent, NULL);
 
 	/*******************************/
-	TEST_FEATURE ("32-bit integer array");
+	TEST_FEATURE ("explicit 32-bit integer array");
 
 	json = state_serialise_int32_array (array32, size32);
 	TEST_NE_P (json, NULL);
@@ -1832,7 +1832,22 @@ test_int_arrays (void)
 	json_object_put (json);
 
 	/*******************************/
-	TEST_FEATURE ("64-bit integer array");
+	TEST_FEATURE ("implicit 32-bit integer array");
+
+	json = state_serialise_int_array (int32_t, array32, size32);
+	TEST_NE_P (json, NULL);
+
+	ret = state_deserialise_int_array (parent, json,
+			int32_t, &new_array32, &new_size);
+	TEST_EQ (ret, 0);
+
+	ret = TEST_CMP_INT_ARRAYS (array32, new_array32, size32, new_size);
+	TEST_EQ (ret, 0);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("explicit 64-bit integer array");
 
 	json = state_serialise_int64_array (array64, size64);
 	TEST_NE_P (json, NULL);
@@ -1847,6 +1862,51 @@ test_int_arrays (void)
 	json_object_put (json);
 
 	/*******************************/
+	TEST_FEATURE ("implicit 64-bit integer array");
+
+	json = state_serialise_int_array (int64_t, array64, size64);
+	TEST_NE_P (json, NULL);
+
+	ret = state_deserialise_int_array (parent, json,
+			int64_t, &new_array64, &new_size);
+	TEST_EQ (ret, 0);
+
+	ret = TEST_CMP_INT_ARRAYS (array64, new_array64, size64, new_size);
+	TEST_EQ (ret, 0);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("implicit native integer array");
+
+	if (sizeof (int) == 4) {
+		json = state_serialise_int_array (int, array32, size32);
+		TEST_NE_P (json, NULL);
+
+		ret = state_deserialise_int_array (parent, json,
+				int32_t, &new_array32, &new_size);
+		TEST_EQ (ret, 0);
+
+		ret = TEST_CMP_INT_ARRAYS (array32, new_array32, size32, new_size);
+		TEST_EQ (ret, 0);
+	} else if (sizeof (int) == 8) {
+		json = state_serialise_int_array (int, array64, size64);
+		TEST_NE_P (json, NULL);
+
+		ret = state_deserialise_int_array (parent, json,
+				int64_t, &new_array64, &new_size);
+		TEST_EQ (ret, 0);
+
+		ret = TEST_CMP_INT_ARRAYS (array64, new_array64, size64, new_size);
+		TEST_EQ (ret, 0);
+	} else {
+		/* How long before this fires? ;-) */
+		nih_assert_not_reached ();
+	}
+
+	json_object_put (json);
+	/*******************************/
+
 	/* parent frees the new arrays */
 	nih_free (parent);
 }
@@ -1953,12 +2013,20 @@ test_hex_encoding (void)
 void
 test_rlimit_encoding (void)
 {
+	int                       ret;
+	nih_local Foo            *foo = NULL;
+	nih_local Foo            *new_foo = NULL;
 	json_object              *json;
+	json_object              *json_limits;
 	struct rlimit             limit;
 	nih_local struct rlimit  *new_limit = NULL;
 	int                       len;
+	int                       i;
 
 	TEST_GROUP ("rlimit encoding");
+
+	/*******************************/
+	TEST_FEATURE ("single rlimit serialisation and deserialisation");
 
 	len = TEST_ARRAY_SIZE (rlimit_values);
 
@@ -1977,15 +2045,42 @@ test_rlimit_encoding (void)
 		TEST_EQ (limit.rlim_max, new_limit->rlim_max);
 	}
 
-/* FIXME */
-#if 0
-	struct rlimit  *limits[RLIMIT_NLIMITS];
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("rlimits array serialisation and deserialisation");
+
+	len = TEST_ARRAY_SIZE (rlimit_values);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
-		class->limits[i] = NULL;
-	class->limits[resource] = nih_new (class, struct rlimit);
-#endif
+		foo->limits[i] = new_foo->limits[i] = NULL;
 
+	for (i = 0; i < len; i++) {
+		json = json_object_new_object ();
+		TEST_NE_P (json, NULL);
+
+		foo->limits[i] = nih_new (foo, struct rlimit);
+		TEST_NE_P (foo->limits[i], NULL);
+
+		foo->limits[i]->rlim_cur = RLIM_INFINITY - rlimit_values[i];
+		foo->limits[i]->rlim_max = rlimit_values[i];
+
+		json_limits = state_rlimit_serialise_all (foo->limits);
+		TEST_NE_P (json_limits, NULL);
+
+		json_object_object_add (json, "limits", json_limits);
+
+		ret = state_rlimit_deserialise_all (json, new_foo, &new_foo->limits);
+		TEST_EQ (ret, 0);
+
+		json_object_put (json);
+	}
 }
 
 void
@@ -2052,6 +2147,23 @@ test_basic_types (void)
 		if (strings[i] == NULL) {
 			TEST_EQ (strings[i], str);
 		} else {
+			TEST_EQ_STR (strings[i], str);
+		}
+	}
+
+	/*******************************/
+	TEST_FEATURE ("strict string serialisation and deserialisation");
+
+	for (i = 0; i < sizestr; i++) {
+		TEST_TRUE (state_set_json_string_var (json, "s", strings[i]));
+
+		ret = state_get_json_string_var_strict (json, "s", NULL, str);
+
+		if (strings[i] == NULL) {
+			TEST_FALSE (ret);
+			TEST_EQ (strings[i], str);
+		} else {
+			TEST_TRUE (ret);
 			TEST_EQ_STR (strings[i], str);
 		}
 	}
