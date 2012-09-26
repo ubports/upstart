@@ -811,7 +811,7 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_set_json_int64_var_from_obj(json, object, name) \
-	(state_set_json_num_var_from_obj (json, object, name, int, int64_t))
+	(state_set_json_num_var_from_obj (json, object, name, int64, int64_t))
 
 /**
  * state_set_json_int32_var:
@@ -1119,7 +1119,7 @@ extern int restart;
 
 void perform_reexec  (void);
 void stateful_reexec (void);
-void clean_args (void);
+void clean_args      (char ***args);
 
 NIH_END_EXTERN
 

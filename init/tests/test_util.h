@@ -256,6 +256,18 @@
 			iter1 = nih_tree_next (tree1, iter1), \
 			iter2 = nih_tree_next (tree2, iter2))
 
+
+/**
+ * TEST_ARRAY_SIZE:
+ * @array: array.
+ * 
+ * Determine size of specified array.
+ *
+ * Returns: array size.
+ **/
+#define TEST_ARRAY_SIZE(array) \
+	(sizeof (array) / sizeof (array[0]))
+
 /* Prototypes */
 int string_check (const char *a, const char *b);
 

@@ -439,7 +439,7 @@ main (int   argc,
 			 * args which will effectively disable stateful
 			 * re-exec.
 			 */
-			clean_args ();
+			clean_args (&args_copy);
 
 			/* Attempt stateless re-exec */
 			perform_reexec ();

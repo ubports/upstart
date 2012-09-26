@@ -82,6 +82,20 @@ typedef enum {
 	ALREADY_SEEN_LAST
 } AlreadySeen;
 
+/**
+ * Foo:
+ *
+ * Test structure containing simple, opaque and
+ * known aggregate types.
+ **/
+typedef struct foo {
+	int32_t        int32;
+	int64_t        int64;
+	char          *str;
+	pid_t          pid;
+	struct rlimit  limit;
+} Foo;
+
 int session_diff (const Session *a, const Session *b)
 	__attribute__ ((warn_unused_result));
 
@@ -113,6 +127,22 @@ int blocking_diff (const NihList *a, const NihList *b, AlreadySeen seen)
 
 int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
+
+/* Data with some embedded nulls */
+const    char test_data[] = {
+	'h', 'e', 'l', 'l', 'o', 0x0, 0x0, 0x0, ' ', 'w', 'o', 'r', 'l', 'd', '\n', '\r', '\0'
+};
+char    *strings[] = {
+	"", NULL, "a", "123", "FOO=BAR", "hello\n\t\aworld",
+	"foo bar", "\\\a\b\f\n\r\t\v", "\"'$*&()[]{}-_=+/?@':;>.<,~#"
+};
+int32_t  values32[] = {INT32_MIN, -1, 0, 1, INT32_MAX};
+int64_t  values64[] = {INT64_MIN, -1, 0, 1, INT64_MAX};
+const Process test_procs[] = {
+	{ 0, "echo hello" },
+	{ 1, "echo hello" },
+};
+int     rlimit_values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
 
 /**
  * session_diff:
@@ -847,11 +877,6 @@ test_session_serialise (void)
 	nih_free (new_session2);
 }
 
-const Process test_procs[] = {
-	{ 0, "echo hello" },
-	{ 1, "echo hello" },
-};
-
 void
 run_process_test (const Process *proc)
 {
@@ -898,7 +923,7 @@ test_process_serialise (void)
 
 	TEST_GROUP ("Process serialisation and deserialisation");
 
-	num = (int)sizeof (test_procs) / sizeof (Process);
+	num = TEST_ARRAY_SIZE (test_procs);
 
 	for (i = 0; i < num; i++)
 		run_process_test (&test_procs[i]);
@@ -1285,11 +1310,6 @@ test_event_serialise (void)
 	/*******************************/
 }
 
-/* Data with some embedded nulls */
-const char test_data[] = {
-	'h', 'e', 'l', 'l', 'o', 0x0, 0x0, 0x0, ' ', 'w', 'o', 'r', 'l', 'd', '\n', '\r', '\0'
-};
-
 void
 test_log_serialise (void)
 {
@@ -1368,7 +1388,7 @@ test_log_serialise (void)
 		/* now wait for parent */
 		assert (read (fds[0], buf, 1) == 1);
 
-		len = sizeof (test_data) / sizeof (char);
+		len = TEST_ARRAY_SIZE (test_data);
 		errno = 0;
 
 		/* Now write some data with embedded nulls */
@@ -1846,11 +1866,12 @@ test_string_arrays (void)
 
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
-	NIH_MUST (nih_str_array_add (&array, NULL, &len, "hello"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "hello="));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, "FOO=BAR"));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, "wibble"));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\n"));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\t \n"));
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\"'$*&()[]{}-_=+/?@':;>.<,~#"));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
 
 	/*******************************/
@@ -1866,15 +1887,13 @@ test_string_arrays (void)
 	TEST_NE_P (json, NULL);
 
 	/* count elements */
+	new_len = 0;
 	for (char **p = new_array; p && *p; p++, new_len++)
 		;
 
 	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
 	TEST_EQ (ret, 0);
 
-
-	/* FIXME */
-#if 0
 	/*******************************/
 	TEST_FEATURE ("deserialisation with env");
 
@@ -1882,12 +1901,15 @@ test_string_arrays (void)
 	TEST_NE_P (json, NULL);
 
 	/* count elements */
+	new_len = 0;
 	for (char **p = new_array; p && *p; p++, new_len++)
 		;
 
-	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
-	TEST_EQ (ret, 0);
-#endif
+	/* environment arrays only contain values with equals signs */
+	TEST_EQ (new_len, 3);
+	TEST_EQ_STR (new_array[0], array[2]);
+	TEST_EQ_STR (new_array[1], array[3]);
+	TEST_EQ_STR (new_array[2], array[7]);
 
 	/*******************************/
 	json_object_put (json);
@@ -1903,7 +1925,7 @@ test_hex_encoding (void)
 	nih_local char    *new_data = NULL;
 	size_t             new_data_len;
 
-	test_data_len = sizeof (test_data) / sizeof (char);
+	test_data_len = TEST_ARRAY_SIZE (test_data);
 
 	TEST_GROUP ("hex data encoding");
 
@@ -1932,17 +1954,16 @@ test_rlimit_encoding (void)
 	json_object              *json;
 	struct rlimit             limit;
 	nih_local struct rlimit  *new_limit = NULL;
-	int                       values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
 	int                       len;
 
 	TEST_GROUP ("rlimit encoding");
 
-	len = sizeof (values) / sizeof (values[0]);
+	len = TEST_ARRAY_SIZE (rlimit_values);
 
 	for (int i = 0; i < len; i++) {
 
-		limit.rlim_cur = values[i];
-		limit.rlim_max = RLIM_INFINITY - values[i];
+		limit.rlim_cur = rlimit_values[i];
+		limit.rlim_max = RLIM_INFINITY - rlimit_values[i];
 		
 		json = state_rlimit_serialise (&limit);
 		TEST_NE_P (json, NULL);
@@ -1965,6 +1986,161 @@ test_rlimit_encoding (void)
 
 }
 
+void
+test_basic_types (void)
+{
+	json_object *json;
+	int32_t      int32;
+	int64_t      int64;
+	char        *str;
+	size_t       i;
+	size_t       size32;
+	size_t       size64;
+	size_t       sizestr;
+	nih_local Foo  *foo = NULL;
+	nih_local Foo  *new_foo = NULL;
+
+	size32 = TEST_ARRAY_SIZE (values32);
+	size64 = TEST_ARRAY_SIZE (values64);
+	sizestr = TEST_ARRAY_SIZE (strings);
+
+	TEST_GROUP ("basic types");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+
+	memset (foo, '\0', sizeof (Foo));
+	memset (new_foo, '\0', sizeof (Foo));
+
+	/*******************************/
+	TEST_FEATURE ("32-bit integer serialisation and deserialisation");
+
+	for (i = 0; i < size32; i++) {
+		TEST_TRUE (state_set_json_int_var (json, "foo", values32[i]));
+		TEST_TRUE (state_get_json_int_var (json, "foo", int32));
+		TEST_EQ (int32, values32[i]);
+	}
+
+	/*******************************/
+	TEST_FEATURE ("64-bit integer serialisation and deserialisation");
+
+	for (i = 0; i < size64; i++) {
+		TEST_TRUE (state_set_json_int_var (json, "foo", values64[i]));
+		TEST_TRUE (state_get_json_int_var (json, "foo", int64));
+		TEST_EQ (int64, values64[i]);
+	}
+
+	/*******************************/
+	TEST_FEATURE ("string serialisation and deserialisation");
+
+	for (i = 0; i < sizestr; i++) {
+		TEST_TRUE (state_set_json_string_var (json, "s", strings[i]));
+		TEST_TRUE (state_get_json_string_var (json, "s", NULL, str));
+		if (strings[i] == NULL) {
+			TEST_EQ (strings[i], str);
+		} else {
+			TEST_EQ_STR (strings[i], str);
+		}
+	}
+
+	/*******************************/
+	TEST_FEATURE ("32-bit object integer serialisation and deserialisation");
+
+	for (i = 0; i < size32; i++) {
+		foo->int32 = values32[i];
+		TEST_TRUE (state_set_json_int_var_from_obj (json, foo, int32));
+		TEST_TRUE (state_get_json_int_var_to_obj (json, new_foo, int32));
+		TEST_EQ (new_foo->int32, foo->int32);
+	}
+
+	/*******************************/
+	TEST_FEATURE ("64-bit object integer serialisation and deserialisation");
+
+	for (i = 0; i < size64; i++) {
+		foo->int64 = values64[i];
+		TEST_TRUE (state_set_json_int_var_from_obj (json, foo, int64));
+		TEST_TRUE (state_get_json_int_var_to_obj (json, new_foo, int64));
+		TEST_EQ (new_foo->int64, foo->int64);
+	}
+
+	/*******************************/
+
+	json_object_put (json);
+
+	/*******************************/
+}
+
+void
+test_misc (void)
+{
+	nih_local char **args = NULL;
+	size_t           len = 0;
+
+	TEST_GROUP ("miscellaneous");
+
+	/*******************************/
+	TEST_FUNCTION ("clean_args");
+
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/sbin/init"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--logdir"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/var/log/upstart"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--state-fd"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "7"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--state-fd"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "3"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--state-fd"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "123"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--verbose"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--confdir"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/etc/init"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--state-fd"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "123"));
+
+	clean_args (&args);
+
+	TEST_EQ_STR (args[0], "/sbin/init");
+	TEST_EQ_STR (args[1], "--logdir");
+	TEST_EQ_STR (args[2], "/var/log/upstart");
+	TEST_EQ_STR (args[3], "--confdir");
+	TEST_EQ_STR (args[4], "/etc/init");
+
+#if 0
+	Job *job;
+
+	job_class_init ();
+
+	/*******************************/
+	TEST_FUNCTION ("state_get_job");
+
+	TEST_HASH_EMPTY (job_classes);
+
+	job = state_get_job ("", "");
+	TEST_EQ_P (job, NULL);
+
+	job = state_get_job ("a", "");
+	TEST_EQ_P (job, NULL);
+
+	job = state_get_job ("", "a");
+	TEST_EQ_P (job, NULL);
+#endif
+
+
+	/*******************************/
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -1977,6 +2153,8 @@ main (int   argc,
 	 */
 	setenv ("UPSTART_TESTS", "1", 1);
 
+	test_basic_types ();
+	test_misc ();
 	test_enums ();
 	test_int_arrays ();
 	test_string_arrays ();

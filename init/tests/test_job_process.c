@@ -5168,7 +5168,7 @@ test_kill (void)
 
 		nih_free (job->kill_timer);
 		job->kill_timer = NULL;
-		job->kill_process = (ProcessType)-1;
+		job->kill_process = PROCESS_INVALID;
 
 		nih_free (job);
 
@@ -5238,7 +5238,7 @@ test_kill (void)
 		TEST_EQ (WTERMSIG (status), SIGKILL);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, (ProcessType)-1);
+		TEST_EQ (job->kill_process, PROCESS_INVALID);
 
 		nih_free (job);
 
@@ -5498,7 +5498,7 @@ test_handler (void)
 		TEST_FREE (timer);
 
 		TEST_EQ_P (job->kill_timer, NULL);
-		TEST_EQ (job->kill_process, (ProcessType)-1);
+		TEST_EQ (job->kill_process, PROCESS_INVALID);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_STARTING);

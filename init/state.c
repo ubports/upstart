@@ -1656,7 +1656,7 @@ state_index_to_job_class (int job_class_index)
  * Returns: existing Job on success, or NULL if job class or
  * job not found.
  **/
-Job *
+static Job *
 state_get_job (const char *job_class, const char *job_name)
 {
 	JobClass  *class;
@@ -1918,7 +1918,7 @@ stateful_reexec (void)
 		close (fds[1]);
 
 		/* Tidy up from any previous re-exec */
-		clean_args ();
+		clean_args (&args_copy);
 
 		/* Tell the new instance where to read the
 		 * serialisation data from.
@@ -1989,43 +1989,43 @@ reexec:
  * performed many times.
  **/
 void
-clean_args (void)
+clean_args (char ***args)
 {
 	int i;
 
-	nih_assert (args_copy);
+	nih_assert (args);
 
-	for (i = 1; args_copy[i]; i++) {
+	for (i = 1; (*args)[i]; i++) {
 		int tmp = i;
 
-		if (! strcmp (args_copy[i], "--state-fd")) {
+		if (! strcmp ((*args)[i], "--state-fd")) {
 			/* Remove existing option and associated fd
 			 * paramter.
 			 */
-			nih_free (args_copy[tmp]);
-			nih_free (args_copy[tmp+1]);
+			nih_free ((*args)[tmp]);
+			nih_free ((*args)[tmp+1]);
 
 			/* shuffle up the remaining args */
-			for (int j = tmp+2; args_copy[j]; tmp++, j++)
-				args_copy[tmp] = args_copy[j];
+			for (int j = tmp+2; (*args)[j]; tmp++, j++)
+				(*args)[tmp] = (*args)[j];
 
 			/* terminate */
-			args_copy[tmp] = NULL;
+			(*args)[tmp] = NULL;
 
 			/* reconsider the newly-shuffled index entry */
 			i--;
-		} else if ((! strcmp (args_copy[i], "--debug")) ||
-			   (! strcmp (args_copy[i], "--verbose")) ||
-			   (! strcmp (args_copy[i], "--error"))) {
+		} else if ((! strcmp ((*args)[i], "--debug")) ||
+			   (! strcmp ((*args)[i], "--verbose")) ||
+			   (! strcmp ((*args)[i], "--error"))) {
 			/* Remove existing option */
-			nih_free (args_copy[i]);
+			nih_free ((*args)[i]);
 
 			/* shuffle up the remaining args */
-			for (int j = tmp+1; args_copy[j]; tmp++, j++)
-				args_copy[tmp] = args_copy[j];
+			for (int j = tmp+1; (*args)[j]; tmp++, j++)
+				(*args)[tmp] = (*args)[j];
 
 			/* terminate */
-			args_copy[tmp] = NULL;
+			(*args)[tmp] = NULL;
 
 			/* reconsider the newly-shuffled index entry */
 			i--;
