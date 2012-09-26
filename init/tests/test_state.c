@@ -89,11 +89,13 @@ typedef enum {
  * known aggregate types.
  **/
 typedef struct foo {
-	int32_t        int32;
-	int64_t        int64;
-	char          *str;
-	pid_t          pid;
-	struct rlimit  limit;
+	int32_t         int32;
+	int64_t         int64;
+	char           *str;
+	pid_t           pid;
+	struct rlimit   limit;
+	char          **env;
+	char          **array;
 } Foo;
 
 int session_diff (const Session *a, const Session *b)
@@ -1989,16 +1991,21 @@ test_rlimit_encoding (void)
 void
 test_basic_types (void)
 {
-	json_object *json;
-	int32_t      int32;
-	int64_t      int64;
-	char        *str;
-	size_t       i;
-	size_t       size32;
-	size_t       size64;
-	size_t       sizestr;
-	nih_local Foo  *foo = NULL;
-	nih_local Foo  *new_foo = NULL;
+	int                ret;
+	int32_t            int32;
+	int64_t            int64;
+	size_t             i;
+	size_t             size32;
+	size_t             size64;
+	size_t             sizestr;
+	char              *str;
+	size_t             len;
+	size_t             new_len;
+	json_object       *json;
+	nih_local Foo     *foo = NULL;
+	nih_local Foo     *new_foo = NULL;
+	nih_local char  **array = NULL;
+	nih_local char  **new_array = NULL;
 
 	size32 = TEST_ARRAY_SIZE (values32);
 	size64 = TEST_ARRAY_SIZE (values64);
@@ -2068,8 +2075,71 @@ test_basic_types (void)
 		TEST_TRUE (state_get_json_int_var_to_obj (json, new_foo, int64));
 		TEST_EQ (new_foo->int64, foo->int64);
 	}
+	json_object_put (json);
 
 	/*******************************/
+	TEST_FEATURE ("object env array serialisation and deserialisation");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+
+	foo->env = nih_str_array_new (foo);
+	TEST_NE_P (foo->env, NULL);
+
+	len = 0;
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "hello=world"));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "foo="));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "bar=123"));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "baz=\'two words\'"));
+
+	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, env));
+	TEST_TRUE (state_get_json_env_array_to_obj (json, new_foo, env));
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_foo->env; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (foo->env, new_foo->env, len, new_len);
+	TEST_EQ (ret, 0);
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("object string array serialisation and deserialisation");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo->array = nih_str_array_new (NULL);
+	TEST_NE_P (foo->array, NULL);
+
+	len = new_len = 0;
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, ""));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, ""));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "hello="));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "FOO=BAR"));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "wibble"));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "\n"));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "\t \n"));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, "\"'$*&()[]{}-_=+/?@':;>.<,~#"));
+	NIH_MUST (nih_str_array_add (&foo->array, NULL, &len, ""));
+
+	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, array));
+	TEST_TRUE (state_get_json_str_array_to_obj (json, new_foo, array));
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_foo->array; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (foo->array, new_foo->array, len, new_len);
+	TEST_EQ (ret, 0);
 
 	json_object_put (json);
 

@@ -897,7 +897,7 @@
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be serialised,
- * @name: name of element withing @object to be serialised,
+ * @name: name of element within @object to be serialised,
  * @type: JSON type (without prefix) for field to be added.
  *
  * Add @name (which will be stringified) to @json taking the value
@@ -916,7 +916,7 @@
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be serialised,
- * @name: name of element withing @object to be serialised.
+ * @name: name of element within @object to be serialised.
  *
  * Copy string array @name from @object to @json.
  *
