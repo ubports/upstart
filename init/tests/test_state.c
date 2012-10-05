@@ -1,6 +1,6 @@
 /* TODO:
- * - arrays of things (rlimit, process, pids, fds)
- *   process_deserialise_all()
+ * - process_serialise_all() / process_deserialise_all()
+ * - pre-start, post-stop, etc across a re-exec
  */
 
 /* upstart
@@ -96,6 +96,7 @@ typedef struct foo {
 	struct rlimit  *limits[RLIMIT_NLIMITS];
 	char          **env;
 	char          **array;
+	Process       **process;
 } Foo;
 
 int session_diff (const Session *a, const Session *b)
@@ -920,15 +921,77 @@ run_process_test (const Process *proc)
 void
 test_process_serialise (void)
 {
-	int  i;
-	int  num;
+	int            i;
+	int            num;
+	nih_local Foo *foo = NULL;
+	nih_local Foo *new_foo = NULL;
+	json_object   *json;
+	json_object   *json_processes;
 
 	TEST_GROUP ("Process serialisation and deserialisation");
+
+	/*******************************/
+	TEST_FEATURE ("single Process serialisation and deserialisation");
 
 	num = TEST_ARRAY_SIZE (test_procs);
 
 	for (i = 0; i < num; i++)
 		run_process_test (&test_procs[i]);
+
+	/*******************************/
+	TEST_FEATURE ("array of Processes serialisation and deserialisation");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+
+	foo->process = nih_alloc (foo, sizeof (Process *) * PROCESS_LAST);
+	TEST_NE_P (foo->process, NULL);
+
+	new_foo->process = nih_alloc (new_foo, sizeof (Process *) * PROCESS_LAST);
+	TEST_NE_P (new_foo->process, NULL);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		foo->process[i] = NULL;
+		new_foo->process[i] = NULL;
+	}
+
+	foo->process[PROCESS_MAIN] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_MAIN], NULL);
+
+	foo->process[PROCESS_MAIN]->script = 1;
+	foo->process[PROCESS_MAIN]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_MAIN],
+				"echo hello !£$%^&*()_+-={}:@~;'#<>?,./"));
+
+	foo->process[PROCESS_PRE_START] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_PRE_START], NULL);
+	foo->process[PROCESS_PRE_START]->script = 0;
+	foo->process[PROCESS_PRE_START]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_PRE_START],
+			"/bin/echo \"\\\a\b''''''\f\n\r\t\v\""));
+
+	foo->process[PROCESS_POST_STOP] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_POST_STOP], NULL);
+	foo->process[PROCESS_POST_STOP]->script = 0;
+	foo->process[PROCESS_POST_STOP]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_POST_STOP],
+			"/bin/true"));
+
+	json_processes = process_serialise_all ((const Process const * const * const)foo->process);
+	TEST_NE_P (json_processes, NULL);
+	json_object_object_add (json, "process", json_processes);
+
+	assert0 (process_deserialise_all (json, new_foo->process, new_foo->process));
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		assert0 (process_diff (foo->process[i], new_foo->process[i]));
+
+	json_object_put (json);
+
+	/*******************************/
 }
 
 void
