@@ -1,5 +1,4 @@
 /* TODO:
- * - process_serialise_all() / process_deserialise_all()
  * - pre-start, post-stop, etc across a re-exec
  */
 
@@ -1979,13 +1978,75 @@ test_string_arrays (void)
 {
 	json_object      *json;
 	nih_local char  **array = NULL;
-	nih_local char  **new_array = NULL;
+	char            **new_array;
 	int               ret;
 	size_t            len = 0;
 	size_t            new_len = 0;
 
 	TEST_GROUP ("string array serialisation and deserialisation");
 
+	/*******************************/
+	TEST_FEATURE ("serialisation of empty array");
+
+	len = 0;
+	array = nih_str_array_new (NULL);
+	TEST_NE_P (array, NULL);
+
+	json = state_serialise_str_array (array);
+	TEST_NE_P (json, NULL);
+
+	/*******************************/
+	TEST_FEATURE ("deserialisation of empty array");
+
+	ret = state_deserialise_str_array (NULL, json, &new_array);
+	TEST_TRUE (ret);
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_array; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (new_array, NULL);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("serialisation of array with single nul string");
+
+	len = 0;
+	array = nih_str_array_new (NULL);
+	TEST_NE_P (array, NULL);
+
+	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
+
+	json = state_serialise_str_array (array);
+	TEST_NE_P (json, NULL);
+
+	/*******************************/
+	TEST_FEATURE ("deserialisation of array with single nul string");
+
+	ret = state_deserialise_str_array (NULL, json, &new_array);
+	TEST_TRUE (ret);
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_array; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
+	TEST_EQ (ret, 0);
+
+	TEST_NE_P (new_array, NULL);
+	nih_free (new_array);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("serialisation of non-empty array");
+
+	len = 0;
 	array = nih_str_array_new (NULL);
 	TEST_NE_P (array, NULL);
 
@@ -1999,17 +2060,14 @@ test_string_arrays (void)
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, "\"'$*&()[]{}-_=+/?@':;>.<,~#"));
 	NIH_MUST (nih_str_array_add (&array, NULL, &len, ""));
 
-	/*******************************/
-	TEST_FEATURE ("serialisation");
-
 	json = state_serialise_str_array (array);
 	TEST_NE_P (json, NULL);
 
 	/*******************************/
-	TEST_FEATURE ("deserialisation");
+	TEST_FEATURE ("deserialisation of non-empty array");
 
-	new_array = state_deserialise_str_array (NULL, json, FALSE);
-	TEST_NE_P (json, NULL);
+	ret = state_deserialise_str_array (NULL, json, &new_array);
+	TEST_TRUE (ret);
 
 	/* count elements */
 	new_len = 0;
@@ -2019,25 +2077,47 @@ test_string_arrays (void)
 	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
 	TEST_EQ (ret, 0);
 
-	/*******************************/
-	TEST_FEATURE ("deserialisation with env");
+	TEST_NE_P (new_array, NULL);
+	nih_free (new_array);
 
-	new_array = state_deserialise_str_array (NULL, json, TRUE);
+	json_object_put (json);
+
+	/*******************************/
+	/* XXX: No point in checking an empty environment array as
+         * its the same as a string array.
+	 */
+	TEST_FEATURE ("serialisation of non-empty environment array");
+
+	len = 0;
+	array = nih_str_array_new (NULL);
+	TEST_NE_P (array, NULL);
+
+	TEST_NE_P (environ_add (&array, NULL, &len, TRUE, "foo=bar"), NULL);
+	TEST_NE_P (environ_add (&array, NULL, &len, TRUE, "hello="), NULL);
+	TEST_NE_P (environ_add (&array, NULL, &len, TRUE, "\"'$*&()[]{}-_=+/?@':;>.<,~#"), NULL);
+
+	json = state_serialise_str_array (array);
 	TEST_NE_P (json, NULL);
+
+	/*******************************/
+	TEST_FEATURE ("deserialisation of non-empty environment array");
+
+	ret = state_deserialise_env_array (NULL, json, &new_array);
+	TEST_TRUE (ret);
 
 	/* count elements */
 	new_len = 0;
 	for (char **p = new_array; p && *p; p++, new_len++)
 		;
 
-	/* environment arrays only contain values with equals signs */
-	TEST_EQ (new_len, 3);
-	TEST_EQ_STR (new_array[0], array[2]);
-	TEST_EQ_STR (new_array[1], array[3]);
-	TEST_EQ_STR (new_array[2], array[7]);
+	ret = TEST_CMP_STR_ARRAYS (array, new_array, len, new_len);
+	TEST_EQ (ret, 0);
 
-	/*******************************/
+	TEST_NE_P (new_array, NULL);
+	nih_free (new_array);
+
 	json_object_put (json);
+	/*******************************/
 }
 
 void
@@ -2253,36 +2333,32 @@ test_basic_types (void)
 	json_object_put (json);
 
 	/*******************************/
-	TEST_FEATURE ("object env array serialisation and deserialisation");
+	TEST_FEATURE ("empty object string array serialisation and deserialisation");
 
 	json = json_object_new_object ();
 	TEST_NE_P (json, NULL);
 
-	foo = nih_new (NULL, Foo);
-	TEST_NE_P (foo, NULL);
+	foo->array = nih_str_array_new (NULL);
+	TEST_NE_P (foo->array, NULL);
 
-	new_foo = nih_new (NULL, Foo);
-	TEST_NE_P (new_foo, NULL);
+	len = new_len = 0;
 
-	foo->env = nih_str_array_new (foo);
-	TEST_NE_P (foo->env, NULL);
-
-	len = 0;
-	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "hello=world"));
-	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "foo="));
-	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "bar=123"));
-	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "baz=\'two words\'"));
-
-	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, env));
-	TEST_TRUE (state_get_json_env_array_to_obj (json, new_foo, env));
+	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, array));
+	TEST_TRUE (state_get_json_str_array_to_obj (json, new_foo, array));
 
 	/* count elements */
 	new_len = 0;
-	for (char **p = new_foo->env; p && *p; p++, new_len++)
+	for (char **p = new_foo->array; p && *p; p++, new_len++)
 		;
 
-	ret = TEST_CMP_STR_ARRAYS (foo->env, new_foo->env, len, new_len);
+	ret = TEST_CMP_STR_ARRAYS (foo->array, new_foo->array, len, new_len);
 	TEST_EQ (ret, 0);
+
+	/* An empty array should be deserialised to "no array"
+	 * (since an empty JSON array is the encoding for "no array").
+	 */
+	TEST_EQ_P (new_foo->array, NULL);
+
 	json_object_put (json);
 
 	/*******************************/
@@ -2290,6 +2366,14 @@ test_basic_types (void)
 
 	json = json_object_new_object ();
 	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+	memset (foo, '\0', sizeof (Foo));
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+	memset (new_foo, '\0', sizeof (Foo));
 
 	foo->array = nih_str_array_new (NULL);
 	TEST_NE_P (foo->array, NULL);
@@ -2316,6 +2400,76 @@ test_basic_types (void)
 	ret = TEST_CMP_STR_ARRAYS (foo->array, new_foo->array, len, new_len);
 	TEST_EQ (ret, 0);
 
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("empty object env array serialisation and deserialisation");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+	memset (foo, '\0', sizeof (Foo));
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+	memset (new_foo, '\0', sizeof (Foo));
+
+	foo->env = nih_str_array_new (foo);
+	TEST_NE_P (foo->env, NULL);
+
+	len = 0;
+
+	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, env));
+	TEST_TRUE (state_get_json_env_array_to_obj (json, new_foo, env));
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_foo->env; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (foo->env, new_foo->env, len, new_len);
+	TEST_EQ (ret, 0);
+	TEST_EQ_P (new_foo->env, NULL);
+
+	json_object_put (json);
+
+	/*******************************/
+	TEST_FEATURE ("object env array serialisation and deserialisation");
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	foo = nih_new (NULL, Foo);
+	TEST_NE_P (foo, NULL);
+	memset (foo, '\0', sizeof (Foo));
+
+	new_foo = nih_new (NULL, Foo);
+	TEST_NE_P (new_foo, NULL);
+	memset (new_foo, '\0', sizeof (Foo));
+
+	foo->env = nih_str_array_new (foo);
+	TEST_NE_P (foo->env, NULL);
+
+	new_foo->env = NULL;
+
+	len = 0;
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "hello=world"));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "foo="));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "bar=123"));
+	TEST_TRUE (environ_add (&foo->env, NULL, &len, TRUE, "baz=\'two words\'"));
+
+	TEST_TRUE (state_set_json_str_array_from_obj (json, foo, env));
+	TEST_TRUE (state_get_json_env_array_to_obj (json, new_foo, env));
+
+	/* count elements */
+	new_len = 0;
+	for (char **p = new_foo->env; p && *p; p++, new_len++)
+		;
+
+	ret = TEST_CMP_STR_ARRAYS (foo->env, new_foo->env, len, new_len);
+	TEST_EQ (ret, 0);
 	json_object_put (json);
 
 	/*******************************/

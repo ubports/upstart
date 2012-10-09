@@ -434,11 +434,11 @@
  **/
 #define _state_get_json_num_var(json, name, type_json, var) \
 	({json_object *_json_var = NULL; \
-	 int ret = state_get_json_var_full (json, name, type_json, _json_var); \
+	 int _ret = state_get_json_var_full (json, name, type_json, _json_var); \
 	 errno = 0; \
 	 if (_json_var) \
-	 	var = json_object_get_ ## type_json (_json_var); \
-	 _json_var && ret && errno != EINVAL;})
+		var = json_object_get_ ## type_json (_json_var); \
+	 _json_var && _ret && errno != EINVAL;})
 
 /**
  * state_get_json_int32_var:
@@ -584,19 +584,19 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_string_var(json, name, parent, var) \
-	({int         ret; \
+	({int         _ret; \
 	 json_object *_json_var; \
-	 ret = state_get_json_var_full (json, name, string, _json_var); \
-	 if (ret) { \
+	 _ret = state_get_json_var_full (json, name, string, _json_var); \
+	 if (_ret) { \
 		 if (json_object_is_type (_json_var, json_type_null)) { \
 		 	var = NULL; \
 		 } else { \
 	 		const char *value = NULL; \
-		 	ret = ((value = json_object_get_string (_json_var)) \
+		 	_ret = ((value = json_object_get_string (_json_var)) \
 				&& (var = nih_strdup (parent, value))); \
 	 	 } \
 	 } \
-	 ret ;})
+	 _ret ;})
 
 
 /**
@@ -657,11 +657,79 @@
 	state_get_json_string_var_strict (json, #name, object, (object->name))
 
 /**
- * state_get_json_str_array_to_obj:
+ * _state_get_json_str_array_generic:
+ *
+ * @parent: parent object for new array (may be NULL),
+ * @json: json_object pointer,
+ * @array: array to hold output,
+ * @len: length of @array,
+ * @env: TRUE if @json represents an array of environment variables,
+ *  else FALSE,
+ * @clean: TRUE to have the array assigned to NULL on error and if @len is zero,
+ *  else FALSE.
+ *
+ * Convenience wrapper around _state_deserialise_str_array().
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define _state_get_json_str_array_generic(parent, json, array, len, env, clean) \
+	({int _ret = 0; \
+	_ret = _state_deserialise_str_array (parent, json, \
+		array, len, FALSE); \
+	if (clean) { \
+	 	if (_ret < 0 || ! *len) \
+			*(array) = NULL; \
+	} \
+	 _ret == 0;})
+
+/**
+ * state_deserialise_str_array:
+ * 
+ * @parent: parent object for new array (may be NULL),
+ * @json: JSON array object representing a string array,
+ * @array: string array.
+ *
+ * Specialisation of state_deserialise_str_array().
+ *
+ * Convert JSON array object @json into a string array. If the array is
+ * empty, return NULL.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+ **/
+#define state_deserialise_str_array(parent, json, array) \
+	 ({size_t len; \
+	  int _ret = 0; \
+	  _ret = _state_get_json_str_array_generic (parent, json, \
+		  array, &len, FALSE, TRUE); \
+	  _ret;})
+
+/**
+ * state_deserialise_env_array:
+ *
+ * @parent: parent object for new array (may be NULL),
+ * @json: JSON array object representing a string array,
+ * @array: string array.
+ *
+ * Convert JSON array object @json into a string array. If the array is
+ * empty, return NULL.
+ *
+ * Returns: TRUE on success, or FALSE on error.
+**/
+#define state_deserialise_env_array(parent, json, array) \
+	 ({size_t len; \
+	  int _ret = 0; \
+	  _ret = _state_get_json_str_array_generic (parent, json, \
+		  array, &len, TRUE, TRUE); \
+	  _ret;})
+
+/**
+ * _state_get_json_str_array_to_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
- * @name: name of element within @object to be deserialised.
+ * @name: name of element within @object to be deserialised,
+ * @is_env: TRUE if @name is an environment array,
+ * @len: length of array.
  *
  * Deserialise stringified @name from @json into an array of strings and
  * assign to @name within @object.
@@ -669,16 +737,26 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_str_array_to_obj(json, object, name) \
-	({json_object *_json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, _json_var)) && \
-	(object->name = state_deserialise_str_array (object, _json_var, FALSE));})
+	 ({json_object *json_var = NULL; \
+	  size_t len; \
+	  int _ret = 0; \
+	  int _ret2 = 0; \
+	  _ret = state_get_json_var_full (json, #name, array, json_var); \
+	  if (_ret) { \
+	  	_ret2 = _state_get_json_str_array_generic (object, \
+			json_var, &object->name, &len, FALSE, TRUE); \
+		  if (_ret2 && ! len) \
+			object->name = NULL; \
+	  } \
+	  _ret && _ret2;})
+
 
 /**
  * state_get_json_env_array_to_obj:
  *
  * @json: json_object pointer,
  * @object: pointer to internal object that is to be deserialised,
- * @name: name of element within @object to be deserialised.
+ * @name: name of element within @object to be deserialised,
  *
  * Deserialise stringified @name from @json into an array of environment
  * variable strings and assign to @name within @object.
@@ -686,9 +764,18 @@
  * Returns: TRUE on success, or FALSE on error.
  **/
 #define state_get_json_env_array_to_obj(json, object, name) \
-	({json_object *_json_var = NULL; \
-	 (state_get_json_var_full (json, #name, array, _json_var)) && \
-	(object->name = state_deserialise_str_array (object, _json_var, TRUE));})
+	 ({json_object *json_var = NULL; \
+	  size_t len; \
+	  int _ret = 0; \
+	  int _ret2 = 0; \
+	  _ret = state_get_json_var_full (json, #name, array, json_var); \
+	  if (_ret) { \
+	  	_ret2 = _state_get_json_str_array_generic (object, \
+			json_var, &object->name, &len, TRUE, TRUE); \
+		  if (_ret2 && ! len) \
+			object->name = NULL; \
+	  } \
+	  _ret && _ret2;})
 
 /**
  * state_get_json_enum_var:
@@ -710,13 +797,13 @@
 	 ({int tmp = -1; \
 	  nih_local char *_value = NULL; \
 	  EnumDeserialiser f = (EnumDeserialiser)func; \
-	  int ret; \
-	  ret = state_get_json_string_var_strict (json, name, NULL, _value); \
-	  if (ret) { \
+	  int _ret; \
+	  _ret = state_get_json_string_var_strict (json, name, NULL, _value); \
+	  if (_ret) { \
 		tmp = f (_value); \
 		if (tmp != -1) \
 			var = tmp; \
-	  } ret && tmp != -1; })
+	  } _ret && tmp != -1; })
 
 /**
  * state_set_json_enum_var:
@@ -1020,9 +1107,10 @@ json_object *
 state_serialise_int64_array (int64_t *array, int count)
 	__attribute__ ((malloc, warn_unused_result));
 
-char **
-state_deserialise_str_array (void *parent, json_object *json, int env)
-	__attribute__ ((malloc, warn_unused_result));
+int
+_state_deserialise_str_array (void *parent, json_object *json,
+			      char ***array, size_t *len, int env)
+	__attribute__ ((warn_unused_result));
 
 int
 state_deserialise_int32_array (void *parent, json_object *json,

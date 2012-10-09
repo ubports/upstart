@@ -650,8 +650,7 @@ event_deserialise (json_object *json)
 		if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
-		env = state_deserialise_str_array (NULL, json_env, TRUE);
-		if (! env)
+		if (! state_deserialise_str_array (NULL, json_env, &env))
 			goto error;
 	}
 

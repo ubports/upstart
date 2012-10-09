@@ -525,10 +525,7 @@ state_serialise_str_array (char ** const array)
 
 	for (elem = array, i = 0; elem && *elem; ++elem, ++i) {
 
-		/* We should never see a blank value, but paranoia is
-		 * good.
-		 */
-		json_element = json_object_new_string (*elem ? *elem : "");
+		json_element = json_object_new_string (*elem);
 
 		if (! json_element)
 			goto error;
@@ -545,35 +542,50 @@ error:
 }
 
 /**
- * state_deserialise_str_array:
+ * _state_deserialise_str_array:
  *
  * @parent: parent object for new array (may be NULL),
  * @json: JSON array object representing a string array,
+ * @array: string array,
+ * @len: length of returned array,
  * @env: TRUE if @json represents an array of environment
  * variables, FALSE for simple strings.
  *
  * Convert JSON array object @json into a string array.
  *
- * Returns: string array, or NULL on error.
+ * If @len is >0, @array will contain the newly-allocated array.
+ * If @len is zero, the contents of @array are undefined.
+ *
+ * Returns: 0 on success, -1 on error.
  **/
-char **
-state_deserialise_str_array (void *parent, json_object *json, int env)
+int
+_state_deserialise_str_array (void           *parent,
+			      json_object    *json,
+			      char         ***array,
+			      size_t         *len,
+			      int             env)
 {
-	size_t    len = 0;
-	char    **array = NULL;
-
 	nih_assert (json);
+	nih_assert (array);
+	nih_assert (len);
 
 	if (! state_check_json_type (json, array))
 		goto error;
 
-	array = nih_str_array_new (parent);
-	if (! array)
-		return NULL;
+	*len = json_object_array_length (json);
 
-	for (int i = 0; i < json_object_array_length (json); i++) {
+	if (! *len)
+		return 0;
+
+	*array = nih_str_array_new (parent);
+
+	if (! *array)
+		return -1;
+
+	for (size_t i = 0; i < *len; i++) {
 		json_object  *json_element;
 		const char   *element;
+		char        **new;
 
 		json_element = json_object_array_get_idx (json, i);
 		if (! json_element)
@@ -587,19 +599,25 @@ state_deserialise_str_array (void *parent, json_object *json, int env)
 			goto error;
 
 		if (env) {
-			if (! environ_add (&array, parent, &len, TRUE, element))
+			new = environ_add (array, parent, NULL, TRUE, element);
+			if (! new)
 				goto error;
+			*array = new;
 		} else {
-			if (! nih_str_array_add (&array, parent, &len, element))
+			new = nih_str_array_add (array, parent, NULL, element);
+
+			if (! new)
 				goto error;
+			*array = new;
 		}
 	}
 
-	return array;
+	return 0;
 
 error:
-	nih_free (array);
-	return NULL;
+	nih_free (*array);
+	*array = NULL;
+	return -1;
 }
 
 /**
@@ -700,6 +718,9 @@ error:
  *
  * Convert JSON array object @json into an array of 32-bit integers.
  *
+ * If @len is >0, @array will contain the newly-allocated array.
+ * If @len is zero, the contents of @array are undefined.
+ *
  * Returns: 0 on success, -1 on error.
  **/
 int
@@ -717,6 +738,9 @@ state_deserialise_int32_array (void          *parent,
 		return -1;
 
 	*len = json_object_array_length (json);
+
+	if (! *len)
+		return 0;
 
 	*array = nih_realloc (*array, parent, (*len) * sizeof (int32_t));
 	if (! *array)
@@ -755,6 +779,9 @@ error:
  *
  * Convert JSON array object @json into an array of 64-bit integers.
  *
+ * If @len is >0, @array will contain the newly-allocated array.
+ * If @len is zero, the contents of @array are undefined.
+ *
  * Returns: 0 on success, -1 on error.
  **/
 int
@@ -772,6 +799,9 @@ state_deserialise_int64_array (void           *parent,
 		return -1;
 
 	*len = json_object_array_length (json);
+
+	if (! *len)
+		return 0;
 
 	*array = nih_realloc (*array, parent, (*len) * sizeof (int64_t));
 	if (! *array)
@@ -1960,6 +1990,17 @@ stateful_reexec (void)
 				_("Failed to write serialisation data"));
 			exit (1);
 		}
+#if 0
+		{
+			extern char **environ;
+			char **e = environ;
+			while (e && *e) {
+				nih_debug ("XXX:%s:%d:CHILD env '%s'",
+						__func__, __LINE__, *e);
+				e++;
+			}
+		}
+#endif
 
 		/* The baton has now been passed */
 		exit (0);
