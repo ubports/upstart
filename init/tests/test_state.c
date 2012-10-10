@@ -1,10 +1,7 @@
-/* TODO:
- * - pre-start, post-stop, etc across a re-exec
- */
-
 /* upstart
  *
- * test_state.c - test suite for init/state.c
+ * test_state.c - test suite for init/state.c and other
+ * associated serialisation and deserialisation routines.
  *
  * Copyright © 2012 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>
@@ -2230,13 +2227,13 @@ void
 test_basic_types (void)
 {
 	int                ret;
-	int32_t            int32;
-	int64_t            int64;
+	int32_t            int32 = -1;
+	int64_t            int64 = -1;
 	size_t             i;
 	size_t             size32;
 	size_t             size64;
 	size_t             sizestr;
-	char              *str;
+	char              *str = NULL;
 	size_t             len;
 	size_t             new_len;
 	json_object       *json;
@@ -2476,16 +2473,90 @@ test_basic_types (void)
 }
 
 void
-test_misc (void)
+test_clean_args (void)
 {
 	nih_local char **args = NULL;
 	size_t           len = 0;
 
-	TEST_GROUP ("miscellaneous");
-
-	/*******************************/
 	TEST_FUNCTION ("clean_args");
 
+	/*******************************/
+	TEST_FEATURE ("no arguments");
+
+	len = 0;
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+	TEST_EQ_P (args[0], NULL);
+
+	clean_args (&args);
+
+	TEST_EQ_P (args[0], NULL);
+
+	/*******************************/
+	TEST_FEATURE ("1 argument");
+
+	len = 0;
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/sbin/init"));
+
+	clean_args (&args);
+
+	TEST_EQ_STR (args[0], "/sbin/init");
+	TEST_EQ_P (args[1], NULL);
+
+	/*******************************/
+	TEST_FEATURE ("non-cleanable arguments");
+
+	len = 0;
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/sbin/init"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--no-startup-event"));
+
+	clean_args (&args);
+
+	TEST_EQ_STR (args[0], "/sbin/init");
+	TEST_EQ_STR (args[1], "--no-startup-event");
+	TEST_EQ_P (args[2], NULL);
+
+	/*******************************/
+	TEST_FEATURE ("mostly cleanable arguments");
+
+	len = 0;
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "/sbin/init"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+
+	clean_args (&args);
+
+	TEST_EQ_STR (args[0], "/sbin/init");
+	TEST_EQ_P (args[1], NULL);
+
+	/*******************************/
+	TEST_FEATURE ("only cleanable arguments");
+
+	len = 0;
+	args = nih_str_array_new (NULL);
+	TEST_NE_P (args, NULL);
+
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--verbose"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--state-fd"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "9999"));
+	NIH_MUST (nih_str_array_add (&args, NULL, &len, "--debug"));
+
+	clean_args (&args);
+
+	TEST_EQ_P (args[0], NULL);
+
+	/*******************************/
+	TEST_FEATURE ("lots of arguments");
+
+	len = 0;
 	args = nih_str_array_new (NULL);
 	TEST_NE_P (args, NULL);
 
@@ -2515,27 +2586,7 @@ test_misc (void)
 	TEST_EQ_STR (args[2], "/var/log/upstart");
 	TEST_EQ_STR (args[3], "--confdir");
 	TEST_EQ_STR (args[4], "/etc/init");
-
-#if 0
-	Job *job;
-
-	job_class_init ();
-
-	/*******************************/
-	TEST_FUNCTION ("state_get_job");
-
-	TEST_HASH_EMPTY (job_classes);
-
-	job = state_get_job ("", "");
-	TEST_EQ_P (job, NULL);
-
-	job = state_get_job ("a", "");
-	TEST_EQ_P (job, NULL);
-
-	job = state_get_job ("", "a");
-	TEST_EQ_P (job, NULL);
-#endif
-
+	TEST_EQ_P (args[5], NULL);
 
 	/*******************************/
 }
@@ -2553,7 +2604,7 @@ main (int   argc,
 	setenv ("UPSTART_TESTS", "1", 1);
 
 	test_basic_types ();
-	test_misc ();
+	test_clean_args ();
 	test_enums ();
 	test_int_arrays ();
 	test_string_arrays ();

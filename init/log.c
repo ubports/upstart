@@ -922,7 +922,7 @@ log_deserialise (const void *parent,
 	json_object     *json_unflushed;
 	nih_local char  *path = NULL;
 	int              io_watch_fd = -1;
-	uid_t            uid;
+	uid_t            uid = (uid_t)-1;
 
 	nih_assert (json);
 

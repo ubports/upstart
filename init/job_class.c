@@ -1799,7 +1799,7 @@ job_class_deserialise (json_object *json)
 {
 	json_object    *json_normalexit;
 	JobClass       *class = NULL;
-	int             session_index;
+	int             session_index = -1;
 	int             ret;
 	nih_local char *name = NULL;
 	nih_local char *path = NULL;
@@ -1913,8 +1913,6 @@ job_class_deserialise (json_object *json)
 
 	if (! state_get_json_str_array_to_obj (json, class, emits))
 		goto error;
-
-	/* 'process' must be handled by caller */
 
 	if (! state_get_json_enum_var (json,
 				job_class_expect_type_str_to_enum,

@@ -921,7 +921,7 @@ error:
 struct rlimit *
 state_rlimit_deserialise (json_object *json)
 {
-	struct rlimit   *rlimit;
+	struct rlimit  *rlimit = NULL;
 
 	nih_assert (json);
 
@@ -963,9 +963,9 @@ int
 state_rlimit_deserialise_all (json_object *json, const void *parent,
 		struct rlimit *(*rlimits)[])
 {
-	json_object        *json_limits;
-	struct rlimit      *rlimit;
-	int                 i;
+	json_object    *json_limits;
+	struct rlimit  *rlimit;
+	int             i = 0;
 
 	nih_assert (json);
 	nih_assert (parent);
@@ -1520,11 +1520,11 @@ state_deserialise_blocked (void *parent, json_object *json,
 			DBusConnection  *dbus_conn = NULL;
 			NihDBusMessage  *nih_dbus_msg = NULL;
 			DBusError        error;
-			dbus_uint32_t    serial;
+			dbus_uint32_t    serial = 0;
 			size_t           raw_len;
 			nih_local char  *dbus_message_data_str = NULL;
 			nih_local char  *dbus_message_data_raw = NULL;
-			int              conn_index;
+			int              conn_index = -1;
 
 			if (! state_get_json_string_var_strict (json_blocked_data,
 						"msg-data",
@@ -1654,7 +1654,7 @@ error:
  *
  * Returns: existing JobClass on success, or NULL if JobClass not found.
  **/
-JobClass *
+static JobClass *
 state_index_to_job_class (int job_class_index)
 {
 	int     i = 0;
@@ -1990,17 +1990,6 @@ stateful_reexec (void)
 				_("Failed to write serialisation data"));
 			exit (1);
 		}
-#if 0
-		{
-			extern char **environ;
-			char **e = environ;
-			while (e && *e) {
-				nih_debug ("XXX:%s:%d:CHILD env '%s'",
-						__func__, __LINE__, *e);
-				e++;
-			}
-		}
-#endif
 
 		/* The baton has now been passed */
 		exit (0);
@@ -2024,49 +2013,45 @@ reexec:
 /**
  * clean_args:
  *
+ * @argsp: pointer to pointer to array of string arguments.
+ *
  * Remove any existing state fd and log-level-altering arguments.
  *
  * This stops command-line exhaustion if stateful re-exec is
  * performed many times.
  **/
 void
-clean_args (char ***args)
+clean_args (char ***argsp)
 {
-	int i;
+	int    i;
+	char **args;
 
-	nih_assert (args);
+	nih_assert (argsp);
 
-	for (i = 1; (*args)[i]; i++) {
+	for (args = *argsp, i = 0; args && args[i]; i++) {
 		int tmp = i;
 
-		if (! strcmp ((*args)[i], "--state-fd")) {
-			/* Remove existing option and associated fd
-			 * paramter.
-			 */
-			nih_free ((*args)[tmp]);
-			nih_free ((*args)[tmp+1]);
+		if (! strcmp (args[i], "--state-fd")) {
+			/* Remove existing entry and fd value */
+			nih_free (args[tmp]);
+			nih_free (args[tmp+1]);
 
 			/* shuffle up the remaining args */
-			for (int j = tmp+2; (*args)[j]; tmp++, j++)
-				(*args)[tmp] = (*args)[j];
-
-			/* terminate */
-			(*args)[tmp] = NULL;
+			for (int j = tmp+2; args[j]; tmp++, j++)
+				args[tmp] = args[j];
+			args[tmp] = NULL;
 
 			/* reconsider the newly-shuffled index entry */
 			i--;
-		} else if ((! strcmp ((*args)[i], "--debug")) ||
-			   (! strcmp ((*args)[i], "--verbose")) ||
-			   (! strcmp ((*args)[i], "--error"))) {
-			/* Remove existing option */
-			nih_free ((*args)[i]);
+		} else if ((! strcmp (args[i], "--debug")) ||
+				(! strcmp (args[i], "--verbose")) ||
+				(! strcmp (args[i], "--error"))) {
+			nih_free (args[i]);
 
 			/* shuffle up the remaining args */
-			for (int j = tmp+1; (*args)[j]; tmp++, j++)
-				(*args)[tmp] = (*args)[j];
-
-			/* terminate */
-			(*args)[tmp] = NULL;
+			for (int j = tmp+1; args[j]; tmp++, j++)
+				args[tmp] = args[j];
+			args[tmp] = NULL;
 
 			/* reconsider the newly-shuffled index entry */
 			i--;

@@ -205,11 +205,10 @@ error:
  *
  * Returns: Process object, or NULL on error.
  **/
-
 Process *
 process_deserialise (json_object *json, const void *parent)
 {
-	Process  *process;
+	Process  *process = NULL;
 
 	nih_assert (json);
 

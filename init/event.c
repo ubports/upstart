@@ -633,10 +633,10 @@ Event *
 event_deserialise (json_object *json)
 {
 	json_object        *json_env;
-	Event              *event;
+	Event              *event = NULL;
 	nih_local char     *name = NULL;
         char              **env = NULL;
-	int                 session_index;
+	int                 session_index = -1;
 
 	nih_assert (json);
 

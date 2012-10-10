@@ -23,7 +23,6 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-
 #include <sys/types.h>
 
 #include <errno.h>
@@ -1758,7 +1757,7 @@ Job *
 job_deserialise (JobClass *parent, json_object *json)
 {
 	nih_local char *name = NULL;
-	Job            *job;
+	Job            *job = NULL;
 	json_object    *json_kill_timer;
 	json_object    *blocker;
 	json_object    *json_fds;
@@ -1903,13 +1902,13 @@ job_deserialise (JobClass *parent, json_object *json)
 		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, job, exit_status))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, job, respawn_time))
-			goto error;
+		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, job, respawn_count))
-			goto error;
+		goto error;
 
 	json_fds = json_object_object_get (json, "fds");
 	if (! json_fds)

@@ -639,7 +639,7 @@ EventOperator *
 parse_on_simple (JobClass *class, const char *stanza_name, const char *string)
 {
 	EventOperator    *root = NULL;
-	NihConfigStanza  *stanza;
+	NihConfigStanza  *stanza = NULL;
 	size_t            pos = 0;
 	size_t            lineno = 0;
 	size_t            len;

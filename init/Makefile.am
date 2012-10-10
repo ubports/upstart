@@ -128,7 +128,7 @@ CLEANFILES = \
 EXTRA_DIST = init.supp
 
 TEST_UTIL = \
-	tests/test_util.c
+	tests/test_util.c tests/test_util.h
 
 TESTS = \
 	test_system \

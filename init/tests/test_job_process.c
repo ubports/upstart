@@ -3605,7 +3605,7 @@ test_run (void)
 	TEST_EQ (kill (pid, 0), 0);
 
 	{
-		size_t  bytes;
+		size_t  bytes = 0;
 		size_t  expected_bytes = TEST_BLOCKSIZE * EXPECTED_1K_BLOCKS;
 		off_t   filesize = (off_t)-1;
 
@@ -5258,7 +5258,7 @@ test_handler (void)
 	Job *           job = NULL;
 	Blocked *       blocked = NULL;
 	Event *         event;
-	Event *         bevent;
+	Event *         bevent = NULL;
 	FILE *          output;
 	int             exitcodes[2] = { 100, SIGINT << 8 };
 	int             status;

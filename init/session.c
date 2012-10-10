@@ -467,9 +467,9 @@ error:
 static Session *
 session_deserialise (json_object *json)
 {
-	Session              *session;
+	Session              *session = NULL;
 	nih_local const char *chroot = NULL;
-	uid_t                 user;
+	uid_t                 user = (uid_t)-1;
 
 	nih_assert (json);
 

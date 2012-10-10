@@ -269,6 +269,6 @@
 	(sizeof (array) / sizeof (array[0]))
 
 /* Prototypes */
-int string_check (const char *a, const char *b);
+extern int string_check (const char *a, const char *b);
 
 #endif /* TEST_UTIL_H */

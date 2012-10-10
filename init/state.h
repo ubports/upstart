@@ -1169,13 +1169,12 @@ json_object *state_rlimit_serialise (const struct rlimit *rlimit)
 struct rlimit *state_rlimit_deserialise (json_object *json)
 	__attribute__ ((malloc, warn_unused_result));
 
-
 extern char **args_copy;
 extern int restart;
 
 void perform_reexec  (void);
 void stateful_reexec (void);
-void clean_args      (char ***args);
+void clean_args      (char ***argsp);
 
 NIH_END_EXTERN
 

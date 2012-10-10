@@ -211,7 +211,7 @@ job_process_run (Job         *job,
 		while (p && (*p == '\n'))
 			p++;
 
-		if ((! nl) || (! *p)) {
+		if ((! nl) || (p && ! *p)) {
 			/* Strip off the newline(s) */
 			if (nl)
 				*nl = '\0';
