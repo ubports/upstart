@@ -1,3 +1,12 @@
+upstart (1.5-0ubuntu9) quantal-proposed; urgency=low
+
+  * debian/apparmor-profile-load: exit 0 if apparmor_parser fails to not
+    block upgrades (errors will still be logged by upstart). This can be
+    removed once apparmor_parser better deals with new policy on old kernels
+    - LP: #1058356
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 12 Oct 2012 13:54:10 -0500
+
 upstart (1.5-0ubuntu8) quantal; urgency=low
 
   * Merge of latest upstream including doc fixes, fixes for booting
