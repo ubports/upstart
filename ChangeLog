@@ -1,3 +1,11 @@
+2012-10-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/parse_job.c: stanza_kill(): Actually save parsed
+	  value to avoid crash if kill signal given as a numeric
+	  (LP: #1049820).
+	* init/tests/test_parse_job.c: test_stanza_kill(): New test:
+	  "with signal and single numeric argument".
+
 2012-08-31  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	[ A. Costa <agcosta@gis.net> ]

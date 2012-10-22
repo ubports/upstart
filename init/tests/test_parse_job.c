@@ -4870,6 +4870,40 @@ test_stanza_kill (void)
 		nih_free (job);
 	}
 
+	/* Check that a kill stanza with the signal argument and numeric signal,
+	 * sets the right signal on the jobs class.
+	 */
+	TEST_FEATURE ("with signal and single numeric argument");
+	strcpy (buf, "kill signal 30\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		/* Don't check symbolic here since different
+		 * architectures have different mappings.
+		 */
+		TEST_EQ (job->kill_signal, 30);
+
+		nih_free (job);
+	}
 
 	/* Check that the last of multiple kill stanzas is used.
 	 */

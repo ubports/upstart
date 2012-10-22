@@ -1869,6 +1869,8 @@ stanza_kill (JobClass        *class,
 			if (errno || *endptr || (status > INT_MAX))
 				nih_return_error (-1, PARSE_ILLEGAL_SIGNAL,
 						  _(PARSE_ILLEGAL_SIGNAL_STR));
+
+			signal = status;
 		}
 
 		/* Set the signal */
