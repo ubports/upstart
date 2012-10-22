@@ -32,6 +32,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <pty.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,7 @@
 #include <nih/io.h>
 #include <nih/main.h>
 #include <nih/error.h>
+#include <nih/logging.h>
 
 #include "job_process.h"
 #include "job.h"
@@ -3661,7 +3663,7 @@ test_run (void)
 	TEST_EQ (kill (pid, 0), 0);
 
 	{
-		size_t  bytes;
+		size_t  bytes = 0;
 		size_t  expected_bytes = TEST_BLOCKSIZE * EXPECTED_1K_BLOCKS;
 		off_t   filesize = (off_t)-1;
 
@@ -5314,7 +5316,7 @@ test_handler (void)
 	Job *           job = NULL;
 	Blocked *       blocked = NULL;
 	Event *         event;
-	Event *         bevent;
+	Event *         bevent = NULL;
 	FILE *          output;
 	int             exitcodes[2] = { 100, SIGINT << 8 };
 	int             status;
@@ -8855,6 +8857,174 @@ test_utmp (void)
 	}
 }
 
+void
+run_tests (void)
+{
+	test_run ();
+	test_spawn ();
+	test_log_path ();
+	test_kill ();
+	test_handler ();
+	test_utmp ();
+	test_find ();
+}
+
+/**
+ * io_reader:
+ *
+ * Write data received from child end of pty to stdout and
+ * update the NihIo to reflect the consumed data.
+ *
+ * We could detect and replace the "\r\n" line-end combo added by the
+ * pty line-discipline with a simple '\n', but for now lets leave the
+ * data verbatim so it's clear from the log when pty usage kicks in.
+ **/
+static void
+io_reader (void       *data,
+	   NihIo      *io, 
+	   const char *str,
+	   size_t      len)
+{
+	ssize_t bytes;
+
+	nih_assert (io);
+	nih_assert (str);
+	nih_assert (len);
+
+	bytes = write (STDOUT_FILENO, str, len);
+	TEST_NE (bytes, -1);
+
+	/* consume */
+	nih_io_buffer_shrink (io->recv_buf, bytes);
+}
+
+/**
+ * io_error_handler:
+ *
+ * Deal with errors from child end of pty.
+ **/
+static void
+io_error_handler (void   *data,
+	   	  NihIo  *io)
+{
+	NihError *err;
+
+	nih_assert (io);
+
+	/* Consume */
+	err = nih_error_get ();        
+
+	/* error that's returned when child closes their end of a pty */
+	nih_assert (err->number == EIO);
+
+	nih_free (err);
+
+	nih_free (io);
+	nih_main_loop_exit (EXIT_SUCCESS);
+}
+
+/**
+ * run_tests_in_pty:
+ *
+ * Create a pty and run tests in child process. Parent echoes childs
+ * output.
+ *
+ * This shouldn't be required but for the fact that Upstart needs to
+ * be able to run its test suite even in environments which
+ * don't provide a controlling terminal (such as modern versions of
+ * sbuild).
+ *
+ * See the following for the gory details:
+ *
+ *   - LP: #888910
+ *   - Debian Bug:607844
+ **/
+void
+run_tests_in_pty (void)
+{
+	pid_t             pid;
+	int               pty_master;
+	int               pty_slave;
+	nih_local NihIo  *io = NULL;
+	int               ret;
+	int               status;
+	int               exit_status = 0;
+
+	ret = openpty (&pty_master, &pty_slave, NULL, NULL, NULL);
+	TEST_NE (ret, -1);
+
+	pid = fork ();
+	TEST_NE (pid, (pid_t)-1);
+
+	if (! pid) {
+		int   i;
+		pid_t self;
+
+		/* child */
+		close (pty_master);
+
+		self = getpid ();
+
+		/* Ensure that the child is the process group leader
+		 * such that is responds correctly to SIGTSTP.
+		 */
+		TEST_EQ (setpgid (self, self), 0);
+
+		/* connect standard streams to the child end of the pty */
+		for (i = 0; i < 3; i++)
+			while (dup2(pty_slave, i) == -1 && errno == EBUSY)
+				;
+
+		/* clean up */
+		close (pty_slave);
+
+		/* run tests within the pty */
+		run_tests ();
+
+		exit (EXIT_SUCCESS);
+	}
+
+	/* parent */
+
+	close (pty_slave);
+
+	io = nih_io_reopen (NULL, pty_master,
+			NIH_IO_STREAM,
+			io_reader, NULL,
+			io_error_handler, NULL);
+	TEST_NE_P (io, NULL);
+
+	/* wait for child to finish */
+	TEST_EQ (waitpid (pid, &status, 0), pid);
+
+	/* catch exit status if it failed and return it via parent */
+	exit_status = WIFEXITED (status) ? WEXITSTATUS (status) :
+		      WIFSIGNALED (status) ? WTERMSIG (status) :
+		      WIFSTOPPED (status) ?  WSTOPSIG (status) :
+		      EXIT_FAILURE;
+
+	ret = nih_main_loop ();
+	exit (exit_status ? exit_status : ret);
+}
+
+/**
+ * have_ctty:
+ *
+ * Returns: TRUE if we have a controlling terminal,
+ * else FALSE.
+ **/
+int
+have_ctty (void)
+{
+	int fd;
+
+	fd = open ("/dev/tty", O_RDONLY | O_NOCTTY);
+
+	if (fd < 0)
+		return FALSE;
+	close (fd);
+	return TRUE;
+}
 
 int
 main (int   argc,
@@ -8915,14 +9085,16 @@ main (int   argc,
 	nih_error_init ();
 	nih_io_init ();
 
-	/* Otherwise run the tests as normal */
-	test_run ();
-	test_spawn ();
-	test_log_path ();
-	test_kill ();
-	test_handler ();
-	test_utmp ();
-	test_find ();
+	if (! have_ctty ()) {
+		fprintf (stderr,
+				"\n\n"
+				"INFO: Running tests in pty since environment "
+				"does not provide needed controlling terminal\n"
+				"\n\n");
+		run_tests_in_pty ();
+	} else {
+		run_tests ();
+	}
 
 	return 0;
 }

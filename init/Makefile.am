@@ -190,7 +190,8 @@ test_job_process_LDADD = \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
-	$(DBUS_LIBS)
+	$(DBUS_LIBS) \
+	-lutil
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDADD = \
