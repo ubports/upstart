@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+#include <regex.h>
 #include <sys/types.h>        
 #include <sys/stat.h>
 
@@ -130,14 +131,14 @@
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
 				"--no-sessions"));                   \
 	                                                             \
-	if (confdir) {                                               \
+	if (confdir != NULL) {                                       \
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
 				"--confdir"));                       \
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
 				confdir));                           \
 	}                                                            \
 	                                                             \
-	if (logdir) {                                                \
+	if (logdir != NULL) {                                        \
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
 				"--logdir"));                        \
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
@@ -274,7 +275,7 @@
         strcat (filename, name);                                     \
         f = fopen (filename, "w");                                   \
         TEST_NE_P (f, NULL);                                         \
-        fprintf (f, contents);                                       \
+        fprintf (f, "%s", contents);                                 \
 	if ( contents[strlen(contents)-1] != '\n')                   \
           fprintf (f, "\n");                                         \
         fclose (f);                                                  \
@@ -302,6 +303,65 @@
         strcat (filename, name);                                     \
                                                                      \
 	TEST_EQ (unlink (filename), 0);                              \
+}
+
+/**
+ * job_to_pid:
+ *
+ * @job: job name.
+ *
+ * Determine pid of running job.
+ *
+ * WARNING: it is the callers responsibility to ensure that
+ * @job is still running when this function is called!!
+ *
+ * Returns: pid of job, or -1 if not found.
+ **/
+pid_t
+job_to_pid (const char *job)
+{
+	pid_t            pid;
+	regex_t          regex;
+	regmatch_t       regmatch[2];
+	int              ret;
+	nih_local char  *cmd = NULL;
+	nih_local char  *pattern = NULL;
+	size_t           lines;
+	char           **status;
+	nih_local char  *str_pid = NULL;
+
+	assert (job);
+
+	pattern = NIH_MUST (nih_sprintf
+			(NULL, "^\\b%s\\b .*, process ([0-9]+)", job));
+
+	cmd = NIH_MUST (nih_sprintf (NULL, "%s status %s 2>&1",
+			INITCTL_BINARY, job));
+	RUN_COMMAND (NULL, cmd, &status, &lines);
+	TEST_EQ (lines, 1);
+
+	ret = regcomp (&regex, pattern, REG_EXTENDED);
+	assert0 (ret);
+
+	ret = regexec (&regex, status[0], 2, regmatch, 0);
+	assert0 (ret);
+
+	if (regmatch[1].rm_so == -1 || regmatch[1].rm_eo == -1)
+		return -1;
+
+	/* extract the pid */
+	NIH_MUST (nih_strncat (&str_pid, NULL,
+			&status[0][regmatch[1].rm_so],
+			regmatch[1].rm_eo - regmatch[1].rm_so));
+
+	nih_free (status);
+
+	pid = (pid_t)atol (str_pid);
+
+	/* check it's running */
+	ret = kill (pid, 0);
+
+	return ret < 0 ? -1 : pid;
 }
 
 extern int use_dbus;
@@ -11096,6 +11156,160 @@ test_list (void)
 }
 
 void
+test_reexec (void)
+{
+	char             confdir[PATH_MAX];
+	char             logdir[PATH_MAX];
+	char             flagfile[PATH_MAX];
+	nih_local char  *cmd = NULL;
+	pid_t            job_pid     = 0;
+	pid_t            tmp = 0;
+	pid_t            dbus_pid = 0;
+	pid_t            upstart_pid = 0;
+	char           **output;
+	size_t           lines;
+	nih_local char  *logfile = NULL;
+	struct stat      statbuf;
+	nih_local char  *contents = NULL;
+	FILE            *file;
+	int              ok;
+
+	TEST_GROUP ("re-exec support");
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+        TEST_FILENAME (logdir);
+        TEST_EQ (mkdir (logdir, 0755), 0);
+
+        TEST_FILENAME (flagfile);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("single job producing output across a re-exec");
+
+	_START_UPSTART (upstart_pid, confdir, logdir);
+
+	contents = nih_sprintf (NULL, 
+			"pre-start exec echo pre-start\n"
+			"script\n"
+			"\n"
+			"# Write first half of data\n"
+			"for i in 1 2 3 4 5\n"
+			"do\n"
+			"    echo $i\n"
+			"done\n"
+			"\n"
+			"# hack to wait for notification that Upstart has re-exec'ed\n"
+			"while [ ! -f \"%s\" ]\n"
+			"do\n"
+			"    sleep 0.1\n"
+			"done\n"
+			"\n"
+			"# remove flag file\n"
+			"rm -f \"%s\"\n"
+			"\n"
+			"# Write remaining data\n"
+			"for i in 6 7 8 9 10\n"
+			"do\n"
+			"    echo $i\n"
+			"done\n"
+			"\n"
+			"# hang around until killed\n"
+			"sleep 999\n"
+			"\n"
+			"end script\n",
+		flagfile, flagfile);
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "foo.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s start foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* check job is running */
+	job_pid = job_to_pid ("foo");
+	TEST_NE (job_pid, -1);
+
+	REEXEC_UPSTART (upstart_pid);
+	
+	/* Create flag file to allow job to proceed */
+	{
+		FILE *f;
+		f = fopen (flagfile, "w");
+		TEST_NE_P (f, NULL);
+		fclose (f);
+	}
+
+	/* ensure job is still running */
+	tmp = job_to_pid ("foo");
+	TEST_NE (tmp, -1);
+
+	/* ensure it hasn't changed pid */
+	TEST_EQ (job_pid, tmp);
+
+	cmd = nih_sprintf (NULL, "%s stop %s 2>&1",
+			INITCTL_BINARY, "foo");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* Wait for job to finish. We can't waitpid() for it as it's not one
+	 * of our children.
+	 */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		nih_local char *path = NIH_MUST (nih_sprintf (NULL, "/proc/%d", job_pid));
+		if (stat (path, &statbuf) < 0 && errno == ENOENT) {
+			ok = TRUE;
+			break;
+		}
+		sleep (1);
+	}
+	TEST_EQ (ok, TRUE);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+	TEST_EQ (stat (logfile, &statbuf), 0);
+
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+
+	/* check contents of log file */
+	TEST_FILE_EQ (file, "pre-start\r\n");
+	for (int i = 1; i < 11; i++) {
+		nih_local char *line = NIH_MUST (nih_sprintf (NULL, "%d\r\n", i));
+		TEST_FILE_EQ (file, line);
+	}
+	TEST_FILE_END (file);
+	fclose (file);
+
+	/* ensure script removed flagfile */
+	TEST_LT (stat (flagfile, &statbuf), 0);
+
+	DELETE_FILE (confdir, "foo.conf");
+	DELETE_FILE (logdir, "foo.log");
+	STOP_UPSTART (upstart_pid);
+
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
+
+        TEST_EQ (rmdir (confdir), 0);
+        TEST_EQ (rmdir (logdir), 0);
+
+	/*******************************************************************/
+}
+
+void
 test_show_config (void)
 {
 	char             dirname[PATH_MAX];
@@ -14853,6 +15067,7 @@ main (int   argc,
 	test_version_action ();
 	test_log_priority_action ();
 	test_usage ();
+	test_reexec ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"
