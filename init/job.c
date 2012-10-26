@@ -1733,7 +1733,7 @@ job_serialise_all (const NihHash *jobs)
 	/* Raise an error to avoid serialising job classes with
 	 * no associated jobs.
 	 */
-	if (!count)
+	if (! count)
 		goto error;
 
 	return json;

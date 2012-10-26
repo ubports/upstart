@@ -65,39 +65,42 @@
 {                                                                    \
 	nih_local NihDBusProxy *upstart = NULL;                      \
 	DBusConnection         *connection;                          \
-	DBusError               dbus_error;                          \
+	char                   *address;                             \
+	NihError               *err;                                 \
+	int                     running = FALSE;                     \
 	                                                             \
 	/* XXX: arbitrary value */                                   \
 	int                     attempts = 10;                       \
 	                                                             \
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");               \
+	TEST_TRUE (address);                                         \
+	                                                             \
 	while (attempts) {                                           \
 		attempts--;                                          \
 		sleep (1);                                           \
-	        dbus_error_init (&dbus_error);                       \
-		connection = dbus_bus_get (DBUS_BUS_SESSION,         \
-				&dbus_error);                        \
+		connection = nih_dbus_connect (address, NULL);       \
                                                                      \
 		if (! connection) {                                  \
-			dbus_error_free (&dbus_error);               \
+			err = nih_error_get ();                      \
+			nih_free (err);                              \
 			continue;                                    \
 		}                                                    \
-		dbus_error_free (&dbus_error);                       \
 		                                                     \
 		upstart = nih_dbus_proxy_new (NULL, connection,      \
-				      DBUS_SERVICE_UPSTART,          \
-				      DBUS_PATH_UPSTART,             \
-				      NULL, NULL);                   \
+				      	      NULL,                  \
+					      DBUS_PATH_UPSTART,     \
+				      	      NULL, NULL);           \
 		                                                     \
 		if (! upstart) {                                     \
-			NihError *err;                               \
 			err = nih_error_get ();                      \
 			nih_free (err);                              \
 			dbus_connection_unref (connection);          \
-		}                                                    \
-		else {                                               \
+		} else {                                             \
+			running = TRUE;                              \
 			break;                                       \
 		}                                                    \
 	}                                                            \
+	TEST_EQ (running, TRUE);                                     \
 }
 
 /**
@@ -116,6 +119,8 @@
 	nih_local char  **args = NULL;                               \
 	nih_local char   *conf_opts = NULL;                          \
 	nih_local char   *log_opts = NULL;                           \
+	                                                             \
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));             \
 	                                                             \
 	args = NIH_MUST (nih_str_array_new (NULL));                  \
 	                                                             \
@@ -174,16 +179,15 @@
  **/
 #define KILL_UPSTART(pid, signo, wait)                               \
 {                                                                    \
+	int status;                                                  \
 	assert (pid);                                                \
 	assert (signo);                                              \
 	                                                             \
-	if (kill (pid, 0) == 0) {                                    \
-		int status;                                          \
-		assert0 (kill (pid, signo));                         \
-		if (wait) {                                          \
-			TEST_EQ (waitpid (pid, &status, 0), pid);    \
-			TEST_TRUE (WIFSIGNALED (status));            \
-		}                                                    \
+	assert0 (kill (pid, signo));                                 \
+	if (wait) {                                                  \
+		TEST_EQ (waitpid (pid, &status, 0), pid);            \
+		TEST_TRUE (WIFSIGNALED (status));                    \
+		TEST_TRUE (WTERMSIG (status) == signo);              \
 	}                                                            \
 }
 
@@ -344,10 +348,16 @@ job_to_pid (const char *job)
 	assert0 (ret);
 
 	ret = regexec (&regex, status[0], 2, regmatch, 0);
+	if (ret == REG_NOMATCH) {
+		ret = -1;
+		goto out;
+	}
 	assert0 (ret);
 
-	if (regmatch[1].rm_so == -1 || regmatch[1].rm_eo == -1)
-		return -1;
+	if (regmatch[1].rm_so == -1 || regmatch[1].rm_eo == -1) {
+		ret = -1;
+		goto out;
+	}
 
 	/* extract the pid */
 	NIH_MUST (nih_strncat (&str_pid, NULL,
@@ -360,8 +370,12 @@ job_to_pid (const char *job)
 
 	/* check it's running */
 	ret = kill (pid, 0);
+	if (! ret)
+		ret = pid;
 
-	return ret < 0 ? -1 : pid;
+out:
+	regfree (&regex);
+	return ret;
 }
 
 extern int use_dbus;
@@ -11173,6 +11187,7 @@ test_reexec (void)
 	nih_local char  *contents = NULL;
 	FILE            *file;
 	int              ok;
+	int              ret;
 
 	TEST_GROUP ("re-exec support");
 
@@ -11238,6 +11253,33 @@ test_reexec (void)
 	job_pid = job_to_pid ("foo");
 	TEST_NE (job_pid, -1);
 
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	/* Wait for log to be created */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+
+	/* check contents of log file */
+	TEST_FILE_EQ (file, "pre-start\r\n");
+	for (int i = 1; i < 6; i++) {
+		nih_local char *line = NIH_MUST (nih_sprintf (NULL, "%d\r\n", i));
+		TEST_FILE_EQ (file, line);
+	}
+	TEST_FILE_END (file);
+	fclose (file);
+
 	REEXEC_UPSTART (upstart_pid);
 	
 	/* Create flag file to allow job to proceed */
@@ -11254,6 +11296,20 @@ test_reexec (void)
 
 	/* ensure it hasn't changed pid */
 	TEST_EQ (job_pid, tmp);
+
+	/* wait for script to remove flag file */
+	ok = FALSE;
+	for (int i = 1; i < 6; i++) {
+		ret = stat (flagfile, &statbuf);
+	       
+		if (ret	< 0 && errno == ENOENT) {
+			ok = TRUE;
+			break;
+		}
+		sleep (1);
+	}
+
+	TEST_EQ (ok, TRUE);
 
 	cmd = nih_sprintf (NULL, "%s stop %s 2>&1",
 			INITCTL_BINARY, "foo");
@@ -11274,10 +11330,9 @@ test_reexec (void)
 		sleep (1);
 	}
 	TEST_EQ (ok, TRUE);
+	tmp = job_to_pid ("foo");
+	TEST_EQ (tmp, -1);
 
-	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
-				logdir,
-				"foo.log"));
 	TEST_EQ (stat (logfile, &statbuf), 0);
 
 	file = fopen (logfile, "r");
