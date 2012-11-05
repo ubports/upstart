@@ -15,7 +15,7 @@
  *     different contents (one from the initramfs, one from the root
  *     filesystem).
  *
- *     XXX: Further, to support Upstart-in-intramfs would require
+ *     XXX: Further, to support Upstart-in-initramfs would require
  *     changes to the 'restart' logic since currently, no initial event
  *     will be emitted when Upstart is re-exec'd.
  *
@@ -46,15 +46,6 @@
  *
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *--------------------------------------------------------------------
- *
- * - XXX: audit memory management for all *_deserialise() and
- *   XXX: *_deserialise_all() functions!!
- *
- * - clear up strategy around failure - if we fail to
- *   serialise/deserialise any data, do we revert to stateless re-exec?
- *   (tied to above).
- *
- * - we are not being consistent wrt calling NIH_MUST() - resolve!!
  */
 
 /*
