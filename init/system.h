@@ -35,7 +35,13 @@ int system_kill          (pid_t pid, int signal)
 int system_setup_console (ConsoleType type, int reset)
 	__attribute__ ((warn_unused_result));
 
-int system_mount         (const char *type, const char *dir)
+int system_mount         (const char *type, const char *dir,
+			  unsigned long flags)
+	__attribute__ ((warn_unused_result));
+
+void system_mknod        (const char *path, mode_t mode, dev_t dev);
+
+int  system_check_file   (const char *path, mode_t type, dev_t dev)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

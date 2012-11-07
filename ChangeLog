@@ -14,6 +14,48 @@
 	  branch.
 	* init/main.c: Unhide "restart" option.
 
+2012-10-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/parse_job.c: stanza_kill(): Actually save parsed
+	  value to avoid crash if kill signal given as a numeric
+	  (LP: #1049820).
+	* init/tests/test_parse_job.c: test_stanza_kill(): New test:
+	  "with signal and single numeric argument".
+	* init/Makefile.am: test_job_process must now be linked to the 'util'
+	  library for pty helper functionality.
+	* init/tests/test_job_process.c:
+	  - Compiler appeasement.
+	  - Conditionally run tests in a pty for build environments such as
+	    modern versions of sbuild(1) that do not provide a controlling
+	    terminal (sbuild) (LP: #888910).
+
+2012-08-31  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	[ A. Costa <agcosta@gis.net> ]
+	* init/man/init.5, util/man/runlevel.7, util/man/initctl.8: fix a
+	number of typos.
+
+2012-08-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Remove checks for /dev/kmsg, /dev/null,
+	  /dev/console and /dev/tty since some environments use different
+	  major/minor numbers to the norm (for example on LXC, /dev/console is
+	  not (5,1), but (136,*)). Do not attempt to create /dev/console again,
+	  due to LXC numbering difference.
+
+2012-08-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c:main(): Handle hostile initramfs-less environments by
+	  calling umask and creating required device nodes as early as possible.
+	* init/system.c: New functions to simplify code:
+	  - system_mknod()
+	  - system_check_file()
+
+2012-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Eric S. Raymond <esr@thyrsus.com> ]
+	* extra/man/socket-event.7: Fixed incorrect troff (LP: #1018925).
+
 2012-03-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Begin new release.
