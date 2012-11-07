@@ -71,9 +71,10 @@ command.
 .BR U " or " u
 to request that the
 .BR init (8)
-daemon re-execute itself.  This is not recommended since Upstart is currently
-unable to preserve its state, but is necessary when upgrading system
-libraries.
+daemon re-execute itself.  This is necessary when upgrading the
+.BR init (8)
+daemon itself or any of its dependent system libraries
+to ensure disks can be unmounted cleanly on shutdown.
 .\"
 .SH OPTIONS
 .TP
