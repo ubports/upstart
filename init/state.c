@@ -259,31 +259,6 @@ error:
  * Write serialisation data to specified file descriptor.
  * @fd is assumed to be open and valid to write to.
  *
- * Note that the ordering of internal objects is important:
- *
- * 1) Session objects
- * 2) Event objects
- * 3) Log objects
- * 4) JobClass objects
- * 5) Job objects
- *
- * Sessions are handled first since they do not reference any other
- * objects so are discrete.
- *
- * Log objects are stated next to ensure they are known before the
- * Jobs are stated.
- *
- * Event, JobClass and Job objects are more difficult since:
- *   a) Events can reference Jobs via event->blocked
- *      (list of Blocked objects).
- *   b) Jobs can reference Events via the job->blocker Event and the
- *   c) JobClasses reference Jobs via class->instances hash of Job
- *      instances.
- *   d) Jobs reference JobClasses via job->class.
- *
- * Circular dependency (a)+(b) is broken by: FIXME.
- * Circular dependency (c)+(d) is broken by: FIXME.
- *
  * Returns: 0 on success, -1 on error.
  **/
 int
@@ -294,26 +269,6 @@ state_write_objects (int fd, const char *state_data, size_t len)
 	nih_assert (fd != -1);
 	nih_assert (state_data);
 	nih_assert (len);
-
-#if 1
-	/* FIXME: useful debug aid! */
-	{
-		FILE *fo;
-
-		fo = fopen("/tmp/state.json", "w");
-		if (fo) {
-			(void)fwrite (state_data, len, 1, fo);
-			fclose (fo);
-		}
-
-		fo = fopen("/dev/ttyS0", "w");
-		if (fo) {
-			(void)fwrite (state_data, len, 1, fo);
-			fclose (fo);
-			fo = NULL;
-		}
-	}
-#endif
 
 	ret = write (fd, state_data, len);
 
@@ -1399,19 +1354,12 @@ state_serialise_blocking (const NihList *blocking)
 		json_object *json_blocked;
 
 		/* FIXME: D-Bus blocked objects not serialisable until D-Bus provides
-		 * dbus_connection_open_from_fd() to allow
-		 * deserialisation.
+		 * dbus_connection_open_from_fd() to allow deserialisation.
 		 */
-#if 1
 		if (blocked->type != BLOCKED_EVENT && blocked->type != BLOCKED_JOB) {
-			nih_warn ("XXX: WARNING (%s:%d): D-Bus blocked objects NOT being serialised yet",
-					__func__, __LINE__);
+			nih_warn ("D-Bus blocked objects not being serialised yet");
 			continue;
 		}
-#else
-		nih_warn ("XXX: WARNING (%s:%d): D-Bus blocked objects being serialised using experimental D-Bus API",
-				__func__, __LINE__);
-#endif
 
 		json_blocked = state_serialise_blocked (blocked);
 		if (! json_blocked)

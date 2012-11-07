@@ -84,7 +84,9 @@
  * === Serialisation ===
  *
  * Upstart will serialise all internal objects in as rich a
- * serialisation as possible.
+ * serialisation format as possible. Note however, that the strategy is
+ * to only serialise objects (and elements of objects) that *need* to be
+ * deserialised.
  *
  * The error handling strategy for serialisation is easy: if any of the
  * serialisation steps fail, error immediately.
@@ -96,7 +98,7 @@
  *
  * - missing keys and/or values in the JSON:
  *
- *   - indicates either a bug or a change in the JSON serialisation dat
+ *   - indicates either a bug or a change in the JSON serialisation data
  *     format of the higher-numbered versioned of Upstart.
  *
  *   - deserialise as 0 or NULL as appropriate if possible.
@@ -115,6 +117,54 @@
  * part of the JSON - it merely looks for, validates and consumes expected data.
  * This makes for a more flexible design that could accommondate downgrade
  * scenarios for example.
+ *
+ * Note that the ordering of handling internal objects is important:
+ *
+ * 1) Session objects
+ * 2) Event objects
+ * 3) Log objects
+ * 4) JobClass objects
+ * 5) Job objects
+ *
+ * Sessions are handled first since they do not reference any other
+ * objects so are discrete.
+ *
+ * Log objects are handled next to ensure they are known before the
+ * Jobs are handled.
+ *
+ * Event, JobClass and Job objects are more difficult since:
+ *
+ *   a) Events can reference Jobs via event->blocked
+ *      (list of Blocked objects).
+ *   b) Jobs can reference Events via the job->blocker Event
+ *      and the job->blocking list.
+ *   c) JobClasses reference Jobs via class->instances hash
+ *      of Job instances.
+ *   d) Jobs reference JobClasses via job->class.
+ *
+ * Circular dependencies are broken by referencing index numbers rather
+ * than actual objects in the JSON. This allows the objects to be
+ * serialised into a JSON array after their index numbers have been
+ * referenced.
+ *
+ * For example, if an event is blocking a job (that is to say
+ * "a job is blocked on the event"), internal to Upstart...
+ *
+ *   - event->blocking will contain a Blocked object pointing to the job.
+ *   - job->blocker will point to the event.
+ *
+ * However, in the JSON...
+ *
+ *   - event->blocking will be represented as a "blocking" object (within
+ *     the "event" object) that references the job being blocked
+ *     indirectly by its parent class name and instance name.
+ *   - job->blocker will be represented as a "blocker" object (within
+ *     the "job" object) that references the event the job is blocked on
+ *     by event index number.
+ *
+ * See:
+ *   - state_serialise_blocked()
+ *   - state_deserialise_resolve_deps()
  *
  * == Macros ==
  *

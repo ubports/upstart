@@ -1859,8 +1859,6 @@ job_deserialise (JobClass *parent, json_object *json)
 				"kill_process", job->kill_process))
 		goto error;
 
-	/* FIXME: kill_timer */
-	nih_info ("XXX: WARNING (%s:%d) job->kill_timer needs testing", __func__, __LINE__);
 	/* Check to see if a kill timer exists first since we do not
 	 * want to end up creating a real but empty timer.
 	 */
