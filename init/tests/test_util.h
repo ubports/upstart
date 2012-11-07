@@ -79,6 +79,21 @@
 	_TEST_WATCH_UPDATE (0, timeout)
 
 /**
+ * TEST_WATCH_UPDATE_TIMEOUT_SECS:
+ * @secs: seconds to wait before timeout.
+ *
+ * Request NIH look for a file event relating to any NihIo objects
+ * within @secs timeout.
+ **/
+#define TEST_WATCH_UPDATE_TIMEOUT_SECS(secs)                         \
+{                                                                    \
+	struct timeval _t;                                           \
+	_t.tv_sec  = secs;                                           \
+	_t.tv_usec = 0;                                              \
+	_TEST_WATCH_UPDATE (0, &_t);                                 \
+}
+
+/**
  * TEST_FORCE_WATCH_UPDATE:
  *
  * Force NIH to look for a file event relating to any NihIo objects.
@@ -95,6 +110,21 @@
  **/
 #define TEST_FORCE_WATCH_UPDATE_TIMEOUT(timeout)                     \
 	_TEST_WATCH_UPDATE (1, timeout)
+
+/**
+ * TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS:
+ * @timeout: struct timeval pointer.
+ *
+ * Force NIH to look for a file event relating to any NihIo objects
+ * within time period @timeout.
+ **/
+#define TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS(secs)                   \
+{                                                                    \
+	struct timeval _t;                                           \
+	_t.tv_sec  = secs;                                           \
+	_t.tv_usec = 0;                                              \
+	_TEST_WATCH_UPDATE (1, &_t);                                 \
+}
 
 /**
  * ENSURE_DIRECTORY_EMPTY:

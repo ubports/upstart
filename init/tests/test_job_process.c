@@ -2,7 +2,7 @@
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright © 2011 Canonical Ltd.
+ * Copyright  2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,6 @@
 #include "errors.h"
 #include "test_util.h"
 
-
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
 #define TEST_SHELL                "/bin/sh"
 #define TEST_SHELL_ARG            "-e"
@@ -77,6 +76,41 @@
  * meta-characters.
  */
 #define TEST_CMD_DD               "/bin/dd"
+
+/* number of iterations to perform to check file contents */
+#define MAX_ITERATIONS            5
+
+/**
+ * CHECK_FILE_EQ:
+ *
+ * @_file: FILE to read from,
+ * @_line: line to expect.
+ *
+ * Check that the next line in the file @_file is @_line, which should
+ * include the terminating newline if one is expected.
+ *
+ * This differs from TEST_FILE_EQ() in that the test is performed
+ * MAX_ITERATIONS times with a 1 second sleep between iterations.
+ **/
+#define CHECK_FILE_EQ(_file, _line, _select) \
+	do { \
+		int ok = FALSE; \
+		char filebuf[1024]; \
+		for (int i = 0; i < MAX_ITERATIONS; i++) { \
+			TEST_NE_P (fgets (filebuf, sizeof (filebuf), _file), NULL); \
+			if (! strcmp (filebuf, _line)) { \
+				ok = TRUE; \
+				break; \
+			} \
+			if (_select) { \
+				TEST_WATCH_UPDATE_TIMEOUT_SECS (1); \
+			} else { \
+				sleep (1); \
+			} \
+			rewind (_file); \
+		} \
+		TEST_EQ (ok, TRUE); \
+	} while (0)
 
 /* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
@@ -179,6 +213,13 @@ child (enum child_tests  test,
 		 */
 		fprintf(stdout, "stdout\n");
 		fprintf(stderr, "stderr\n");
+
+		/* write out pid to the output file to make it easier
+		 * for the caller to track us if we've already forked
+		 */
+		fprintf (out, "%d\n", getpid ());
+		
+		fflush (NULL);
 		break;
 	case TEST_OUTPUT_WITH_STOP:
 		fprintf (stdout, "started\n");
@@ -391,6 +432,7 @@ test_run (void)
 	siginfo_t        siginfo;
 
 	log_unflushed_init ();
+	job_class_init ();
 
 	TEST_FUNCTION ("job_process_run");
 
@@ -410,6 +452,8 @@ test_run (void)
 	 * finish and see that it has been run as expected.
 	 */
 	TEST_FEATURE ("with simple command");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -443,6 +487,8 @@ test_run (void)
 	 * check that a shell really was used.
 	 */
 	TEST_FEATURE ("with shell command");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -481,6 +527,8 @@ test_run (void)
 	 * command-line.
 	 */
 	TEST_FEATURE ("with small script");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -519,6 +567,8 @@ test_run (void)
 	 * to be stripped from the end before passing it on the command-line.
 	 */
 	TEST_FEATURE ("with small script and trailing newlines");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -557,6 +607,8 @@ test_run (void)
 	 * any failing command causes the entire script to fail.
 	 */
 	TEST_FEATURE ("with script that will fail");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -595,6 +647,8 @@ test_run (void)
 	 * with the job name appended to it.
 	 */
 	TEST_FEATURE ("with environment of unnamed instance");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -646,6 +700,8 @@ test_run (void)
 	 * with the job name and instance name appended to it.
 	 */
 	TEST_FEATURE ("with environment of named instance");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -698,6 +754,8 @@ test_run (void)
 	 * necessary, and the job name and id appended.
 	 */
 	TEST_FEATURE ("with environment for pre-stop");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -751,6 +809,8 @@ test_run (void)
 	 * necessary, and the job name and id appended.
 	 */
 	TEST_FEATURE ("with environment for post-stop");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -804,6 +864,8 @@ test_run (void)
 	 * child process by an NihIo structure.
 	 */
 	TEST_FEATURE ("with long script");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -870,6 +932,8 @@ test_run (void)
 	 * is reset and no process trace is established.
 	 */
 	TEST_FEATURE ("with non-daemon job");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -907,6 +971,8 @@ test_run (void)
 	 * trace state is reset and no process trace is established.
 	 */
 	TEST_FEATURE ("with script for daemon job");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -945,6 +1011,8 @@ test_run (void)
 	 * follow the forks.
 	 */
 	TEST_FEATURE ("with daemon job");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -993,6 +1061,8 @@ test_run (void)
 	 * follow the fork.
 	 */
 	TEST_FEATURE ("with forking job");
+	TEST_HASH_EMPTY (job_classes);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			class = job_class_new (NULL, "test", NULL);
@@ -1040,6 +1110,8 @@ test_run (void)
 	 * have any stored process id for it.
 	 */
 	TEST_FEATURE ("with no such file");
+	TEST_HASH_EMPTY (job_classes);
+
 	output = tmpfile ();
 
 	TEST_ALLOC_FAIL {
@@ -1071,6 +1143,8 @@ test_run (void)
 		nih_free (class);
 	}
 
+	TEST_EQ (rmdir (dirname), 0);
+
 	TEST_FILENAME (dirname);       
 	TEST_EQ (mkdir (dirname, 0755), 0);
 
@@ -1081,6 +1155,8 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure sane fds with no console, no script");
+
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "prism", NULL);
 	TEST_NE_P (class, NULL);
@@ -1148,6 +1224,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure sane fds with no console, and script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "prism", NULL);
 	TEST_NE_P (class, NULL);
@@ -1215,6 +1292,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure sane fds with console log, no script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "prism", NULL);
 	TEST_NE_P (class, NULL);
@@ -1282,6 +1360,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure sane fds with console log, and script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "prism", NULL);
 	TEST_NE_P (class, NULL);
@@ -1349,6 +1428,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure that no log file written for single-line no-output script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1385,6 +1465,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure that no log file written for single-line no-output command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1421,6 +1502,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure that no log file written for CONSOLE_NONE");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1467,6 +1549,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("ensure that no log file written for multi-line no-output script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1509,6 +1592,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
@@ -1566,7 +1650,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -1575,6 +1660,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that is killed");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1624,7 +1710,30 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	/* This is very icky...
+	 *
+	 * Since we're not running an nih_main_loop, select(2) is
+	 * not being called for us. We have already called
+	 * select(2) once via TEST_WATCH_UPDATE() (since we expect
+	 * the job to have produced output) but we have absolutely
+	 * no way of knowing if it should be called again unless we have
+	 * a custom loop which calls select(2) and then checks for the
+	 * expected result. However, that would either mean
+	 * TEST_WATCH_UPDATE() could not be called "in isolation" or
+	 * that it would need to accept a block that could check some
+	 * condition to know whether to call select(2) again.
+	 *
+	 * For now, we cheat by re-reading the log file a number of
+	 * times. If we don't see the expected result within a
+	 * "reasonable" period, we fail.
+	 *
+	 * This loop is necessary since although the amount of data
+	 * being transferred is tiny, the kernel occasionally splits it
+	 * into multiple chunks using one of the line end characters as
+	 * a "delimiter".
+	 */
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -1633,6 +1742,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that is killed");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1687,22 +1797,41 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	/* XXX: this _might_ be a kernel(?) bug - sometimes we don't read
-	 * the final line end character (presumably since the process
-	 * was forcibly killed).
+	/* Timed repeated read until we get the result we expect.
 	 */
+	ok = FALSE;
 	while (fgets (filebuf, sizeof(filebuf), output) != NULL) {
 		if (! strcmp (filebuf, "y\r\n"))
-			ok = 1;
-		else if (! strcmp (filebuf, "y") && feof (output))
-			ok = 1;
+			ok = TRUE;
 		else
-			ok = 0;
+			ok = FALSE;
 
 		if (! ok)
 			break;
 	}
-	TEST_EQ (ok, 1);
+
+	if (! ok) {
+		/* The last entry has been truncated, probably due to
+		 * the kernel breaking the data on one of the newline
+		 * characters. Attempt a few times to re-read all the
+		 * expected data.
+		 */
+		for (int i = 0; i < MAX_ITERATIONS; i++) {
+			/* rewind until 3 bytes ('y', '\r' and '\n')
+			 * before EOF.
+			 */
+			fseek (output, 3, SEEK_END);
+
+			TEST_NE_P (fgets (filebuf, sizeof (filebuf), output), NULL);
+			if (! strcmp (filebuf, "y\r\n")) {
+				ok = TRUE;
+				break;
+			}
+			sleep (1);
+			rewind (output);
+		}
+	}
+	TEST_EQ (ok, TRUE);
 
 	TEST_FILE_END (output);
 	fclose (output);
@@ -1711,6 +1840,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that is killed");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
@@ -1773,7 +1903,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -1782,6 +1913,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 byte and is killed");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1849,6 +1981,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 byte and is killed");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "multiline", NULL);
 	TEST_NE_P (class, NULL);
@@ -1910,6 +2043,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that writes 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
@@ -1967,7 +2101,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -1976,6 +2111,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* XXX: Note that all tests which use multi-line scripts (but
 	 * XXX: *NOT* commands!) and produce output must call
@@ -2046,7 +2182,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2055,6 +2192,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with instance job and single-line script that writes 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -2102,7 +2240,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2111,6 +2250,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes >1 lines to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (class, NULL);
@@ -2163,9 +2303,10 @@ test_run (void)
 	/* Yup, pseudo-terminals record *everything*,
 	 * even the carriage returns.
 	 */
-	TEST_FILE_EQ (output, "hello world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2174,6 +2315,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that writes >1 lines to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (class, NULL);
@@ -2223,9 +2365,10 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2234,6 +2377,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes >1 lines to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "elf", NULL);
 	TEST_NE_P (class, NULL);
@@ -2283,9 +2427,10 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2294,6 +2439,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 line to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -2341,7 +2487,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2350,6 +2497,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that writes 1 line to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Run a command that generates output to stderr without having
 	 * to use script redirection.
@@ -2402,8 +2550,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "0+0 records in\r\n");
-	TEST_FILE_EQ (output, "0+0 records out\r\n");
+	CHECK_FILE_EQ (output, "0+0 records in\r\n", TRUE);
+	CHECK_FILE_EQ (output, "0+0 records out\r\n", TRUE);
+
 	TEST_FILE_MATCH (output, "0 bytes (0 B) copied,*\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
@@ -2413,6 +2562,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 line to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -2462,7 +2612,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2471,6 +2622,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes >1 lines to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (class, NULL);
@@ -2523,10 +2675,11 @@ test_run (void)
 	/* Yup, pseudo-terminals record *everything*,
 	 * even the carriage returns.
 	 */
-	TEST_FILE_EQ (output, "hello\r\n");
-	TEST_FILE_EQ (output, "world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+	CHECK_FILE_EQ (output, "world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2535,6 +2688,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that writes >1 lines to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (class, NULL);
@@ -2584,9 +2738,10 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2595,6 +2750,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes >1 lines to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "elf", NULL);
 	TEST_NE_P (class, NULL);
@@ -2646,8 +2802,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
-	TEST_FILE_EQ (output, "\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2656,6 +2813,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 line to stdout then 1 line to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -2706,8 +2864,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2716,6 +2875,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 line to stderr then 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -2766,8 +2926,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stderr\r\n");
-	TEST_FILE_EQ (output, "stdout\r\n");
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -2776,6 +2937,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command that writes to stdout and stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -2829,7 +2991,7 @@ test_run (void)
 	p = filebuf + 7;
 	TEST_EQ_STR (p, "7+0 records in\r\n");
 
-	TEST_FILE_EQ (output, "7+0 records out\r\n");
+	CHECK_FILE_EQ (output, "7+0 records out\r\n", TRUE);
 	TEST_FILE_MATCH (output, "7 bytes (7 B) copied,*\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
@@ -2839,6 +3001,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script running an invalid command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -2906,6 +3069,7 @@ test_run (void)
 	 * had we originally tested this scenario!
 	 ************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "buzz", NULL);
 	TEST_NE_P (class, NULL);
@@ -2946,6 +3110,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a 1-line post-stop script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3012,7 +3177,10 @@ test_run (void)
 
 	/* check file contents */
 	output = fopen (filename, "r");
-	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_NE_P (output, NULL);
+
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3022,6 +3190,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a 2-line post-stop script");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3091,8 +3260,11 @@ test_run (void)
 
 	/* check file contents */
 	output = fopen (filename, "r");
-	TEST_FILE_EQ (output, "hello\r\n");
-	TEST_FILE_EQ (output, "world\r\n");
+	TEST_NE_P (output, NULL);
+
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+	CHECK_FILE_EQ (output, "world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3102,6 +3274,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a post-stop command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3168,7 +3341,10 @@ test_run (void)
 
 	/* check file contents */
 	output = fopen (filename, "r");
-	TEST_FILE_EQ (output, "hello\r\n");
+	TEST_NE_P (output, NULL);
+
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3178,6 +3354,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then an invalid post-stop command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3235,6 +3412,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running a valid command, then a 1-line invalid post-stop command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "obelix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3297,7 +3475,10 @@ test_run (void)
 
 	/* check file contents */
 	output = fopen (filename, "r");
-	TEST_FILE_EQ (output, "hello world\r\n");
+	TEST_NE_P (output, NULL);
+
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3307,6 +3488,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script running an invalid command");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -3366,6 +3548,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 line to stdout then 1 line to stderr");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -3417,8 +3600,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3427,6 +3611,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 line to stderr then 1 line to stdout");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
@@ -3478,8 +3663,9 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stderr\r\n");
-	TEST_FILE_EQ (output, "stdout\r\n");
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3493,6 +3679,7 @@ test_run (void)
 	 * loop iteration_.
 	 */
 	TEST_FEATURE ("with single line command writing fast and exiting");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "budapest", NULL);
 	TEST_NE_P (class, NULL);
@@ -3555,7 +3742,8 @@ test_run (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello\r\n");
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3563,6 +3751,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with single line command writing lots of data fast and exiting");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo", NULL);
 	TEST_NE_P (class, NULL);
@@ -3691,6 +3880,7 @@ test_run (void)
 	/* Applies to respawn jobs too */
 
 	TEST_FEATURE ("with log object freed on process exit");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "acorn", NULL);
 	TEST_NE_P (class, NULL);
@@ -3772,6 +3962,7 @@ test_run (void)
 	 * otherwise.
 	 */
 	TEST_FEATURE ("with setuid me");
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_NE_P (output, NULL);
 	TEST_ALLOC_FAIL {
@@ -3814,6 +4005,7 @@ test_run (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with multiple processes and log");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "aero", NULL);
 	TEST_NE_P (class, NULL);
@@ -3865,7 +4057,8 @@ test_run (void)
 	TEST_NE_P (output, NULL);
 
 	/* initial output from main process */
-	TEST_FILE_EQ (output, "started\r\n");
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
@@ -3888,9 +4081,10 @@ test_run (void)
 	/* initial output from main process, followed by all output from
 	 * post-start process.
 	 */
-	TEST_FILE_EQ (output, "started\r\n");
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
@@ -3915,10 +4109,11 @@ test_run (void)
 	/* initial output from main process, followed by all output from
 	 * post-start process, followed by final data from main process.
 	 */
-	TEST_FILE_EQ (output, "started\r\n");
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
-	TEST_FILE_EQ (output, "ended\r\n");
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+	CHECK_FILE_EQ (output, "ended\r\n", TRUE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
@@ -3931,6 +4126,7 @@ test_run (void)
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+	TEST_HASH_EMPTY (job_classes);
 }
 
 
@@ -3989,6 +4185,8 @@ test_spawn (void)
 	 * that the process tree is what we expect it to look like.
 	 */
 	TEST_FEATURE ("with simple job");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_PIDS);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4019,7 +4217,7 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4028,6 +4226,8 @@ test_spawn (void)
 	 * bound to the /dev/null device.
 	 */
 	TEST_FEATURE ("with no console");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4046,7 +4246,7 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4058,6 +4258,8 @@ test_spawn (void)
 	 *
 	 */
 	TEST_FEATURE ("with console logging");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_CONSOLE);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4093,7 +4295,7 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4102,6 +4304,8 @@ test_spawn (void)
 	 * that directory.
 	 */
 	TEST_FEATURE ("with working directory");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_PWD);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4119,7 +4323,7 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4128,6 +4332,8 @@ test_spawn (void)
 	 * specifiec in the function call.
 	 */
 	TEST_FEATURE ("with environment");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_ENVIRONMENT);
 	setenv ("BAR", "baz", TRUE);
 
@@ -4151,7 +4357,7 @@ test_spawn (void)
 	TEST_FILE_END (output);
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4161,6 +4367,8 @@ test_spawn (void)
 	 * to fork.
 	 */
 	TEST_FEATURE ("with non-daemon job");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4174,7 +4382,7 @@ test_spawn (void)
 	TEST_EQ (info.si_code, CLD_EXITED);
 	TEST_EQ (info.si_status, 0);
 
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4183,6 +4391,8 @@ test_spawn (void)
 	 * parent be traced.
 	 */
 	TEST_FEATURE ("with daemon job");
+	TEST_HASH_EMPTY (job_classes);
+
 	sprintf (function, "%d", TEST_SIMPLE);
 
 	class = job_class_new (NULL, "test", NULL);
@@ -4201,7 +4411,7 @@ test_spawn (void)
 	TEST_EQ (info.si_code, CLD_EXITED);
 	TEST_EQ (info.si_status, 0);
 
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4211,6 +4421,8 @@ test_spawn (void)
 	 * error structure.
 	 */
 	TEST_FEATURE ("with no such file");
+	TEST_HASH_EMPTY (job_classes);
+
 	args[0] = filename;
 	args[1] = filename;
 	args[2] = NULL;
@@ -4234,6 +4446,7 @@ test_spawn (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with no such file, no shell and console log");
+	TEST_HASH_EMPTY (job_classes);
 
 	args[0] = "does-not-exist";
 	args[1] = NULL;
@@ -4267,6 +4480,7 @@ test_spawn (void)
 	/* Check that we can spawn a job and pause it
 	 */
 	TEST_FEATURE ("with debug enabled");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
@@ -4304,6 +4518,7 @@ test_spawn (void)
 	 * signals are blocked or ignored.
 	 */
 	TEST_FEATURE ("ensure sane signal state with no console");
+	TEST_HASH_EMPTY (job_classes);
 
 	sprintf (function, "%d", TEST_SIGNALS);
 
@@ -4341,12 +4556,13 @@ test_spawn (void)
 	}
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
 	/********************************************************************/
 	TEST_FEATURE ("ensure sane signal state with log console");
+	TEST_HASH_EMPTY (job_classes);
 
 	sprintf (function, "%d", TEST_SIGNALS);
 
@@ -4384,12 +4600,13 @@ test_spawn (void)
 	}
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
 	/********************************************************************/
 	TEST_FEATURE ("ensure sane fds with no console");
+	TEST_HASH_EMPTY (job_classes);
 
 	sprintf (function, "%d", TEST_FDS);
 
@@ -4438,12 +4655,13 @@ test_spawn (void)
 	}
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	nih_free (class);
 
 	/********************************************************************/
 	TEST_FEATURE ("ensure sane fds with console log");
+	TEST_HASH_EMPTY (job_classes);
 
 	sprintf (function, "%d", TEST_FDS);
 
@@ -4492,12 +4710,15 @@ test_spawn (void)
 	}
 
 	fclose (output);
-	unlink (filename);
+	assert0 (unlink (filename));
+	TEST_EQ (rmdir (dirname), 0);
 
 	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("ensure multi process output logged");
+	TEST_LIST_EMPTY (nih_io_watches);
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_FILENAME (dirname);       
 	TEST_EQ (mkdir (dirname, 0755), 0);
@@ -4541,7 +4762,8 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "started\r\n");
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	TEST_EQ (fclose (output), 0);
 
@@ -4569,9 +4791,15 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "started\r\n"); /* from main process */
-	TEST_FILE_EQ (output, "stdout\r\n"); /* from post-start process */
-	TEST_FILE_EQ (output, "stderr\r\n"); /* from post-start process */
+	/* from main process */
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+
+	/* from post-start process */
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+
+	/* from post-start process */
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -4590,20 +4818,32 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "started\r\n"); /* from main process */
-	TEST_FILE_EQ (output, "stdout\r\n");  /* from post-start process */
-	TEST_FILE_EQ (output, "stderr\r\n");  /* from post-start process */
-	TEST_FILE_EQ (output, "ended\r\n");   /* from main process */
+	/* from main process */
+	CHECK_FILE_EQ (output, "started\r\n", TRUE);
+
+	/* from post-start process */
+	CHECK_FILE_EQ (output, "stdout\r\n", TRUE);
+
+	/* from post-start process */
+	CHECK_FILE_EQ (output, "stderr\r\n", TRUE);
+
+	/* from main process */
+	CHECK_FILE_EQ (output, "ended\r\n", TRUE);
+
 	TEST_FILE_END (output);
 	fclose (output);
 
-	TEST_EQ (unlink (filebuf), 0);
-	TEST_EQ (unlink (filename), 0);
+	assert0 (unlink (filebuf));
+	assert0 (unlink (filename));
+	TEST_EQ (rmdir (dirname), 0);
 
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
+	nih_free (class);
+
 	/************************************************************/
 	TEST_FEATURE ("simple test");
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_FILENAME (dirname);       
 	umask(0);
@@ -4615,7 +4855,6 @@ test_spawn (void)
 			class = job_class_new (NULL, "simple-test", NULL);
 			TEST_NE_P (class, NULL);
 
-			TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
 			job = job_new (class, "");
 			TEST_NE_P (job, NULL);
 
@@ -4641,10 +4880,9 @@ test_spawn (void)
 			TEST_NE_P (err, NULL);
 			TEST_EQ (err->number, ENOMEM);
 			nih_free (err);
+			assert0 (unlink (script));
 		} else {
 			TEST_GT (pid, 0);
-			TEST_EQ (unlink (script), 0);
-			unlink (filename);
 		}
 
 		TEST_ALLOC_SAFE {
@@ -4653,8 +4891,11 @@ test_spawn (void)
 		}
 	}
 
+	assert0 (rmdir (dirname));
+
 	/************************************************************/
 	TEST_FEATURE ("with single-line script and 'console log'");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Check that we can spawn a job and retrieve its output.
 	 */
@@ -4699,20 +4940,22 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
 
-	unlink (filename);
-
+	assert0 (unlink (filename));
+	assert0 (unlink (script));
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
-	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script and 'console log'");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Check that we can spawn a job and retrieve its output.
 	 */
@@ -4753,12 +4996,14 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "hello world\r\n");
+	CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
 
-	TEST_EQ (unlink (filename), 0);
+	assert0 (unlink (filename));
+	assert0 (unlink (script));
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
@@ -4767,6 +5012,7 @@ test_spawn (void)
 
 	/************************************************************/
 	TEST_FEATURE ("read single null byte with 'console log'");
+	TEST_HASH_EMPTY (job_classes);
 
 	/* Check that we can spawn a job and read a single byte written
 	 * to stdout.
@@ -4810,7 +5056,7 @@ test_spawn (void)
 
 	TEST_EQ (fclose (output), 0);
 
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
@@ -4820,6 +5066,7 @@ test_spawn (void)
 
 	/************************************************************/
 	TEST_FEATURE ("read data from forked process");
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_FILENAME (dirname);
 	umask(0);
@@ -4849,7 +5096,7 @@ test_spawn (void)
 	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
 	TEST_GT (pid, 0);
 
-	TEST_EQ (waitpid (pid, &status, 0), pid);
+	TEST_NE (waitpid (pid, &status, 0), -1);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
 
@@ -4861,24 +5108,28 @@ test_spawn (void)
 	/* This will eventually call the log destructor */
 	nih_free (class);
 
+	TEST_LIST_EMPTY (nih_io_watches);
+
 	TEST_EQ (stat (filename, &statbuf), 0);
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
+	CHECK_FILE_EQ (output, "stdout\r\n", FALSE);
+	CHECK_FILE_EQ (output, "stderr\r\n", FALSE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
 
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
 	/************************************************************/
 	TEST_FEATURE ("read data from daemon process");
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_FILENAME (dirname);       
 	umask(0);
@@ -4920,13 +5171,14 @@ test_spawn (void)
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
 
-	TEST_FILE_EQ (output, "stdout\r\n");
-	TEST_FILE_EQ (output, "stderr\r\n");
+	CHECK_FILE_EQ (output, "stdout\r\n", FALSE);
+	CHECK_FILE_EQ (output, "stderr\r\n", FALSE);
+
 	TEST_FILE_END (output);
 
 	TEST_EQ (fclose (output), 0);
 
-	unlink (filename);
+	assert0 (unlink (filename));
 
 	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
@@ -4935,6 +5187,7 @@ test_spawn (void)
 #if 0
 	/************************************************************/
 	TEST_FEATURE ("when no free ptys");
+	TEST_HASH_EMPTY (job_classes);
 	{
 		int            available_ptys;
 		int            ret;
@@ -4997,6 +5250,7 @@ test_spawn (void)
 		}
 		nih_free (class);
 	}
+	assert0 (rmdir (dirname));
 #else
 		/* FIXME */
 		TEST_FEATURE ("WARNING: FIXME: test 'when no free ptys' disabled due to kernel bug");
@@ -5021,6 +5275,7 @@ test_log_path (void)
 
 	/************************************************************/
 	TEST_FEATURE ("with system job with simple name");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "system", NULL);
 	TEST_NE_P (class, NULL);
@@ -5033,10 +5288,11 @@ test_log_path (void)
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
 				EXPECTED_JOB_LOGDIR, "system"));
 	TEST_EQ_STR (log_path, expected);
-	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with system job containing illegal path characters");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "//hello_foo bar.z/", NULL);
 	TEST_NE_P (class, NULL);
@@ -5049,10 +5305,11 @@ test_log_path (void)
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
 				EXPECTED_JOB_LOGDIR, "__hello_foo bar.z_"));
 	TEST_EQ_STR (log_path, expected);
-	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with system job with named instance");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "foo bar", NULL);
 	TEST_NE_P (class, NULL);
@@ -5065,10 +5322,11 @@ test_log_path (void)
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
 				EXPECTED_JOB_LOGDIR, "foo bar-bar foo"));
 	TEST_EQ_STR (log_path, expected);
-	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with system job with named instance and illegal path characters");
+	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "a/b", NULL);
 	TEST_NE_P (class, NULL);
@@ -5081,10 +5339,11 @@ test_log_path (void)
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
 				EXPECTED_JOB_LOGDIR, "a_b-c_d_?_"));
 	TEST_EQ_STR (log_path, expected);
-	nih_free (job);
+	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with subverted logdir and system job with named instance and illegal path characters");
+	TEST_HASH_EMPTY (job_classes);
 
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
@@ -5099,9 +5358,10 @@ test_log_path (void)
 	expected = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
 				dirname, "a_b-c_d_?_"));
 	TEST_EQ_STR (log_path, expected);
-	nih_free (job);
+	nih_free (class);
 
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+	TEST_HASH_EMPTY (job_classes);
 }
 
 
@@ -8429,6 +8689,7 @@ test_handler (void)
 	nih_free (event);
 	event_poll ();
 
+	TEST_EQ (rmdir (dirname), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 }
 
@@ -8797,6 +9058,8 @@ test_utmp (void)
 
 		nih_free (job);
 	}
+
+	unlink (utmpname);
 }
 
 
@@ -8832,17 +9095,27 @@ main (int   argc,
 	 * the number of times to fork.
 	 */
 	if (argc == 4) {
-		int forks = atol (argv[3]);
+		int    forks;
+		int    status;
+		pid_t  pid;
+
+		forks = atol (argv[3]);
+
 		nih_assert (forks > 0);
 
 		do {
-			if (fork () != 0)
+			pid = fork ();
+			if (pid < 0)
+				exit (1);
+			else if (pid) {
+				nih_assert (waitpid (pid, &status, 0) == pid);
 				exit (0);
+			}
 
 		} while (forks--);
 
 		child (atoi (argv[1]), argv[2]);
-		exit (1);
+		nih_assert_not_reached ();
 	}
 
 	/* If two arguments are given, the first is the child enum and the
