@@ -28,6 +28,9 @@ upstart (1.5-1) UNRELEASED; urgency=low
     sysvinit in Debian.  Closes: #659540.
   * Move to bzr for the official package Vcs, for greater synergy with the
     Ubuntu packaging.
+  * Use copyright-format/1.0 for debian/copyright.  This drops Scott from
+    the list of copyright holders, as an individual copyright is not
+    attested in any of the upstream sources.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
 
