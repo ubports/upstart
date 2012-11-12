@@ -1,4 +1,4 @@
-upstart (1.5-1) UNRELEASED; urgency=low
+upstart (1.5-1) unstable; urgency=low
 
   * New maintainer.
   * New upstream release.  Closes: #627544.
@@ -32,7 +32,7 @@ upstart (1.5-1) UNRELEASED; urgency=low
     the list of copyright holders, as an individual copyright is not
     attested in any of the upstream sources.
 
- -- Steve Langasek <vorlon@debian.org>  Thu, 28 Jun 2012 23:10:02 +0000
+ -- Steve Langasek <vorlon@debian.org>  Mon, 12 Nov 2012 13:38:34 -0800
 
 upstart (0.6.6-2) unstable; urgency=low
 
