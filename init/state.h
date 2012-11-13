@@ -39,11 +39,6 @@
  *     suffer too much. Bridges could be modified to auto-reconnect on
  *     disconnect.
  *
- *   - log_handle_unflushed(): This data is not currently serialised.
- *     However, it is unlikely that this will be an issue since
- *     it implies that Upstart is being upgraded before the log disk
- *     becomes writeable :-)
- *
  * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX: * XXX:XXX:
  *--------------------------------------------------------------------
  */
