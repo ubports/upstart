@@ -23,9 +23,12 @@
 #include <dbus/dbus.h>
 
 #include <nih/macros.h>
+#include <nih/list.h>
 
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_message.h>
+
+#include <json.h>
 
 /**
  * USE_SESSION_BUS_ENV:
@@ -89,6 +92,18 @@ int  control_set_log_priority     (void *data, NihDBusMessage *message,
 	__attribute__ ((warn_unused_result));
 
 void control_handle_bus_type      (void);
+
+void control_prepare_reexec       (void);
+
+int control_conn_to_index (const DBusConnection *connection)
+	__attribute__ ((warn_unused_result));
+
+DBusConnection *
+control_conn_from_index (int conn_index)
+	__attribute__ ((warn_unused_result));
+
+int control_bus_release_name (void)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

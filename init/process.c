@@ -29,8 +29,10 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/logging.h>
+#include <nih/string.h>
 
 #include "process.h"
+#include "state.h"
 
 
 /**
@@ -116,3 +118,224 @@ process_from_name (const char *process)
 		return -1;
 	}
 }
+
+/**
+ * process_serialise:
+ * @process: process to serialise.
+ *
+ * Convert @process into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised Process object, or NULL on error.
+ **/
+json_object *
+process_serialise (const Process *process)
+{
+	json_object  *json;
+
+	nih_assert (process);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_int_var_from_obj (json, process, script))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, process, command))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+
+}
+
+/**
+ * process_serialise_all:
+ *
+ * @processes: array of Processes.
+ *
+ * Convert array of Process objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Processes, or NULL on error.
+ */
+json_object *
+process_serialise_all (const Process * const * const processes)
+{
+	json_object *json;
+	json_object *json_process;
+	Process      dummy = { 0, NULL };
+
+	nih_assert (processes);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	for (int i = 0; i < PROCESS_LAST; i++) {
+		/* We must encode a blank entry for missing array elements
+		 * to ensure correct deserialisation.
+		 */
+		json_process = process_serialise (processes[i]
+				? processes[i]
+				: &dummy);
+
+		if (! json_process)
+			goto error;
+
+		if (json_object_array_add (json, json_process) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * process_deserialise:
+ * @json: JSON-serialised Process object to deserialise.
+ *
+ * Convert @json into a Process object.
+ *
+ * Returns: Process object, or NULL on error.
+ **/
+Process *
+process_deserialise (json_object *json, const void *parent)
+{
+	Process  *process = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	process = NIH_MUST (process_new (parent));
+
+	if (! state_get_json_int_var_to_obj (json, process, script))
+			goto error;
+
+	if (! state_get_json_string_var_to_obj (json, process, command))
+		goto error;
+
+	/* All Process slots have to be serialised in the JSON to
+	 * guarantee ordering on deserialisation.
+	 *
+	 * However, here we've found a Process that was merely
+	 * an ordering placeholder - no command has been defined,
+	 * so ignore it.
+	 */
+	if (! process->command)
+		goto error;
+
+	return process;
+
+error:
+	nih_free (process);
+	return NULL;
+}
+
+/**
+ * process_deserialise_all:
+ *
+ * @json: root of JSON-serialised state,
+ * @parent: parent of @processes,
+ * @processes: newly-allocated array of Process objects.
+ *
+ * Convert JSON representation of processes back into
+ * an array of Process objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+process_deserialise_all (json_object *json, const void *parent,
+			 Process **processes)
+{
+	json_object        *json_processes;
+	int                 i;
+
+	nih_assert (json);
+	nih_assert (parent);
+	nih_assert (processes);
+
+	json_processes = json_object_object_get (json, "process");
+
+	if (! json_processes)
+		goto error;
+
+	if (! state_check_json_type (json_processes, array))
+		goto error;
+
+	for (i = 0; i < json_object_array_length (json_processes); i++) {
+		json_object *json_process;
+
+		nih_assert (i <= PROCESS_LAST);
+
+		json_process = json_object_array_get_idx (json_processes, i);
+		if (! json_process)
+			goto error;
+
+		if (! state_check_json_type (json_process, object))
+			goto error;
+
+		processes[i] = process_deserialise (json_process, parent);
+
+	}
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * process_type_enum_to_str:
+ *
+ * @type: ProcessType.
+ *
+ * Convert ProcessType to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+process_type_enum_to_str (ProcessType type)
+{
+	state_enum_to_str (PROCESS_INVALID, type);
+	state_enum_to_str (PROCESS_MAIN, type);
+	state_enum_to_str (PROCESS_PRE_START, type);
+	state_enum_to_str (PROCESS_POST_START, type);
+	state_enum_to_str (PROCESS_PRE_STOP, type);
+	state_enum_to_str (PROCESS_POST_STOP, type);
+
+	return NULL;
+}
+
+/**
+ * process_type_str_to_enum:
+ *
+ * @type: string ProcessType.
+ *
+ * Convert @type back into enum value.
+ *
+ * Returns: ProcessType representation of @type, or -1 if not known.
+ **/
+ProcessType
+process_type_str_to_enum (const char *type)
+{
+	nih_assert (type);
+
+	state_str_to_enum (PROCESS_INVALID, type);
+	state_str_to_enum (PROCESS_MAIN, type);
+	state_str_to_enum (PROCESS_PRE_START, type);
+	state_str_to_enum (PROCESS_POST_START, type);
+	state_str_to_enum (PROCESS_PRE_STOP, type);
+	state_str_to_enum (PROCESS_POST_STOP, type);
+
+	return -1;
+}
+

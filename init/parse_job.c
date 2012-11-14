@@ -37,7 +37,6 @@
 #include <nih/string.h>
 #include <nih/list.h>
 #include <nih/signal.h>
-#include <nih/config.h>
 #include <nih/logging.h>
 #include <nih/error.h>
 
@@ -620,6 +619,48 @@ finish:
 	*pos = on_pos;
 	if (lineno)
 		*lineno = on_lineno;
+
+	return root;
+}
+
+/**
+ * parse_on_simple:
+ * @class: job class being parsed,
+ * @stanza_name: name of stanza type to parse ("start" or "stop"),
+ * @string: string to parse.
+ *
+ * Parse either a "start" or "stop" condition from @string (which must
+ * start with the first byte beyond either "start on" or "stop on".
+ *
+ * Returns: EventOperator at root of expression tree on success, NULL
+ * on raised error.
+ **/
+EventOperator *
+parse_on_simple (JobClass *class, const char *stanza_name, const char *string)
+{
+	EventOperator    *root = NULL;
+	NihConfigStanza  *stanza = NULL;
+	size_t            pos = 0;
+	size_t            lineno = 0;
+	size_t            len;
+
+	nih_assert (class);
+	nih_assert (stanza_name);
+	nih_assert (string);
+
+	/* Find the appropriate config stanza */
+	for (NihConfigStanza *s = stanzas; s->name; s++) {
+		if (! strcmp (stanza_name, s->name)) {
+			stanza = s;
+			break;
+		}
+	}
+
+	nih_assert (stanza);
+
+	len = strlen (string);
+
+	root = parse_on (class, stanza, string, len, &pos, &lineno);
 
 	return root;
 }

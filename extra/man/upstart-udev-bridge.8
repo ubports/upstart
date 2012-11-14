@@ -16,7 +16,10 @@ has completed and creates
 events for them.
 
 It emits events which match the pattern "\fIS\fP\-device\-\fIA\fP" where
-\(aqS\(aq is the udev \fIsubsystem\fP and \(aqA\(aq is the udev \fIaction\fP.
+\(aqS\(aq is the udev \fIsubsystem\fP and \(aqA\(aq is one of
+\fIadded\fR, \fIchanged\fR or \fIremoved\fR,
+which correspond to the past tense of the udev \(aqaction\(aq.
+
 See \fBudev\fP(7) and for further details.
 
 Assuming \fI/sys\fP is mounted, possible values for \fIsubsystem\fP for

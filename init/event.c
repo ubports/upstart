@@ -52,6 +52,14 @@ static void event_pending              (Event *event);
 static void event_pending_handle_jobs  (Event *event);
 static void event_finished             (Event *event);
 
+static const char * event_progress_enum_to_str (EventProgress progress)
+	__attribute__ ((warn_unused_result));
+
+static EventProgress
+event_progress_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
+extern json_object *json_events;
 
 /**
  * events:
@@ -500,4 +508,327 @@ event_finished (Event *event)
 	}
 
 	nih_free (event);
+}
+
+/**
+ * event_serialise:
+ * @event: event to serialise.
+ *
+ * Convert @event into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Note that event->blocking is NOT serialised. Instead, those objects
+ * which event->blocking refers to encode the fact that they are blocked
+ * on the event (index in the JSON) in question. Deserialisation
+ * restores event->blocking via a 2-pass technique. event->blockers is
+ * recorded to allow a double-check.
+ *
+ * Returns: JSON-serialised Event object, or NULL on error.
+ **/
+json_object *
+event_serialise (const Event *event)
+{
+	json_object  *json;
+	int           session_index;
+
+	nih_assert (event);
+	nih_assert (event->name);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	session_index = session_get_index (event->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, event, name))
+		goto error;
+
+	if (event->env) {
+		if (! state_set_json_str_array_from_obj (json, event, env))
+			goto error;
+	}
+
+	if (! state_set_json_int_var_from_obj (json, event, fd))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				event_progress_enum_to_str,
+				"progress", event->progress))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, failed))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, blockers))
+		goto error;
+
+	if (! NIH_LIST_EMPTY (&event->blocking)) {
+		json_object *json_blocking;
+
+		json_blocking = state_serialise_blocking (&event->blocking);
+		if (! json_blocking)
+			goto error;
+
+		json_object_object_add (json, "blocking", json_blocking);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * event_serialise_all:
+ *
+ * Convert existing Event objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Events, or NULL on error.
+ **/
+json_object *
+event_serialise_all (void)
+{
+	json_object  *json;
+
+	event_init ();
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event         *event = (Event *)iter;
+		json_object   *json_event;
+
+		json_event = event_serialise (event);
+
+		if (! json_event)
+			goto error;
+
+		json_object_array_add (json, json_event);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * event_deserialise:
+ * @json: JSON-serialised Event object to deserialise.
+ *
+ * Convert @json into an Event object.
+ *
+ * Returns: Event object, or NULL on error.
+ **/
+Event *
+event_deserialise (json_object *json)
+{
+	json_object        *json_env;
+	Event              *event = NULL;
+	nih_local char     *name = NULL;
+        char              **env = NULL;
+	int                 session_index = -1;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		return NULL;
+
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
+		goto error;
+
+	if (json_object_object_get (json, "env")) {
+		if (! state_get_json_var_full (json, "env", array, json_env))
+			goto error;
+
+		if (! state_deserialise_str_array (NULL, json_env, &env))
+			goto error;
+	}
+
+	event = event_new (NULL, name, env);
+	if (! event)
+		return NULL;
+
+	if (! state_get_json_int_var_to_obj (json, event, fd))
+		goto error;
+
+	if (! state_get_json_int_var (json, "session", session_index))
+		goto error;
+
+	/* can't check return value here (as all values are legitimate) */
+	event->session = session_from_index (session_index);
+
+	if (! state_get_json_enum_var (json,
+				event_progress_str_to_enum,
+				"progress", event->progress))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, event, failed))
+		goto error;
+
+	return event;
+
+error:
+	nih_free (event);
+	return NULL;
+}
+
+/**
+ * event_deserialise_all:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of events back into Event objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+event_deserialise_all (json_object *json)
+{
+	Event            *event;
+
+	nih_assert (json);
+
+	event_init ();
+
+	nih_assert (NIH_LIST_EMPTY (events));
+	json_events = json_object_object_get (json, "events");
+
+	if (! json_events)
+		goto error;
+
+	if (! state_check_json_type (json_events, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_events); i++) {
+		json_object   *json_event;
+
+		json_event = json_object_array_get_idx (json_events, i);
+		if (! json_event)
+			goto error;
+
+		if (! state_check_json_type (json_event, object))
+			goto error;
+
+		event = event_deserialise (json_event);
+		if (! event)
+			goto error;
+	}
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * event_progress_enum_to_str:
+ *
+ * @progress: event progress.
+ *
+ * Convert EventProgress to a string representation.
+ *
+ * Returns: string representation of @progress, or NULL if not known.
+ **/
+static const char *
+event_progress_enum_to_str (EventProgress progress)
+{
+	state_enum_to_str (EVENT_PENDING, progress);
+	state_enum_to_str (EVENT_HANDLING, progress);
+	state_enum_to_str (EVENT_FINISHED, progress);
+
+	return NULL;
+}
+
+/**
+ * event_progress_str_to_enum:
+ *
+ * @: name of EventOperator value.
+ *
+ * Convert string representation of EventProgress into a
+ * real EventProgress value.
+ *
+ * Returns: EventProgress representing @progress, or -1 if not known.
+ **/
+static EventProgress
+event_progress_str_to_enum (const char *progress)
+{
+	state_str_to_enum (EVENT_PENDING, progress);
+	state_str_to_enum (EVENT_HANDLING, progress);
+	state_str_to_enum (EVENT_FINISHED, progress);
+
+	return -1;
+}
+
+/**
+ * event_to_index:
+ *
+ * @event: event.
+ *
+ * Convert an Event to an index number within
+ * the list of events.
+ *
+ * Returns: event index, or -1 on error.
+ **/
+int
+event_to_index (const Event *event)
+{
+	int event_index = 0;
+	int found = FALSE;
+
+	nih_assert (event);
+	event_init ();
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *tmp = (Event *)iter;
+
+		if (tmp == event) {
+			found = TRUE;
+			break;
+		}
+
+		event_index++;
+	}
+
+	if (! found)
+		return -1;
+
+	return event_index;
+}
+
+/**
+ * event_from_index:
+ *
+ * @event_index: event index number.
+ *
+ * Lookup Event based on index number.
+ *
+ * Returns: existing Event on success, or NULL if event not found.
+ **/
+Event *
+event_from_index (int event_index)
+{
+	int i = 0;
+
+	nih_assert (event_index >= 0);
+	event_init ();
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		if (i == event_index)
+			return event;
+		i++;
+	}
+
+	return NULL;
 }

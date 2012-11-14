@@ -637,7 +637,7 @@ job_process_spawn (Job          *job,
 	 */
 	setsid ();
 
-	/* Set the process environment from the function paramters. */
+	/* Set the process environment from the function parameters. */
 	environ = (char **)env;
 
 	/* Handle unprivileged user job by dropping privileges to
@@ -1226,7 +1226,7 @@ job_process_kill (Job         *job,
 	nih_assert (job != NULL);
 	nih_assert (job->pid[process] > 0);
 	nih_assert (job->kill_timer == NULL);
-	nih_assert (job->kill_process = -1);
+	nih_assert (job->kill_process == PROCESS_INVALID);
 
 	nih_info (_("Sending %s signal to %s %s process (%d)"),
 		  nih_signal_to_name (job->class->kill_signal),
@@ -1246,10 +1246,47 @@ job_process_kill (Job         *job,
 		return;
 	}
 
+	job_process_set_kill_timer (job, process, job->class->kill_timeout);
+}
+
+/**
+ * job_process_set_kill_timer:
+ * @job: job to set kill timer for,
+ * @process: process to be killed,
+ * @timeout: timeout to apply for timer.
+ *
+ * Set kill timer for specified @job @process with timeout @timeout.
+ **/
+void
+job_process_set_kill_timer (Job          *job,
+		  	    ProcessType   process,
+			    time_t        timeout)
+{
+	nih_assert (job);
+	nih_assert (timeout);
+
 	job->kill_process = process;
 	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
-			  job, job->class->kill_timeout,
+			  job, timeout,
 			  (NihTimerCb)job_process_kill_timer, job));
+}
+
+/**
+ * job_process_adj_kill_timer:
+ *
+ * @job: job whose kill timer is to be modified,
+ * @due: new due time to set for job kill timer.
+ *
+ * Adjust due time for @job's kill timer to @due.
+ **/
+void
+job_process_adj_kill_timer (Job *job, time_t due)
+{
+	nih_assert (job);
+	nih_assert (job->kill_timer);
+	nih_assert (due);
+
+	job->kill_timer->due = due;
 }
 
 /**
@@ -1270,13 +1307,13 @@ job_process_kill_timer (Job      *job,
 	nih_assert (job != NULL);
 	nih_assert (timer != NULL);
 	nih_assert (job->kill_timer == timer);
-	nih_assert (job->kill_process != (ProcessType)-1);
+	nih_assert (job->kill_process != PROCESS_INVALID);
 
 	process = job->kill_process;
 	nih_assert (job->pid[process] > 0);
 
 	job->kill_timer = NULL;
-	job->kill_process = -1;
+	job->kill_process = PROCESS_INVALID;
 
 	nih_info (_("Sending %s signal to %s %s process (%d)"),
 		  "KILL",
@@ -1547,7 +1584,7 @@ job_process_terminated (Job         *job,
 						  job_name (job));
 
 					failed = FALSE;
-					job_failed (job, -1, 0);
+					job_failed (job, PROCESS_INVALID, 0);
 				} else {
 					nih_warn (_("%s %s process ended, respawning"),
 						  job_name (job),
@@ -1631,7 +1668,7 @@ job_process_terminated (Job         *job,
 	if (job->kill_timer) {
 		nih_unref (job->kill_timer, job);
 		job->kill_timer = NULL;
-		job->kill_process = -1;
+		job->kill_process = PROCESS_INVALID;
 	}
 
 	if (job->class->console == CONSOLE_LOG && job->log[process]) {

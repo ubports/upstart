@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+#include <regex.h>
 #include <sys/types.h>        
 #include <sys/stat.h>
 
@@ -54,60 +55,139 @@
 #define BUFFER_SIZE 1024
 
 /**
- * START_UPSTART:
+ * WAIT_FOR_UPSTART:
  *
- * @pid: pid_t that will contain pid of running instance on success.
- *
- * Start an instance of Upstart. Fork errors are fatal, but after
- * a successful fork, waits for up to a somewhat arbitrary (but
- * more than adequate!) amount of time for Upstart to initialize.
+ * Wait for Upstart to appear on D-Bus denoting its completion of
+ * initialisation. Wait time is somewhat arbitrary (but more
+ * than adequate!).
  **/
-#define START_UPSTART(pid)                                           \
+#define WAIT_FOR_UPSTART()                                           \
 {                                                                    \
 	nih_local NihDBusProxy *upstart = NULL;                      \
 	DBusConnection         *connection;                          \
-	DBusError               dbus_error;                          \
+	char                   *address;                             \
+	NihError               *err;                                 \
+	int                     running = FALSE;                     \
 	                                                             \
 	/* XXX: arbitrary value */                                   \
 	int                     attempts = 10;                       \
 	                                                             \
-	                                                             \
-	TEST_NE (pid = fork (), -1);                                 \
-	                                                             \
-	if (pid == 0)                                                \
-		execlp (UPSTART_BINARY, UPSTART_BINARY,              \
-				"--session",                         \
-				"--no-startup-event",                \
-				"--no-sessions",                     \
-				NULL);                               \
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");               \
+	TEST_TRUE (address);                                         \
 	                                                             \
 	while (attempts) {                                           \
 		attempts--;                                          \
 		sleep (1);                                           \
-	        dbus_error_init (&dbus_error);                       \
-		connection = dbus_bus_get (DBUS_BUS_SESSION,         \
-				&dbus_error);                        \
+		connection = nih_dbus_connect (address, NULL);       \
                                                                      \
 		if (! connection) {                                  \
-			dbus_error_free (&dbus_error);               \
+			err = nih_error_get ();                      \
+			nih_free (err);                              \
 			continue;                                    \
 		}                                                    \
-		dbus_error_free (&dbus_error);                       \
 		                                                     \
 		upstart = nih_dbus_proxy_new (NULL, connection,      \
-				      DBUS_SERVICE_UPSTART,          \
-				      DBUS_PATH_UPSTART,             \
-				      NULL, NULL);                   \
+				      	      NULL,                  \
+					      DBUS_PATH_UPSTART,     \
+				      	      NULL, NULL);           \
 		                                                     \
 		if (! upstart) {                                     \
-			NihError *err;                               \
 			err = nih_error_get ();                      \
 			nih_free (err);                              \
 			dbus_connection_unref (connection);          \
-		}                                                    \
-		else {                                               \
+		} else {                                             \
+			running = TRUE;                              \
 			break;                                       \
 		}                                                    \
+	}                                                            \
+	TEST_EQ (running, TRUE);                                     \
+}
+
+/**
+ * _START_UPSTART:
+ *
+ * @pid: pid_t that will contain pid of running instance on success,
+ * @confdir: full path to configuration directory, or NULL to use
+ *           the default,
+ * @logdir: full path to log directory, or NULL to use the default.
+ *
+ * Start an instance of Upstart. Fork errors are fatal. Waits for a
+ * reasonable amount of time for Upstart to appear on D-Bus.
+ **/
+#define _START_UPSTART(pid, confdir, logdir)                         \
+{                                                                    \
+	nih_local char  **args = NULL;                               \
+	nih_local char   *conf_opts = NULL;                          \
+	nih_local char   *log_opts = NULL;                           \
+	                                                             \
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));             \
+	                                                             \
+	args = NIH_MUST (nih_str_array_new (NULL));                  \
+	                                                             \
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
+				UPSTART_BINARY));                    \
+	                                                             \
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
+				"--session"));                       \
+	                                                             \
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
+				"--no-startup-event"));              \
+	                                                             \
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
+				"--no-sessions"));                   \
+	                                                             \
+	if (confdir != NULL) {                                       \
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
+				"--confdir"));                       \
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
+				confdir));                           \
+	}                                                            \
+	                                                             \
+	if (logdir != NULL) {                                        \
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
+				"--logdir"));                        \
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
+				logdir));                            \
+	}                                                            \
+	                                                             \
+	TEST_NE (pid = fork (), -1);                                 \
+	                                                             \
+	if (pid == 0)                                                \
+		execv (args[0], args);                               \
+	                                                             \
+	WAIT_FOR_UPSTART ();                                         \
+}
+
+/**
+ * START_UPSTART:
+ *
+ * @pid: pid_t that will contain pid of running instance on success.
+ *
+ * Start an instance of Upstart and return PID in @pid.
+ **/
+#define START_UPSTART(pid)                                           \
+	_START_UPSTART (pid, NULL, NULL)
+
+/**
+ * KILL_UPSTART:
+ *
+ * @pid: pid of upstart to kill,
+ * @signo: signal number to send to @pid,
+ * @wait: TRUE to wait for @pid to die.
+ *
+ * Send specified signal to upstart process @pid.
+ **/
+#define KILL_UPSTART(pid, signo, wait)                               \
+{                                                                    \
+	int status;                                                  \
+	assert (pid);                                                \
+	assert (signo);                                              \
+	                                                             \
+	assert0 (kill (pid, signo));                                 \
+	if (wait) {                                                  \
+		TEST_EQ (waitpid (pid, &status, 0), pid);            \
+		TEST_TRUE (WIFSIGNALED (status));                    \
+		TEST_TRUE (WTERMSIG (status) == signo);              \
 	}                                                            \
 }
 
@@ -119,18 +199,18 @@
  * Stop upstart process @pid.
  **/
 #define STOP_UPSTART(pid)                                            \
-{                                                                    \
-	assert (pid);                                                \
-	                                                             \
-	if (kill (pid, 0) == 0) {                                    \
-		TEST_EQ (kill (pid, SIGTERM), 0);                    \
-		sleep (1);                                           \
-	}                                                            \
-	                                                             \
-	if (kill (pid, 0) == 0) {                                    \
-		TEST_EQ (kill (pid, SIGKILL), 0);                    \
-	}                                                            \
-}
+	KILL_UPSTART (pid, SIGKILL, TRUE)
+
+/**
+ * REEXEC_UPSTART:
+ *
+ * @pid: pid of upstart.
+ *
+ * Force upstart to perform a re-exec.
+ **/
+#define REEXEC_UPSTART(pid)                                          \
+	KILL_UPSTART (pid, SIGTERM, FALSE);                          \
+	WAIT_FOR_UPSTART ()
 
 /**
  * RUN_COMMAND:
@@ -199,7 +279,7 @@
         strcat (filename, name);                                     \
         f = fopen (filename, "w");                                   \
         TEST_NE_P (f, NULL);                                         \
-        fprintf (f, contents);                                       \
+        fprintf (f, "%s", contents);                                 \
 	if ( contents[strlen(contents)-1] != '\n')                   \
           fprintf (f, "\n");                                         \
         fclose (f);                                                  \
@@ -227,6 +307,75 @@
         strcat (filename, name);                                     \
                                                                      \
 	TEST_EQ (unlink (filename), 0);                              \
+}
+
+/**
+ * job_to_pid:
+ *
+ * @job: job name.
+ *
+ * Determine pid of running job.
+ *
+ * WARNING: it is the callers responsibility to ensure that
+ * @job is still running when this function is called!!
+ *
+ * Returns: pid of job, or -1 if not found.
+ **/
+pid_t
+job_to_pid (const char *job)
+{
+	pid_t            pid;
+	regex_t          regex;
+	regmatch_t       regmatch[2];
+	int              ret;
+	nih_local char  *cmd = NULL;
+	nih_local char  *pattern = NULL;
+	size_t           lines;
+	char           **status;
+	nih_local char  *str_pid = NULL;
+
+	assert (job);
+
+	pattern = NIH_MUST (nih_sprintf
+			(NULL, "^\\b%s\\b .*, process ([0-9]+)", job));
+
+	cmd = NIH_MUST (nih_sprintf (NULL, "%s status %s 2>&1",
+			INITCTL_BINARY, job));
+	RUN_COMMAND (NULL, cmd, &status, &lines);
+	TEST_EQ (lines, 1);
+
+	ret = regcomp (&regex, pattern, REG_EXTENDED);
+	assert0 (ret);
+
+	ret = regexec (&regex, status[0], 2, regmatch, 0);
+	if (ret == REG_NOMATCH) {
+		ret = -1;
+		goto out;
+	}
+	assert0 (ret);
+
+	if (regmatch[1].rm_so == -1 || regmatch[1].rm_eo == -1) {
+		ret = -1;
+		goto out;
+	}
+
+	/* extract the pid */
+	NIH_MUST (nih_strncat (&str_pid, NULL,
+			&status[0][regmatch[1].rm_so],
+			regmatch[1].rm_eo - regmatch[1].rm_so));
+
+	nih_free (status);
+
+	pid = (pid_t)atol (str_pid);
+
+	/* check it's running */
+	ret = kill (pid, 0);
+	if (! ret)
+		ret = pid;
+
+out:
+	regfree (&regex);
+	return ret;
 }
 
 extern int use_dbus;
@@ -10925,11 +11074,301 @@ test_status_action (void)
 	dbus_shutdown ();
 }
 
+int
+strcmp_compar (const void *a, const void *b)
+{
+	return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
+void
+test_list (void)
+{
+	char             dirname[PATH_MAX];
+	nih_local char  *cmd = NULL;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid    = 0;
+	char           **output;
+	size_t           lines;
+	char             expected_output[] = "foo stop/waiting";
+
+	TEST_GROUP ("list");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("single job");
+
+	START_UPSTART (upstart_pid);
+	CREATE_FILE (dirname, "foo.conf",
+			"exec echo hello");
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ_STR (output[0], expected_output);
+	TEST_EQ (lines, 1);
+	nih_free (output);
+	DELETE_FILE (dirname, "foo.conf");
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("3 jobs and re-exec");
+
+	START_UPSTART (upstart_pid);
+	CREATE_FILE (dirname, "foo.conf", "exec echo foo");
+	CREATE_FILE (dirname, "bar.conf", "exec echo bar");
+	CREATE_FILE (dirname, "baz.conf", "exec echo bar");
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* guarantee output ordering */
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ_STR (output[0], "bar stop/waiting");
+	TEST_EQ_STR (output[1], "baz stop/waiting");
+	TEST_EQ_STR (output[2], "foo stop/waiting");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	REEXEC_UPSTART (upstart_pid);
+
+	/* Ensure we can still list jobs after a re-exec */
+	cmd = nih_sprintf (NULL, "%s list 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* guarantee output ordering */
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ_STR (output[0], "bar stop/waiting");
+	TEST_EQ_STR (output[1], "baz stop/waiting");
+	TEST_EQ_STR (output[2], "foo stop/waiting");
+	TEST_EQ (lines, 3);
+	nih_free (output);
+
+	DELETE_FILE (dirname, "foo.conf");
+	DELETE_FILE (dirname, "bar.conf");
+	DELETE_FILE (dirname, "baz.conf");
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
+        TEST_EQ (rmdir (dirname), 0);
+}
+
+void
+test_reexec (void)
+{
+	char             confdir[PATH_MAX];
+	char             logdir[PATH_MAX];
+	char             flagfile[PATH_MAX];
+	nih_local char  *cmd = NULL;
+	pid_t            job_pid     = 0;
+	pid_t            tmp = 0;
+	pid_t            dbus_pid = 0;
+	pid_t            upstart_pid = 0;
+	char           **output;
+	size_t           lines;
+	nih_local char  *logfile = NULL;
+	struct stat      statbuf;
+	nih_local char  *contents = NULL;
+	FILE            *file;
+	int              ok;
+	int              ret;
+
+	TEST_GROUP ("re-exec support");
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+        TEST_FILENAME (logdir);
+        TEST_EQ (mkdir (logdir, 0755), 0);
+
+        TEST_FILENAME (flagfile);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("single job producing output across a re-exec");
+
+	_START_UPSTART (upstart_pid, confdir, logdir);
+
+	contents = nih_sprintf (NULL, 
+			"pre-start exec echo pre-start\n"
+			"script\n"
+			"\n"
+			"# Write first half of data\n"
+			"for i in 1 2 3 4 5\n"
+			"do\n"
+			"    echo $i\n"
+			"done\n"
+			"\n"
+			"# hack to wait for notification that Upstart has re-exec'ed\n"
+			"while [ ! -f \"%s\" ]\n"
+			"do\n"
+			"    sleep 0.1\n"
+			"done\n"
+			"\n"
+			"# remove flag file\n"
+			"rm -f \"%s\"\n"
+			"\n"
+			"# Write remaining data\n"
+			"for i in 6 7 8 9 10\n"
+			"do\n"
+			"    echo $i\n"
+			"done\n"
+			"\n"
+			"# hang around until killed\n"
+			"sleep 999\n"
+			"\n"
+			"end script\n",
+		flagfile, flagfile);
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "foo.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s start foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* check job is running */
+	job_pid = job_to_pid ("foo");
+	TEST_NE (job_pid, -1);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	/* Wait for log to be created */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+
+	/* check contents of log file */
+	TEST_FILE_EQ (file, "pre-start\r\n");
+	for (int i = 1; i < 6; i++) {
+		nih_local char *line = NIH_MUST (nih_sprintf (NULL, "%d\r\n", i));
+		TEST_FILE_EQ (file, line);
+	}
+	TEST_FILE_END (file);
+	fclose (file);
+
+	REEXEC_UPSTART (upstart_pid);
+	
+	/* Create flag file to allow job to proceed */
+	{
+		FILE *f;
+		f = fopen (flagfile, "w");
+		TEST_NE_P (f, NULL);
+		fclose (f);
+	}
+
+	/* ensure job is still running */
+	tmp = job_to_pid ("foo");
+	TEST_NE (tmp, -1);
+
+	/* ensure it hasn't changed pid */
+	TEST_EQ (job_pid, tmp);
+
+	/* wait for script to remove flag file */
+	ok = FALSE;
+	for (int i = 1; i < 6; i++) {
+		ret = stat (flagfile, &statbuf);
+	       
+		if (ret	< 0 && errno == ENOENT) {
+			ok = TRUE;
+			break;
+		}
+		sleep (1);
+	}
+
+	TEST_EQ (ok, TRUE);
+
+	cmd = nih_sprintf (NULL, "%s stop %s 2>&1",
+			INITCTL_BINARY, "foo");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* Wait for job to finish. We can't waitpid() for it as it's not one
+	 * of our children.
+	 */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		nih_local char *path = NIH_MUST (nih_sprintf (NULL, "/proc/%d", job_pid));
+		if (stat (path, &statbuf) < 0 && errno == ENOENT) {
+			ok = TRUE;
+			break;
+		}
+		sleep (1);
+	}
+	TEST_EQ (ok, TRUE);
+	tmp = job_to_pid ("foo");
+	TEST_EQ (tmp, -1);
+
+	TEST_EQ (stat (logfile, &statbuf), 0);
+
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+
+	/* check contents of log file */
+	TEST_FILE_EQ (file, "pre-start\r\n");
+	for (int i = 1; i < 11; i++) {
+		nih_local char *line = NIH_MUST (nih_sprintf (NULL, "%d\r\n", i));
+		TEST_FILE_EQ (file, line);
+	}
+	TEST_FILE_END (file);
+	fclose (file);
+
+	/* ensure script removed flagfile */
+	TEST_LT (stat (flagfile, &statbuf), 0);
+
+	DELETE_FILE (confdir, "foo.conf");
+	DELETE_FILE (logdir, "foo.log");
+	STOP_UPSTART (upstart_pid);
+
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+	TEST_DBUS_END (dbus_pid);
+
+        TEST_EQ (rmdir (confdir), 0);
+        TEST_EQ (rmdir (logdir), 0);
+
+	/*******************************************************************/
+}
+
 void
 test_show_config (void)
 {
 	char             dirname[PATH_MAX];
-	nih_local char  *cmd;
+	nih_local char  *cmd = NULL;
 	pid_t            upstart_pid = 0;
 	pid_t            dbus_pid    = 0;
 	char           **output;
@@ -11393,7 +11832,7 @@ void
 test_check_config (void)
 {
 	char             dirname[PATH_MAX];
-	nih_local char  *cmd;
+	nih_local char  *cmd = NULL;
 	pid_t            upstart_pid = 0;
 	pid_t            dbus_pid    = 0;
 	char           **output;
@@ -11851,10 +12290,10 @@ test_notify_disk_writeable (void)
 {
 	char             confdir_name[PATH_MAX];
 	char             logdir_name[PATH_MAX];
-	nih_local char  *logfile_name;
+	nih_local char  *logfile_name = NULL;
 	pid_t            upstart_pid = 0;
 	pid_t            dbus_pid;
-	nih_local char  *cmd;
+	nih_local char  *cmd = NULL;
 	char           **output;
 	size_t           lines;
 	struct stat      statbuf;
@@ -14518,7 +14957,7 @@ void
 test_usage (void)
 {
 	char             dirname[PATH_MAX];
-	nih_local char  *cmd;
+	nih_local char  *cmd = NULL;
 	pid_t            upstart_pid = 0;
 	pid_t            dbus_pid    = 0;
 	char           **output;
@@ -14683,6 +15122,7 @@ main (int   argc,
 	test_version_action ();
 	test_log_priority_action ();
 	test_usage ();
+	test_reexec ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"
@@ -14691,6 +15131,7 @@ main (int   argc,
 				"as no D-Bus, or D-Bus not configured (lp:#728988)"
 				"\n\n");
 	} else {
+		test_list ();
 		test_show_config ();
 		test_check_config ();
 		test_notify_disk_writeable ();

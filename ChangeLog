@@ -1,3 +1,19 @@
+2012-11-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* Added stateful re-exec support such that when Upstart is asked
+	  to restart itself using 'telinit u', the new instance of PID 1
+	  will retain knowledge of all system jobs and running instances.
+
+2012-09-10  James Hunt  <james.hunt@ubuntu.com>
+
+	* Merged lp:~jconti/upstart/fix_empty_chroot.
+
+2012-05-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: Add in "bare" re-exec handling from Ubuntu
+	  branch.
+	* init/main.c: Unhide "restart" option.
+
 2012-10-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/parse_job.c: stanza_kill(): Actually save parsed

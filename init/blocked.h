@@ -79,6 +79,14 @@ NIH_BEGIN_EXTERN
 Blocked *blocked_new (const void *parent, BlockedType type, void *data)
 	__attribute__ ((warn_unused_result, malloc));
 
+const char *
+blocked_type_enum_to_str (BlockedType type)
+	__attribute__ ((warn_unused_result));
+
+BlockedType
+blocked_type_str_to_enum (const char *type)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_BLOCKED_H */
