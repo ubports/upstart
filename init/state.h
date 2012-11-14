@@ -83,6 +83,16 @@
  * to only serialise objects (and elements of objects) that *need* to be
  * deserialised.
  *
+ * For example, if a JobClass has a 'start on' condition, it is
+ * serialised, but if not, we simply do not encode a value (not even a
+ * "null" one.
+ *
+ * Another example is the log_unflushed_files list. This is ignored
+ * entirely since it would only need to be serialised if Upstart were
+ * upgraded before the log disk became writeable. This is currently an
+ * impossible situation, but if Upstart were to run in the initramfs,
+ * we would need to serialise this data.
+ *
  * The error handling strategy for serialisation is easy: if any of the
  * serialisation steps fail, error immediately.
  *

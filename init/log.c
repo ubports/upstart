@@ -48,8 +48,13 @@ static int log_flushed = 0;
 /**
  * log_unflushed_files:
  *
- * List of known sources of configuration; each item is an
- * NihListEntry.
+ * List of NihListEntry objects containing Log objects which are no
+ * longer associated with Job processes.
+ *
+ * All the entries in the list contain unflushed Log data.
+ *
+ * Used to capture job process output early in the boot process for
+ * jobs that end before the log partition is mounted and writeable.
  **/
 NihList *log_unflushed_files = NULL;
 

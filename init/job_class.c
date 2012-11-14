@@ -1636,8 +1636,7 @@ job_class_serialise (const JobClass *class)
 		goto error;
 	json_object_object_add (json, "export", json_export);
 
-	if (class->start_on)
-	{
+	if (class->start_on) {
 		start_on = event_operator_collapse (class->start_on);
 		if (! start_on)
 			goto error;
@@ -1646,8 +1645,7 @@ job_class_serialise (const JobClass *class)
 			goto error;
 	}
 
-	if (class->stop_on)
-	{
+	if (class->stop_on) {
 		stop_on = event_operator_collapse (class->stop_on);
 		if (! stop_on)
 			goto error;
