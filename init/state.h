@@ -721,7 +721,7 @@
 #define _state_get_json_str_array_generic(parent, json, array, len, env, clean) \
 	({int _ret = 0; \
 	_ret = _state_deserialise_str_array (parent, json, \
-		array, len, FALSE); \
+		array, len, env); \
 	if (clean) { \
 	 	if (_ret < 0 || ! *len) \
 			*(array) = NULL; \
@@ -1138,8 +1138,7 @@ int  state_to_string (char **json_string, size_t *len)
 int    state_from_string (const char *state)
 	__attribute__ ((warn_unused_result));
 
-int    state_toggle_cloexec (int fd, int set)
-	__attribute__ ((warn_unused_result));
+int    state_toggle_cloexec (int fd, int set);
 
 json_object *
 state_serialise_str_array (char ** const array)

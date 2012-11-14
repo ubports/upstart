@@ -327,8 +327,7 @@ process_type_enum_to_str (ProcessType type)
 ProcessType
 process_type_str_to_enum (const char *type)
 {
-	if (! type)
-		goto error;
+	nih_assert (type);
 
 	state_str_to_enum (PROCESS_INVALID, type);
 	state_str_to_enum (PROCESS_MAIN, type);
@@ -337,7 +336,6 @@ process_type_str_to_enum (const char *type)
 	state_str_to_enum (PROCESS_PRE_STOP, type);
 	state_str_to_enum (PROCESS_POST_STOP, type);
 
-error:
 	return -1;
 }
 

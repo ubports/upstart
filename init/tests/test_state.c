@@ -141,7 +141,7 @@ const Process test_procs[] = {
 	{ 0, "echo hello" },
 	{ 1, "echo hello" },
 };
-int     rlimit_values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
+rlim_t rlimit_values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
 
 /**
  * session_diff:
@@ -1739,6 +1739,7 @@ test_enums (void)
 		string_value = blocked_type_enum_to_str (i);
 		if (i < 0 || i > BLOCKED_INSTANCE_RESTART_METHOD) {
 			TEST_EQ_P (string_value, NULL);
+			continue;
 		} else {
 			TEST_NE_P (string_value, NULL);
 		}
@@ -1753,6 +1754,9 @@ test_enums (void)
 		}
 	}
 
+	TEST_EQ ((int)blocked_type_str_to_enum (""), -1);
+	TEST_EQ ((int)blocked_type_str_to_enum ("foo"), -1);
+
 	/*******************************/
 	TEST_FEATURE ("ProcessType");
 
@@ -1762,6 +1766,7 @@ test_enums (void)
 		string_value = process_type_enum_to_str (i);
 		if ((i < 0 && i != -2) || (i+1) > PROCESS_LAST) {
 			TEST_EQ_P (string_value, NULL);
+			continue;
 		} else {
 			TEST_NE_P (string_value, NULL);
 		}
@@ -1776,6 +1781,9 @@ test_enums (void)
 		}
 	}
 
+	TEST_EQ ((int)process_type_str_to_enum (""), -1);
+	TEST_EQ ((int)process_type_str_to_enum ("foo"), -1);
+
 	/*******************************/
 	TEST_FEATURE ("ConsoleType");
 
@@ -1785,6 +1793,7 @@ test_enums (void)
 		string_value = job_class_console_type_enum_to_str (i);
 		if (i < 0 || i > CONSOLE_LOG) {
 			TEST_EQ_P (string_value, NULL);
+			continue;
 		} else {
 			TEST_NE_P (string_value, NULL);
 		}
@@ -1799,6 +1808,9 @@ test_enums (void)
 		}
 	}
 
+	TEST_EQ ((int)job_class_console_type_str_to_enum (""), -1);
+	TEST_EQ ((int)job_class_console_type_str_to_enum ("foo"), -1);
+
 	/*******************************/
 	TEST_FEATURE ("ExpectType");
 
@@ -1808,6 +1820,7 @@ test_enums (void)
 		string_value = job_class_expect_type_enum_to_str (i);
 		if (i < 0 || i > EXPECT_FORK) {
 			TEST_EQ_P (string_value, NULL);
+			continue;
 		} else {
 			TEST_NE_P (string_value, NULL);
 		}
@@ -1821,6 +1834,10 @@ test_enums (void)
 			TEST_EQ (blocked_value, i);
 		}
 	}
+
+	TEST_EQ ((int)job_class_expect_type_str_to_enum (""), -1);
+	TEST_EQ ((int)job_class_expect_type_str_to_enum ("foo"), -1);
+
 	/*******************************/
 
 }
@@ -2601,8 +2618,6 @@ main (int   argc,
 	/* Modify Upstart's behaviour slightly since it's running under
 	 * the test suite.
 	 */
-	setenv ("UPSTART_TESTS", "1", 1);
-
 	test_basic_types ();
 	test_clean_args ();
 	test_enums ();

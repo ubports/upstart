@@ -963,9 +963,13 @@ log_deserialise (const void *parent,
 	if (! state_get_json_int_var_to_obj (json, log, fd))
 		goto error;
 
-	/* Re-apply CLOEXEC flag to stop log file fd being leaked to children. */
+	/* Re-apply CLOEXEC flag to stop log file fd being leaked to children.
+	 *
+	 * Note we discard return value since if this fails,
+	 * we would never close the fd.
+	 */
 	if (log->fd != -1)
-		state_toggle_cloexec (log->fd, TRUE);
+		(void)state_toggle_cloexec (log->fd, TRUE);
 
 	log->unflushed = nih_io_buffer_new (log);
 	if (! log->unflushed)

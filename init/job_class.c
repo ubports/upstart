@@ -2100,15 +2100,13 @@ job_class_expect_type_enum_to_str (ExpectType expect)
 ExpectType
 job_class_expect_type_str_to_enum (const char *expect)
 {
-	if (! expect)
-		goto error;
+	nih_assert (expect);
 
 	state_str_to_enum (EXPECT_NONE, expect);
 	state_str_to_enum (EXPECT_STOP, expect);
 	state_str_to_enum (EXPECT_DAEMON, expect);
 	state_str_to_enum (EXPECT_FORK, expect);
 
-error:
 	return -1;
 }
 

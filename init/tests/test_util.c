@@ -13,7 +13,7 @@
 int
 string_check (const char *a, const char *b)
 {
-	if ((a == b) && !a)
+	if (!a && !b)
 		return 0;
 
 	if (!a || !b)

@@ -344,9 +344,6 @@ session_create_conf_source (Session *session, int deserialised)
 					    CONF_JOB_DIR));
 	source->session = session;
 
-	if (getenv ("UPSTART_TESTS"))
-		return;
-
 	if (conf_source_reload (source) < 0) {
 		NihError *err;
 
@@ -469,7 +466,7 @@ session_deserialise (json_object *json)
 {
 	Session              *session = NULL;
 	nih_local const char *chroot = NULL;
-	uid_t                 user = (uid_t)-1;
+	uid_t                 user;
 
 	nih_assert (json);
 

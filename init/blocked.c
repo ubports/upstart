@@ -131,8 +131,7 @@ blocked_type_enum_to_str (BlockedType type)
 BlockedType
 blocked_type_str_to_enum (const char *type)
 {
-	if (! type)
-		goto error;
+	nih_assert (type);
 
 	state_str_to_enum (BLOCKED_JOB, type);
 	state_str_to_enum (BLOCKED_EVENT, type);
@@ -144,6 +143,5 @@ blocked_type_str_to_enum (const char *type)
 	state_str_to_enum (BLOCKED_INSTANCE_STOP_METHOD, type);
 	state_str_to_enum (BLOCKED_INSTANCE_RESTART_METHOD, type);
 
-error:
 	return -1;
 }
