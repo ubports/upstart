@@ -637,7 +637,7 @@ job_process_spawn (Job          *job,
 	 */
 	setsid ();
 
-	/* Set the process environment from the function paramters. */
+	/* Set the process environment from the function parameters. */
 	environ = (char **)env;
 
 	/* Handle unprivileged user job by dropping privileges to

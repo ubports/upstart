@@ -2598,7 +2598,7 @@ main (int   argc,
 	/* run tests in legacy (pre-session support) mode */
 	setenv ("UPSTART_NO_SESSIONS", "1", 1);
 
-	/* Modify Upstarts behaviour slightly since its running under
+	/* Modify Upstart's behaviour slightly since it's running under
 	 * the test suite.
 	 */
 	setenv ("UPSTART_TESTS", "1", 1);
