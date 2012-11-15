@@ -1,4 +1,14 @@
-1.6  xxxx-xx-xx ""
+1.6  2012-11-15 "The turbine, the fish and the glass partition"
+
+	* 'telinit u' now performs a stateful re-exec, allowing Upstart
+	  to continue to supervise jobs after an upgrade of either
+	  itself, or any of its dependent libraries. Adds dependency
+	  on libjson (JSON-C).
+	* Added initramfs-less boot support.
+	* Allow tests to work in sbuild environment.
+	* Improved error handling.
+	* Fixed crasher if 'kill signal' specified as a particular numeric.
+	* Documentation fixes.
 
 1.5  2012-03-22 "Birdsong"
 

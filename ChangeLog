@@ -1,3 +1,7 @@
+2012-11-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.6
+
 2012-11-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* Added stateful re-exec support such that when Upstart is asked
