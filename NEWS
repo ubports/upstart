@@ -1,3 +1,5 @@
+1.7  xxxx-xx-xx
+
 1.6  2012-11-15 "The turbine, the fish and the glass partition"
 
 	* 'telinit u' now performs a stateful re-exec, allowing Upstart

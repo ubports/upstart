@@ -1,6 +1,8 @@
 2012-11-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.6
+	* configure.ac: Bump version to 1.7
+	* NEWS: Begin new release
 
 2012-11-07  James Hunt  <james.hunt@ubuntu.com>
 
