@@ -80,6 +80,14 @@
 #define DEV_INITCTL "/dev/initctl"
 #endif
 
+/**
+ * RUN_INITCTL:
+ *
+ * System V init control socket (new location).
+ **/
+#ifndef RUN_INITCTL
+#define RUN_INITCTL "/run/initctl"
+#endif
 
 /* Prototypes for option functions */
 static int runlevel_option (NihOption *option, const char *arg);
@@ -819,9 +827,13 @@ sysvinit_shutdown (void)
 	sigemptyset (&act.sa_mask);
 	sigaction (SIGALRM, &act, NULL);
 
-	/* Try and open /dev/initctl */
 	alarm (3);
-	fd = open (DEV_INITCTL, O_WRONLY | O_NDELAY | O_NOCTTY);
+	/* Try and open /run/initctl */
+	fd = open (RUN_INITCTL, O_WRONLY | O_NDELAY | O_NOCTTY);
+	if (fd < 0) {
+		/* Fall back to /dev/initctl */
+		fd = open (DEV_INITCTL, O_WRONLY | O_NDELAY | O_NOCTTY);
+	}
 	if (fd >= 0) {
 		if (write (fd, &request, sizeof (request)) == sizeof (request))
 			exit (0);

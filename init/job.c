@@ -23,7 +23,6 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-
 #include <sys/types.h>
 
 #include <errno.h>
@@ -55,10 +54,43 @@
 #include "event_operator.h"
 #include "blocked.h"
 #include "control.h"
+#include "parse_job.h"
+#include "state.h"
 
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
+/* Prototypes for static functions */
+static const char *
+job_goal_enum_to_str (JobGoal goal)
+	__attribute__ ((warn_unused_result));
+
+static JobGoal job_goal_str_to_enum (const char *goal)
+	__attribute__ ((warn_unused_result));
+
+static const char *
+job_state_enum_to_str (JobState state)
+	__attribute__ ((warn_unused_result));
+
+static JobState
+job_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
+static const char *
+job_trace_state_enum_to_str (TraceState state)
+	__attribute__ ((warn_unused_result));
+
+static TraceState
+job_trace_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
+static json_object *
+job_serialise_kill_timer (NihTimer *timer)
+	__attribute__ ((malloc, warn_unused_result));
+
+static NihTimer *
+job_deserialise_kill_timer (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
 
 /**
  * job_new:
@@ -119,6 +151,7 @@ job_new (JobClass   *class,
 	job->stop_env = NULL;
 
 	job->stop_on = NULL;
+
 	if (class->stop_on) {
 		job->stop_on = event_operator_copy (job, class->stop_on);
 		if (! job->stop_on)
@@ -152,10 +185,10 @@ job_new (JobClass   *class,
 	nih_list_init (&job->blocking);
 
 	job->kill_timer = NULL;
-	job->kill_process = -1;
+	job->kill_process = PROCESS_INVALID;
 
 	job->failed = FALSE;
-	job->failed_process = -1;
+	job->failed_process = PROCESS_INVALID;
 	job->exit_status = 0;
 
 	job->respawn_time = 0;
@@ -262,7 +295,7 @@ job_change_goal (Job     *job,
 	 * will finish naturally, so all we need do is change the goal and
 	 * we'll change direction through the state machine at that point.
 	 *
-	 * The exceptions are the natural rest sates of waiting and a
+	 * The exceptions are the natural rest states of waiting and a
 	 * running process; these need induction to get them moving.
 	 */
 	switch (goal) {
@@ -358,7 +391,7 @@ job_change_state (Job      *job,
 
 			/* Clear any old failed information */
 			job->failed = FALSE;
-			job->failed_process = -1;
+			job->failed_process = PROCESS_INVALID;
 			job->exit_status = 0;
 
 			job->blocker = job_emit_event (job);
@@ -882,7 +915,7 @@ job_emit_event (Job *job)
 		 * if it was a respawn failure, we use the special "respawn"
 		 * argument instead of the process name,
 		 */
-		if ((job->failed_process != (ProcessType)-1)
+		if ((job->failed_process != PROCESS_INVALID)
 		    && (job->exit_status != -1)) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
@@ -907,7 +940,7 @@ job_emit_event (Job *job)
 				NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 						       "EXIT_STATUS=%d", job->exit_status));
 			}
-		} else if (job->failed_process != (ProcessType)-1) {
+		} else if (job->failed_process != PROCESS_INVALID) {
 			NIH_MUST (environ_set (&env, NULL, &len, TRUE,
 					       "PROCESS=%s",
 					       process_name (job->failed_process)));
@@ -1491,4 +1524,690 @@ job_get_processes (Job *                  job,
 	}
 
 	return 0;
+}
+
+/**
+ * job_serialise:
+ * @job: job serialise.
+ *
+ * Convert @job into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Note that the 'class' element is not encoded - it is assumed the
+ * caller will encode the returned JSON Job object as a child of the
+ * parent JSON-encoded JobClass object so a reference is not required.
+ *
+ * Returns: JSON-serialised Job object, or NULL on error.
+ **/
+json_object *
+job_serialise (const Job *job)
+{
+	json_object      *json;
+	json_object      *json_pid;
+	json_object      *json_fds;
+	json_object      *json_logs;
+	nih_local char   *stop_on = NULL;
+
+	nih_assert (job);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_string_var_from_obj (json, job, name))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, job, path))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				job_goal_enum_to_str,
+				"goal", job->goal))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				job_state_enum_to_str,
+				"state", job->state))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, env))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, start_env))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, job, stop_env))
+		goto error;
+
+	if (job->stop_on) {
+		stop_on = event_operator_collapse (job->stop_on);
+		if (! stop_on)
+			goto error;
+
+		if (! state_set_json_string_var (json, "stop_on", stop_on))
+			goto error;
+	}
+
+	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
+	if (! json_fds)
+		goto error;
+
+	json_object_object_add (json, "fds", json_fds);
+
+	json_pid = state_serialise_int_array (pid_t, job->pid,
+					     PROCESS_LAST);
+	if (! json_pid)
+		goto error;
+
+	json_object_object_add (json, "pid", json_pid);
+
+	/* Encode the blocking event as an index number which represents
+	 * the event's position in the JSON events array.
+	 */
+	if (job->blocker) {
+		int event_index;
+
+		event_index = event_to_index (job->blocker);
+		if (event_index < 0)
+			goto error;
+
+		/* For consistency, it would be preferable to encode the
+		 * event name, but the index is actually better since it is
+		 * simple and unambiguous - encoding the name would also require
+		 * us to encode the env to make the event unique.
+		 */
+		if (! state_set_json_int_var (json, "blocker", event_index))
+			goto error;
+
+	}
+
+	if (! NIH_LIST_EMPTY (&job->blocking)) {
+		json_object *json_blocking;
+
+		json_blocking = state_serialise_blocking (&job->blocking);
+		if (! json_blocking)
+			goto error;
+
+		json_object_object_add (json, "blocking", json_blocking);
+	}
+
+	/* conditionally encode kill timer */
+	if (job->kill_timer) {
+		json_object *kill_timer;
+
+		kill_timer = job_serialise_kill_timer (job->kill_timer);
+
+		if (! kill_timer)
+			goto error;
+
+		json_object_object_add (json, "kill_timer", kill_timer);
+	}
+
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"kill_process", job->kill_process))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, failed))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"failed_process", job->failed_process))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, exit_status))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, respawn_time))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, respawn_count))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, job, trace_forks))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				job_trace_state_enum_to_str,
+				"trace_state", job->trace_state))
+		goto error;
+
+	json_logs = json_object_new_array ();
+
+	if (! json_logs)
+		return json;
+
+	for (int process = 0; process < PROCESS_LAST; process++) {
+		json_object *json_log;
+
+		json_log = log_serialise (job->log[process]);
+		if (! json_log)
+			goto error;
+
+		if (json_object_array_add (json_logs, json_log) < 0)
+			goto error;
+	}
+
+	json_object_object_add (json, "log", json_logs);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_serialise_all:
+ *
+ * Convert existing Session objects to JSON representation.
+ *
+ * Returns: JSON object containing array of Job objects, or NULL on error.
+ **/
+json_object *
+job_serialise_all (const NihHash *jobs)
+{
+	int          count = 0;
+	json_object *json;
+
+	nih_assert (jobs);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		json_object  *json_job;
+		Job *job = (Job *)iter;
+
+		count++;
+		json_job = job_serialise (job);
+
+		if (! json_job)
+			goto error;
+
+		json_object_array_add (json, json_job);
+	}
+
+	/* Raise an error to avoid serialising job classes with
+	 * no associated jobs.
+	 */
+	if (! count)
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_deserialise:
+ * @parent: job class for JSON-encoded jobs,
+ * @json: JSON-serialised Job object to deserialise.
+ *
+ * XXX: All events must have been deserialised prior to this function
+ * XXX: being called.
+ *
+ * Returns: Job object, or NULL on error.
+ **/
+Job *
+job_deserialise (JobClass *parent, json_object *json)
+{
+	nih_local char *name = NULL;
+	Job            *job = NULL;
+	json_object    *json_kill_timer;
+	json_object    *blocker;
+	json_object    *json_fds;
+	json_object    *json_pid;
+	json_object    *json_logs;
+	size_t          len;
+	int             ret;
+
+	nih_assert (parent);
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		return NULL;
+
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
+		goto error;
+
+	job = NIH_MUST (job_new (parent, name));
+
+	if (! job)
+		return NULL;
+
+	if (! state_get_json_string_var_to_obj_strict (json, job, path))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_goal_str_to_enum,
+				"goal", job->goal))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_state_str_to_enum,
+				"state", job->state))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, job, env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, job, start_env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, job, stop_env))
+		goto error;
+
+	if (json_object_object_get (json, "stop_on")) {
+		nih_local char *stop_on = NULL;
+
+		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+			goto error;
+
+		if (*stop_on) {
+			nih_local JobClass *tmp = NULL;
+
+			tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
+
+			tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
+			if (! tmp->stop_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("instance 'stop on' parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+
+			nih_free (job->stop_on);
+			job->stop_on = event_operator_copy (job, tmp->stop_on);
+			if (! job->stop_on)
+				goto error;
+		}
+	}
+
+	/* fds and num_fds handled by caller */
+	/* pid handled by caller */
+
+	/* blocking is handled by state_deserialise_blocking() */
+
+	blocker = json_object_object_get (json, "blocker");
+
+	if (blocker) {
+		int event_index = -1;
+
+		if (! state_get_json_int_var (json, "blocker", event_index))
+			goto error;
+		job->blocker = event_from_index (event_index);
+
+		if (! job->blocker)
+			goto error;
+	}
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"kill_process", job->kill_process))
+		goto error;
+
+	/* Check to see if a kill timer exists first since we do not
+	 * want to end up creating a real but empty timer.
+	 */
+	json_kill_timer = json_object_object_get (json, "kill_timer");
+
+	if (json_kill_timer) {
+		/* Found a partial kill timer, so create a new one and
+		 * adjust its due time. By the time the main loop gets
+		 * called, the due time will probably be in the past
+		 * such that the job will be stopped.
+		 *
+		 * To be completely fair we should:
+		 *
+		 * - encode the time at the point of serialisation in a
+		 *   JSON 'meta' header.
+		 * - query the time post-deserialisation and calculate
+		 *   the delta (being the time to perform the stateful
+		 *   re-exec).
+		 * - add that time to all jobs with active kill timers
+		 *   to give their processes the full amount of time to
+		 *   end.
+		 */
+		nih_local NihTimer *kill_timer = job_deserialise_kill_timer (json_kill_timer);
+		if (! kill_timer)
+			goto error;
+
+		nih_assert (job->kill_process);
+		job_process_set_kill_timer (job, job->kill_process,
+		                            kill_timer->timeout);
+		job_process_adj_kill_timer (job, kill_timer->due);
+	}
+
+	if (! state_get_json_int_var_to_obj (json, job, failed))
+			goto error;
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"failed_process", job->failed_process))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, job, exit_status))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, job, respawn_time))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, job, respawn_count))
+		goto error;
+
+	json_fds = json_object_object_get (json, "fds");
+	if (! json_fds)
+		goto error;
+
+	ret = state_deserialise_int_array (job, json_fds,
+			int, &job->fds, &job->num_fds);
+	if (ret < 0)
+		goto error;
+
+	json_pid = json_object_object_get (json, "pid");
+	if (! json_pid)
+		goto error;
+
+	ret = state_deserialise_int_array (job, json_pid,
+			pid_t, &job->pid, &len);
+	if (ret < 0)
+		goto error;
+
+	if (len != PROCESS_LAST)
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, job, trace_forks))
+			goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_trace_state_str_to_enum,
+				"trace_state", job->trace_state))
+		goto error;
+
+	json_logs = json_object_object_get (json, "log");
+
+	if (! json_logs)
+		goto error;
+
+	if (! state_check_json_type (json_logs, array))
+		goto error;
+
+	for (int process = 0; process < PROCESS_LAST; process++) {
+		json_object  *json_log;
+
+		json_log = json_object_array_get_idx (json_logs, process);
+		if (! json_log)
+			goto error;
+
+		/* NULL if there was no log configured, or we failed to
+		 * deserialise it; either way, this should be non-fatal.
+		 */
+		job->log[process] = log_deserialise (job->log, json_log);
+	}
+
+	return job;
+
+error:
+	nih_free (job);
+	return NULL;
+}
+
+/**
+ * job_deserialise_all:
+ *
+ * @parent: job class for JSON-encoded jobs,
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of jobs back into Job objects associated
+ * with @parent.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_deserialise_all (JobClass *parent, json_object *json)
+{
+	json_object  *json_jobs;
+	Job          *job;
+
+	nih_assert (parent);
+	nih_assert (json);
+
+	json_jobs = json_object_object_get (json, "jobs");
+
+	if (! json_jobs)
+		goto error;
+
+	if (! state_check_json_type (json_jobs, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_jobs); i++) {
+		json_object    *json_job;
+
+		json_job = json_object_array_get_idx (json_jobs, i);
+		if (! json_job)
+			goto error;
+
+		if (! state_check_json_type (json_job, object))
+			goto error;
+
+		job = job_deserialise (parent, json_job);
+		if (! job)
+			goto error;
+	}
+
+	return 0;
+
+error:
+	return -1;
+}
+
+/**
+ * job_goal_enum_to_str:
+ *
+ * @goal: JobGoal.
+ *
+ * Convert JobGoal to a string representation.
+ *
+ * Returns: string representation of @goal, or NULL if not known.
+ **/
+static const char *
+job_goal_enum_to_str (JobGoal goal)
+{
+	state_enum_to_str (JOB_STOP, goal);
+	state_enum_to_str (JOB_START, goal);
+	state_enum_to_str (JOB_RESPAWN, goal);
+
+	return NULL;
+}
+
+/**
+ * job_goal_str_to_enum:
+ *
+ * @goal: string JobGoal value.
+ *
+ * Convert @goal back into enum value.
+ *
+ * Returns: JobGoal representation of @goal, or -1 if not known.
+ **/
+static JobGoal
+job_goal_str_to_enum (const char *goal)
+{
+	state_str_to_enum (JOB_STOP, goal);
+	state_str_to_enum (JOB_START, goal);
+	state_str_to_enum (JOB_RESPAWN, goal);
+
+	return -1;
+}
+
+/**
+ * job_state_enum_to_str:
+ *
+ * @state: JobState.
+ *
+ * Convert JobState to a string representation.
+ *
+ * Returns: string representation of @state, or NULL if not known.
+ **/
+static const char *
+job_state_enum_to_str (JobState state)
+{
+	state_enum_to_str (JOB_WAITING, state);
+	state_enum_to_str (JOB_STARTING, state);
+	state_enum_to_str (JOB_PRE_START, state);
+	state_enum_to_str (JOB_SPAWNED, state);
+	state_enum_to_str (JOB_POST_START, state);
+	state_enum_to_str (JOB_RUNNING, state);
+	state_enum_to_str (JOB_PRE_STOP, state);
+	state_enum_to_str (JOB_STOPPING, state);
+	state_enum_to_str (JOB_KILLED, state);
+	state_enum_to_str (JOB_POST_STOP, state);
+
+	return NULL;
+}
+
+/**
+ * job_state_str_to_enum:
+ *
+ * @state: string JobState value.
+ *
+ * Convert @state back into enum value.
+ *
+ * Returns: JobState representation of @state, or -1 if not known.
+ **/
+static JobState
+job_state_str_to_enum (const char *state)
+{
+	state_str_to_enum (JOB_WAITING, state);
+	state_str_to_enum (JOB_STARTING, state);
+	state_str_to_enum (JOB_PRE_START, state);
+	state_str_to_enum (JOB_SPAWNED, state);
+	state_str_to_enum (JOB_POST_START, state);
+	state_str_to_enum (JOB_RUNNING, state);
+	state_str_to_enum (JOB_PRE_STOP, state);
+	state_str_to_enum (JOB_STOPPING, state);
+	state_str_to_enum (JOB_KILLED, state);
+	state_str_to_enum (JOB_POST_STOP, state);
+
+	return -1;
+}
+
+/**
+ * job_state_enum_to_str:
+ *
+ * @state: TraceState.
+ *
+ * Convert TraceState to a string representation.
+ *
+ * Returns: string representation of @state, or NULL if not known.
+ **/
+static const char *
+job_trace_state_enum_to_str (TraceState state)
+{
+	state_enum_to_str (TRACE_NONE, state);
+	state_enum_to_str (TRACE_NEW, state);
+	state_enum_to_str (TRACE_NEW_CHILD, state);
+	state_enum_to_str (TRACE_NORMAL, state);
+
+	return NULL;
+}
+
+/**
+ * job_trace_state_str_to_enum:
+ *
+ * @state: string TraceState value.
+ *
+ * Convert @state back into enum value.
+ *
+ * Returns: TraceState representation of @state, or -1 if not known.
+ **/
+static TraceState
+job_trace_state_str_to_enum (const char *state)
+{
+	state_str_to_enum (TRACE_NONE, state);
+	state_str_to_enum (TRACE_NEW, state);
+	state_str_to_enum (TRACE_NEW_CHILD, state);
+	state_str_to_enum (TRACE_NORMAL, state);
+
+	return -1;
+}
+
+/**
+ * job_serialise_kill_timer:
+ *
+ * @timer: NihTimer to serialise.
+ *
+ * Serialise @timer into JSON.
+ *
+ * Returns: JSON-serialised NihTimer object, or NULL on error.
+ **/
+static json_object *
+job_serialise_kill_timer (NihTimer *timer)
+{
+	json_object  *json;
+
+	nih_assert (timer);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_int_var_from_obj (json, timer, timeout))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, timer, due))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_deserialise_kill_timer:
+ *
+ * @json: JSON representation of NihTimer.
+ *
+ * Deserialise @json back into an NihTimer.
+ *
+ * Returns: NihTimer on NULL on error.
+ **/
+static NihTimer *
+job_deserialise_kill_timer (json_object *json)
+{
+	NihTimer *timer;
+
+	nih_assert (json);
+
+	timer = nih_new (NULL, NihTimer);
+	if (! timer)
+		return NULL;
+
+	memset (timer, '\0', sizeof (NihTimer));
+
+	if (! state_get_json_int_var_to_obj (json, timer, due))
+			goto error;
+
+	if (! state_get_json_int_var_to_obj (json, timer, timeout))
+			goto error;
+
+	return timer;
+
+error:
+	nih_free (timer);
+	return NULL;
 }

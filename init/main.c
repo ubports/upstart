@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/resource.h>
+#include <sys/mount.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -59,12 +60,16 @@
 #include "event.h"
 #include "conf.h"
 #include "control.h"
+#include "state.h"
 
 
 /* Prototypes for static functions */
 #ifndef DEBUG
 static int  logger_kmsg     (NihLogLevel priority, const char *message);
 static void crash_handler   (int signum);
+#endif /* DEBUG */
+static void term_handler    (void *data, NihSignal *signal);
+#ifndef DEBUG
 static void cad_handler     (void *data, NihSignal *signal);
 static void kbd_handler     (void *data, NihSignal *signal);
 static void pwr_handler     (void *data, NihSignal *signal);
@@ -78,20 +83,12 @@ static int  console_type_setter (NihOption *option, const char *arg);
 
 
 /**
- * argv0:
+ * state_fd:
  *
- * Path to program executed, used for re-executing the init binary from the
- * same location we were executed from.
+ * File descriptor to read serialised state from when performing
+ * stateful re-exec. If value is not -1, attempt stateful re-exec.
  **/
-static const char *argv0 = NULL;
-
-/**
- * restart:
- *
- * This is set to TRUE if we're being re-exec'd by an existing init
- * process.
- **/
-static int restart = FALSE;
+static int state_fd = -1;
 
 /**
  * conf_dir:
@@ -146,7 +143,13 @@ static NihOption options[] = {
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+	/* Must be specified for both stateful and stateless re-exec */
+	{ 0, "restart", N_("flag a re-exec has occurred"),
+		NULL, NULL, &restart, NULL },
+
+	/* Required for stateful re-exec */
+	{ 0, "state-fd", N_("specify file descriptor to read serialisation data from"),
+		NULL, "FD", &state_fd, nih_option_int },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },
@@ -165,11 +168,12 @@ int
 main (int   argc,
       char *argv[])
 {
-	char **args;
+	char **args = NULL;
 	int    ret;
 
-	argv0 = argv[0];
-	nih_main_init (argv0);
+	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
+
+	nih_main_init (args_copy[0]);
 
 	nih_option_set_synopsis (_("Process management daemon."));
 	nih_option_set_help (
@@ -191,6 +195,8 @@ main (int   argc,
 
 #ifndef DEBUG
 	if (use_session_bus == FALSE) {
+
+		int needs_devtmpfs = 0;
 
 		/* Check we're root */
 		if (getuid ()) {
@@ -236,14 +242,65 @@ main (int   argc,
 		 */
 		setsid ();
 
+		/* Allow devices to be created with the actual perms
+		 * specified.
+		 */
+		(void)umask (0);
+
+		/* Check if key /dev entries already exist; if they do,
+		 * we should assume we don't need to mount /dev.
+		 */
+		if (system_check_file ("/dev/ptmx", S_IFCHR, makedev (5, 2)) < 0
+			|| system_check_file ("/dev/pts", S_IFDIR, 0) < 0)
+			needs_devtmpfs = 1;
+
+		if (needs_devtmpfs) {
+			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+				NihError *err;
+
+				err = nih_error_get ();
+				nih_error ("%s: %s", _("Unable to mount /dev filesystem"),
+						err->message);
+				nih_free (err);
+			}
+
+			/* Required to exist before /dev/pts accessed */
+			system_mknod ("/dev/ptmx", (S_IFCHR | 0666), makedev (5, 2));
+
+			if (mkdir ("/dev/pts", 0755) < 0 && errno != EEXIST)
+				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
+		}
+
+		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			NihError *err;
+
+			err = nih_error_get ();
+			nih_error ("%s: %s", _("Unable to mount /dev/pts filesystem"),
+					err->message);
+			nih_free (err);
+		}
+
+		/* These devices must exist, but we have to have handled the /dev
+		 * check (and possible mount) prior to considering
+		 * creating them. And yet, if /dev is not available from
+		 * the outset and an error occurs, we are unable to report it,
+		 * hence these checks are performed as early as is
+		 * feasible.
+		 */
+		system_mknod ("/dev/null", (S_IFCHR | 0666), makedev (1, 3));
+		system_mknod ("/dev/tty", (S_IFCHR | 0666), makedev (5, 0));
+		system_mknod ("/dev/console", (S_IFCHR | 0600), makedev (5, 1));
+		system_mknod ("/dev/kmsg", (S_IFCHR | 0600), makedev (1, 11));
+
 		/* Set the standard file descriptors to the ordinary console device,
 		 * resetting it to sane defaults unless we're inheriting from another
 		 * init process which we know left it in a sane state.
 		 */
 		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0) {
 			NihError *err;
-	
+
 			err = nih_error_get ();
+
 			nih_warn ("%s: %s", _("Unable to initialize console, will try /dev/null"),
 				  err->message);
 			nih_free (err);
@@ -271,9 +328,10 @@ main (int   argc,
 
 		/* Mount the /proc and /sys filesystems, which are pretty much
 		 * essential for any Linux system; not to mention used by
-		 * ourselves.
+		 * ourselves. Also mount /dev/pts to allow CONSOLE_LOG
+		 * to function if booted in an initramfs-less environment.
 		 */
-		if (system_mount ("proc", "/proc") < 0) {
+		if (system_mount ("proc", "/proc", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -282,7 +340,7 @@ main (int   argc,
 			nih_free (err);
 		}
 
-		if (system_mount ("sysfs", "/sys") < 0) {
+		if (system_mount ("sysfs", "/sys", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -290,6 +348,7 @@ main (int   argc,
 				err->message);
 			nih_free (err);
 		}
+
 	} else {
 		nih_log_set_priority (NIH_LOG_DEBUG);
 		nih_debug ("Running with UID %d as PID %d (PPID %d)",
@@ -356,7 +415,16 @@ main (int   argc,
 		/* SIGUSR1 instructs us to reconnect to D-Bus */
 		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+
 	}
+
+	/* SIGTERM instructs us to re-exec ourselves; this should be the
+	 * last in the list to ensure that all other signals are handled
+	 * before a SIGTERM.
+	 */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+
 #endif /* DEBUG */
 
 
@@ -401,6 +469,48 @@ main (int   argc,
 	}
 
 
+	if (restart) {
+		if (state_fd == -1) {
+			nih_warn ("%s",
+				_("Stateful re-exec supported but stateless re-exec requested"));
+		} else if (state_read (state_fd) < 0) {
+			nih_local char *arg = NULL;
+
+			/* Stateful re-exec has failed so try once more by
+			 * degrading to stateless re-exec, which even in
+			 * the case of low-memory scenarios will work.
+			 */
+
+			/* Inform the child we've given up on stateful
+			 * re-exec.
+			 */
+			close (state_fd);
+
+			nih_error ("%s - %s",
+				_("Failed to read serialisation data"),
+				_("reverting to stateless re-exec"));
+
+			/* Remove any existing (but now stale) state fd
+			 * args which will effectively disable stateful
+			 * re-exec.
+			 */
+			clean_args (&args_copy);
+
+			/* Attempt stateless re-exec */
+			perform_reexec ();
+
+			nih_error ("%s",
+				_("Both stateful and stateless re-execs failed"));
+
+			/* Out of options */
+			nih_assert_not_reached ();
+		} else {
+			close (state_fd);
+
+			nih_info ("Stateful re-exec completed");
+		}
+	}
+
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
@@ -424,7 +534,8 @@ main (int   argc,
 	}
 
 	/* Open connection to the appropriate D-Bus bus; we normally expect this to
-	 * fail and will try again later - don't let ENOMEM stop us though.
+	 * fail (since dbus-daemon probably isn't running yet) and will try again
+	 * later - don't let ENOMEM stop us though.
 	 */
 	while (control_bus_open () < 0) {
 		NihError *err;
@@ -474,9 +585,17 @@ main (int   argc,
 		}
 
 	} else {
-		sigset_t mask;
+		sigset_t        mask;
 
-		/* We're ok to receive signals again */
+		/* We have been re-exec'd. Don't emit an initial event
+		 * as only Upstart is restarting - we don't want to restart
+		 * the system (another reason being that we don't yet support
+		 * upstart-in-initramfs to upstart-in-root-filesystem
+		 * state-passing transitions).
+		 */
+
+		/* We're ok to receive signals again so restore signals
+		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
@@ -576,7 +695,7 @@ crash_handler (int signum)
 {
 	pid_t pid;
 
-	nih_assert (argv0 != NULL);
+	nih_assert (args_copy[0] != NULL);
 
 	pid = fork ();
 	if (pid == 0) {
@@ -630,7 +749,30 @@ crash_handler (int signum)
 	/* Goodbye, cruel world. */
 	exit (signum);
 }
+#endif
 
+/**
+ * term_handler:
+ * @data: unused,
+ * @signal: signal caught.
+ *
+ * This is called when we receive the TERM signal, which instructs us
+ * to reexec ourselves.
+ **/
+static void
+term_handler (void      *data,
+	      NihSignal *signal)
+{
+	nih_assert (args_copy[0] != NULL);
+	nih_assert (signal != NULL);
+
+	nih_warn (_("Re-executing %s"), args_copy[0]);
+
+	stateful_reexec ();
+}
+
+
+#ifndef DEBUG
 /**
  * cad_handler:
  * @data: unused,
@@ -780,7 +922,7 @@ out:
  * NihOption setter function to handle selection of default console
  * type.
  *
- * Returns 0 on success, -1 on invalid console type.
+ * Returns: 0 on success, -1 on invalid console type.
  **/
 static int
 console_type_setter (NihOption *option, const char *arg)
@@ -796,3 +938,4 @@ console_type_setter (NihOption *option, const char *arg)
 
 	 return 0;
 }
+

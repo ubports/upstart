@@ -16,6 +16,12 @@ allows a system administrator to communicate and interact with the Upstart
 .BR init (8)
 daemon.
 
+If D\-Bus has been configured to allow non\-privileged users to invoke all
+Upstart D\-Bus methods, this command is also able to manage user jobs.
+See
+.BR init (5)
+for further details.
+
 When run as
 .BR initctl ,
 the first non\-option argument is the
@@ -139,6 +145,13 @@ is to be acted upon.
 If the job is already running,
 .B start
 will return an error.
+
+When called from the
+.IR pre\-stop
+stanza of a job configuration,
+.B start
+may be called without argument to cancel the
+.B stop.
 .\"
 .TP
 .B stop
@@ -155,6 +168,13 @@ See
 for a description of the output format and
 .B start
 for a discussion on instances.
+
+When called from the
+.IR pre\-start
+stanza of a job configuration,
+.B stop
+may be called without an argument to cancel the
+.B start.
 .\"
 .TP
 .B restart
@@ -209,7 +229,7 @@ outputting to standard output.
 
 See
 .B start
-for a discusson on instances.
+for a discussion on instances.
 
 For a single\-instance job a line like the following is output:
 
@@ -355,7 +375,7 @@ may be one of
 When called without argument, it requests the current minimum message
 priority that the
 .BR init (8)
-daemon will log and ouputs to standard output.
+daemon will log and outputs to standard output.
 .\"
 .TP
 .B show\-config

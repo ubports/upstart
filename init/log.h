@@ -29,6 +29,8 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include "state.h"
+
 /** LOG_DEFAULT_UMASK:
  *
  * The default file creation mask for log files.
@@ -55,7 +57,7 @@
  * @io: NihIo associated with jobs stdout and stderr,
  * @uid: User ID of caller,
  * @unflushed: Unflushed data,
- * @detached: TRUE if log is no longer associated with a parent,(job),
+ * @detached: TRUE if log is no longer associated with a parent (job),
  * @remote_closed: TRUE if remote end of pty has been closed,
  * @open_errno: value of errno immediately after last attempt to open @path.
  **/
@@ -79,11 +81,17 @@ Log  *log_new                (const void *parent, const char *path,
 	__attribute__ ((warn_unused_result, malloc));
 void  log_io_reader          (Log *log, NihIo *io, const char *buf, size_t len);
 void  log_io_error_handler   (Log *log, NihIo *io);
-int   log_destroy            (Log *log);
-int   log_handle_unflushed   (void *parent, Log *log);
-int   log_clear_unflushed    (void);
+int   log_destroy            (Log *log)
+	__attribute__ ((warn_unused_result));
+int   log_handle_unflushed   (void *parent, Log *log)
+	__attribute__ ((warn_unused_result));
+int   log_clear_unflushed    (void)
+	__attribute__ ((warn_unused_result));
 void  log_unflushed_init     (void);
-
+json_object * log_serialise (Log *log)
+	__attribute__ ((warn_unused_result, malloc));
+Log * log_deserialise (const void *parent, json_object *json)
+	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 

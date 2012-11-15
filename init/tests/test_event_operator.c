@@ -28,7 +28,9 @@
 
 #include "event_operator.h"
 #include "blocked.h"
-
+#include "parse_job.h"
+#include "conf.h"
+#include "test_util.h"
 
 void
 test_operator_new (void)
@@ -1320,6 +1322,94 @@ test_operator_reset (void)
 	event_poll ();
 }
 
+void
+test_operator_serialisation (void)
+{
+	JobClass        *job = NULL;
+	EventOperator   *oper1, *oper2;
+	char		    *oper1_string;
+
+	struct test_operator {
+		char *description;
+		char *value;
+	};
+
+	struct test_operator test_operators[] = {
+		{ "with simple operator", "started JOB=second_test\n" },
+		{ "with or operator", "runlevel [23] or not-container" },
+		{ "with and operator", "(local-filesystems and net-device-up)" },
+		{ "with complex operator", "runlevel [23] and (\n"
+"not-container or\n"
+"container CONTAINER=lxc or\n"
+"container CONTAINER=lxc-libvirt)" },
+		{ "with complex operator (2)", "((filesystem "
+"and runlevel [!06] "
+"and started dbus "
+"and (drm-device-added card0 PRIMARY_DEVICE_FOR_DISPLAY=1 "
+"or stopped udev-fallback-graphics)) "
+"or runlevel PREVLEVEL=S)"},
+		{ "with complex operator (3)", "(started plymouth\n"
+"and (graphics-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or drm-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or stopped udev-fallback-graphics))" },
+		{ "with complex operator (4)", "(startup and\n"
+"(graphics-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or drm-device-added PRIMARY_DEVICE_FOR_DISPLAY=1\n"
+"or stopped udevtrigger or container))"},
+
+		{ NULL, NULL }
+	};
+	struct test_operator *test;
+
+	/* Check correct serialisation/deserialisation of complex
+	 * operators, to be sure that we can generate a correct round-trip
+	 * during re-exec.
+	 */
+	TEST_FUNCTION ("event_operator_serialisation");
+
+	nih_error_init ();
+	job_class_init ();
+	conf_init ();
+
+	job = job_class_new (NULL, "operator_test", NULL);
+
+	for (test = test_operators; test && test->value; test++)
+	{
+		TEST_FEATURE (test->description);
+
+		oper1 = parse_on_simple (job, "start", test->value);
+		TEST_NE_P (oper1, NULL);
+
+		/* Ideally we would exercise allocation here,
+		 * but NIH_MUST is being used.
+		 */
+		oper1_string = event_operator_collapse (oper1);
+		TEST_NE_P (oper1_string, NULL);
+
+		oper2 = parse_on_simple (job, "start", oper1_string);
+		TEST_NE_P (oper2, NULL);
+
+		TEST_EQ (oper1->value, oper2->value);
+		TEST_EQ (oper1->type, oper2->type);
+		if (oper1->name || oper2->name) {
+			TEST_EQ_STR (oper1->name, oper2->name);
+		}
+
+		/* We don't get to use the macros here because we need to
+		 * walk both trees in tandem */
+		TEST_TWO_TREES_FOREACH (&oper1->node, &oper2->node, iter1, iter2) {
+			EventOperator *oper1_sub = (EventOperator *)iter1;
+			EventOperator *oper2_sub = (EventOperator *)iter2;
+
+			TEST_EQ (oper1_sub->value, oper2_sub->value);
+			TEST_EQ (oper1_sub->type, oper2_sub->type);
+			if (oper1_sub->name || oper2_sub->name) {
+				TEST_EQ_STR (oper1_sub->name, oper2_sub->name);
+			}
+		}
+	}
+
+}
 
 int
 main (int   argc,
@@ -1337,6 +1427,7 @@ main (int   argc,
 	test_operator_environment ();
 	test_operator_events ();
 	test_operator_reset ();
+	test_operator_serialisation ();
 
 	return 0;
 }
