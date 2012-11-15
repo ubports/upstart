@@ -36,6 +36,10 @@ case "$1" in
 	    # that does.  It'll lose all state, but we didn't keep much
 	    # in those days.
 	    telinit u
+	elif dpkg --compare-versions "$2" gt 1.6; then
+	    # We're upgrading from a version of upstart that supports
+	    # stateful re-exec, so it's safe to do this now on upgrade.
+	    telinit u
 	else
 	    # Before we shutdown or reboot, we need to re-exec so that we
 	    # can safely remount the root filesystem; we can't just do that
