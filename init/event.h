@@ -24,7 +24,9 @@
 #include <nih/list.h>
 
 #include "session.h"
+#include "state.h"
 
+#include <json.h>
 
 /**
  * EventProgress:
@@ -45,6 +47,8 @@ typedef enum event_progress {
  * @session: session the event is attached to,
  * @name: string name of the event,
  * @env: NULL-terminated array of environment variables,
+ * @fd: open file descriptor associated with a particular
+ *      socket-bridge socket (see socket-event(8)),
  * @progress: progress of event,
  * @failed: whether this event has failed,
  * @blockers: number of blockers for finishing,
@@ -92,6 +96,24 @@ void   event_block   (Event *event);
 void   event_unblock (Event *event);
 
 void   event_poll    (void);
+
+json_object *event_serialise (const Event *event)
+	__attribute__ ((malloc, warn_unused_result));
+
+Event *event_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object  * event_serialise_all (void)
+	__attribute__ ((malloc, warn_unused_result));
+
+int            event_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int    event_to_index (const Event *event)
+	__attribute__ ((warn_unused_result));
+
+Event * event_from_index (int event_index)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

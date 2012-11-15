@@ -96,10 +96,10 @@ char **        event_operator_environment (EventOperator *root, char ***env,
 					   const void *parent, size_t *len,
 					   const char *key);
 int *
-event_operator_fds (EventOperator *root,
-		    const void *parent,
-		    int **fds,
-		    size_t *num_fds,
+event_operator_fds (EventOperator   *root,
+		    const void      *parent,
+		    int            **fds,
+		    size_t          *num_fds,
 		    char          ***env,
 		    size_t          *len,
 		    const char      *key);
@@ -107,6 +107,9 @@ void           event_operator_events      (EventOperator *root,
 					   const void *parent, NihList *list);
 
 void           event_operator_reset       (EventOperator *root);
+
+char *event_operator_collapse (EventOperator *condition)
+	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
 

@@ -54,6 +54,7 @@
 #include "conf.h"
 #include "control.h"
 #include "errors.h"
+#include "state.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -61,6 +62,8 @@
 static int   control_server_connect (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
+
+static void  control_bus_flush      (void);
 
 /**
  * use_session_bus:
@@ -188,7 +191,8 @@ control_server_connect (DBusServer     *server,
 void
 control_server_close (void)
 {
-	nih_assert (control_server != NULL);
+	if (! control_server)
+		return;
 
 	dbus_server_disconnect (control_server);
 	dbus_server_unref (control_server);
@@ -292,7 +296,7 @@ control_bus_close (void)
  *
  * This function is called when the connection to the D-Bus system bus,
  * or a client connection to our D-Bus server, is dropped and our reference
- * is about to be list.  We clear the connection from our current list
+ * is about to be lost.  We clear the connection from our current list
  * and drop the control_bus global if relevant.
  **/
 static void
@@ -301,6 +305,10 @@ control_disconnected (DBusConnection *conn)
 	nih_assert (conn != NULL);
 
 	if (conn == control_bus) {
+		DBusError  error;
+
+		dbus_error_init (&error);
+
 		nih_warn (_("Disconnected from system bus"));
 
 		control_bus = NULL;
@@ -368,6 +376,8 @@ control_reload_configuration (void           *data,
 	nih_assert (message != NULL);
 
 	nih_info (_("Reloading configuration"));
+
+	/* This can only be called after deserialisation */
 	conf_reload ();
 
 	return 0;
@@ -801,6 +811,139 @@ control_notify_disk_writeable (void   *data,
 
 	if (ret < 0) {
 		nih_error_raise_system ();
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * control_bus_flush:
+ *
+ * Drain any remaining messages in the D-Bus queue.
+ **/
+static void
+control_bus_flush (void)
+{
+	control_init ();
+
+	if (! control_bus)
+		return;
+
+	while (dbus_connection_dispatch (control_bus) == DBUS_DISPATCH_DATA_REMAINS)
+		;
+}
+
+/**
+ * control_prepare_reexec:
+ *
+ * Prepare for a re-exec by allowing the bus connection to be retained
+ * over re-exec and clearing all queued messages.
+ **/
+void
+control_prepare_reexec (void)
+{
+	control_init ();
+
+	/* Necessary to disallow further commands but also to allow the
+	 * new instance to open the control server.
+	 */
+	if (control_server)
+		control_server_close ();
+
+	control_bus_flush ();
+
+}
+
+
+/**
+ * control_conn_to_index:
+ *
+ * @event: event.
+ *
+ * Convert a control (DBusConnection) connection to an index number
+ * the list of control connections.
+ *
+ * Returns: connection index, or -1 on error.
+ **/
+int
+control_conn_to_index (const DBusConnection *connection)
+{
+	int conn_index = 0;
+	int found = FALSE;
+
+	nih_assert (connection);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry    *entry = (NihListEntry *)iter;
+		DBusConnection  *conn = (DBusConnection *)entry->data;
+
+		if (connection == conn) {
+			found = TRUE;
+			break;
+		}
+
+		conn_index++;
+	}
+	if (! found)
+		return -1;
+
+	return conn_index;
+}
+
+/**
+ * control_conn_from_index:
+ *
+ * @conn_index: control connection index number.
+ *
+ * Lookup control connection based on index number.
+ *
+ * Returns: existing connection on success, or NULL if connection
+ * not found.
+ **/
+DBusConnection *
+control_conn_from_index (int conn_index)
+{
+	int i = 0;
+
+	nih_assert (conn_index >= 0);
+	nih_assert (control_conns);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry    *entry = (NihListEntry *)iter;
+		DBusConnection  *conn = (DBusConnection *)entry->data;
+
+		if (i == conn_index)
+			return conn;
+		i++;
+	}
+
+	return NULL;
+}
+
+/**
+ * control_bus_release_name:
+ *
+ * Unregister well-known D-Bus name.
+ *
+ * Returns: 0 on success, -1 on raised error.
+ **/
+int
+control_bus_release_name (void)
+{
+	DBusError  error;
+	int        ret;
+
+	if (! control_bus)
+		return 0;
+
+	dbus_error_init (&error);
+	ret = dbus_bus_release_name (control_bus,
+				     DBUS_SERVICE_UPSTART,
+				     &error);
+	if (ret < 0) {
+		nih_dbus_error_raise (error.name, error.message);
+		dbus_error_free (&error);
 		return -1;
 	}
 

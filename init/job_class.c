@@ -52,14 +52,18 @@
 #include "blocked.h"
 #include "conf.h"
 #include "control.h"
+#include "parse_job.h"
 
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
+#include <json.h>
+
+extern json_object *json_classes;
 
 /* Prototypes for static functions */
-static void job_class_add    (JobClass *class);
-static int  job_class_remove (JobClass *class, const Session *session);
+static void  job_class_add (JobClass *class);
+static int   job_class_remove (JobClass *class, const Session *session);
 
 /**
  * default_console:
@@ -353,6 +357,30 @@ job_class_add (JobClass *class)
 
 		job_class_register (class, conn, TRUE);
 	}
+}
+
+/**
+ * job_class_add_safe:
+ * @class: new class to select.
+ *
+ * Adds @class to the hash table iff no existing entry of the
+ * same name exists.
+ **/
+void
+job_class_add_safe (JobClass *class)
+{
+	JobClass *existing = NULL;
+
+	nih_assert (class);
+	nih_assert (class->name);
+
+	control_init ();
+
+	existing = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+
+	nih_assert (! existing);
+
+	job_class_add (class);
 }
 
 /**
@@ -720,7 +748,7 @@ job_class_get_all_instances (JobClass         *class,
  * If the instance goal is already start,
  * the com.ubuntu.Upstart.Error.AlreadyStarted D-Bus error will be returned
  * immediately.  If the instance fails to start, the
- * com.ubuntu.Upstart.Error.JobFailed D-BUs error will be returned when the
+ * com.ubuntu.Upstart.Error.JobFailed D-Bus error will be returned when the
  * problem occurs.
  *
  * When @wait is TRUE the method call will not return until the job has
@@ -1112,6 +1140,39 @@ job_class_restart (JobClass        *class,
 	return 0;
 }
 
+/**
+ * job_class_get:
+ *
+ * @name: name of job class,
+ * @session: session of job class.
+ *
+ * Obtain JobClass with name @name and session @session.
+ *
+ * Returns: JobClass, or NULL if no matching job class found.
+ **/
+JobClass *
+job_class_get (const char *name, Session *session)
+{
+	JobClass  *class = NULL;
+	NihList   *prev = NULL;
+
+	nih_assert (name);
+
+	do {
+		class = (JobClass *)nih_hash_search (job_classes, name, prev);
+		if (! class)
+			return NULL;
+		if (class && class->session == session)
+			return class;
+
+		nih_assert (class);
+
+		prev = (NihList *)class;
+	} while (TRUE);
+
+	nih_assert_not_reached ();
+}
+
 
 /**
  * job_class_get_name:
@@ -1499,4 +1560,652 @@ job_class_get_usage (JobClass *      class,
 	}
 
 	return 0;
+}
+
+
+/**
+ * job_class_serialise:
+ * @class: job class to serialise.
+ *
+ * Convert @class into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised JobClass object, or NULL on error.
+ **/
+json_object *
+job_class_serialise (const JobClass *class)
+{
+	json_object      *json;
+	json_object      *json_export;
+	json_object      *json_emits;
+	json_object      *json_processes;
+	json_object      *json_normalexit;
+	json_object      *json_limits;
+	json_object      *json_jobs;
+	nih_local char   *start_on = NULL;
+	nih_local char   *stop_on = NULL;
+	int               session_index;
+
+	nih_assert (class);
+	nih_assert (job_classes);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	session_index = session_get_index (class->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, name))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, path))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, instance))
+		goto error;
+
+	json_jobs = job_serialise_all (class->instances);
+
+	if (! json_jobs)
+		goto error;
+
+	json_object_object_add (json, "jobs", json_jobs);
+
+	if (! state_set_json_string_var_from_obj (json, class, description))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, author))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, version))
+		goto error;
+
+	if (! state_set_json_str_array_from_obj (json, class, env))
+		goto error;
+
+	json_export = class->export
+		? state_serialise_str_array (class->export)
+		: json_object_new_array ();
+
+	if (! json_export)
+		goto error;
+	json_object_object_add (json, "export", json_export);
+
+	if (class->start_on) {
+		start_on = event_operator_collapse (class->start_on);
+		if (! start_on)
+			goto error;
+
+		if (! state_set_json_string_var (json, "start_on", start_on))
+			goto error;
+	}
+
+	if (class->stop_on) {
+		stop_on = event_operator_collapse (class->stop_on);
+		if (! stop_on)
+			goto error;
+
+		if (! state_set_json_string_var (json, "stop_on", stop_on))
+			goto error;
+	}
+
+	json_emits = class->emits
+		? state_serialise_str_array (class->emits)
+		: json_object_new_array ();
+
+	if (! json_emits)
+		goto error;
+	json_object_object_add (json, "emits", json_emits);
+
+	json_processes = process_serialise_all (
+			(const Process const * const * const)class->process);
+	if (! json_processes)
+		goto error;
+	json_object_object_add (json, "process", json_processes);
+
+	if (! state_set_json_enum_var (json,
+				job_class_expect_type_enum_to_str,
+				"expect", class->expect))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, task))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, kill_timeout))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, kill_signal))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, respawn))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, respawn_limit))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, respawn_interval))
+		goto error;
+
+	json_normalexit = state_serialise_int_array (int, class->normalexit,
+					     class->normalexit_len);
+	if (! json_normalexit)
+		goto error;
+
+	json_object_object_add (json, "normalexit", json_normalexit);
+
+	if (! state_set_json_enum_var (json,
+				job_class_console_type_enum_to_str,
+				"console", class->console))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, umask))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, nice))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, oom_score_adj))
+		goto error;
+
+	json_limits = state_rlimit_serialise_all (class->limits);
+	if (! json_limits)
+		goto error;
+	json_object_object_add (json, "limits", json_limits);
+
+	if (! state_set_json_string_var_from_obj (json, class, chroot))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, chdir))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, setuid))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, setgid))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, deleted))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, debug))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, class, usage))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_class_serialise_all:
+ *
+ * Convert existing JobClass objects to JSON representation.
+ *
+ * Returns: JSON object containing array of JobClass objects,
+ * or NULL on error.
+ **/
+json_object *
+job_class_serialise_all (void)
+{
+	json_object *json;
+
+	job_class_init ();
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		json_object  *json_class;
+		JobClass     *class = (JobClass *)iter;
+
+		json_class = job_class_serialise (class);
+
+		/* No object returned means the class doesn't need to be
+		 * serialised.  Even if this is a real failure, it's always
+		 * better to serialise as much of the state as possible.
+		 */
+		if (! json_class)
+			continue;
+
+		json_object_array_add (json, json_class);
+	}
+
+	return json;
+}
+
+/**
+ * job_class_deserialise:
+ * @json: JSON-serialised JobClass object to deserialise.
+ *
+ * Create JobClass from provided JSON and add to the
+ * job classes table.
+ *
+ * Returns: JobClass object, or NULL on error.
+ **/
+JobClass *
+job_class_deserialise (json_object *json)
+{
+	json_object    *json_normalexit;
+	JobClass       *class = NULL;
+	int             session_index = -1;
+	int             ret;
+	nih_local char *name = NULL;
+	nih_local char *path = NULL;
+
+	nih_assert (json);
+	nih_assert (job_classes);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (! state_get_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (session_index < 0)
+		goto error;
+
+	if (! state_get_json_string_var_strict (json, "name", NULL, name))
+		goto error;
+
+	class = NIH_MUST (job_class_new (NULL, name,
+	                                 session_from_index (session_index)));
+	if (! class)
+		goto error;
+
+	if (class->session != NULL) {
+		nih_warn ("XXX: WARNING (%s:%d): deserialisation of "
+				"user jobs and chroot sessions not currently supported",
+				__func__, __LINE__);
+		goto error;
+	}
+
+	/* job_class_new() sets path */
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+		goto error;
+
+	nih_assert (! strcmp (class->path, path));
+
+	/* Discard default instance as we're about to be handed a fresh
+	 * string from the JSON.
+	 */
+	nih_free (class->instance);
+
+	if (! state_get_json_string_var_to_obj (json, class, instance))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, description))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, author))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, version))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, class, env))
+		goto error;
+
+	if (! state_get_json_env_array_to_obj (json, class, export))
+		goto error;
+
+	/* start and stop conditions are optional */
+	if (json_object_object_get (json, "start_on")) {
+		nih_local char *start_on = NULL;
+
+		if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
+			goto error;
+
+		if (*start_on) {
+			class->start_on = parse_on_simple (class, "start", start_on);
+			if (! class->start_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("'start on' parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+		}
+	}
+
+	if (json_object_object_get (json, "stop_on")) {
+		nih_local char *stop_on = NULL;
+
+		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+			goto error;
+
+		if (*stop_on) {
+			class->stop_on = parse_on_simple (class, "stop", stop_on);
+			if (! class->stop_on) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s %s: %s",
+						_("BUG"),
+						_("'stop on' parse error"),
+						err->message);
+
+				nih_free (err);
+
+				goto error;
+			}
+		}
+	}
+
+	if (! state_get_json_str_array_to_obj (json, class, emits))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_class_expect_type_str_to_enum,
+				"expect", class->expect))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, task))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, kill_timeout))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, kill_signal))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, respawn))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, respawn_limit))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, respawn_interval))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				job_class_console_type_str_to_enum,
+				"console", class->console))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, umask))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, nice))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, oom_score_adj))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, chroot))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, chdir))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, setuid))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, setgid))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, deleted))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, class, debug))
+		goto error;
+
+	if (! state_get_json_string_var_to_obj (json, class, usage))
+		goto error;
+
+	json_normalexit = json_object_object_get (json, "normalexit");
+	if (! json_normalexit)
+		goto error;
+
+	ret = state_deserialise_int_array (class, json_normalexit,
+			int, &class->normalexit, &class->normalexit_len);
+	if (ret < 0)
+		goto error;
+
+	if (state_rlimit_deserialise_all (json, class, &class->limits) < 0)
+		goto error;
+
+	if (process_deserialise_all (json, class->process, class->process) < 0)
+		goto error;
+
+	/* Force class to be known.
+	 *
+	 * We cannot use job_class_*consider() since the
+	 * JobClasses have no associated ConfFile.
+	 */
+	job_class_add_safe (class);
+
+	/* Any jobs must be added after the class is registered
+	 * (since you cannot add a job to a partially-created
+	 * class).
+	 */
+	if (job_deserialise_all (class, json) < 0)
+		goto error;
+
+	return class;
+
+error:
+	nih_free (class);
+	return NULL;
+}
+
+/**
+ * job_class_deserialise_all:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of JobClasses back into JobClass objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_deserialise_all (json_object *json)
+{
+	JobClass     *class = NULL;
+
+	nih_assert (json);
+
+	job_class_init ();
+
+	json_classes = json_object_object_get (json, "job_classes");
+
+	if (! json_classes)
+			goto error;
+
+	if (! state_check_json_type (json_classes, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_classes); i++) {
+		json_object         *json_class;
+
+		json_class = json_object_array_get_idx (json_classes, i);
+		if (! json_class)
+			goto error;
+
+		if (! state_check_json_type (json_class, object))
+			goto error;
+
+		class = job_class_deserialise (json_class);
+		if (! class)
+			goto error;
+
+		/* FIXME:
+		 *
+		 * If user sessions exist (ie 'initctl --session list'
+		 * has been run), we get this failure:
+		 *
+		 *             serialised path='/com/ubuntu/Upstart/jobs/1000/bang'
+		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
+		 *
+		 */
+
+	}
+
+	return 0;
+
+error:
+	if (class)
+		nih_free (class);
+
+	return -1;
+}
+
+
+/**
+ * job_class_expect_type_enum_to_str:
+ *
+ * @expect: ExpectType.
+ *
+ * Convert ExpectType to a string representation.
+ *
+ * Returns: string representation of @expect, or NULL if not known.
+ **/
+const char *
+job_class_expect_type_enum_to_str (ExpectType expect)
+{
+	state_enum_to_str (EXPECT_NONE, expect);
+	state_enum_to_str (EXPECT_STOP, expect);
+	state_enum_to_str (EXPECT_DAEMON, expect);
+	state_enum_to_str (EXPECT_FORK, expect);
+
+	return NULL;
+}
+
+/**
+ * job_class_expect_type_str_to_enum:
+ *
+ * @expect: string ExpectType value.
+ *
+ * Convert @expect back into an enum value.
+ *
+ * Returns: ExpectType representing @expect, or -1 if not known.
+ **/
+ExpectType
+job_class_expect_type_str_to_enum (const char *expect)
+{
+	nih_assert (expect);
+
+	state_str_to_enum (EXPECT_NONE, expect);
+	state_str_to_enum (EXPECT_STOP, expect);
+	state_str_to_enum (EXPECT_DAEMON, expect);
+	state_str_to_enum (EXPECT_FORK, expect);
+
+	return -1;
+}
+
+/**
+ * job_class_console_type_enum_to_str:
+ *
+ * @console: ConsoleType.
+ *
+ * Convert ConsoleType to a string representation.
+ *
+ * Returns: string representation of @console, or NULL if not known.
+ **/
+const char *
+job_class_console_type_enum_to_str (ConsoleType console)
+{
+	state_enum_to_str (CONSOLE_NONE, console);
+	state_enum_to_str (CONSOLE_OUTPUT, console);
+	state_enum_to_str (CONSOLE_OWNER, console);
+	state_enum_to_str (CONSOLE_LOG, console);
+
+	return NULL;
+}
+
+/**
+ * job_class_console_type_str_to_enum:
+ *
+ * @console: string ConsoleType value.
+ *
+ * Convert @console back into enum value.
+ *
+ * Returns: ExpectType representing @console, or -1 if not known.
+ **/
+ConsoleType
+job_class_console_type_str_to_enum (const char *console)
+{
+	if (! console)
+		goto error;
+
+	state_str_to_enum (CONSOLE_NONE, console);
+	state_str_to_enum (CONSOLE_OUTPUT, console);
+	state_str_to_enum (CONSOLE_OWNER, console);
+	state_str_to_enum (CONSOLE_LOG, console);
+
+error:
+	return -1;
+}
+
+/**
+ * job_class_prepare_reexec:
+ *
+ * Prepare for a re-exec by clearing the CLOEXEC bit on all log object
+ * file descriptors associated with their parent jobs.
+ **/
+void
+job_class_prepare_reexec (void)
+{
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			nih_assert (job->log);
+
+			for (int process = 0; process < PROCESS_LAST; process++) {
+				int  fd;
+				Log *log;
+
+				log = job->log[process];
+
+				/* No associated job process or logger has detected
+				 * remote end of pty has closed.
+				 */
+				if (! log || ! log->io)
+					continue;
+
+				nih_assert (log->io->watch);
+
+				fd = log->io->watch->fd;
+				if (fd < 0)
+					continue;
+
+				if (state_toggle_cloexec (fd, FALSE) < 0)
+					goto error;
+
+				fd = log->fd;
+				if (fd < 0)
+					continue;
+
+				if (state_toggle_cloexec (fd, FALSE) < 0)
+					goto error;
+			}
+		}
+	}
+
+	return;
+
+error:
+	nih_warn (_("unable to clear CLOEXEC bit on log fd"));
 }

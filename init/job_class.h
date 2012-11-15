@@ -196,7 +196,7 @@ typedef struct job_class {
 	int             task;
 
 	time_t          kill_timeout;
-	int		kill_signal;
+	int             kill_signal;
 
 	int             respawn;
 	int             respawn_limit;
@@ -237,6 +237,8 @@ JobClass  * job_class_new                  (const void *parent,
 
 int         job_class_consider             (JobClass *class);
 int         job_class_reconsider           (JobClass *class);
+
+void        job_class_add_safe             (JobClass *class);
 
 void        job_class_register             (JobClass *class,
 					    DBusConnection *conn, int signal);
@@ -306,8 +308,41 @@ int         job_class_get_usage	           (JobClass *class,
 					    NihDBusMessage *message,
 					    char **usage);
 
+const char *
+job_class_console_type_enum_to_str (ConsoleType console)
+	__attribute__ ((warn_unused_result));
+
+ConsoleType
+job_class_console_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
+const char *
+job_class_expect_type_enum_to_str (ExpectType expect)
+	__attribute__ ((warn_unused_result));
+
+ExpectType
+job_class_expect_type_str_to_enum (const char *name)
+	__attribute__ ((warn_unused_result));
+
 ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
+
+json_object *job_class_serialise (const JobClass *class)
+	__attribute__ ((warn_unused_result, malloc));
+
+JobClass *job_class_deserialise (json_object *json)
+	__attribute__ ((malloc, warn_unused_result));
+
+json_object * job_class_serialise_all (void)
+	__attribute__ ((warn_unused_result, malloc));
+
+int job_class_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+JobClass * job_class_get (const char *name, Session *session)
+	__attribute__ ((warn_unused_result));
+
+void job_class_prepare_reexec (void);
 
 NIH_END_EXTERN
 

@@ -1,3 +1,9 @@
+upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
+
+  * New upstream release.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Nov 2012 09:26:10 -0800
+
 upstart (1.5-0ubuntu9) quantal-proposed; urgency=low
 
   * debian/apparmor-profile-load: exit 0 if apparmor_parser fails to not

@@ -39,9 +39,9 @@
  * what they define within themselves.
  **/
 typedef enum conf_source_type {
-	CONF_FILE,
-	CONF_DIR,
-	CONF_JOB_DIR,
+	CONF_FILE,    /* solitary file */
+	CONF_DIR,     /* FIXME: */
+	CONF_JOB_DIR, /* directory tree of jobs */
 } ConfSourceType;
 
 
@@ -133,6 +133,7 @@ char *toggle_conf_name         (const void *parent, const char *path)
 #ifdef DEBUG
 
 /* used for debugging only */
+#include "job.h"
 
 size_t
 debug_count_hash_entries       (const NihHash *hash);
@@ -142,13 +143,20 @@ debug_count_list_entries       (const NihList *list)
 	__attribute__ ((unused));
 
 void
-debug_show_job_class           (const JobClass *job)
+debug_show_job_class           (const JobClass *class)
 	__attribute__ ((unused));
 
 void
 debug_show_job_classes         (void)
 	__attribute__ ((unused));
 
+void
+debug_show_job                 (const Job *job)
+	__attribute__ ((unused));
+
+void
+debug_show_jobs (const NihHash *instances)
+	__attribute__ ((unused));
 void
 debug_show_event               (const Event *event)
 	__attribute__ ((unused));

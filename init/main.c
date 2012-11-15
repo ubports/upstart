@@ -61,6 +61,7 @@
 #include "event.h"
 #include "conf.h"
 #include "control.h"
+#include "state.h"
 
 
 /* Prototypes for static functions */
@@ -83,20 +84,12 @@ static int  console_type_setter (NihOption *option, const char *arg);
 
 
 /**
- * argv0:
+ * state_fd:
  *
- * Path to program executed, used for re-executing the init binary from the
- * same location we were executed from.
+ * File descriptor to read serialised state from when performing
+ * stateful re-exec. If value is not -1, attempt stateful re-exec.
  **/
-static const char *argv0 = NULL;
-
-/**
- * restart:
- *
- * This is set to TRUE if we're being re-exec'd by an existing init
- * process.
- **/
-static int restart = FALSE;
+static int state_fd = -1;
 
 /**
  * conf_dir:
@@ -151,7 +144,13 @@ static NihOption options[] = {
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
 
-	{ 0, "restart", NULL, NULL, NULL, &restart, NULL },
+	/* Must be specified for both stateful and stateless re-exec */
+	{ 0, "restart", N_("flag a re-exec has occurred"),
+		NULL, NULL, &restart, NULL },
+
+	/* Required for stateful re-exec */
+	{ 0, "state-fd", N_("specify file descriptor to read serialisation data from"),
+		NULL, "FD", &state_fd, nih_option_int },
 
 	{ 0, "session", N_("use D-Bus session bus rather than system bus (for testing)"),
 		NULL, NULL, &use_session_bus, NULL },
@@ -170,11 +169,12 @@ int
 main (int   argc,
       char *argv[])
 {
-	char **args;
+	char **args = NULL;
 	int    ret;
 
-	argv0 = argv[0];
-	nih_main_init (argv0);
+	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
+
+	nih_main_init (args_copy[0]);
 
 	nih_option_set_synopsis (_("Process management daemon."));
 	nih_option_set_help (
@@ -299,7 +299,9 @@ main (int   argc,
 		 */
 		if (system_setup_console (CONSOLE_NONE, (! restart)) < 0) {
 			NihError *err;
+
 			err = nih_error_get ();
+
 			nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
 				   err->message);
 			nih_free (err);
@@ -408,13 +410,15 @@ main (int   argc,
 		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 
-		/* SIGTERM instructs us to re-exec ourselves; this should be the
-		 * last in the list to ensure that all other signals are handled
-		 * before a SIGTERM.
-		 */
-		nih_signal_set_handler (SIGTERM, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
 	}
+
+	/* SIGTERM instructs us to re-exec ourselves; this should be the
+	 * last in the list to ensure that all other signals are handled
+	 * before a SIGTERM.
+	 */
+	nih_signal_set_handler (SIGTERM, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+
 #endif /* DEBUG */
 
 
@@ -459,6 +463,48 @@ main (int   argc,
 	}
 
 
+	if (restart) {
+		if (state_fd == -1) {
+			nih_warn ("%s",
+				_("Stateful re-exec supported but stateless re-exec requested"));
+		} else if (state_read (state_fd) < 0) {
+			nih_local char *arg = NULL;
+
+			/* Stateful re-exec has failed so try once more by
+			 * degrading to stateless re-exec, which even in
+			 * the case of low-memory scenarios will work.
+			 */
+
+			/* Inform the child we've given up on stateful
+			 * re-exec.
+			 */
+			close (state_fd);
+
+			nih_error ("%s - %s",
+				_("Failed to read serialisation data"),
+				_("reverting to stateless re-exec"));
+
+			/* Remove any existing (but now stale) state fd
+			 * args which will effectively disable stateful
+			 * re-exec.
+			 */
+			clean_args (&args_copy);
+
+			/* Attempt stateless re-exec */
+			perform_reexec ();
+
+			nih_error ("%s",
+				_("Both stateful and stateless re-execs failed"));
+
+			/* Out of options */
+			nih_assert_not_reached ();
+		} else {
+			close (state_fd);
+
+			nih_info ("Stateful re-exec completed");
+		}
+	}
+
 	/* Read configuration */
 	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
@@ -482,7 +528,8 @@ main (int   argc,
 	}
 
 	/* Open connection to the appropriate D-Bus bus; we normally expect this to
-	 * fail and will try again later - don't let ENOMEM stop us though.
+	 * fail (since dbus-daemon probably isn't running yet) and will try again
+	 * later - don't let ENOMEM stop us though.
 	 */
 	while (control_bus_open () < 0) {
 		NihError *err;
@@ -604,9 +651,17 @@ main (int   argc,
 		}
 
 	} else {
-		sigset_t mask;
+		sigset_t        mask;
 
-		/* We're ok to receive signals again */
+		/* We have been re-exec'd. Don't emit an initial event
+		 * as only Upstart is restarting - we don't want to restart
+		 * the system (another reason being that we don't yet support
+		 * upstart-in-initramfs to upstart-in-root-filesystem
+		 * state-passing transitions).
+		 */
+
+		/* We're ok to receive signals again so restore signals
+		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 	}
@@ -706,7 +761,7 @@ crash_handler (int signum)
 {
 	pid_t pid;
 
-	nih_assert (argv0 != NULL);
+	nih_assert (args_copy[0] != NULL);
 
 	pid = fork ();
 	if (pid == 0) {
@@ -774,42 +829,12 @@ static void
 term_handler (void      *data,
 	      NihSignal *signal)
 {
-	NihError   *err;
-	const char *loglevel;
-	sigset_t    mask, oldmask;
-
-	nih_assert (argv0 != NULL);
+	nih_assert (args_copy[0] != NULL);
 	nih_assert (signal != NULL);
 
-	nih_warn (_("Re-executing %s"), argv0);
+	nih_warn (_("Re-executing %s"), args_copy[0]);
 
-	/* Block signals while we work.  We're the last signal handler
-	 * installed so this should mean that they're all handled now.
-	 *
-	 * The child must make sure that it unblocks these again when
-	 * it's ready.
-	 */
-	sigfillset (&mask);
-	sigprocmask (SIG_BLOCK, &mask, &oldmask);
-
-	/* Argument list */
-	if (nih_log_priority <= NIH_LOG_DEBUG) {
-		loglevel = "--debug";
-	} else if (nih_log_priority <= NIH_LOG_INFO) {
-		loglevel = "--verbose";
-	} else if (nih_log_priority >= NIH_LOG_ERROR) {
-		loglevel = "--error";
-	} else {
-		loglevel = NULL;
-	}
-	execl (argv0, argv0, "--restart", loglevel, NULL);
-	nih_error_raise_system ();
-
-	err = nih_error_get ();
-	nih_error (_("Failed to re-execute %s: %s"), argv0, err->message);
-	nih_free (err);
-
-	sigprocmask (SIG_SETMASK, &oldmask, NULL);
+	stateful_reexec ();
 }
 
 
@@ -963,7 +988,7 @@ out:
  * NihOption setter function to handle selection of default console
  * type.
  *
- * Returns 0 on success, -1 on invalid console type.
+ * Returns: 0 on success, -1 on invalid console type.
  **/
 static int
 console_type_setter (NihOption *option, const char *arg)
@@ -979,3 +1004,4 @@ console_type_setter (NihOption *option, const char *arg)
 
 	 return 0;
 }
+

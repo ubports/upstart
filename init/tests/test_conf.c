@@ -45,49 +45,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "conf.h"
-
-/* macro to try and ensure the environment is as pristine as possible
- * (to avoid follow-on errors caused by not freeing objects in a
- * previous test, say)
- */
-#define TEST_ENSURE_CLEAN_ENV()                                      \
-{                                                                    \
-	setvbuf(stdout, NULL, _IONBF, 0);                            \
-                                                                     \
-	if (job_classes) {                                           \
-		TEST_HASH_EMPTY (job_classes);                       \
-	}                                                            \
-                                                                     \
-	if (conf_sources) {                                          \
-		TEST_LIST_EMPTY (conf_sources);                      \
-	}                                                            \
-                                                                     \
-	if (nih_io_watches) {                                        \
-		TEST_LIST_EMPTY (nih_io_watches);                    \
-	}                                                            \
-                                                                     \
-	if (nih_timers) {                                            \
-		TEST_LIST_EMPTY (nih_timers);                        \
-	}                                                            \
-                                                                     \
-	if (events) {                                                \
-		TEST_LIST_EMPTY (events);                            \
-	}                                                            \
-}
-
-/* Force an inotify watch update */
-#define TEST_FORCE_WATCH_UPDATE()                                    \
-{                                                                    \
-	int         nfds = 0;                                        \
-	fd_set      readfds, writefds, exceptfds;                    \
-	                                                             \
-	FD_ZERO (&readfds);                                          \
-	FD_ZERO (&writefds);                                         \
-	FD_ZERO (&exceptfds);                                        \
-	                                                             \
-	nih_io_select_fds (&nfds, &readfds, &writefds, &exceptfds);  \
-	nih_io_handle_fds (&readfds, &writefds, &exceptfds);         \
-}
+#include "test_util.h"
 
 void
 test_source_new (void)
