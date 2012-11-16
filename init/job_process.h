@@ -82,6 +82,7 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_EXEC,
 	JOB_PROCESS_ERROR_GETPWNAM,
 	JOB_PROCESS_ERROR_GETGRNAM,
+	JOB_PROCESS_ERROR_GETPWUID,
 	JOB_PROCESS_ERROR_BAD_SETUID,
 	JOB_PROCESS_ERROR_BAD_SETGID,
 	JOB_PROCESS_ERROR_SETUID,
@@ -89,8 +90,11 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_CHOWN,
 	JOB_PROCESS_ERROR_OPENPT_MASTER,
 	JOB_PROCESS_ERROR_UNLOCKPT,
+	JOB_PROCESS_ERROR_GRANTPT,
 	JOB_PROCESS_ERROR_PTSNAME,
-	JOB_PROCESS_ERROR_OPENPT_SLAVE
+	JOB_PROCESS_ERROR_OPENPT_SLAVE,
+	JOB_PROCESS_ERROR_SIGNAL,
+	JOB_PROCESS_ERROR_ALLOC
 } JobProcessErrorType;
 
 /**
@@ -138,6 +142,12 @@ Job   *job_process_find     (pid_t pid, ProcessType *process);
 
 char  *job_process_log_path (Job *job, int user_job)
 	__attribute__ ((malloc, warn_unused_result));
+
+void   job_process_set_kill_timer (Job          *job,
+		  	    ProcessType   process,
+			    time_t        timeout);
+
+void   job_process_adj_kill_timer  (Job *job, time_t due);
 
 NIH_END_EXTERN
 

@@ -1,3 +1,10 @@
+upstart (1.6-1) UNRELEASED; urgency=low
+
+  * New upstream release.
+  * Add build-dependency on libjson0-dev.
+
+ -- Steve Langasek <vorlon@debian.org>  Thu, 15 Nov 2012 09:26:10 -0800
+
 upstart (1.5-1) unstable; urgency=low
 
   * New maintainer.
@@ -33,6 +40,23 @@ upstart (1.5-1) unstable; urgency=low
     attested in any of the upstream sources.
 
  -- Steve Langasek <vorlon@debian.org>  Mon, 12 Nov 2012 13:38:34 -0800
+
+upstart (1.5-0ubuntu9) quantal-proposed; urgency=low
+
+  * debian/apparmor-profile-load: exit 0 if apparmor_parser fails to not
+    block upgrades (errors will still be logged by upstart). This can be
+    removed once apparmor_parser better deals with new policy on old kernels
+    - LP: #1058356
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 12 Oct 2012 13:54:10 -0500
+
+upstart (1.5-0ubuntu8) quantal; urgency=low
+
+  * Merge of latest upstream including doc fixes, fixes for booting
+    on initramfs-less systems and improved error handling in spawn
+    failure scenarios (LP: #980917, #1032101).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 08 Aug 2012 10:05:34 +0100
 
 upstart (0.6.6-2) unstable; urgency=low
 

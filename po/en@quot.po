@@ -27,10 +27,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.5\n"
+"Project-Id-Version: upstart 1.6\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2012-03-22 11:02+0000\n"
-"PO-Revision-Date: 2012-03-22 11:02+0000\n"
+"POT-Creation-Date: 2012-03-22 14:37+0000\n"
+"PO-Revision-Date: 2012-11-15 09:29+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -85,7 +85,7 @@ msgstr "Connection from private client"
 msgid "Disconnected from system bus"
 msgstr "Disconnected from system bus"
 
-#: init/control.c:370 init/main.c:694
+#: init/control.c:370 init/main.c:830
 msgid "Reloading configuration"
 msgstr "Reloading configuration"
 
@@ -526,43 +526,43 @@ msgstr "%s %s process (%d) executable changed"
 msgid "Failed to write to log file"
 msgstr "Failed to write to log file"
 
-#: init/main.c:131
+#: init/main.c:135
 msgid "specify alternative directory to load configuration files from"
 msgstr "specify alternative directory to load configuration files from"
 
-#: init/main.c:134
+#: init/main.c:138
 msgid "default value for console stanza"
 msgstr "default value for console stanza"
 
-#: init/main.c:137
+#: init/main.c:141
 msgid "specify alternative directory to store job output logs in"
 msgstr "specify alternative directory to store job output logs in"
 
-#: init/main.c:140
+#: init/main.c:144
 msgid "disable job logging"
 msgstr "disable job logging"
 
-#: init/main.c:143
+#: init/main.c:147
 msgid "disable user and chroot sessions"
 msgstr "disable user and chroot sessions"
 
-#: init/main.c:146
+#: init/main.c:150
 msgid "do not emit any startup event (for testing)"
 msgstr "do not emit any startup event (for testing)"
 
-#: init/main.c:151
+#: init/main.c:155
 msgid "use D-Bus session bus rather than system bus (for testing)"
 msgstr "use D-Bus session bus rather than system bus (for testing)"
 
-#: init/main.c:154
+#: init/main.c:158
 msgid "specify an alternative initial event (for testing)"
 msgstr "specify an alternative initial event (for testing)"
 
-#: init/main.c:174
+#: init/main.c:178
 msgid "Process management daemon."
 msgstr "Process management daemon."
 
-#: init/main.c:176
+#: init/main.c:180
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
@@ -572,65 +572,75 @@ msgstr ""
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 
-#: init/main.c:197 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
+#: init/main.c:201 util/reboot.c:166 util/shutdown.c:363 util/telinit.c:148
 msgid "Need to be root"
 msgstr "Need to be root"
 
-#: init/main.c:206
+#: init/main.c:210
 msgid "Not being executed as init"
 msgstr "Not being executed as init"
 
-#: init/main.c:247
+#: init/main.c:251
 msgid "Unable to initialize console, will try /dev/null"
 msgstr "Unable to initialize console, will try /dev/null"
 
-#: init/main.c:253
+#: init/main.c:257
 msgid "Unable to initialize console as /dev/null"
 msgstr "Unable to initialize console as /dev/null"
 
-#: init/main.c:269 init/main.c:604
+#: init/main.c:273 init/main.c:687
 msgid "Unable to set root directory"
 msgstr "Unable to set root directory"
 
-#: init/main.c:280
+#: init/main.c:284
 msgid "Unable to mount /proc filesystem"
 msgstr "Unable to mount /proc filesystem"
 
-#: init/main.c:289
+#: init/main.c:293
 msgid "Unable to mount /sys filesystem"
 msgstr "Unable to mount /sys filesystem"
 
-#: init/main.c:392 init/main.c:398
+#: init/main.c:403 init/main.c:409
 msgid "Unable to set default oom score"
 msgstr "Unable to set default oom score"
 
-#: init/main.c:417
+#: init/main.c:428
 msgid "Unable to listen for private connections"
 msgstr "Unable to listen for private connections"
 
-#: init/main.c:450
+#: init/main.c:461
 msgid "Unable to setup standard file descriptors"
 msgstr "Unable to setup standard file descriptors"
 
-#: init/main.c:621
+#: init/main.c:704
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr "Caught %s, core dumped"
 
-#: init/main.c:625
+#: init/main.c:708
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr "Caught %s, unable to dump core"
 
-#: init/main.c:711
+#: init/main.c:737
+#, c-format
+msgid "Re-executing %s"
+msgstr "Re-executing %s"
+
+#: init/main.c:762
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr "Failed to re-execute %s: %s"
+
+#: init/main.c:847
 msgid "Reconnecting to system bus"
 msgstr "Reconnecting to system bus"
 
-#: init/main.c:717
+#: init/main.c:853
 msgid "Unable to connect to the system bus"
 msgstr "Unable to connect to the system bus"
 
-#: init/main.c:793
+#: init/main.c:929
 msgid "invalid console type specified"
 msgstr "invalid console type specified"
 
@@ -1291,11 +1301,65 @@ msgstr "Could not send socket event"
 msgid "Error emitting socket event"
 msgstr "Error emitting socket event"
 
-#~ msgid "No available ptys"
-#~ msgstr "No available ptys"
+#~ msgid "BUG"
+#~ msgstr "BUG"
 
-#~ msgid "Re-executing %s"
-#~ msgstr "Re-executing %s"
+#~ msgid "instance 'stop on' parse error"
+#~ msgstr "instance ‘stop on’ parse error"
 
-#~ msgid "Failed to re-execute %s: %s"
-#~ msgstr "Failed to re-execute %s: %s"
+#~ msgid "'start on' parse error"
+#~ msgstr "‘start on’ parse error"
+
+#~ msgid "'stop on' parse error"
+#~ msgstr "‘stop on’ parse error"
+
+#~ msgid "unable to clear CLOEXEC bit on log fd"
+#~ msgstr "unable to clear CLOEXEC bit on log fd"
+
+#~ msgid "unable to getpwuid: %s"
+#~ msgstr "unable to getpwuid: %s"
+
+#~ msgid "unable to open pty master: %s"
+#~ msgstr "unable to open pty master: %s"
+
+#~ msgid "unable to granpt: %s"
+#~ msgstr "unable to granpt: %s"
+
+#~ msgid "unable to open pty slave: %s"
+#~ msgstr "unable to open pty slave: %s"
+
+#~ msgid "unable to modify signal handler: %s"
+#~ msgstr "unable to modify signal handler: %s"
+
+#~ msgid "unable to allocate memory: %s"
+#~ msgstr "unable to allocate memory: %s"
+
+#~ msgid "flag a re-exec has occurred"
+#~ msgstr "flag a re-exec has occurred"
+
+#~ msgid "specify file descriptor to read serialisation data from"
+#~ msgstr "specify file descriptor to read serialisation data from"
+
+#~ msgid "Unable to mount /dev filesystem"
+#~ msgstr "Unable to mount /dev filesystem"
+
+#~ msgid "Cannot create directory"
+#~ msgstr "Cannot create directory"
+
+#~ msgid "Unable to mount /dev/pts filesystem"
+#~ msgstr "Unable to mount /dev/pts filesystem"
+
+#~ msgid "Stateful re-exec supported but stateless re-exec requested"
+#~ msgstr "Stateful re-exec supported but stateless re-exec requested"
+
+#~ msgid "Failed to read serialisation data"
+#~ msgstr "Failed to read serialisation data"
+
+#~ msgid "reverting to stateless re-exec"
+#~ msgstr "reverting to stateless re-exec"
+
+#~ msgid "Both stateful and stateless re-execs failed"
+#~ msgstr "Both stateful and stateless re-execs failed"
+
+#~ msgid "Unable to create device"
+#~ msgstr "Unable to create device"

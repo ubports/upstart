@@ -52,20 +52,17 @@ start on socket PROTO=inet PORT=80 ADDR=127.0.0.1
 .P
 .RS
 .nf
-
 start on socket PROTO=unix PATH=/var/run/.s.pgsql.1234
 .fi
-.FE
+.RE
 .\"
 .SS Abstract socket
 .P
-
 .RS
 .nf
-
 start on socket PROTO=unix PATH=@/at/upstart/example
 .fi
-.FE
+.RE
 .\"
 .SH AUTHOR
 Written by Scott James Remnant

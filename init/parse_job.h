@@ -21,6 +21,7 @@
 #define INIT_PARSE_JOB_H
 
 #include <nih/macros.h>
+#include <nih/config.h>
 
 #include "session.h"
 #include "job_class.h"
@@ -34,6 +35,10 @@ JobClass *parse_job (const void *parent, Session *session,
 		     size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result, malloc));
 
+EventOperator *
+parse_on_simple (JobClass *class, const char *stanza_name,
+		 const char *string)
+	__attribute__ ((warn_unused_result, malloc));
 NIH_END_EXTERN
 
 #endif /* INIT_PARSE_JOB_H */
