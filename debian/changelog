@@ -5,6 +5,9 @@ upstart (1.6-1) UNRELEASED; urgency=low
   * Export $TERM in debian/rules; the Debian buildds don't set this, which
     results in test failures because of assumptions that it will be
     available.
+  * init/tests/test_job_process.c: tests are failing to re-exec the test
+    binary on mips for no clear reason; output the path so we can try to
+    debug.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 15 Nov 2012 09:26:10 -0800
 
