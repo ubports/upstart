@@ -2,6 +2,9 @@ upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
 
   * New upstream release.
   * Add build-dependency on libjson0-dev.
+  * Export $TERM in debian/rules; the Debian buildds don't set this, which
+    results in test failures because of assumptions that it will be
+    available.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Nov 2012 09:26:10 -0800
 
