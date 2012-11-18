@@ -1,4 +1,4 @@
-upstart (1.6-2) UNRELEASED; urgency=low
+upstart (1.6-2) unstable; urgency=low
 
   * init/tests/test_job_process.c: cherry-pick upstream fix for test which
     was accidentally relying on a variable persisting after it's gone out of
@@ -12,7 +12,7 @@ upstart (1.6-2) UNRELEASED; urgency=low
     fixes running the test suite as part of a nice'd build.
   * init/tests/test_job_class.c: update test suite to match.
 
- -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 00:58:55 -0600
+ -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 01:54:29 -0600
 
 upstart (1.6-1) unstable; urgency=low
 
