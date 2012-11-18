@@ -1,4 +1,4 @@
-upstart (1.6-1) UNRELEASED; urgency=low
+upstart (1.6-1) unstable; urgency=low
 
   * New upstream release.
   * Add build-dependency on libjson0-dev.
@@ -11,7 +11,7 @@ upstart (1.6-1) UNRELEASED; urgency=low
   * init/tests/test_job_process.c: amd64 build failed with an inscrutible
     error from waitid().  Print errno on failure to try to diagnose this. 
 
- -- Steve Langasek <vorlon@debian.org>  Thu, 15 Nov 2012 09:26:10 -0800
+ -- Steve Langasek <vorlon@debian.org>  Sat, 17 Nov 2012 23:19:37 -0600
 
 upstart (1.5-1) unstable; urgency=low
 
