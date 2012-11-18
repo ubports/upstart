@@ -27,6 +27,8 @@
 #include <sys/wait.h>
 #include <sys/ptrace.h>
 #include <sys/select.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <time.h>
 #include <stdio.h>
@@ -131,7 +133,7 @@ test_new (void)
 		TEST_EQ (class->console, CONSOLE_LOG);
 
 		TEST_EQ (class->umask, 022);
-		TEST_EQ (class->nice, 0);
+		TEST_EQ (class->nice, getpriority (PRIO_PROCESS, 0));
 		TEST_EQ (class->oom_score_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)

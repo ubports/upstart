@@ -10,6 +10,7 @@ upstart (1.6-2) UNRELEASED; urgency=low
     current process is.  This will be important later for user sessions
     where an entire session may be started with a higher nice value; and it
     fixes running the test suite as part of a nice'd build.
+  * init/tests/test_job_class.c: update test suite to match.
 
  -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 00:58:55 -0600
 
