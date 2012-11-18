@@ -649,7 +649,6 @@ test_run (void)
 	 * with the job name appended to it.
 	 */
 	TEST_FEATURE ("with environment of unnamed instance");
-	printf ("... (using %s as path to the test)", argv0);
 	TEST_HASH_EMPTY (job_classes);
 
 	TEST_ALLOC_FAIL {

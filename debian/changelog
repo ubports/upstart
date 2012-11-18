@@ -3,6 +3,8 @@ upstart (1.6-2) UNRELEASED; urgency=low
   * init/tests/test_job_process.c: cherry-pick upstream fix for test which
     was accidentally relying on a variable persisting after it's gone out of
     scope.
+  * init/tests/test_job_process.c: drop change to print path in the test,     
+    should be fixed by the above.
 
  -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 00:58:55 -0600
 
