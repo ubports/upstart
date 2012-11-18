@@ -1,3 +1,8 @@
+2012-11-18  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/tests/test_job_process.c: fix test which was accidentally
+	  relying on a variable persisting after it's gone out of scope.
+
 2012-11-17  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* init/Makefile.am: set TERM=xterm, so that tests which rely on

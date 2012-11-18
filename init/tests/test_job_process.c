@@ -9251,9 +9251,9 @@ main (int   argc,
 	 */
 	argv0 = argv[0];
 	if (argv0[0] != '/') {
-		char path[PATH_MAX];
+		char *path = nih_alloc (NULL, PATH_MAX);
 
-		assert (getcwd (path, sizeof (path)));
+		assert (getcwd (path, PATH_MAX));
 		strcat (path, "/");
 		strcat (path, argv0);
 
