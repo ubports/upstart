@@ -2,6 +2,12 @@
 
 	* init/tests/test_job_process.c: fix test which was accidentally
 	  relying on a variable persisting after it's gone out of scope.
+	* init/tests/test_job_process.c: don't test the blocked/ignored
+	  signal list in a spawned job; this is not testing the upstart code
+	  but the characteristics of the system, and the test is wrong
+	  because it assumes the signal lists in /proc/self/status fit in an
+	  unsigned long int - patently untrue on mips, where we have 128
+	  signals for historical reasons.
 
 2012-11-17  Steve Langasek  <steve.langasek@ubuntu.com>
 
