@@ -521,6 +521,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 initconfdir = $(sysconfdir)/init
+AM_MAKEFLAGS = TERM=xterm
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
