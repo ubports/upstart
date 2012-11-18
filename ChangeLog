@@ -8,6 +8,7 @@
 	  sessions where an entire session may be started with a higher nice
 	  value; and it fixes running the test suite as part of a nice'd
 	  build.
+	* init/tests/test_job_class.c: update test suite to match.
 
 2012-11-17  Steve Langasek  <steve.langasek@ubuntu.com>
 
