@@ -1,3 +1,9 @@
+2012-11-17  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/Makefile.am: set TERM=xterm, so that tests which rely on
+	  TERM being set in the environment don't give different results and
+	  gratuitously fail.
+
 2012-11-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.6
