@@ -2,6 +2,12 @@
 
 	* init/tests/test_job_process.c: fix test which was accidentally
 	  relying on a variable persisting after it's gone out of scope.
+	* init/job_class.[ch]: instead of assuming a fixed value (0) as the
+	  default nice value for job processes, use whatever the nice value
+	  of the current process is.  This will be important later for user
+	  sessions where an entire session may be started with a higher nice
+	  value; and it fixes running the test suite as part of a nice'd
+	  build.
 
 2012-11-17  Steve Langasek  <steve.langasek@ubuntu.com>
 
