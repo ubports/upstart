@@ -14,8 +14,6 @@ endif
 
 export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
-export TERM=xterm
-
 %:
 	dh $@ --with bash-completion
 

@@ -2,6 +2,8 @@
 
 initconfdir = $(sysconfdir)/init
 
+AM_MAKEFLAGS = TERM=xterm
+
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
