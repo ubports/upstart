@@ -28,8 +28,8 @@ void dconf_changed (DConfClient *client, const gchar *prefix,
 
         printf("%s => %s\n", path, value_str);
 
-        env_key = g_strconcat("DCONF_KEY=", path, NULL);
-        env_value = g_strconcat("DCONF_VALUE=", value_str, NULL);
+        env_key = g_strconcat("KEY=", path, NULL);
+        env_value = g_strconcat("VALUE=", value_str, NULL);
 
         env = g_new (char *, 2);
         env[0] = env_key;
