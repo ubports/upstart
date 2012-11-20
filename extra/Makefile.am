@@ -4,6 +4,8 @@ AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
+	$(DCONF_CFLAGS) \
+	$(DBUS_GLIB_CFLAGS) \
 	$(UDEV_CFLAGS)
 
 AM_CPPFLAGS = \
@@ -65,6 +67,23 @@ upstart_file_bridge_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
+
+if HAVE_DCONF
+sbin_PROGRAMS += \
+	upstart-dconf-bridge
+
+upstart_dconf_bridge_SOURCES = \
+	upstart-dconf-bridge.c
+nodist_upstart_dconf_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+upstart_dconf_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(DBUS_GLIB_LIBS) \
+	$(DCONF_LIBS)
+endif
 
 if HAVE_UDEV
 dist_init_DATA += \

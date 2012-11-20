@@ -30,7 +30,10 @@ NIH_WITH_LOCAL_LIBNIH
 PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
+PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1 >= 0.5], [have_dbus_glib=yes],
+                                                        [have_dbus_glib=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
+PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
 
 # Reasons for requiring this library version:
 #
@@ -51,6 +54,8 @@ PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 PKG_CHECK_MODULES([JSON], [json >= 0.10])
 
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+AM_CONDITIONAL([HAVE_DCONF], [test "$have_dconf" = yes &&
+                                test "$have_dbus_glib" = yes])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
