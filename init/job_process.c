@@ -2154,14 +2154,12 @@ job_process_log_path (Job *job, int user_job)
 	 * file within the chroot.
 	 */
 	if (job->class->session && job->class->session->chroot) {
-		nih_local char *tmp = NULL;
-
-		tmp = NIH_MUST (nih_strdup (NULL, dir));
-		nih_free (dir);
+		char *tmp = dir;
 
 		dir = nih_sprintf (NULL, "%s%s",
 				job->class->session->chroot,
 				tmp);
+		nih_free (tmp);
 	}
 
 	class_name = nih_strdup (NULL, class->name);
