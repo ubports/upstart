@@ -181,17 +181,19 @@ void dconf_changed (DConfClient *client, const gchar *prefix,
 						    G_TYPE_INVALID,
 						    G_TYPE_INVALID);
 
-		if (error) {
-			g_error ("D-BUS: %s", error->message);
-			g_error_free (error);
-		}
-
 		g_free (path);
 		g_variant_unref (value);
 		g_free (value_str);
 		g_free (env_key);
 		g_free (env_value);
 		g_free (env);
+
+		if (error) {
+			/* Ignore DBUS errors.
+			   Those events will just be lost until upstart reappears.
+			 */
+			g_error_free (error);
+		}
 
 		i += 1;
 	}
