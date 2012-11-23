@@ -1,3 +1,13 @@
+2012-11-23  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Colin King <colin.king@ubuntu.com> ]
+
+	* init/log.c: log_serialise(): smatch-found issue where
+	  additional checks required for log->unflushed to avoid any
+	  possibility of NULL dereference.
+	* init/state.c: state_read_objects(): smatch-found issue
+	  to correct read size and ensure optimal throughput.
+
 2012-11-18  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* init/tests/test_job_process.c: fix test which was accidentally

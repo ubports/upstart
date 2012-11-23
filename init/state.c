@@ -227,7 +227,7 @@ state_read_objects (int fd)
 		if (nih_io_buffer_resize (buffer, initial_size) < 0)
 			goto error;
 
-		ret = read (fd, buf, sizeof (buf));
+		ret = read (fd, buf, initial_size);
 		if (ret < 0) {
 			if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
 				goto error;
