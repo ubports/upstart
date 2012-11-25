@@ -1,3 +1,10 @@
+2012-11-25  Steve Langasek <steve.langasek@ubuntu.com>
+
+	* init/tests/test_job_process.c: POSIX does not guarantee any
+	  particular ordering of environ, so sort the contents before
+	  printing them.  This will fix the recipe build failures in the
+	  ppa builders.
+
 2012-11-23  James Hunt  <james.hunt@ubuntu.com>
 
 	[ Colin King <colin.king@ubuntu.com> ]
