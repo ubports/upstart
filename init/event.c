@@ -42,6 +42,7 @@
 #include "event.h"
 #include "job.h"
 #include "blocked.h"
+#include "control.h"
 #include "errors.h"
 
 #include "com.ubuntu.Upstart.h"
@@ -283,6 +284,15 @@ event_pending (Event *event)
 	nih_assert (event->progress == EVENT_PENDING);
 
 	nih_info (_("Handling %s event"), event->name);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+									  event->name, event->env));
+	}
+
 	event->progress = EVENT_HANDLING;
 
 	event_pending_handle_jobs (event);
