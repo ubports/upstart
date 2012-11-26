@@ -163,15 +163,19 @@ fd_valid (int fd)
 	return 1;
 }
 
+static int
+strcmp_compar (const void *a, const void *b)
+{
+	return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
 static void
 child (enum child_tests  test,
        const char       *filename)
 {
 	FILE  *out;
-	FILE  *in;
 	char   tmpname[PATH_MAX], path[PATH_MAX];
 	int    i;
-	char   buffer[1024];
 	int    ret = EXIT_SUCCESS;
 
 	strcpy (tmpname, filename);
@@ -203,6 +207,10 @@ child (enum child_tests  test,
 		fprintf (out, "wd: %s\n", path);
 		break;
 	case TEST_ENVIRONMENT:
+		/* guarantee output ordering */
+		for (i = 0; environ[i]; i++);
+		qsort (environ, i, sizeof (environ[0]), strcmp_compar);
+
 		for (char **env = environ; *env; env++)
 			fprintf (out, "%s\n", *env);
 		break;
@@ -669,10 +677,10 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -722,10 +730,10 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -776,11 +784,11 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -831,11 +839,11 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -4337,8 +4345,8 @@ test_spawn (void)
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 	TEST_FILE_END (output);
 
