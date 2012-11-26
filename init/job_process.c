@@ -413,6 +413,8 @@ job_process_spawn (Job          *job,
 	JobClass       *class;
 	uid_t           job_setuid = -1;
 	gid_t           job_setgid = -1;
+	struct passwd   *pwd;
+	struct group    *grp;
 
 
 	nih_assert (job != NULL);
@@ -705,6 +707,11 @@ job_process_spawn (Job          *job,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
 		}
 
+		if (initgroups (pw->pw_name, pw->pw_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_INITGROUPS, 0);
+		}
+
 		if (pw->pw_gid && setgid (pw->pw_gid) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
@@ -844,7 +851,6 @@ job_process_spawn (Job          *job,
 	 * session jobs and jobs with a chroot stanza.
 	 */
 	if (class->setuid) {
-		struct passwd *pwd;
 		/* Without resetting errno, it's impossible to
 		 * distinguish between a non-existent user and and
 		 * error during lookup */
@@ -867,7 +873,6 @@ job_process_spawn (Job          *job,
 	}
 
 	if (class->setgid) {
-		struct group *grp;
 		errno = 0;
 		grp = getgrnam (class->setgid);
 		if (! grp) {
@@ -891,6 +896,34 @@ job_process_spawn (Job          *job,
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
 	}
 
+	/* Make sure we always have the needed pwd and grp structs.
+	 * Then pass those to initgroups() to setup the user's group list */
+	if (!pwd) {
+		errno = 0;
+		pwd = getpwuid (geteuid());
+		if (! pwd) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
+		}
+	}
+
+	if (!grp) {
+		errno = 0;
+		grp = getgrgid (getegid());
+		if (! grp) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRGID, 0);
+		}
+	}
+
+	if (pwd && grp) {
+		if (initgroups (pwd->pw_name, grp->gr_gid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_INITGROUPS, 0);
+		}
+	}
+
+	/* Start dropping privileges */
 	if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
