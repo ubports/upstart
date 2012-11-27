@@ -1,3 +1,10 @@
+upstart (1.6-4) UNRELEASED; urgency=low
+
+  * Declare a Breaks: against old versions of cryptsetup which have upstart
+    jobs named in a way that will deadlock the boot.  (Ref: bug #694499
+
+ -- Steve Langasek <vorlon@debian.org>  Tue, 27 Nov 2012 08:28:14 -0800
+
 upstart (1.6-3) unstable; urgency=low
 
   * init/tests/test_job_process.c: don't test the blocked/ignored signal list
