@@ -56,7 +56,7 @@
       <arg name="env" type="as" />
     </signal>
 
-    <!-- Signal for succesful upstart stateful re-exec -->
+    <!-- Signal emitted after upstart restarted and reconnected to DBUS -->
     <signal name="Restarted" />
 
     <!-- Event emission -->

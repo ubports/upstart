@@ -510,13 +510,6 @@ main (int   argc,
 		} else {
 			close (state_fd);
 
-		NIH_LIST_FOREACH (control_conns, iter) {
-			NihListEntry   *entry = (NihListEntry *)iter;
-			DBusConnection *conn = (DBusConnection *)entry->data;
-
-			NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
-		}
-
 			nih_info ("Stateful re-exec completed");
 		}
 	}
@@ -608,6 +601,16 @@ main (int   argc,
 		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
+
+		/* Emit the Restarted signal so that any listing Instance Init
+		 * knows that it needs to restart too.
+		 */
+		NIH_LIST_FOREACH (control_conns, iter) {
+			NihListEntry   *entry = (NihListEntry *)iter;
+			DBusConnection *conn = (DBusConnection *)entry->data;
+
+			NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
+		}
 	}
 
 	if (disable_sessions)
