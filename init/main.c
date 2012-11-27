@@ -52,6 +52,8 @@
 #include <nih/error.h>
 #include <nih/logging.h>
 
+#include "dbus/upstart.h"
+
 #include "paths.h"
 #include "events.h"
 #include "system.h"
@@ -62,6 +64,7 @@
 #include "control.h"
 #include "state.h"
 
+#include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
 #ifndef DEBUG
@@ -506,6 +509,13 @@ main (int   argc,
 			nih_assert_not_reached ();
 		} else {
 			close (state_fd);
+
+		NIH_LIST_FOREACH (control_conns, iter) {
+			NihListEntry   *entry = (NihListEntry *)iter;
+			DBusConnection *conn = (DBusConnection *)entry->data;
+
+			NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
+		}
 
 			nih_info ("Stateful re-exec completed");
 		}

@@ -50,11 +50,14 @@
       <arg name="job" type="o" />
     </signal>
 
-    <!-- Signals for events being emitted -->
+    <!-- Signal for events being emitted -->
     <signal name="EventEmitted">
       <arg name="name" type="s" />
       <arg name="env" type="as" />
     </signal>
+
+    <!-- Signal for succesful upstart stateful re-exec -->
+    <signal name="Restarted" />
 
     <!-- Event emission -->
     <method name="EmitEvent">
