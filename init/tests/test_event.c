@@ -20,6 +20,7 @@
  */
 
 #include <nih/test.h>
+#include <nih-dbus/test_dbus.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -31,6 +32,8 @@
 #include <nih/io.h>
 #include <nih/main.h>
 #include <nih/error.h>
+
+#include "dbus/upstart.h"
 
 #include "control.h"
 #include "job.h"
@@ -135,10 +138,38 @@ void
 test_poll (void)
 {
 	Event *event = NULL;
+	pid_t           dbus_pid;
+	DBusError       dbus_error;
+	DBusConnection *conn, *client_conn;
+	DBusMessage    *message;
+	NihListEntry   *entry;
 
 	TEST_FUNCTION ("event_poll");
-	job_class_init ();
+	nih_error_init ();
+	nih_timer_init ();
+	nih_main_loop_init ();
 	control_init ();
+	job_class_init ();
+
+	/* Check that when a D-Bus connection is open, the new instance
+	 * is registered on that connection as an object and the InstanceAdded
+	 * signal is emitted.
+	 */
+	TEST_FEATURE ("with D-Bus connection");
+	dbus_error_init (&dbus_error);
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	dbus_bus_add_match (client_conn, "type='signal'", &dbus_error);
+	assert (! dbus_error_is_set (&dbus_error));
+
+	control_init ();
+
+	entry = nih_list_entry_new (NULL);
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
 
 
 	/* Check that a pending event which does not get blocked goes
@@ -153,6 +184,12 @@ test_poll (void)
 		TEST_FREE_TAG (event);
 
 		event_poll ();
+
+		TEST_DBUS_MESSAGE (client_conn, message);
+		TEST_TRUE (dbus_message_is_signal (message, DBUS_INTERFACE_UPSTART,
+						   "EventEmitted"));
+
+		dbus_message_unref (message);
 
 		TEST_FREE (event);
 	}
@@ -213,6 +250,14 @@ test_poll (void)
 
 		TEST_FREE (event);
 	}
+
+	nih_free (entry);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 }
 
 
