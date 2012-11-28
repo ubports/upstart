@@ -38,6 +38,15 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_proxy.h>
+#include <nih-dbus/errors.h>
+#include <nih-dbus/dbus_connection.h>
+
+#include "dbus/upstart.h"
+
+#include "com.ubuntu.Upstart.h"
+
 #include "sysv.h"
 
 
@@ -83,6 +92,100 @@ env_option (NihOption  *option,
 	return 0;
 }
 
+/**
+ * upstart_open:
+ * @parent: parent object for new proxy.
+ *
+ * Opens a connection to the Upstart init daemon and returns a proxy
+ * to the manager object. If @dest_name is not NULL, a connection is
+ * instead opened to the system bus and the proxy linked to the
+ * well-known name given.
+ *
+ * Error messages are output to standard error.
+ *
+ * If @parent is not NULL, it should be a pointer to another object
+ * which will be used as a parent for the returned proxy.  When all
+ * parents of the returned proxy are freed, the returned proxy will
+ * also be freed.
+ *
+ * Returns: newly allocated D-Bus proxy or NULL on error.
+ **/
+NihDBusProxy *
+upstart_open (const void *parent)
+{
+	DBusError       dbus_error;
+	DBusConnection *connection;
+	NihDBusProxy *  upstart;
+
+	dbus_error_init (&dbus_error);
+
+	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
+	if (! connection) {
+		nih_error ("%s: %s",
+				_("Unable to connect to system bus"),
+				dbus_error.message);
+		dbus_error_free (&dbus_error);
+		return NULL;
+	}
+
+	dbus_connection_set_exit_on_disconnect (connection, FALSE);
+	dbus_error_free (&dbus_error);
+
+	upstart = nih_dbus_proxy_new (parent, connection,
+				      DBUS_SERVICE_UPSTART,
+				      DBUS_PATH_UPSTART,
+				      NULL, NULL);
+	if (! upstart) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s", err->message);
+		nih_free (err);
+
+		dbus_connection_unref (connection);
+		return NULL;
+	}
+
+	upstart->auto_start = FALSE;
+
+	/* Drop initial reference now the proxy holds one */
+	dbus_connection_unref (connection);
+
+	return upstart;
+}
+
+/**
+ * init_is_upstart:
+ *
+ * Determine if PID 1 is actually Upstart. The strategy adopted is to
+ * attempt to connect to Upstart via D-Bus and query its version. If
+ * this is entirely successful, we must be using Upstart. If any step
+ * fails, assume we are not.
+ *
+ * Returns: TRUE if PID 1 is Upstart, else FALSE.
+ **/
+int
+init_is_upstart (void)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	nih_local char *        version = NULL;
+	NihError *              err;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return FALSE;
+
+	if (upstart_get_version_sync (NULL, upstart, &version) < 0)
+		goto error;
+
+	return TRUE;
+
+error:
+	err = nih_error_get ();
+	nih_free (err);
+
+	return FALSE;
+}
 
 #ifndef TEST
 /**
@@ -168,9 +271,11 @@ main (int   argc,
 		break;
 	case 'Q':
 	case 'q':
-		ret = kill (1, SIGHUP);
-		if (ret < 0)
-			nih_error_raise_system ();
+		if (init_is_upstart ()) {
+			ret = kill (1, SIGHUP);
+			if (ret < 0)
+				nih_error_raise_system ();
+		}
 		break;
 	case 'U':
 	case 'u':
