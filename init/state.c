@@ -1676,7 +1676,7 @@ state_get_job (const Session *session,
 	       const char *job_class,
 	       const char *job_name)
 {
-	JobClass  *class;
+	JobClass  *class = NULL;
 	Job       *job;
 
 	nih_assert (job_class);
