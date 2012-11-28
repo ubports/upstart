@@ -50,7 +50,6 @@ import sys
 import re
 import fnmatch
 import os
-from string import split
 import datetime
 from subprocess import (Popen, PIPE)
 from optparse import OptionParser
@@ -385,7 +384,7 @@ def read_data():
       sys.exit("ERROR: cannot read file '%s'" % options.infile)
   else:
     try:
-      ifh = Popen(split(cmd), stdout=PIPE).stdout
+      ifh = Popen(cmd.split(), stdout=PIPE, universal_newlines=True).stdout
     except:
       sys.exit("ERROR: cannot run '%s'" % cmd)
 
