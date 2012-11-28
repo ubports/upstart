@@ -168,10 +168,8 @@ child (enum child_tests  test,
        const char       *filename)
 {
 	FILE  *out;
-	FILE  *in;
 	char   tmpname[PATH_MAX], path[PATH_MAX];
 	int    i;
-	char   buffer[1024];
 	int    ret = EXIT_SUCCESS;
 
 	strcpy (tmpname, filename);

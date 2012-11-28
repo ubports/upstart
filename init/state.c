@@ -1452,8 +1452,12 @@ state_deserialise_blocked (void *parent, json_object *json,
 						"class", NULL, job_class_name))
 				goto error;
 
+			/* On error, assume NULL session since the likelihood
+			 * is we're upgrading from Upstart 1.6 that did not set
+			 * the 'session' JSON object.
+			 */
 			if (! state_get_json_int_var (json_blocked_data, "session", session_index))
-				goto error;
+				session_index = 0;
 
 			if (session_index < 0)
 				goto error;
