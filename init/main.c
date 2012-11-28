@@ -29,6 +29,7 @@
 #include <sys/reboot.h>
 #include <sys/resource.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -602,6 +603,16 @@ main (int   argc,
 
 	if (disable_sessions)
 		nih_debug ("Sessions disabled");
+
+	/* Set us as the child subreaper.
+	 * This ensures that even when init doesn't run as PID 1, it'll always be
+	 * the ultimate parent of everything it spawns. */
+
+	if (prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
+		nih_warn ("%s: %s", _("Unable to mark us as a subreaper"),
+				  strerror (errno));
+		// Emit prctl-error event
+	}
 
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to
