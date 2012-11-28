@@ -147,7 +147,7 @@ def mk_node_name(name):
 # Jobs and events can have identical names, so prefix them to namespace
 # them off.
 def mk_job_node_name(name):
-    return mk_node_name('job_' + name)
+    return mk_node_name('job_' + name.replace(".", "_"))
 
 
 def mk_event_node_name(name):
