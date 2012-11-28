@@ -54,6 +54,7 @@ import datetime
 from subprocess import (Popen, PIPE)
 from optparse import OptionParser
 
+options = None
 jobs   = {}
 events = {}
 cmd = "initctl --system show-config -e"
@@ -389,8 +390,8 @@ def read_data():
       sys.exit("ERROR: cannot run '%s'" % cmd)
 
   for line in ifh.readlines():
-      record = {}
       line = line.rstrip()
+      job = None
 
       result = re.match('^\s+start on ([^,]+) \(job:\s*([^,]*), env:', line)
       if result:
