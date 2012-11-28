@@ -608,10 +608,12 @@ main (int   argc,
 	 * This ensures that even when init doesn't run as PID 1, it'll always be
 	 * the ultimate parent of everything it spawns. */
 
-	if (prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
+	if (getpid () > 1 && prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
 		nih_warn ("%s: %s", _("Unable to mark us as a subreaper"),
 				  strerror (errno));
-		// Emit prctl-error event
+
+		// Emit prctl-subreaper-failed event
+		NIH_MUST (event_new (NULL, "prctl-subreaper-failed", NULL));
 	}
 
 	/* Run through the loop at least once to deal with signals that were
