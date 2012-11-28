@@ -707,7 +707,7 @@ job_process_spawn (Job          *job,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
 		}
 
-		if (geteuid() == 0 && initgroups (pw->pw_name, pw->pw_gid) < 0) {
+		if (geteuid () == 0 && initgroups (pw->pw_name, pw->pw_gid) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_INITGROUPS, 0);
 		}
@@ -899,19 +899,19 @@ job_process_spawn (Job          *job,
 	/* Make sure we always have the needed pwd and grp structs.
 	 * Then pass those to initgroups() to setup the user's group list.
 	 * Only do that if we're root as initgroups() won't work when non-root. */
-	if (geteuid() == 0) {
-		if (!pwd) {
+	if (geteuid () == 0) {
+		if (! pwd) {
 			errno = 0;
-			pwd = getpwuid (geteuid());
+			pwd = getpwuid (geteuid ());
 			if (! pwd) {
 				nih_error_raise_system ();
 				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
 			}
 		}
 
-		if (!grp) {
+		if (! grp) {
 			errno = 0;
-			grp = getgrgid (getegid());
+			grp = getgrgid (getegid ());
 			if (! grp) {
 				nih_error_raise_system ();
 				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRGID, 0);
