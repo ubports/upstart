@@ -75,46 +75,40 @@ default_outfile = 'upstart.dot'
 
 
 def header(ofh):
-    str = "digraph upstart {\n"
-
-    # make the default node an event to simplify glob code
-    str += "  node [shape=\"diamond\", fontcolor=\"%s\", fillcolor=\"%s\"" \
-           ", style=\"filled\"];\n" \
-           % (options.color_event_text, options.color_event)
-    str += "  rankdir=LR;\n"
-    str += "  overlap=false;\n"
-    str += "  bgcolor=\"%s\";\n" % options.color_bg
-    str += "  fontcolor=\"%s\";\n" % options.color_text
-
-    ofh.write(str)
+    ofh.write("""digraph upstart {{
+  node [shape=\"diamond\", fontcolor=\"{options.color_event_text}\", """
+"""fillcolor=\"{options.color_event}\", style=\"filled\"];
+  rankdir=LR;
+  overlap=false;
+  bgcolor=\"{options.color_bg}\";
+  fontcolor=\"{options.color_text}\";
+""".format(options=options))
 
 
 def footer(ofh):
-    epilog = "overlap=false;\n"
-    epilog += "label=\"Generated on %s by %s\\n" \
-              % (str(datetime.datetime.now()), script_name)
-
     if options.restrictions:
-        epilog += "(subset, "
+        details = "(subset, "
     else:
-        epilog += "("
+        details = "("
 
     if options.infile:
-        epilog += "from file data).\\n"
+        details += "from file data)."
     else:
-        epilog += "from '%s' on host %s).\\n" \
-                  % (cmd, os.uname()[1])
+        details += "from '%s' on host %s)." % (cmd, os.uname()[1])
 
-    epilog += "Boxes of color %s denote jobs.\\n" % options.color_job
-    epilog += "Solid diamonds of color %s denote events.\\n" \
-              % options.color_event
-    epilog += "Dotted diamonds denote 'glob' events.\\n"
-    epilog += "Emits denoted by %s lines.\\n" % options.color_emits
-    epilog += "Start on denoted by %s lines.\\n" % options.color_start_on
-    epilog += "Stop on denoted by %s lines.\\n" % options.color_stop_on
-    epilog += "\";\n"
-    epilog += "}\n"
-    ofh.write(epilog)
+    ofh.write("""Boxes of color {options.color_job} denote jobs.
+overlap=false;
+label=\"Generated on {datenow} by {script_name} {details}
+
+Solid diamonds of color {options.color_event} denote events.
+Dotted diamons denote 'glob' events.
+Emits denoted by {options.color_emits} lines.
+Start on denoted by {options.color_start_on} lines.
+Stop on denoted by {options.color_stop_on} lines.
+\";
+}}
+""".format(options=options, datenow=datetime.datetime.now(),
+           script_name=script_name, details=details))
 
 
 # Map dash to underscore since graphviz node names cannot
