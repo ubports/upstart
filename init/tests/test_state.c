@@ -1004,8 +1004,6 @@ test_blocking (void)
 	Event                   *event;
 	Event                   *new_event;
 	Blocked                 *blocked;
-	//Blocked                 *new_blocked;
-	//NihList                  blocked_list;
 	size_t                   len;
 	json_object             *json;
 	json_object             *json_events;
@@ -1014,6 +1012,8 @@ test_blocking (void)
 	json_object             *json_blocking0;
 	json_object             *json_data;
 	enum json_tokener_error  json_error; 
+	Session                 *session;
+	Session                 *new_session;
 
 	conf_init ();
 	session_init ();
@@ -1028,6 +1028,11 @@ test_blocking (void)
 	 *
 	 * (which does not include a "session" entry in the JSON for
 	 * the blocked job).
+	 *
+	 * Note that this test is NOT testing whether a JobClass with an
+	 * associated Upstart session is handled correctly, it is merely
+	 * testing that a JobClass with the NULL session is handled
+	 * correctly!
 	 */
 	TEST_FEATURE ("BLOCKED_JOB with no JSON session object");
 
@@ -1150,6 +1155,11 @@ test_blocking (void)
 	 *
 	 * (which does include a "session" entry in the JSON for
 	 * the blocked job).
+	 *
+	 * Note that this test is NOT testing whether a JobClass with an
+	 * associated Upstart session is handled correctly, it is merely
+	 * testing that a JobClass with the NULL session is handled
+	 * correctly!
 	 */
 	TEST_FEATURE ("BLOCKED_JOB with JSON session object");
 
@@ -1225,6 +1235,96 @@ test_blocking (void)
 	nih_free (new_class);
 
 	TEST_HASH_EMPTY (job_classes);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/*******************************/
+	/* We don't currently handle user+chroot jobs, so let's assert
+	 * that behaviour.
+	 */
+	TEST_FEATURE ("ensure BLOCKED_JOB with non-NULL session is ignored");
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	session = session_new (NULL, "/my/session", getuid ());
+	TEST_NE_P (session, NULL);
+	session->conf_path = NIH_MUST (nih_strdup (session, "/lives/here"));
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	/* We simulate a user job being blocked by a system event, hence
+	 * the session is not associated with the event.
+	 */
+	event = event_new (NULL, "Christmas", NULL);
+	TEST_NE_P (event, NULL);
+	TEST_LIST_EMPTY (&event->blocking);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	source->session = session;
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+
+	/* Create class with non-NULL session, simulating a user job */
+	class = file->job = job_class_new (NULL, "bar", session);
+	TEST_NE_P (class, NULL);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+	TEST_HASH_NOT_EMPTY (class->instances);
+
+	blocked = blocked_new (event, BLOCKED_JOB, job);
+	TEST_NE_P (blocked, NULL);
+
+	nih_list_add (&event->blocking, &blocked->entry);
+	job->blocker = event;
+
+	TEST_LIST_NOT_EMPTY (&event->blocking);
+
+	assert0 (state_to_string (&json_string, &len));
+	TEST_GT (len, 0);
+
+	/* XXX: We don't remove the source as these are not
+	 * recreated on re-exec, so we'll re-use the existing one.
+	 */
+	nih_list_remove (&class->entry);
+	nih_free (event);
+	nih_list_remove (&session->entry);
+
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* We don't expect any job_classes since the serialised one
+	 * related to a user session.
+	 */
+	TEST_HASH_EMPTY (job_classes);
+
+	/* However, the session itself will exist */
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	new_session = (Session *)nih_list_remove (sessions->next);
+
+	nih_free (session);
+	nih_free (new_session);
+	event = (Event *)nih_list_remove (events->next);
+	nih_free (event);
+	nih_free (source);
 
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (events);
