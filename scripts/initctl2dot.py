@@ -116,8 +116,8 @@ Stop on denoted by {options.color_stop_on} lines.
 def sanitise(s):
     return s.replace('-', '_').replace('$', 'dollar_') \
             .replace('[', 'lbracket').replace(']', 'rbracket') \
-            .replace('!', 'bang').replace(':', '_').replace('*', 'star') \
-            .replace('?', 'question')
+            .replace('!', 'bang').replace(':', 'colon').replace('*', 'star') \
+            .replace('?', 'question').replace('.', '_')
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
@@ -131,7 +131,7 @@ def encode_dollar(job, name):
 # Jobs and events can have identical names, so prefix them to namespace
 # them off.
 def mk_job_node_name(name):
-    return sanitise('job_' + name.replace(".", "_"))
+    return sanitise('job_' + name)
 
 
 def mk_event_node_name(name):
