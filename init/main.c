@@ -609,11 +609,10 @@ main (int   argc,
 	 * the ultimate parent of everything it spawns. */
 
 	if (getpid () > 1 && prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
-		nih_warn ("%s: %s", _("Unable to mark us as a subreaper"),
+		nih_warn ("%s: %s", _("Unable to register as subreaper"),
 				  strerror (errno));
 
-		// Emit prctl-subreaper-failed event
-		NIH_MUST (event_new (NULL, "prctl-subreaper-failed", NULL));
+		NIH_MUST (event_new (NULL, "child-subreaper-failed", NULL));
 	}
 
 	/* Run through the loop at least once to deal with signals that were
