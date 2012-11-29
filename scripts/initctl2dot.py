@@ -96,19 +96,17 @@ def footer(ofh):
     else:
         details += "from '%s' on host %s)." % (cmd, os.uname()[1])
 
-    ofh.write("""Boxes of color {options.color_job} denote jobs.
-overlap=false;
-label=\"Generated on {datenow} by {script_name} {details}
-
-Solid diamonds of color {options.color_event} denote events.
-Dotted diamons denote 'glob' events.
-Emits denoted by {options.color_emits} lines.
-Start on denoted by {options.color_start_on} lines.
-Stop on denoted by {options.color_stop_on} lines.
-\";
-}}
-""".format(options=options, datenow=datetime.datetime.now(),
-           script_name=script_name, details=details))
+    ofh.write("  overlap=false;\n"
+              "  label=\"Generated on {datenow} by {script_name} {details}\\n"
+              "Boxes of color {options.color_job} denote jobs.\\n"
+              "Solid diamonds of color {options.color_event} denote events.\\n"
+              "Dotted diamons denote 'glob' events.\\n"
+              "Emits denoted by {options.color_emits} lines.\\n"
+              "Start on denoted by {options.color_start_on} lines.\\n"
+              "Stop on denoted by {options.color_stop_on} lines.\\n"
+              "\";\n"
+              "}}\n".format(options=options, datenow=datetime.datetime.now(),
+                            script_name=script_name, details=details))
 
 
 # Map dash to underscore since graphviz node names cannot
@@ -139,7 +137,7 @@ def mk_event_node_name(name):
 
 
 def show_event(ofh, name):
-    str = "%s [label=\"%s\", shape=diamond, fontcolor=\"%s\", " \
+    str = "  %s [label=\"%s\", shape=diamond, fontcolor=\"%s\", " \
           "fillcolor=\"%s\"," % (mk_event_node_name(name), name,
                                  options.color_event_text, options.color_event)
 
@@ -186,12 +184,11 @@ def show_events(ofh):
 
 
 def show_job(ofh, name):
-    ofh.write("""
-    %s [shape=\"record\", label=\"<job> %s | { <start> start on | """
-              """<stop> stop on }\", fontcolor=\"%s\", style=\"filled\", """
-              """fillcolor=\"%s\"];
-    """ % (mk_job_node_name(name), name, options.color_job_text,
-           options.color_job))
+    ofh.write("  %s [shape=\"record\", label=\"<job> %s | { <start> start on |"
+              " <stop> stop on }\", fontcolor=\"%s\", style=\"filled\", "
+              " fillcolor=\"%s\"];\n" % (mk_job_node_name(name), name,
+                                         options.color_job_text,
+                                         options.color_job))
 
 
 def show_jobs(ofh):
@@ -238,7 +235,7 @@ def show_jobs(ofh):
 
 
 def show_edge(ofh, from_node, to_node, color):
-    ofh.write("%s -> %s [color=\"%s\"];\n" % (from_node, to_node, color))
+    ofh.write("  %s -> %s [color=\"%s\"];\n" % (from_node, to_node, color))
 
 
 def show_start_on_job_edge(ofh, from_job, to_job):
@@ -337,9 +334,6 @@ def show_edges(ofh):
 
 
 def read_data():
-    global jobs
-    global events
-
     if options.infile:
         try:
             ifh = open(options.infile, 'r')
@@ -416,16 +410,7 @@ def read_data():
 
 
 def main():
-    global jobs
     global options
-    global cmd
-    global default_color_emits
-    global default_color_start_on
-    global default_color_stop_on
-    global default_color_event
-    global default_color_job
-    global default_color_text
-    global default_color_bg
     global restrictions_list
 
     description = "Convert initctl(8) output to GraphViz dot(1) format."
