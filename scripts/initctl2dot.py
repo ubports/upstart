@@ -77,7 +77,7 @@ default_outfile = 'upstart.dot'
 def header(ofh):
     ofh.write("""digraph upstart {{
   node [shape=\"diamond\", fontcolor=\"{options.color_event_text}\", """
-"""fillcolor=\"{options.color_event}\", style=\"filled\"];
+              """fillcolor=\"{options.color_event}\", style=\"filled\"];
   rankdir=LR;
   overlap=false;
   bgcolor=\"{options.color_bg}\";
