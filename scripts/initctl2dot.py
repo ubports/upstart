@@ -60,8 +60,6 @@ events = {}
 cmd = "initctl --system show-config -e"
 script_name = os.path.basename(sys.argv[0])
 
-job_events = ['starting', 'started', 'stopping', 'stopped']
-
 # list of jobs to restict output to
 restrictions_list = []
 
@@ -347,9 +345,6 @@ def show_edges(ofh):
 def read_data():
     global jobs
     global events
-    global options
-    global cmd
-    global job_events
 
     if options.infile:
         try:
