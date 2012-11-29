@@ -77,8 +77,6 @@ default_outfile = 'upstart.dot'
 
 
 def header(ofh):
-    global options
-
     str = "digraph upstart {\n"
 
     # make the default node an event to simplify glob code
@@ -94,8 +92,6 @@ def header(ofh):
 
 
 def footer(ofh):
-    global options
-
     epilog = "overlap=false;\n"
     epilog += "label=\"Generated on %s by %s\\n" \
               % (str(datetime.datetime.now()), script_name)
@@ -140,22 +136,17 @@ def encode_dollar(job, name):
     return name
 
 
-def mk_node_name(name):
-    return sanitise(name)
-
-
 # Jobs and events can have identical names, so prefix them to namespace
 # them off.
 def mk_job_node_name(name):
-    return mk_node_name('job_' + name.replace(".", "_"))
+    return sanitise('job_' + name.replace(".", "_"))
 
 
 def mk_event_node_name(name):
-    return mk_node_name('event_' + name)
+    return sanitise('event_' + name)
 
 
 def show_event(ofh, name):
-    global options
     str = "%s [label=\"%s\", shape=diamond, fontcolor=\"%s\", " \
           "fillcolor=\"%s\"," % (mk_event_node_name(name), name,
                                  options.color_event_text, options.color_event)
@@ -171,10 +162,6 @@ def show_event(ofh, name):
 
 
 def show_events(ofh):
-    global events
-    global options
-    global restrictions_list
-
     events_to_show = []
 
     if restrictions_list:
@@ -207,8 +194,6 @@ def show_events(ofh):
 
 
 def show_job(ofh, name):
-    global options
-
     ofh.write("""
     %s [shape=\"record\", label=\"<job> %s | { <start> start on | """
               """<stop> stop on }\", fontcolor=\"%s\", style=\"filled\", """
@@ -218,10 +203,6 @@ def show_job(ofh, name):
 
 
 def show_jobs(ofh):
-    global jobs
-    global options
-    global restrictions_list
-
     if restrictions_list:
         jobs_to_show = restrictions_list
     else:
@@ -240,9 +221,6 @@ def show_jobs(ofh):
         for s in jobs[j]['stop on']['job']:
             if s not in jobs_to_show:
                 show_job(ofh, s)
-
-    if not restrictions_list:
-        return
 
     # Having displayed the jobs in restrictions_list,
     # we now need to display all jobs that *those* jobs
@@ -272,41 +250,31 @@ def show_edge(ofh, from_node, to_node, color):
 
 
 def show_start_on_job_edge(ofh, from_job, to_job):
-    global options
     show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
               "%s:job" % mk_job_node_name(to_job), options.color_start_on)
 
 
 def show_start_on_event_edge(ofh, from_job, to_event):
-    global options
     show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
               mk_event_node_name(to_event), options.color_start_on)
 
 
 def show_stop_on_job_edge(ofh, from_job, to_job):
-    global options
     show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
               "%s:job" % mk_job_node_name(to_job), options.color_stop_on)
 
 
 def show_stop_on_event_edge(ofh, from_job, to_event):
-    global options
     show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
               mk_event_node_name(to_event), options.color_stop_on)
 
 
 def show_job_emits_edge(ofh, from_job, to_event):
-    global options
     show_edge(ofh, "%s:job" % mk_job_node_name(from_job),
               mk_event_node_name(to_event), options.color_emits)
 
 
 def show_edges(ofh):
-    global events
-    global jobs
-    global options
-    global restrictions_list
-
     glob_jobs = {}
 
     if restrictions_list:
@@ -396,7 +364,7 @@ def read_data():
             sys.exit("ERROR: cannot run '%s'" % cmd)
 
     job = None
-    for line in ifh.readlines():
+    for line in ifh:
         line = line.rstrip()
 
         result = re.match('^\s+start on ([^,]+) \(job:\s*([^,]*), env:', line)
@@ -422,12 +390,12 @@ def read_data():
             continue
 
         if re.match('^\s+emits', line):
-            event = (line.lstrip().split())[1]
+            event = line.lstrip().split()[1]
             event = encode_dollar(job, event)
             events[event] = 1
             jobs[job]['emits'][event] = 1
         else:
-            tokens = (line.lstrip().split())
+            tokens = line.lstrip().split()
 
             if len(tokens) != 1:
                 sys.exit("ERROR: invalid line: %s" % line.lstrip())
