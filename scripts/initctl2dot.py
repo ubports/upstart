@@ -51,8 +51,8 @@ import re
 import fnmatch
 import os
 import datetime
-from subprocess import (Popen, PIPE)
-from optparse import OptionParser
+from subprocess import Popen, PIPE
+from argparse import ArgumentParser
 
 options = None
 jobs = {}
@@ -475,67 +475,67 @@ def main():
     epilog = "See http://www.graphviz.org/doc/info/colors.html " \
              "for available colours."
 
-    parser = OptionParser(description=description, epilog=epilog)
+    parser = ArgumentParser(description=description, epilog=epilog)
 
-    parser.add_option("-r", "--restrict-to-jobs",
-                      dest="restrictions",
-                      help="Limit display of 'start on' and 'stop on' "
-                      "conditions to specified jobs (comma-separated list).")
+    parser.add_argument("-r", "--restrict-to-jobs",
+                        dest="restrictions",
+                        help="Limit display of 'start on' and 'stop on' "
+                        "conditions to specified jobs (comma-separated list).")
 
-    parser.add_option("-f", "--infile",
-                      dest="infile",
-                      help="File to read '%s' output from. If not specified"
-                      ", initctl will be run automatically." % cmd)
+    parser.add_argument("-f", "--infile",
+                        dest="infile",
+                        help="File to read '%s' output from. If not specified"
+                        ", initctl will be run automatically." % cmd)
 
-    parser.add_option("-o", "--outfile",
-                      dest="outfile",
-                      help="File to write output to (default=%s)" %
-                           default_outfile)
+    parser.add_argument("-o", "--outfile",
+                        dest="outfile",
+                        help="File to write output to (default=%s)" %
+                             default_outfile)
 
-    parser.add_option("--color-emits",
-                      dest="color_emits",
-                      help="Specify color for 'emits' lines (default=%s)." %
-                           default_color_emits)
+    parser.add_argument("--color-emits",
+                        dest="color_emits",
+                        help="Specify color for 'emits' lines (default=%s)." %
+                             default_color_emits)
 
-    parser.add_option("--color-start-on",
-                      dest="color_start_on",
-                      help="Specify color for 'start on' lines (default=%s)." %
-                           default_color_start_on)
+    parser.add_argument("--color-start-on",
+                        dest="color_start_on",
+                        help="Specify color for 'start on' lines "
+                             "(default=%s)." % default_color_start_on)
 
-    parser.add_option("--color-stop-on",
-                      dest="color_stop_on",
-                      help="Specify color for 'stop on' lines (default=%s)." %
-                           default_color_stop_on)
+    parser.add_argument("--color-stop-on",
+                        dest="color_stop_on",
+                        help="Specify color for 'stop on' lines "
+                             "(default=%s)." % default_color_stop_on)
 
-    parser.add_option("--color-event",
-                      dest="color_event",
-                      help="Specify color for event boxes (default=%s)." %
-                           default_color_event)
+    parser.add_argument("--color-event",
+                        dest="color_event",
+                        help="Specify color for event boxes (default=%s)." %
+                             default_color_event)
 
-    parser.add_option("--color-text",
-                      dest="color_text",
-                      help="Specify color for summary text (default=%s)." %
-                           default_color_text)
+    parser.add_argument("--color-text",
+                        dest="color_text",
+                        help="Specify color for summary text (default=%s)." %
+                             default_color_text)
 
-    parser.add_option("--color-bg",
-                      dest="color_bg",
-                      help="Specify background color for diagram "
-                           "(default=%s)." % default_color_bg)
+    parser.add_argument("--color-bg",
+                        dest="color_bg",
+                        help="Specify background color for diagram "
+                             "(default=%s)." % default_color_bg)
 
-    parser.add_option("--color-event-text",
-                      dest="color_event_text",
-                      help="Specify color for text in event boxes "
-                           "(default=%s)." % default_color_text)
+    parser.add_argument("--color-event-text",
+                        dest="color_event_text",
+                        help="Specify color for text in event boxes "
+                             "(default=%s)." % default_color_text)
 
-    parser.add_option("--color-job-text",
-                      dest="color_job_text",
-                      help="Specify color for text in job boxes "
-                           "(default=%s)." % default_color_text)
+    parser.add_argument("--color-job-text",
+                        dest="color_job_text",
+                        help="Specify color for text in job boxes "
+                             "(default=%s)." % default_color_text)
 
-    parser.add_option("--color-job",
-                      dest="color_job",
-                      help="Specify color for job boxes (default=%s)." %
-                           default_color_job)
+    parser.add_argument("--color-job",
+                        dest="color_job",
+                        help="Specify color for job boxes (default=%s)." %
+                             default_color_job)
 
     parser.set_defaults(color_emits=default_color_emits,
                         color_start_on=default_color_start_on,
@@ -548,7 +548,7 @@ def main():
                         color_bg=default_color_bg,
                         outfile=default_outfile)
 
-    (options, args) = parser.parse_args()
+    options = parser.parse_args()
 
     if options.outfile == '-':
         ofh = sys.stdout
