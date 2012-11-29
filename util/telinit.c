@@ -121,9 +121,6 @@ upstart_open (const void *parent)
 
 	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
 	if (! connection) {
-		nih_error ("%s: %s",
-				_("Unable to connect to system bus"),
-				dbus_error.message);
 		dbus_error_free (&dbus_error);
 		return NULL;
 	}
@@ -139,7 +136,6 @@ upstart_open (const void *parent)
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_error ("%s", err->message);
 		nih_free (err);
 
 		dbus_connection_unref (connection);
@@ -210,7 +206,7 @@ main (int   argc,
 {
 	char **args;
 	int    runlevel;
-	int    ret;
+	int    ret = 0;
 
 	nih_main_init (argv[0]);
 
@@ -271,17 +267,17 @@ main (int   argc,
 		break;
 	case 'Q':
 	case 'q':
-		if (init_is_upstart ()) {
-			ret = kill (1, SIGHUP);
-			if (ret < 0)
-				nih_error_raise_system ();
-		}
+		ret = kill (1, SIGHUP);
+		if (ret < 0)
+			nih_error_raise_system ();
 		break;
 	case 'U':
 	case 'u':
-		ret = kill (1, SIGTERM);
-		if (ret < 0)
-			nih_error_raise_system ();
+		if (init_is_upstart ()) {
+			ret = kill (1, SIGTERM);
+			if (ret < 0)
+				nih_error_raise_system ();
+		}
 		break;
 	default:
 		nih_assert_not_reached ();
