@@ -413,8 +413,8 @@ job_process_spawn (Job          *job,
 	JobClass       *class;
 	uid_t           job_setuid = -1;
 	gid_t           job_setgid = -1;
-	struct passwd   *pwd;
-	struct group    *grp;
+	struct passwd   *pwd = NULL;
+	struct group    *grp = NULL;
 
 
 	nih_assert (job != NULL);
@@ -901,7 +901,6 @@ job_process_spawn (Job          *job,
 	 * Only do that if we're root as initgroups() won't work when non-root. */
 	if (geteuid () == 0) {
 		if (! pwd) {
-			errno = 0;
 			pwd = getpwuid (geteuid ());
 			if (! pwd) {
 				nih_error_raise_system ();
@@ -910,7 +909,6 @@ job_process_spawn (Job          *job,
 		}
 
 		if (! grp) {
-			errno = 0;
 			grp = getgrgid (getegid ());
 			if (! grp) {
 				nih_error_raise_system ();
