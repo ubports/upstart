@@ -1176,6 +1176,11 @@ job_process_error_read (int fd)
 				  err, _("unable to getpwuid: %s"),
 				  strerror (err->errnum)));
 		break;
+	case JOB_PROCESS_ERROR_GETGRGID:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to getgrgid: %s"),
+				  strerror (err->errnum)));
+		break;
 	case JOB_PROCESS_ERROR_BAD_SETUID:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to find setuid user")));
@@ -1232,6 +1237,11 @@ job_process_error_read (int fd)
 	case JOB_PROCESS_ERROR_ALLOC:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to allocate memory: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_INITGROUPS:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to initgroups: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:
