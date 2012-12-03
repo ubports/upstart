@@ -4793,8 +4793,8 @@ test_spawn (void)
 		TEST_ALLOC_SAFE {
 			/* May alloc space if there is log data */
 			nih_free (class);
+			TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
 			if (!test_alloc_failed) {
-				TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
 				output = fopen (filename, "r");
 				TEST_NE_P (output, NULL);
 				CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
