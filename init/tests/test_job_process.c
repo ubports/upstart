@@ -4793,24 +4793,19 @@ test_spawn (void)
 		TEST_ALLOC_SAFE {
 			/* May alloc space if there is log data */
 			nih_free (class);
+			if (!test_alloc_failed) {
+				TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
+				output = fopen (filename, "r");
+				TEST_NE_P (output, NULL);
+				CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+				TEST_FILE_END (output);
+				TEST_EQ (fclose (output), 0);
+			}
+			unlink (filename);
 		}
 	}
 
-	if (rmdir (dirname)) {
-		TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
-		output = fopen (filename, "r");
-		TEST_NE_P (output, NULL);
-
-		CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
-
-		TEST_FILE_END (output);
-
-		TEST_EQ (fclose (output), 0);
-			
-		assert0 (unlink (filename));
-		assert0 (rmdir (dirname));
-	};
-
+	assert0 (rmdir (dirname));
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script and 'console log'");
