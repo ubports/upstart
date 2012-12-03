@@ -53,6 +53,15 @@
 /* Prototypes for option functions */
 int env_option (NihOption *option, const char *arg);
 
+NihDBusProxy * upstart_open (const void *parent)
+	__attribute__ ((warn_unused_result));
+
+int init_is_upstart (void)
+	__attribute__ ((warn_unused_result));
+
+int restart_upstart (void)
+	__attribute__ ((warn_unused_result));
+
 
 /**
  * extra_env:
@@ -108,7 +117,7 @@ env_option (NihOption  *option,
  * parents of the returned proxy are freed, the returned proxy will
  * also be freed.
  *
- * Returns: newly allocated D-Bus proxy or NULL on error.
+ * Returns: newly allocated D-Bus proxy or NULL on raised error.
  **/
 NihDBusProxy *
 upstart_open (const void *parent)
@@ -121,6 +130,7 @@ upstart_open (const void *parent)
 
 	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
 	if (! connection) {
+		nih_dbus_error_raise (dbus_error.name, dbus_error.message);
 		dbus_error_free (&dbus_error);
 		return NULL;
 	}
@@ -133,11 +143,6 @@ upstart_open (const void *parent)
 				      DBUS_PATH_UPSTART,
 				      NULL, NULL);
 	if (! upstart) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_free (err);
-
 		dbus_connection_unref (connection);
 		return NULL;
 	}
@@ -169,7 +174,7 @@ init_is_upstart (void)
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
-		return FALSE;
+		goto error;
 
 	if (upstart_get_version_sync (NULL, upstart, &version) < 0)
 		goto error;
@@ -181,6 +186,28 @@ error:
 	nih_free (err);
 
 	return FALSE;
+}
+
+/**
+ * restart_upstart:
+ *
+ * Request Upstart restart itself.
+ *
+ * Returns: TRUE on SUCCESS or FALSE on raised error.
+ **/
+int
+restart_upstart (void)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return FALSE;
+
+	if (upstart_restart_sync (NULL, upstart) < 0)
+		return FALSE;
+
+	return TRUE;
 }
 
 #ifndef TEST
@@ -274,9 +301,7 @@ main (int   argc,
 	case 'U':
 	case 'u':
 		if (init_is_upstart ()) {
-			ret = kill (1, SIGTERM);
-			if (ret < 0)
-				nih_error_raise_system ();
+			ret = restart_upstart ();
 		}
 		break;
 	default:
