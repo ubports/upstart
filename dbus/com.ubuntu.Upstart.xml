@@ -34,6 +34,8 @@
       <arg name="jobs" type="ao" direction="out" />
     </method>
 
+    <method name="Restart"/>
+
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">
       <arg name="job" type="o" />
