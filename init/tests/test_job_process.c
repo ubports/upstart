@@ -648,6 +648,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -701,6 +702,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -755,6 +757,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->script = FALSE;
 			class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				class->process[PROCESS_PRE_STOP],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -810,6 +813,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->script = FALSE;
 			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
 				class->process[PROCESS_POST_STOP],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -933,6 +937,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -972,6 +977,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_START] = process_new (class);
+			class->process[PROCESS_PRE_START]->script = FALSE;
 			class->process[PROCESS_PRE_START]->command = "true";
 
 			job = job_new (class, "");
@@ -1013,6 +1019,7 @@ test_run (void)
 			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_DAEMON;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -1063,6 +1070,7 @@ test_run (void)
 			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_FORK;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -1113,6 +1121,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = filename;
 
 			job = job_new (class, "foo");
