@@ -126,8 +126,15 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
+TEST_DATA_DIR = $(PWD)/tests/data
 
-EXTRA_DIST = init.supp
+AM_CPPFLAGS += -DTEST_DATA_DIR="\"$(TEST_DATA_DIR)\""
+
+TEST_DATA_FILES = \
+	$(TEST_DATA_DIR)/upstart-1.6-blocked.json
+
+EXTRA_DIST = init.supp $(TEST_DATA_FILES)
+	
 
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h

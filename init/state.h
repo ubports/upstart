@@ -367,6 +367,18 @@
 #define STATE_WAIT_SECS_ENV "UPSTART_STATE_WAIT_SECS"
 
 /**
+ * STATE_FILE:
+ *
+ * Name of file that is written below the job log directory if the
+ * newly re-exec'ed init instance failed to understand the JSON sent to
+ * it by the old instance.
+ *
+ * This could happen for example if the old instance generated invalid
+ * JSON, or JSON in an unexected format.
+ **/
+#define STATE_FILE "upstart.state"
+
+/**
  * state_get_timeout:
  *
  * @var: name of long integer var to set to timeout value.

@@ -48,7 +48,8 @@ json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
 
-extern int use_session_bus;
+extern int   use_session_bus;
+extern char *log_dir;
 
 /**
  * args_copy:
@@ -68,14 +69,6 @@ char **args_copy = NULL;
 int restart = FALSE;
 
 /* Prototypes for static functions */
-static json_object *
-state_serialise_blocked (const Blocked *blocked)
-	__attribute__ ((malloc, warn_unused_result));
-
-static Blocked *
-state_deserialise_blocked (void *parent, json_object *json, NihList *list)
-	__attribute__ ((malloc, warn_unused_result));
-
 static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
@@ -84,6 +77,8 @@ static Job *
 state_get_job (const Session *session, const char *job_class,
 	       const char *job_name)
 	__attribute__ ((warn_unused_result));
+
+static void state_write_file (NihIoBuffer *buffer);
 
 /**
  * state_read:
@@ -247,7 +242,56 @@ state_read_objects (int fd)
 	return 0;
 
 error:
+	/* Failed to reconstruct internal state so attempt to write
+	 * the JSON state data to a file to allow for manual post
+	 * re-exec analysis.
+	 */
+	if (buffer->len && log_dir)
+		state_write_file (buffer);
+
 	return -1;
+}
+
+/**
+ * state_write_file:
+ *
+ * @buffer: NihIoBuffer containing JSON data.
+ *
+ * Write JSON data contained in @buffer to STATE_FILE below log_dir.
+ *
+ * Failures are ignored since this is designed to be called in an error
+ * scenario anyway.
+ **/
+void
+state_write_file (NihIoBuffer *buffer)
+{
+	int              fd;
+	ssize_t          bytes;
+	nih_local char  *state_file = NULL;
+
+	nih_assert (buffer);
+
+	state_file = nih_sprintf (NULL, "%s/%s", log_dir, STATE_FILE);
+	if (! state_file)
+		return;
+
+	fd = open (state_file, (O_CREAT|O_WRONLY|O_TRUNC), S_IRUSR);
+	if (fd < 0)
+		return;
+
+	while (TRUE) {
+		bytes = write (fd, buffer->buf, buffer->len);
+
+		if (! bytes)
+			break;
+		else if (bytes > 0)
+			nih_io_buffer_shrink (buffer, (size_t)bytes);
+		else if (bytes < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+			break;
+		}
+	}
+
+	close (fd);
 }
 
 /**
@@ -1207,7 +1251,7 @@ error:
  *
  * Returns: JSON-serialised Blocked object, or NULL on error.
  **/
-static json_object *
+json_object *
 state_serialise_blocked (const Blocked *blocked)
 {
 	json_object  *json;
@@ -1409,7 +1453,7 @@ error:
  *
  * Returns: new Blocked object, or NULL on error.
  **/
-static Blocked *
+Blocked *
 state_deserialise_blocked (void *parent, json_object *json,
 		NihList *list)
 {

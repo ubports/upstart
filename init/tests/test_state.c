@@ -50,11 +50,27 @@
 #include "control.h"
 #include "test_util.h"
 
+#ifndef TEST_DATA_DIR
+#error ERROR: TEST_DATA_DIR not defined
+#endif
+
+/* These functions are 'protected'.
+ *
+ * The test code needs access, but they cannot be public due to
+ * header-file complications.
+ */
+json_object *
+state_serialise_blocked (const Blocked *blocked)
+	__attribute__ ((malloc, warn_unused_result));
+
+Blocked *
+state_deserialise_blocked (void *parent, json_object *json, NihList *list)
+	__attribute__ ((malloc, warn_unused_result));
 
 /**
  * AlreadySeen:
  *
- * Used to allow objects that directly or indirectly reference on
+ * Used to allow objects that directly or indirectly reference
  * another to be inspected and compared without causing infinite
  * recursion.
  *
@@ -127,6 +143,43 @@ int blocking_diff (const NihList *a, const NihList *b, AlreadySeen seen)
 int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
+void test_upstart1_6_upgrade (const char *conf_file, const char *path);
+
+/**
+ * TestDataFile:
+ *
+ * @conf_file: Name of ConfFile that must be created prior to
+ *  deserialising JSON data in @filename.
+ * @filename: basename of data file,
+ * @func: function to run to test @filename.
+ *
+ * Representation of a JSON data file used for ensuring that the current
+ * version of Upstart is able to deserialise all previous JSON data file
+ * format versions.
+ *
+ * @conf_file is required since we do not currently serialise ConfFile
+ * and ConfSource objects so these entities must be created immediately
+ * prior to attempting deserialisation.
+ *
+ * @func returns nothing so is expected to assert on any error.
+ **/
+typedef struct test_data_file {
+	char		*conf_file;
+	char		*filename;
+		  void (*func) (const char *conf_file, const char *path);
+} TestDataFile;
+
+/**
+ * test_data_files:
+ *
+ * Array of data files to test.
+ **/
+TestDataFile test_data_files[] = {
+	{ "bar", "upstart-1.6.json", test_upstart1_6_upgrade },
+
+	{ NULL, NULL, NULL }
+};
+
 /* Data with some embedded nulls */
 const    char test_data[] = {
 	'h', 'e', 'l', 'l', 'o', 0x0, 0x0, 0x0, ' ', 'w', 'o', 'r', 'l', 'd', '\n', '\r', '\0'
@@ -139,7 +192,7 @@ int32_t  values32[] = {INT32_MIN, -1, 0, 1, INT32_MAX};
 int64_t  values64[] = {INT64_MIN, -1, 0, 1, INT64_MAX};
 const Process test_procs[] = {
 	{ 0, "echo hello" },
-	{ 1, "echo hello" },
+	{ 1, "echo hello" }
 };
 rlim_t rlimit_values[] = { 0, 1, 2, 3, 7, RLIM_INFINITY };
 
@@ -994,7 +1047,7 @@ void
 test_blocking (void)
 {
 	nih_local char          *json_string = NULL;
-	const char              *json_string_tmp;
+	nih_local char          *parent_str = NULL;
 	ConfSource              *source = NULL;
 	ConfFile                *file;
 	JobClass                *class;
@@ -1004,14 +1057,10 @@ test_blocking (void)
 	Event                   *event;
 	Event                   *new_event;
 	Blocked                 *blocked;
+	Blocked                 *new_blocked;
+	NihList                  blocked_list;
 	size_t                   len;
-	json_object             *json;
-	json_object             *json_events;
-	json_object             *json_event0;
-	json_object             *json_blocking;
-	json_object             *json_blocking0;
-	json_object             *json_data;
-	enum json_tokener_error  json_error; 
+	json_object             *json_blocked;
 	Session                 *session;
 	Session                 *new_session;
 
@@ -1024,35 +1073,17 @@ test_blocking (void)
 	TEST_GROUP ("Blocked serialisation and deserialisation");
 
 	/*******************************/
-	/* Test Upstart 1.6 behaviour
-	 *
-	 * (which does not include a "session" entry in the JSON for
-	 * the blocked job).
-	 *
-	 * Note that this test is NOT testing whether a JobClass with an
-	 * associated Upstart session is handled correctly, it is merely
-	 * testing that a JobClass with the NULL session is handled
-	 * correctly!
-	 */
-	TEST_FEATURE ("BLOCKED_JOB with no JSON session object");
+	TEST_FEATURE ("BLOCKED_JOB serialisation and deserialisation");
 
-	TEST_LIST_EMPTY (sessions);
-	TEST_LIST_EMPTY (events);
-	TEST_LIST_EMPTY (conf_sources);
-	TEST_HASH_EMPTY (job_classes);
-
-	event = event_new (NULL, "Christmas", NULL);
-	TEST_NE_P (event, NULL);
-	TEST_LIST_EMPTY (&event->blocking);
+	nih_list_init (&blocked_list);
+	TEST_LIST_EMPTY (&blocked_list);
 
 	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
 	TEST_NE_P (source, NULL);
 
 	file = conf_file_new (source, "/tmp/foo/bar");
 	TEST_NE_P (file, NULL);
-
-	/* Create class with NULL session */
-	class = file->job = job_class_new (NULL, "bar", NULL);
+	class = file->job = job_class_new (file, "bar", NULL);
 
 	TEST_NE_P (class, NULL);
 	TEST_HASH_EMPTY (job_classes);
@@ -1061,100 +1092,82 @@ test_blocking (void)
 
 	job = job_new (class, "");
 	TEST_NE_P (job, NULL);
-	TEST_HASH_NOT_EMPTY (class->instances);
 
-	blocked = blocked_new (event, BLOCKED_JOB, job);
+	parent_str = nih_strdup (NULL, "parent");
+	TEST_NE_P (parent_str, NULL);
+
+	blocked = blocked_new (NULL, BLOCKED_JOB, job);
 	TEST_NE_P (blocked, NULL);
 
-	nih_list_add (&event->blocking, &blocked->entry);
-	job->blocker = event;
+	json_blocked = state_serialise_blocked (blocked);
+	TEST_NE_P (json_blocked, NULL);
 
-	TEST_LIST_NOT_EMPTY (&event->blocking);
+	new_blocked = state_deserialise_blocked (parent_str,
+			json_blocked, &blocked_list);
+	TEST_NE_P (new_blocked, NULL);
+	TEST_LIST_NOT_EMPTY (&blocked_list);
 
-	assert0 (state_to_string (&json_string, &len));
-	TEST_GT (len, 0);
+	assert0 (blocked_diff (blocked, new_blocked, ALREADY_SEEN_SET));
 
-	/* Convert string back into JSON */
-	json = json_tokener_parse_verbose (json_string, &json_error);
-	TEST_NE_P (json, NULL);
-
-	/*******************************/
-	/* Remove the "session" attribute from the "blocked"
-	 * JSON object to ensure it is possible to deserialise JSON in
-	 * this format.
-	 */
-	json_events = json_object_object_get (json, "events");
-	TEST_NE_P (json_events, NULL);
-
-	json_event0 = json_object_array_get_idx (json_events, 0);
-	TEST_NE_P (json_event0, NULL);
-
-	json_blocking = json_object_object_get (json_event0, "blocking");
-	TEST_NE_P (json_blocking, NULL);
-
-	json_blocking0 = json_object_array_get_idx (json_blocking, 0);
-	TEST_NE_P (json_blocking0, NULL);
-
-	json_data = json_object_object_get (json_blocking0, "data");
-	TEST_NE_P (json_data, NULL);
-
-	/* sanity-check (since json_object_object_del() returns nothing).
-	 */
-	TEST_NE_P (json_object_object_get (json_data, "session"), NULL);
-
-	/* ok, so zap it */
-	json_object_object_del (json_data, "session");
-
-	/*******************************/
-
-	json_string_tmp = json_object_to_json_string (json);
-
-	/* XXX: We don't remove the source as these are not
-	 * recreated on re-exec, so we'll re-use the existing one.
-	 */
-	nih_list_remove (&class->entry);
-	nih_list_remove (&event->entry);
-
-	TEST_LIST_EMPTY (events);
-	TEST_LIST_NOT_EMPTY (conf_sources);
-	TEST_HASH_EMPTY (job_classes);
-
-	assert0 (state_from_string (json_string_tmp));
-
-	TEST_LIST_NOT_EMPTY (conf_sources);
-	TEST_LIST_NOT_EMPTY (events);
-	TEST_HASH_NOT_EMPTY (job_classes);
-	TEST_LIST_EMPTY (sessions);
-
-	new_class = (JobClass *)nih_hash_lookup (job_classes, "bar");
-	TEST_NE_P (new_class, NULL);
-	nih_list_remove (&new_class->entry);
-
-	/* Upstart 1.6 can only deserialise the NULL session */
-	TEST_EQ_P (class->session, NULL);
-
-	new_event = (Event *)nih_list_remove (events->next);
-	TEST_LIST_EMPTY (events);
-	TEST_LIST_NOT_EMPTY (&new_event->blocking);
-	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
-
-	nih_free (event);
-	nih_free (new_event);
+	json_object_put (json_blocked);
 	nih_free (source);
-	nih_free (new_class);
 
-	TEST_HASH_EMPTY (job_classes);
+	/*******************************/
+	TEST_FEATURE ("BLOCKED_EVENT serialisation and deserialisation");
 
-	TEST_LIST_EMPTY (sessions);
-	TEST_LIST_EMPTY (events);
-	TEST_LIST_EMPTY (conf_sources);
+	event = event_new (NULL, "event", NULL);
+	TEST_NE_P (event, NULL);
+
+	nih_list_init (&blocked_list);
+
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/foo/bar");
+	TEST_NE_P (file, NULL);
+	class = file->job = job_class_new (file, "bar", NULL);
+
+	TEST_NE_P (class, NULL);
 	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_LIST_EMPTY (&job->blocking);
+
+	blocked = blocked_new (NULL, BLOCKED_EVENT, event);
+	TEST_NE_P (blocked, NULL);
+
+	nih_list_add (&job->blocking, &blocked->entry);
+	TEST_LIST_NOT_EMPTY (&job->blocking);
+
+	event->blockers = 1;
+
+	parent_str = nih_strdup (NULL, "parent");
+	TEST_NE_P (parent_str, NULL);
+
+	json_blocked = state_serialise_blocked (blocked);
+	TEST_NE_P (json_blocked, NULL);
+
+	TEST_LIST_EMPTY (&blocked_list);
+	new_blocked = state_deserialise_blocked (parent_str,
+			json_blocked, &blocked_list);
+	TEST_NE_P (new_blocked, NULL);
+	TEST_LIST_NOT_EMPTY (&blocked_list);
+
+	assert0 (blocked_diff (blocked, new_blocked, ALREADY_SEEN_SET));
+
+	json_object_put (json_blocked);
+	nih_free (source);
+	nih_free (event);
 
 	/*******************************/
 	/* Test Upstart 1.6+ behaviour
 	 *
-	 * (which does include a "session" entry in the JSON for
-	 * the blocked job).
+	 * The data serialisation format for this version now includes
+	 * a "session" entry in the JSON for the blocked job.
 	 *
 	 * Note that this test is NOT testing whether a JobClass with an
 	 * associated Upstart session is handled correctly, it is merely
@@ -2926,6 +2939,141 @@ test_clean_args (void)
 	/*******************************/
 }
 
+/**
+ * test_upgrade:
+ * 
+ * Run tests that simulate an upgrade by attempting to deserialise an
+ * older version of the JSON data format than is currently used.
+ **/
+void
+test_upgrade (void)
+{
+	TestDataFile  *datafile;
+
+	TEST_GROUP ("upgrade tests");
+
+	for (datafile = test_data_files; datafile && datafile->filename; datafile++) {
+		nih_local char  *path = NULL;
+		nih_local char  *name = NULL;
+
+		nih_assert (datafile->func != NULL);
+
+		name = NIH_MUST (nih_sprintf (NULL, "with data file '%s'",
+					datafile->filename));
+		TEST_FEATURE (name);
+
+		path = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+					TEST_DATA_DIR, datafile->filename));
+
+		datafile->func (datafile->conf_file, path);
+	}
+}
+
+/**
+ * test_upstart1_6_upgrade:
+ *
+ * @conf_file: name of ConfFile to create prior to running test,
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test for original Upstart 1.6 serialisation data format containing
+ * a blocked object that does not contain a 'session' element.
+ *
+ * Note that this test is NOT testing whether a JobClass with an
+ * associated Upstart session is handled correctly, it is merely
+ * testing that a JobClass with the NULL session encoded in the JSON
+ * is handled correctly.
+ **/
+void
+test_upstart1_6_upgrade (const char *conf_file, const char *path)
+{
+	nih_local char  *json_string = NULL;
+	Event           *event;
+	ConfSource      *source;
+	ConfFile        *file;
+	nih_local char  *conf_file_path = NULL;
+	struct stat      statbuf;
+	size_t           len;
+
+	nih_assert (conf_file);
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Create the ConfSource and ConfFile objects to simulate
+	 * Upstart reading /etc/init on startup. Required since we
+	 * don't currently serialise these objects.
+	 */
+	source = conf_source_new (NULL, "/tmp/foo", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	conf_file_path = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				"/tmp/foo", conf_file));
+
+	file = conf_file_new (source, conf_file_path);
+	TEST_NE_P (file, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	event = (Event *)nih_list_remove (events->next);
+	TEST_NE_P (event, NULL);
+	TEST_EQ_STR (event->name, "Christmas");
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		TEST_EQ_STR (class->name, "bar");
+		TEST_EQ_STR (class->path, "/com/ubuntu/Upstart/jobs/bar");
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		NIH_HASH_FOREACH (class->instances, iter2) {
+			Blocked        *blocked;
+			Job            *job = (Job *)iter2;
+			nih_local char *instance_path = NULL;
+
+			/* instance name */
+			TEST_EQ_STR (job->name, "");
+
+			instance_path = NIH_MUST (nih_sprintf (NULL, "%s/_", class->path));
+			TEST_EQ_STR (job->path, instance_path);
+
+			/* job is blocked by the event */
+			TEST_EQ (job->blocker, event);
+
+			/* First entry in list should be a Blocked
+			 * object pointing to the job.
+			 */
+			TEST_LIST_NOT_EMPTY (&event->blocking);
+			blocked = (Blocked *)(&event->blocking)->next;
+			TEST_EQ (blocked->type, BLOCKED_JOB);
+			TEST_EQ (blocked->job, job);
+		}
+	}
+
+	nih_free (event);
+	nih_free (conf_sources);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -2950,6 +3098,7 @@ main (int   argc,
 	test_log_serialise ();
 	test_job_serialise ();
 	test_job_class_serialise ();
+	test_upgrade ();
 
 	return 0;
 }
