@@ -4007,6 +4007,74 @@ test_run (void)
 	}
 
 	/************************************************************/
+
+	/* Check that initgroups gets called.
+	 * The test will run a job as nobody/nogroup (setuid/setgid) target.
+	 *
+	 * When run from an unprivileged user, the check will ensure that upstart
+	 * fails to start the job (returning -1) as initgroups() is a privileged
+	 * call (similar to setuid and setgid).
+	 *
+	 * When run from a privileged user (root), the check will ensure that
+	 * upstart succeeds in dropping privileges, which includes calling
+	 * initgroup, setuid and setgid.
+	 *
+	 * If the test is started by user nobody/nogroup, then it'll succeed as
+	 * there's no privilege changes to be done in such case (same uid/gid).
+	 */
+	TEST_FEATURE ("with setuid");
+	TEST_HASH_EMPTY (job_classes);
+
+	TEST_NE_P (output, NULL);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = nih_sprintf (
+				class->process[PROCESS_MAIN],
+				"touch %s", filename);
+
+			pwd = getpwnam ("nobody");
+			TEST_NE (pwd, NULL);
+			class->setuid = nih_strdup (class, pwd->pw_name);
+
+			grp = getgrnam ("nogroup");
+			TEST_NE (grp, NULL);
+			class->setgid = nih_strdup (class, grp->gr_name);
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			output = tmpfile ();
+		}
+
+		TEST_DIVERT_STDERR (output) {
+			ret = job_process_run (job, PROCESS_MAIN);
+			if (geteuid() == 0 || getuid() == pwd->pw_uid) {
+				TEST_EQ (ret, 0);
+			}
+			else {
+				TEST_EQ (ret, -1);
+			}
+		}
+
+		if (geteuid() == 0 || getuid() == pwd->pw_uid) {
+			TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+			waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+			TEST_EQ (stat (filename, &statbuf), 0);
+		}
+		else {
+			TEST_EQ (stat (filename, &statbuf), -1);
+		}
+
+		unlink (filename);
+		nih_free (class);
+
+	}
+
+	/************************************************************/
 	TEST_FEATURE ("with multiple processes and log");
 	TEST_HASH_EMPTY (job_classes);
 
