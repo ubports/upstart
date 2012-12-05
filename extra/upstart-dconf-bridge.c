@@ -2,6 +2,7 @@
  *
  * Copyright © 2012 Canonical Ltd.
  * Author: Stéphane Graber <stgraber@ubuntu.com>.
+ * Author: Thomas Bechtold <thomasbechtold@jpberlin.de>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -22,7 +23,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <dconf.h>
-#include <dbus/dbus-glib.h>
+#include <gio/gio.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -40,8 +41,8 @@
 
 /* Prototypes for static functions */
 static void dconf_changed   (DConfClient *client, const gchar *prefix,
-							    const gchar * const *changes, const gchar *tag,
-							    DBusGProxy *upstart);
+			     const gchar * const *changes, const gchar *tag,
+			     GDBusProxy *upstart);
 
 /**
  * daemonise:
@@ -70,8 +71,7 @@ main (int   argc,
 	char **             args;
 	DConfClient *       client;
 	GMainLoop *         mainloop;
-	DBusGConnection *   dbus;
-	DBusGProxy *        upstart;
+	GDBusProxy *        upstart_proxy;
 	GError *            error = NULL;
 
 	/* Initialise the various gobjects */
@@ -92,25 +92,21 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
-	dbus = dbus_g_bus_get (DBUS_BUS_SESSION, &error);
-	if (error != NULL) {
-		g_error ("D-BUS Connection error: %s", error->message);
-		g_error_free (error);
-	}
+	/* get a upstart proxy object on session bus */
+	upstart_proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+						       G_DBUS_PROXY_FLAGS_NONE,
+						       NULL, /* GDBusInterfaceInfo */
+						       "com.ubuntu.Upstart",
+						       "/com/ubuntu/Upstart",
+						       "com.ubuntu.Upstart0_6",
+						       NULL, /* GCancellable */
+						       &error);
 
-	if (!dbus) {
-		g_error ("D-BUS connection cannot be created");
-		return 1;
-	}
-
-	upstart = dbus_g_proxy_new_for_name (dbus,
-										    "com.ubuntu.Upstart",
-										    "/com/ubuntu/Upstart",
-										    "com.ubuntu.Upstart0_6");
-
-	if (!upstart) {
-		g_error ("Cannot connect to upstart");
-		return 1;
+	if (upstart_proxy == NULL) {
+		g_error ("D-BUS Upstart proxy error: %s",
+			 (error && error->message) ? error->message : "Unknown error");
+		g_clear_error (&error);
+		return EXIT_FAILURE;
 	}
 
 	/* Become daemon FIXME: Tries to create a pid file, fails when non-root */
@@ -128,31 +124,32 @@ main (int   argc,
 	}
 
 	/* Listen for any dconf change */
-	g_signal_connect (client, "changed", (GCallback) dconf_changed, upstart);
+	g_signal_connect (client, "changed", (GCallback) dconf_changed, upstart_proxy);
 	dconf_client_watch_sync (client, "/");
 
 	/* Start the glib mainloop */
 	g_main_loop_run (mainloop);
 
 	g_object_unref (client);
+	g_object_unref (upstart_proxy);
 	g_main_loop_unref (mainloop);
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 static
 void dconf_changed (DConfClient *client, const gchar *prefix,
-					    const gchar * const *changes, const gchar *tag,
-					    DBusGProxy *upstart)
+		    const gchar * const *changes, const gchar *tag,
+		    GDBusProxy *upstart)
 {
 	GVariant *          value;
 	gchar *             value_str = NULL;
 	gchar *             path = NULL;
 	gchar *             env_key = NULL;
 	gchar *             env_value = NULL;
-	char **             env;
-	GError *            error = NULL;
 	int                 i = 0;
+	GVariantBuilder     builder;
+	GVariant *          event;
 
 	/* Iterate through the various changes */
 	while (changes[i] != NULL) {
@@ -160,43 +157,39 @@ void dconf_changed (DConfClient *client, const gchar *prefix,
 		path = g_strconcat (prefix, path, NULL);
 		value = dconf_client_read (client, path);
 		value_str = g_variant_print (value, FALSE);
-
-		/* FIXME: Debug */
-		g_print("%s => %s\n", path, value_str);
-
-		env_key = g_strconcat ("KEY=", path, NULL);
+		env_key = g_strconcat ("KEY=", prefix, path, NULL);
 		env_value = g_strconcat ("VALUE=", value_str, NULL);
 
-		/* Build event environment */
-		env = g_new (char *, 2);
-		env[0] = env_key;
-		env[1] = env_value;
-		env[2] = NULL;
+                /* FIXME: Debug */
+		g_debug ("'%s' => '%s'", env_key, env_value);
+
+		/* Build event environment as GVariant */
+		g_variant_builder_init (&builder, G_VARIANT_TYPE_TUPLE);
+		g_variant_builder_add (&builder, "s", "dconf-changed");
+		g_variant_builder_open (&builder, G_VARIANT_TYPE_ARRAY);
+		g_variant_builder_add (&builder, "s", env_key);
+		g_variant_builder_add (&builder, "s", env_value);
+		g_variant_builder_close (&builder);
+		g_variant_builder_add (&builder, "b", FALSE);
+		event = g_variant_builder_end (&builder);
 
 		/* Send the event */
-		dbus_g_proxy_call (upstart, "EmitEvent", &error,
-						    G_TYPE_STRING, "dconf-changed",
-						    G_TYPE_STRV, env,
-						    G_TYPE_BOOLEAN, FALSE,
-						    G_TYPE_INVALID,
-						    G_TYPE_INVALID);
+		g_dbus_proxy_call (upstart,
+				   "EmitEvent",
+				   event,
+				   G_DBUS_CALL_FLAGS_NONE,
+				   -1,
+				   NULL,
+				   NULL, /* GAsyncReadyCallback - we don't care about the answer */
+				   NULL);
 
-		g_free (path);
+		g_variant_builder_clear (&builder);
 		g_variant_unref (value);
+		g_free (path);
 		g_free (value_str);
 		g_free (env_key);
 		g_free (env_value);
-		g_free (env);
-
-		if (error) {
-			/* Ignore DBUS errors.
-			   Those events will just be lost until upstart reappears.
-			 */
-			g_error_free (error);
-		}
 
 		i += 1;
 	}
-
-	return;
 }
