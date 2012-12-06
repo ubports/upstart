@@ -991,7 +991,7 @@ control_restart (void           *data,
 	 * own this process (which they may do in the test scenario and
 	 * when running Upstart as a non-privileged user).
 	 */
-	if (session && session->user && session->user != uid) {
+	if (session && session->user != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to request restart"));

@@ -56,9 +56,6 @@ int env_option (NihOption *option, const char *arg);
 NihDBusProxy * upstart_open (const void *parent)
 	__attribute__ ((warn_unused_result));
 
-int init_is_upstart (void)
-	__attribute__ ((warn_unused_result));
-
 int restart_upstart (void)
 	__attribute__ ((warn_unused_result));
 
@@ -110,8 +107,6 @@ env_option (NihOption  *option,
  * instead opened to the system bus and the proxy linked to the
  * well-known name given.
  *
- * Error messages are output to standard error.
- *
  * If @parent is not NULL, it should be a pointer to another object
  * which will be used as a parent for the returned proxy.  When all
  * parents of the returned proxy are freed, the returned proxy will
@@ -156,44 +151,11 @@ upstart_open (const void *parent)
 }
 
 /**
- * init_is_upstart:
- *
- * Determine if PID 1 is actually Upstart. The strategy adopted is to
- * attempt to connect to Upstart via D-Bus and query its version. If
- * this is entirely successful, we must be using Upstart. If any step
- * fails, assume we are not.
- *
- * Returns: TRUE if PID 1 is Upstart, else FALSE.
- **/
-int
-init_is_upstart (void)
-{
-	nih_local NihDBusProxy *upstart = NULL;
-	nih_local char *        version = NULL;
-	NihError *              err;
-
-	upstart = upstart_open (NULL);
-	if (! upstart)
-		goto error;
-
-	if (upstart_get_version_sync (NULL, upstart, &version) < 0)
-		goto error;
-
-	return TRUE;
-
-error:
-	err = nih_error_get ();
-	nih_free (err);
-
-	return FALSE;
-}
-
-/**
  * restart_upstart:
  *
  * Request Upstart restart itself.
  *
- * Returns: TRUE on SUCCESS or FALSE on raised error.
+ * Returns: 0 on SUCCESS, -1 on raised error.
  **/
 int
 restart_upstart (void)
@@ -202,12 +164,12 @@ restart_upstart (void)
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
-		return FALSE;
+		return -1;
 
 	if (upstart_restart_sync (NULL, upstart) < 0)
-		return FALSE;
+		return -1;
 
-	return TRUE;
+	return 0;
 }
 
 #ifndef TEST
@@ -300,9 +262,8 @@ main (int   argc,
 		break;
 	case 'U':
 	case 'u':
-		if (init_is_upstart ()) {
-			ret = restart_upstart ();
-		}
+		/* If /sbin/init is not Upstart, just exit non-zero */
+		ret = restart_upstart ();
 		break;
 	default:
 		nih_assert_not_reached ();
