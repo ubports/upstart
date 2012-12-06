@@ -2,7 +2,7 @@
 
 	* init/job_class.c:
 	  - job_class_add_safe(): Don't assert on name collisions for jobs
-	    associated with a different session.  (LP: #109715).
+	    associated with a different session.  (LP: #1079715).
 	  - job_class_serialise(): Explicitly disallow user and chroot
 	    sessions from being serialised since this scenario is not
 	    supported (due to our not serialising ConfSource objects yet).
@@ -44,6 +44,15 @@
 	  'GetState' method.
 	* init/tests/data/upstart-1.6.json: Test data used by test_state.c
 	  for upgrade testing the upstart 1.6 serialization format.
+	* dbus/com.ubuntu.Upstart.xml: New 'Restart' method.
+	* init/control.c: control_restart(): New function to request Upstart
+	  restart itself.
+	* util/telinit.c: use the new dbus interface for restarts;
+	  'telinit u' now fails with an error when PID 1 is not upstart,
+	  instead of sending it a signal with undefined behavior.
+	  (LP: #1083723)
+	* util/man/telinit.8: Update for 'telinit u' behaviour if PID 1 is
+	  not Upstart.
 
 2012-11-23  James Hunt  <james.hunt@ubuntu.com>
 

@@ -1011,3 +1011,59 @@ error:
 			_("Out of Memory"));
 	return -1;
 }
+
+/**
+ * control_restart:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the Restart method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request that Upstart performs a stateful re-exec.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_restart (void           *data,
+		 NihDBusMessage *message)
+{
+	Session  *session;
+	uid_t     uid;
+
+	nih_assert (message != NULL);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 *
+	 * Making this a NOP is safe since it is the Upstart outside the
+	 * chroot which manages all chroot jobs.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring restart request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from restarting Upstart, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request restart"));
+		return -1;
+	}
+
+	nih_info (_("Restarting"));
+
+	stateful_reexec ();
+
+	return 0;
+}
