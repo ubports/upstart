@@ -275,6 +275,7 @@ state_write_file (NihIoBuffer *buffer)
 	if (! state_file)
 		return;
 
+	/* Note the very restrictive permissions */
 	fd = open (state_file, (O_CREAT|O_WRONLY|O_TRUNC), S_IRUSR);
 	if (fd < 0)
 		return;
@@ -286,9 +287,8 @@ state_write_file (NihIoBuffer *buffer)
 			break;
 		else if (bytes > 0)
 			nih_io_buffer_shrink (buffer, (size_t)bytes);
-		else if (bytes < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+		else if (bytes < 0 && errno != EINTR)
 			break;
-		}
 	}
 
 	close (fd);

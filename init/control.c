@@ -992,14 +992,12 @@ control_get_state (void           *data,
 	 * happen to own this process (which they may do in the test
 	 * scenario and when running Upstart as a non-privileged user).
 	 */
-	if (session && session->user && session->user != uid) {
+	if (session && session->user != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request restart"));
+			_("You do not have permission to request state"));
 		return -1;
 	}
-
-	control_bus_flush ();
 
 	if (state_to_string (state, &len) < 0)
 		goto error;
