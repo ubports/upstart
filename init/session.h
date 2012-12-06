@@ -39,7 +39,8 @@
  * with a chroot path)).
  *
  * This structure is used to identify collections of jobs
- * that share either a common @chroot and/or common @user.
+ * that share either a common @chroot and/or common @user. Note that
+ * @conf_path is unique across all sessions.
  *
  * Summary of Session values for different environments:
  *
