@@ -105,6 +105,11 @@ control_conn_from_index (int conn_index)
 int control_bus_release_name (void)
 	__attribute__ ((warn_unused_result));
 
+int control_get_state (void           *data,
+		   NihDBusMessage  *message,
+		   char           **state)
+	__attribute__ ((warn_unused_result));
+
 int  control_restart (void *data, NihDBusMessage *message)
 	__attribute__ ((warn_unused_result));
 

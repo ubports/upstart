@@ -2,7 +2,7 @@
  *
  * state.c - serialisation and deserialisation support.
  *
- * Copyright © 2012 Canonical Ltd.
+ * Copyright  2012 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,7 +48,8 @@ json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
 
-extern int use_session_bus;
+extern int   use_session_bus;
+extern char *log_dir;
 
 /**
  * args_copy:
@@ -68,21 +69,16 @@ char **args_copy = NULL;
 int restart = FALSE;
 
 /* Prototypes for static functions */
-static json_object *
-state_serialise_blocked (const Blocked *blocked)
-	__attribute__ ((malloc, warn_unused_result));
-
-static Blocked *
-state_deserialise_blocked (void *parent, json_object *json, NihList *list)
-	__attribute__ ((malloc, warn_unused_result));
-
 static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
 
 static Job *
-state_get_job (const char *job_class, const char *job_name)
+state_get_job (const Session *session, const char *job_class,
+	       const char *job_name)
 	__attribute__ ((warn_unused_result));
+
+static void state_write_file (NihIoBuffer *buffer);
 
 /**
  * state_read:
@@ -246,7 +242,56 @@ state_read_objects (int fd)
 	return 0;
 
 error:
+	/* Failed to reconstruct internal state so attempt to write
+	 * the JSON state data to a file to allow for manual post
+	 * re-exec analysis.
+	 */
+	if (buffer->len && log_dir)
+		state_write_file (buffer);
+
 	return -1;
+}
+
+/**
+ * state_write_file:
+ *
+ * @buffer: NihIoBuffer containing JSON data.
+ *
+ * Write JSON data contained in @buffer to STATE_FILE below log_dir.
+ *
+ * Failures are ignored since this is designed to be called in an error
+ * scenario anyway.
+ **/
+void
+state_write_file (NihIoBuffer *buffer)
+{
+	int              fd;
+	ssize_t          bytes;
+	nih_local char  *state_file = NULL;
+
+	nih_assert (buffer);
+
+	state_file = nih_sprintf (NULL, "%s/%s", log_dir, STATE_FILE);
+	if (! state_file)
+		return;
+
+	/* Note the very restrictive permissions */
+	fd = open (state_file, (O_CREAT|O_WRONLY|O_TRUNC), S_IRUSR);
+	if (fd < 0)
+		return;
+
+	while (TRUE) {
+		bytes = write (fd, buffer->buf, buffer->len);
+
+		if (! bytes)
+			break;
+		else if (bytes > 0)
+			nih_io_buffer_shrink (buffer, (size_t)bytes);
+		else if (bytes < 0 && errno != EINTR)
+			break;
+	}
+
+	close (fd);
 }
 
 /**
@@ -1139,6 +1184,12 @@ state_deserialise_resolve_deps (json_object *json)
 		if (! class)
 			goto error;
 
+		/* XXX: user and chroot jobs are not currently supported
+		 * due to ConfSources not currently being serialised.
+		 */
+		if (class->session)
+			continue;
+
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
 
@@ -1164,7 +1215,7 @@ state_deserialise_resolve_deps (json_object *json)
 				goto error;
 
 			/* lookup job */
-			job = state_get_job (class->name, job_name);
+			job = state_get_job (class->session, class->name, job_name);
 			if (! job)
 				goto error;
 
@@ -1200,11 +1251,12 @@ error:
  *
  * Returns: JSON-serialised Blocked object, or NULL on error.
  **/
-static json_object *
+json_object *
 state_serialise_blocked (const Blocked *blocked)
 {
 	json_object  *json;
 	json_object  *json_blocked_data;
+	int           session_index;
 
 	nih_assert (blocked);
 
@@ -1226,6 +1278,18 @@ state_serialise_blocked (const Blocked *blocked)
 			if (! state_set_json_string_var (json_blocked_data,
 						"class",
 						blocked->job->class->name))
+				goto error;
+
+			session_index = session_get_index (blocked->job->class->session);
+			if (session_index < 0)
+				goto error;
+
+			/* Encode parent classes session index to aid in
+			 * finding the correct job on deserialisation.
+			 */
+			if (! state_set_json_int_var (json_blocked_data,
+						"session",
+						session_index))
 				goto error;
 
 			if (! state_set_json_string_var (json_blocked_data,
@@ -1389,7 +1453,7 @@ error:
  *
  * Returns: new Blocked object, or NULL on error.
  **/
-static Blocked *
+Blocked *
 state_deserialise_blocked (void *parent, json_object *json,
 		NihList *list)
 {
@@ -1397,7 +1461,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 	Blocked         *blocked = NULL;
 	nih_local char  *blocked_type_str = NULL;
 	BlockedType      blocked_type;
-	int             ret;
+	int              ret;
 
 	nih_assert (parent);
 	nih_assert (json);
@@ -1421,6 +1485,8 @@ state_deserialise_blocked (void *parent, json_object *json,
 			nih_local char  *job_name = NULL;
 			nih_local char  *job_class_name = NULL;
 			Job             *job;
+			Session         *session;
+			int              session_index;
 
 			if (! state_get_json_string_var_strict (json_blocked_data,
 						"name", NULL, job_name))
@@ -1430,7 +1496,19 @@ state_deserialise_blocked (void *parent, json_object *json,
 						"class", NULL, job_class_name))
 				goto error;
 
-			job = state_get_job (job_class_name, job_name);
+			/* On error, assume NULL session since the likelihood
+			 * is we're upgrading from Upstart 1.6 that did not set
+			 * the 'session' JSON object.
+			 */
+			if (! state_get_json_int_var (json_blocked_data, "session", session_index))
+				session_index = 0;
+
+			if (session_index < 0)
+				goto error;
+
+			session = session_from_index (session_index);
+
+			job = state_get_job (session, job_class_name, job_name);
 			if (! job)
 				goto error;
 
@@ -1583,8 +1661,14 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 		if (! json_blocked)
 			goto error;
 
+
+		/* Don't error in this scenario to allow for possibility
+		 * that version of Upstart that performed the
+		 * serialisation did not correctly handle user and
+		 * chroot jobs.
+		 */
 		if (! state_deserialise_blocked (parent, json_blocked, list))
-			goto error;
+			;
 	}
 
 	return 0;
@@ -1625,6 +1709,7 @@ state_index_to_job_class (int job_class_index)
 /**
  * state_get_job:
  *
+ * @session: session of job class,
  * @job_class: name of job class,
  * @job_name: name of job instance.
  *
@@ -1635,15 +1720,21 @@ state_index_to_job_class (int job_class_index)
  * job not found.
  **/
 static Job *
-state_get_job (const char *job_class, const char *job_name)
+state_get_job (const Session *session,
+	       const char *job_class,
+	       const char *job_name)
 {
-	JobClass  *class;
+	JobClass  *class = NULL;
 	Job       *job;
 
 	nih_assert (job_class);
 	nih_assert (job_classes);
 
-	class = (JobClass *)nih_hash_lookup (job_classes, job_class);
+	do {
+		class = (JobClass *)nih_hash_search (job_classes,
+				job_class, class ? &class->entry : NULL);
+	} while (class && class->session != session);
+
 	if (! class)
 		goto error;
 
