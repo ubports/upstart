@@ -29,7 +29,13 @@
 #include <sys/reboot.h>
 #include <sys/resource.h>
 #include <sys/mount.h>
+
+#ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 35
+#endif
+#endif
 
 #include <errno.h>
 #include <stdio.h>
@@ -608,12 +614,14 @@ main (int   argc,
 	 * This ensures that even when init doesn't run as PID 1, it'll always be
 	 * the ultimate parent of everything it spawns. */
 
+#ifdef HAVE_SYS_PRCTL_H
 	if (getpid () > 1 && prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
 		nih_warn ("%s: %s", _("Unable to register as subreaper"),
 				  strerror (errno));
 
 		NIH_MUST (event_new (NULL, "child-subreaper-failed", NULL));
 	}
+#endif
 
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to

@@ -53,7 +53,7 @@ PKG_CHECK_MODULES([JSON], [json >= 0.10])
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
 # Checks for header files.
-AC_CHECK_HEADERS([valgrind/valgrind.h])
+AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_PROG_CC_C99
