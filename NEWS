@@ -1,5 +1,21 @@
 1.7  xxxx-xx-xx
 
+1.6.1  2012-12-07 "It glows in the dark"
+
+	* Improved re-exec performance.
+	* Minor logger fixes for unflushed data.
+	* Handle re-exec scenario when requested from within a chroot.
+	* Minor serialisation data format change to handle chroots and
+	  user sessions.
+	* Added extra re-exec tests including explicit upgrade tests reading
+	  from pre-prepared JSON data files.
+	* Make jobs running within a chroot log their output within the chroot.
+	* Added "Restart" D-Bus method.
+	* Changed 'telinit u' to use "Restart" D-Bus method rather than
+	  sending SIGTERM to play nicely when busybox(1) is init.
+	* Added "GetState" D-Bus method allowing current serialised internal state
+	  to be queried.
+
 1.6  2012-11-15 "The turbine, the fish and the glass partition"
 
 	* 'telinit u' now performs a stateful re-exec, allowing Upstart
