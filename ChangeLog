@@ -1,3 +1,11 @@
+2012-12-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml: Restart: Add annotation to make it
+	  manifest this is an async call.
+	* util/telinit.c: restart_upstart(): Use the async call to avoid the
+	  client-side complaining if it detects that Upstart has severed all
+	  D-Bus connections in preparation for the re-exec.
+
 2012-11-23  James Hunt  <james.hunt@ubuntu.com>
 
 	[ Colin King <colin.king@ubuntu.com> ]
