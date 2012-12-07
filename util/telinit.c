@@ -161,13 +161,25 @@ int
 restart_upstart (void)
 {
 	nih_local NihDBusProxy *upstart = NULL;
+	DBusPendingCall        *ret;
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return -1;
 
-	if (upstart_restart_sync (NULL, upstart) < 0)
-		return -1;
+	/* Fire and forget:
+	 *
+	 * Ask Upstart to restart itself using the async interface to
+	 * avoid the client-side complaining if and when it detects that
+	 * Upstart has severed all connections to perform the re-exec.
+	 */
+	ret = upstart_restart (upstart, NULL, NULL, NULL, 0);
+
+	/* We don't care about the return code, but we have to keep
+	 * the compiler happy.
+	 */
+	if (ret != (DBusPendingCall *)TRUE)
+		return 0;
 
 	return 0;
 }
