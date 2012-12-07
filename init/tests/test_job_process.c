@@ -128,7 +128,6 @@ enum child_tests {
 	TEST_ENVIRONMENT,
 	TEST_OUTPUT,
 	TEST_OUTPUT_WITH_STOP,
-	TEST_SIGNALS,
 	TEST_FDS
 };
 
@@ -240,21 +239,6 @@ child (enum child_tests  test,
 
 		fprintf(stdout, "ended\n");
 		fflush (NULL);
-		break;
-	case TEST_SIGNALS:
-		/* Write signal stats for child process to stdout */
-		in = fopen("/proc/self/status", "r");
-		if (! in) {
-			abort();
-		}
-
-		while (fgets (buffer, sizeof (buffer), in) != NULL) {
-			if (strstr (buffer, "SigBlk:") == buffer ||
-					strstr (buffer, "SigIgn:") == buffer)
-				fputs (buffer, out);
-		}
-
-		fclose(in);
 		break;
 	case TEST_FDS:
 		/* Establish list of open (valid) and closed (invalid)
@@ -4598,96 +4582,6 @@ test_spawn (void)
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
-
-	nih_free (class);
-
-	/* Check that when the job process is execed that no unexpected
-	 * signals are blocked or ignored.
-	 */
-	TEST_FEATURE ("ensure sane signal state with no console");
-	TEST_HASH_EMPTY (job_classes);
-
-	sprintf (function, "%d", TEST_SIGNALS);
-
-	args[0] = argv0;
-	args[1] = function;
-	args[2] = filename;
-	args[3] = NULL;
-
-	class = job_class_new (NULL, "test", NULL);
-	class->console = CONSOLE_NONE;
-	job = job_new (class, "");
-
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_GT (pid, 0);
-
-	waitpid (pid, NULL, 0);
-	output = fopen (filename, "r");
-
-	TEST_NE_P (output, NULL);
-
-	{
-		unsigned long int value;
-
-		/* No signals should be blocked */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		/* No signals should be ignored */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		TEST_FILE_END (output);
-	}
-
-	fclose (output);
-	assert0 (unlink (filename));
-
-	nih_free (class);
-
-	/********************************************************************/
-	TEST_FEATURE ("ensure sane signal state with log console");
-	TEST_HASH_EMPTY (job_classes);
-
-	sprintf (function, "%d", TEST_SIGNALS);
-
-	args[0] = argv0;
-	args[1] = function;
-	args[2] = filename;
-	args[3] = NULL;
-
-	class = job_class_new (NULL, "test", NULL);
-	class->console = CONSOLE_LOG;
-	job = job_new (class, "");
-
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_GT (pid, 0);
-
-	waitpid (pid, NULL, 0);
-	output = fopen (filename, "r");
-
-	TEST_NE_P (output, NULL);
-
-	{
-		unsigned long int value;
-
-		/* No signals should be blocked */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		/* No signals should be ignored */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		TEST_FILE_END (output);
-	}
-
-	fclose (output);
-	assert0 (unlink (filename));
 
 	nih_free (class);
 
