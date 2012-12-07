@@ -4787,11 +4787,21 @@ test_spawn (void)
 			assert0 (unlink (script));
 		} else {
 			TEST_GT (pid, 0);
+			TEST_EQ (waitpid (pid, &status, 0), pid);
 		}
 
 		TEST_ALLOC_SAFE {
 			/* May alloc space if there is log data */
 			nih_free (class);
+			TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
+			if (!test_alloc_failed) {
+				output = fopen (filename, "r");
+				TEST_NE_P (output, NULL);
+				CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+				TEST_FILE_END (output);
+				TEST_EQ (fclose (output), 0);
+			}
+			unlink (filename);
 		}
 	}
 
