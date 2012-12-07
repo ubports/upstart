@@ -5,7 +5,7 @@ AM_CFLAGS = \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(DCONF_CFLAGS) \
-	$(DBUS_GLIB_CFLAGS) \
+	$(GIO_CFLAGS) \
 	$(UDEV_CFLAGS)
 
 AM_CPPFLAGS = \
@@ -81,7 +81,7 @@ upstart_dconf_bridge_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(DBUS_GLIB_LIBS) \
+	$(GIO_LIBS) \
 	$(DCONF_LIBS)
 endif
 

@@ -41,8 +41,8 @@
 
 /* Prototypes for static functions */
 static void dconf_changed   (DConfClient *client, const gchar *prefix,
-			     const gchar * const *changes, const gchar *tag,
-			     GDBusProxy *upstart);
+							    const gchar * const *changes, const gchar *tag,
+							    GDBusProxy *upstart);
 
 /**
  * daemonise:
@@ -124,7 +124,8 @@ main (int   argc,
 	}
 
 	/* Listen for any dconf change */
-	g_signal_connect (client, "changed", (GCallback) dconf_changed, upstart_proxy);
+	g_signal_connect (client, "changed", (GCallback) dconf_changed,
+					  upstart_proxy);
 	dconf_client_watch_sync (client, "/");
 
 	/* Start the glib mainloop */
@@ -139,8 +140,8 @@ main (int   argc,
 
 static
 void dconf_changed (DConfClient *client, const gchar *prefix,
-		    const gchar * const *changes, const gchar *tag,
-		    GDBusProxy *upstart)
+					    const gchar * const *changes, const gchar *tag,
+					    GDBusProxy *upstart)
 {
 	GVariant *          value;
 	gchar *             value_str = NULL;
@@ -160,9 +161,6 @@ void dconf_changed (DConfClient *client, const gchar *prefix,
 		env_key = g_strconcat ("KEY=", prefix, path, NULL);
 		env_value = g_strconcat ("VALUE=", value_str, NULL);
 
-                /* FIXME: Debug */
-		g_debug ("'%s' => '%s'", env_key, env_value);
-
 		/* Build event environment as GVariant */
 		g_variant_builder_init (&builder, G_VARIANT_TYPE_TUPLE);
 		g_variant_builder_add (&builder, "s", "dconf-changed");
@@ -180,7 +178,8 @@ void dconf_changed (DConfClient *client, const gchar *prefix,
 				   G_DBUS_CALL_FLAGS_NONE,
 				   -1,
 				   NULL,
-				   NULL, /* GAsyncReadyCallback - we don't care about the answer */
+				   NULL, /* GAsyncReadyCallback
+				            we don't care about the answer */
 				   NULL);
 
 		g_variant_builder_clear (&builder);
