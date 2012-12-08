@@ -273,9 +273,7 @@ job_class_consider (JobClass *class)
 
 	/* If we found an entry, ensure we only consider the appropriate session */
 	while (registered && registered->session != class->session)
-	{
 		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
-	}
 
 	if (registered != best) {
 		if (registered)
@@ -316,9 +314,7 @@ job_class_reconsider (JobClass *class)
 
 	/* If we found an entry, ensure we only consider the appropriate session */
 	while (registered && registered->session != class->session)
-	{
 		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
-	}
 
 	if (registered == class) {
 		if (class != best) {
@@ -366,7 +362,7 @@ job_class_add (JobClass *class)
  * @class: new class to select.
  *
  * Adds @class to the hash table iff no existing entry of the
- * same name exists.
+ * same name exists for the same session.
  **/
 void
 job_class_add_safe (JobClass *class)
@@ -378,7 +374,11 @@ job_class_add_safe (JobClass *class)
 
 	control_init ();
 
-	existing = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
+	/* Ensure no existing class exists for the same session */
+	do {
+		existing = (JobClass *)nih_hash_search (job_classes,
+				class->name, existing ? &existing->entry : NULL);
+	} while (existing && existing->session != class->session);
 
 	nih_assert (! existing);
 
@@ -1594,6 +1594,15 @@ job_class_serialise (const JobClass *class)
 	json = json_object_new_object ();
 	if (! json)
 		return NULL;
+	
+	/* XXX: user and chroot jobs are not currently supported
+	 * due to ConfSources not currently being serialised.
+	 */
+	if (class->session) {
+		nih_info ("WARNING: serialisation of user jobs and "
+			"chroot sessions not currently supported");
+		goto error;
+	}
 
 	session_index = session_get_index (class->session);
 	if (session_index < 0)
@@ -1799,6 +1808,7 @@ job_class_deserialise (json_object *json)
 {
 	json_object    *json_normalexit;
 	JobClass       *class = NULL;
+	Session        *session;
 	int             session_index = -1;
 	int             ret;
 	nih_local char *name = NULL;
@@ -1816,20 +1826,23 @@ job_class_deserialise (json_object *json)
 	if (session_index < 0)
 		goto error;
 
+	session = session_from_index (session_index);
+
+	/* XXX: user and chroot jobs are not currently supported
+	 * due to ConfSources not currently being serialised.
+	 */
+	if (session) {
+		nih_info ("WARNING: deserialisation of user jobs and "
+			"chroot sessions not currently supported");
+		goto error;
+	}
+
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
-	class = NIH_MUST (job_class_new (NULL, name,
-	                                 session_from_index (session_index)));
+	class = job_class_new (NULL, name, session);
 	if (! class)
 		goto error;
-
-	if (class->session != NULL) {
-		nih_warn ("XXX: WARNING (%s:%d): deserialisation of "
-				"user jobs and chroot sessions not currently supported",
-				__func__, __LINE__);
-		goto error;
-	}
 
 	/* job_class_new() sets path */
 	if (! state_get_json_string_var_strict (json, "path", NULL, path))
@@ -2004,7 +2017,9 @@ job_class_deserialise (json_object *json)
 	return class;
 
 error:
-	nih_free (class);
+	if (class)
+		nih_free (class);
+
 	return NULL;
 }
 
@@ -2045,19 +2060,12 @@ job_class_deserialise_all (json_object *json)
 			goto error;
 
 		class = job_class_deserialise (json_class);
-		if (! class)
-			goto error;
 
-		/* FIXME:
-		 *
-		 * If user sessions exist (ie 'initctl --session list'
-		 * has been run), we get this failure:
-		 *
-		 *             serialised path='/com/ubuntu/Upstart/jobs/1000/bang'
-		 * path set by job_class_new()='/com/ubuntu/Upstart/jobs/_/1000/bang'
-		 *
+		/* For parity with the serialisation code, don't treat
+		 * errors as fatal for the entire deserialisation.
 		 */
-
+		if (! class)
+			continue;
 	}
 
 	return 0;

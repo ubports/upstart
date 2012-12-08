@@ -71,7 +71,8 @@ telinit_SOURCES = \
 	utmp.c utmp.h \
 	sysv.c sysv.h
 nodist_telinit_SOURCES = \
-	$(com_ubuntu_Upstart_OUTPUTS)
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 telinit_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
