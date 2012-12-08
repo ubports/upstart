@@ -115,7 +115,7 @@ shutdown_OBJECTS = $(am_shutdown_OBJECTS) $(nodist_shutdown_OBJECTS)
 shutdown_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_telinit_OBJECTS = telinit.$(OBJEXT) utmp.$(OBJEXT) sysv.$(OBJEXT)
-nodist_telinit_OBJECTS = $(am__objects_1)
+nodist_telinit_OBJECTS = $(am__objects_1) $(am__objects_3)
 telinit_OBJECTS = $(am_telinit_OBJECTS) $(nodist_telinit_OBJECTS)
 telinit_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -485,7 +485,8 @@ telinit_SOURCES = \
 	sysv.c sysv.h
 
 nodist_telinit_SOURCES = \
-	$(com_ubuntu_Upstart_OUTPUTS)
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 telinit_LDADD = \
 	$(LTLIBINTL) \

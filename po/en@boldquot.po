@@ -30,10 +30,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.6\n"
+"Project-Id-Version: upstart 1.6.1\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2012-11-15 09:29+0000\n"
-"PO-Revision-Date: 2012-11-15 09:29+0000\n"
+"POT-Creation-Date: 2012-12-07 19:53+0000\n"
+"PO-Revision-Date: 2012-12-07 19:53+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -113,6 +113,30 @@ msgstr "The log priority given was not recognised"
 #: init/control.c:802
 msgid "You do not have permission to notify disk is writeable"
 msgstr "You do not have permission to notify disk is writeable"
+
+#: init/control.c:987
+msgid "Ignoring state query from chroot session"
+msgstr "Ignoring state query from chroot session"
+
+#: init/control.c:998
+msgid "You do not have permission to request state"
+msgstr "You do not have permission to request state"
+
+#: init/control.c:1011
+msgid "Out of Memory"
+msgstr "Out of Memory"
+
+#: init/control.c:1049
+msgid "Ignoring restart request from chroot session"
+msgstr "Ignoring restart request from chroot session"
+
+#: init/control.c:1060
+msgid "You do not have permission to request restart"
+msgstr "You do not have permission to request restart"
+
+#: init/control.c:1064
+msgid "Restarting"
+msgstr "Restarting"
 
 #: init/errors.h:60
 msgid "Illegal parameter"
@@ -290,7 +314,7 @@ msgstr "Job is already running: %s"
 msgid "Job has already been stopped: %s"
 msgstr "Job has already been stopped: %s"
 
-#: init/job.c:1823 init/job_class.c:1876 init/job_class.c:1901
+#: init/job.c:1823 init/job_class.c:1889 init/job_class.c:1914
 msgid "BUG"
 msgstr "BUG"
 
@@ -308,15 +332,15 @@ msgstr "Usage"
 msgid "Unknown instance: %s"
 msgstr "Unknown instance: %s"
 
-#: init/job_class.c:1877
+#: init/job_class.c:1890
 msgid "'start on' parse error"
 msgstr "‘[1mstart on[0m’ parse error"
 
-#: init/job_class.c:1902
+#: init/job_class.c:1915
 msgid "'stop on' parse error"
 msgstr "‘[1mstop on[0m’ parse error"
 
-#: init/job_class.c:2210
+#: init/job_class.c:2218
 msgid "unable to clear CLOEXEC bit on log fd"
 msgstr "unable to clear CLOEXEC bit on log fd"
 
@@ -623,7 +647,7 @@ msgstr ""
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 
-#: init/main.c:203 util/reboot.c:166 util/shutdown.c:371 util/telinit.c:148
+#: init/main.c:203 util/reboot.c:166 util/shutdown.c:371 util/telinit.c:248
 msgid "Need to be root"
 msgstr "Need to be root"
 
@@ -1261,15 +1285,15 @@ msgstr "Broadcast message from %s@%s"
 msgid "(%s) at %d:%02d ..."
 msgstr "(%s) at %d:%02d ..."
 
-#: util/telinit.c:94
+#: util/telinit.c:194
 msgid "set environment variable in the runlevel event"
 msgstr "set environment variable in the runlevel event"
 
-#: util/telinit.c:115
+#: util/telinit.c:215
 msgid "Change runlevel."
 msgstr "Change runlevel."
 
-#: util/telinit.c:117
+#: util/telinit.c:217
 msgid ""
 "RUNLEVEL should be one of 0123456sS, where s and S are considered "
 "identical.\n"
@@ -1293,12 +1317,12 @@ msgstr ""
 "this is not recommended since Upstart does not currently preserve its "
 "state.\n"
 
-#: util/telinit.c:134
+#: util/telinit.c:234
 #, c-format
 msgid "%s: missing runlevel\n"
 msgstr "%s: missing runlevel\n"
 
-#: util/telinit.c:139
+#: util/telinit.c:239
 #, c-format
 msgid "%s: illegal runlevel: %s\n"
 msgstr "%s: illegal runlevel: %s\n"

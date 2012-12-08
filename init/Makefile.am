@@ -2,6 +2,8 @@
 
 initconfdir = $(sysconfdir)/init
 
+AM_MAKEFLAGS = TERM=xterm
+
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
@@ -124,8 +126,15 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
+TEST_DATA_DIR = $(srcdir)/tests/data
 
-EXTRA_DIST = init.supp
+AM_CPPFLAGS += -DTEST_DATA_DIR="\"$(TEST_DATA_DIR)\""
+
+TEST_DATA_FILES = \
+	$(TEST_DATA_DIR)/upstart-1.6.json
+
+EXTRA_DIST = init.supp $(TEST_DATA_FILES)
+	
 
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h

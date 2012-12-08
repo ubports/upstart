@@ -519,20 +519,19 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 initconfdir = $(sysconfdir)/init
+AM_MAKEFLAGS = TERM=xterm
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(JSON_CFLAGS)
 
-AM_CPPFLAGS = \
-	-DLOCALEDIR="\"$(localedir)\"" \
+AM_CPPFLAGS = -DLOCALEDIR="\"$(localedir)\"" \
 	-DCONFFILE="\"$(sysconfdir)/init.conf\"" \
-	-DCONFDIR="\"$(initconfdir)\"" \
-	-DSBINDIR="\"$(sbindir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
-	-I$(top_srcdir)/intl
-
+	-DCONFDIR="\"$(initconfdir)\"" -DSBINDIR="\"$(sbindir)\"" \
+	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) \
+	-iquote$(srcdir) -I$(top_srcdir)/intl \
+	-DTEST_DATA_DIR="\"$(TEST_DATA_DIR)\""
 dist_man_MANS = \
 	man/init.8 \
 	man/init.5 \
@@ -616,7 +615,11 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
-EXTRA_DIST = init.supp
+TEST_DATA_DIR = $(srcdir)/tests/data
+TEST_DATA_FILES = \
+	$(TEST_DATA_DIR)/upstart-1.6.json
+
+EXTRA_DIST = init.supp $(TEST_DATA_FILES)
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h
 
