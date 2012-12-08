@@ -1,9 +1,9 @@
 upstart (1.6.1-1) UNRELEASED; urgency=low
 
-  * Declare a Breaks: against old versions of cryptsetup which have upstart
-    jobs named in a way that will deadlock the boot.  (Ref: bug #694499
-  * Make versioned build-dep on json-c (>= 0.10) explicit.
   * New upstream release.
+  * Declare a Breaks: against old versions of cryptsetup which have upstart
+    jobs named in a way that will deadlock the boot.  (Ref: bug #694499)
+  * Make versioned build-dep on json-c (>= 0.10) explicit.
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 07 Dec 2012 16:05:11 -0800
 
