@@ -1,4 +1,4 @@
-upstart (1.6.1-1) UNRELEASED; urgency=low
+upstart (1.6.1-1) unstable; urgency=low
 
   * New upstream release.
   * Declare a Breaks: against old versions of cryptsetup which have upstart
@@ -8,7 +8,7 @@ upstart (1.6.1-1) UNRELEASED; urgency=low
     system bus once dbus is started.  This is a temporary solution until
     dbus in Debian has native upstart support.
 
- -- Steve Langasek <vorlon@debian.org>  Fri, 07 Dec 2012 16:05:11 -0800
+ -- Steve Langasek <vorlon@debian.org>  Mon, 10 Dec 2012 00:28:29 -0800
 
 upstart (1.6-3) unstable; urgency=low
 
