@@ -111,7 +111,11 @@ within the chroot environment, use the standard
 facility. Note that it is not necessary to install D\-Bus within the
 chroot (in fact it is not recommended).
 
-Note that User Jobs can be created within a chroot environment.
+Note that this facility is distinct from the \fBchroot\fR stanza (see
+.B Process environment
+below).
+
+Note too that User Jobs can be created within a chroot environment.
 
 .\"
 .SS Configuration File Format
@@ -631,6 +635,9 @@ name, without the extension).  If \fBinstance\fR is not specified,
 will be
 .I <job>.log
 where \(aq<job>\(aq is replaced with the job name.
+
+Jobs started from within a chroot will have their output logged to such
+a path within the chroot.
 
 If log files already exist, they are appended to.
 

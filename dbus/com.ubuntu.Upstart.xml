@@ -34,6 +34,14 @@
       <arg name="jobs" type="ao" direction="out" />
     </method>
 
+    <method name="GetState">
+      <arg name="state" type="s" direction="out" />
+    </method>
+
+    <method name="Restart">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+    </method>
+
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">
       <arg name="job" type="o" />

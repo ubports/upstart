@@ -2150,6 +2150,18 @@ job_process_log_path (Job *job, int user_job)
 	if (! dir)
 		nih_return_no_memory_error (NULL);
 
+	/* If the job is running inside a chroot, it must be logged to a
+	 * file within the chroot.
+	 */
+	if (job->class->session && job->class->session->chroot) {
+		char *tmp = dir;
+
+		dir = nih_sprintf (NULL, "%s%s",
+				job->class->session->chroot,
+				tmp);
+		nih_free (tmp);
+	}
+
 	class_name = nih_strdup (NULL, class->name);
 
 	if (! class_name)

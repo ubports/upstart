@@ -128,7 +128,6 @@ enum child_tests {
 	TEST_ENVIRONMENT,
 	TEST_OUTPUT,
 	TEST_OUTPUT_WITH_STOP,
-	TEST_SIGNALS,
 	TEST_FDS
 };
 
@@ -164,15 +163,19 @@ fd_valid (int fd)
 	return 1;
 }
 
+static int
+strcmp_compar (const void *a, const void *b)
+{
+	return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
 static void
 child (enum child_tests  test,
        const char       *filename)
 {
 	FILE  *out;
-	FILE  *in;
 	char   tmpname[PATH_MAX], path[PATH_MAX];
 	int    i;
-	char   buffer[1024];
 	int    ret = EXIT_SUCCESS;
 
 	strcpy (tmpname, filename);
@@ -204,6 +207,10 @@ child (enum child_tests  test,
 		fprintf (out, "wd: %s\n", path);
 		break;
 	case TEST_ENVIRONMENT:
+		/* guarantee output ordering */
+		for (i = 0; environ[i]; i++);
+		qsort (environ, i, sizeof (environ[0]), strcmp_compar);
+
 		for (char **env = environ; *env; env++)
 			fprintf (out, "%s\n", *env);
 		break;
@@ -232,21 +239,6 @@ child (enum child_tests  test,
 
 		fprintf(stdout, "ended\n");
 		fflush (NULL);
-		break;
-	case TEST_SIGNALS:
-		/* Write signal stats for child process to stdout */
-		in = fopen("/proc/self/status", "r");
-		if (! in) {
-			abort();
-		}
-
-		while (fgets (buffer, sizeof (buffer), in) != NULL) {
-			if (strstr (buffer, "SigBlk:") == buffer ||
-					strstr (buffer, "SigIgn:") == buffer)
-				fputs (buffer, out);
-		}
-
-		fclose(in);
 		break;
 	case TEST_FDS:
 		/* Establish list of open (valid) and closed (invalid)
@@ -685,10 +677,10 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -738,10 +730,10 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=BAR\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -792,11 +784,11 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -847,11 +839,11 @@ test_run (void)
 		 * the job.
 		 */
 		output = fopen (filename, "r");
-		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
-		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
+		TEST_FILE_EQ (output, "FOO=SMACK\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
+		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 		TEST_FILE_END (output);
 		fclose (output);
@@ -4353,8 +4345,8 @@ test_spawn (void)
 	waitpid (pid, NULL, 0);
 	output = fopen (filename, "r");
 
-	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "FOO=bar\n");
+	TEST_FILE_EQ (output, "PATH=/bin\n");
 	TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
 	TEST_FILE_END (output);
 
@@ -4513,96 +4505,6 @@ test_spawn (void)
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
-
-	nih_free (class);
-
-	/* Check that when the job process is execed that no unexpected
-	 * signals are blocked or ignored.
-	 */
-	TEST_FEATURE ("ensure sane signal state with no console");
-	TEST_HASH_EMPTY (job_classes);
-
-	sprintf (function, "%d", TEST_SIGNALS);
-
-	args[0] = argv0;
-	args[1] = function;
-	args[2] = filename;
-	args[3] = NULL;
-
-	class = job_class_new (NULL, "test", NULL);
-	class->console = CONSOLE_NONE;
-	job = job_new (class, "");
-
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_GT (pid, 0);
-
-	waitpid (pid, NULL, 0);
-	output = fopen (filename, "r");
-
-	TEST_NE_P (output, NULL);
-
-	{
-		unsigned long int value;
-
-		/* No signals should be blocked */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		/* No signals should be ignored */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		TEST_FILE_END (output);
-	}
-
-	fclose (output);
-	assert0 (unlink (filename));
-
-	nih_free (class);
-
-	/********************************************************************/
-	TEST_FEATURE ("ensure sane signal state with log console");
-	TEST_HASH_EMPTY (job_classes);
-
-	sprintf (function, "%d", TEST_SIGNALS);
-
-	args[0] = argv0;
-	args[1] = function;
-	args[2] = filename;
-	args[3] = NULL;
-
-	class = job_class_new (NULL, "test", NULL);
-	class->console = CONSOLE_LOG;
-	job = job_new (class, "");
-
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_GT (pid, 0);
-
-	waitpid (pid, NULL, 0);
-	output = fopen (filename, "r");
-
-	TEST_NE_P (output, NULL);
-
-	{
-		unsigned long int value;
-
-		/* No signals should be blocked */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigBlk: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		/* No signals should be ignored */
-		TEST_TRUE (fgets (filebuf, sizeof(filebuf), output));
-		TEST_EQ (sscanf (filebuf, "SigIgn: %lx", &value), 1);
-		TEST_EQ (value, 0x0);
-
-		TEST_FILE_END (output);
-	}
-
-	fclose (output);
-	assert0 (unlink (filename));
 
 	nih_free (class);
 
@@ -4885,11 +4787,21 @@ test_spawn (void)
 			assert0 (unlink (script));
 		} else {
 			TEST_GT (pid, 0);
+			TEST_EQ (waitpid (pid, &status, 0), pid);
 		}
 
 		TEST_ALLOC_SAFE {
 			/* May alloc space if there is log data */
 			nih_free (class);
+			TEST_GT (sprintf (filename, "%s/simple-test.log", dirname), 0);
+			if (!test_alloc_failed) {
+				output = fopen (filename, "r");
+				TEST_NE_P (output, NULL);
+				CHECK_FILE_EQ (output, "hello world\r\n", TRUE);
+				TEST_FILE_END (output);
+				TEST_EQ (fclose (output), 0);
+			}
+			unlink (filename);
 		}
 	}
 
@@ -8047,6 +7959,7 @@ test_handler (void)
 	class->expect = EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
+		pid_t tmp_pid;
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
 
@@ -8060,7 +7973,10 @@ test_handler (void)
 			exit (0);
 		}
 
-		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+		tmp_pid = waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT);
+		if (tmp_pid < 0)
+			printf("waitid failed: %m");
+		assert0 (tmp_pid);
 
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
@@ -9251,9 +9167,9 @@ main (int   argc,
 	 */
 	argv0 = argv[0];
 	if (argv0[0] != '/') {
-		char path[PATH_MAX];
+		char *path = nih_alloc (NULL, PATH_MAX);
 
-		assert (getcwd (path, sizeof (path)));
+		assert (getcwd (path, PATH_MAX));
 		strcat (path, "/");
 		strcat (path, argv0);
 

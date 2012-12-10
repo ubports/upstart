@@ -1,7 +1,13 @@
-upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
+upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
 
   [ Steve Langasek ]
   * New upstream release.
+  * Merge with Debian.
+    - drop debian/conf/dbus-reconnect.conf again, only needed in Debian.
+    - don't build against libselinux; this is probably fine to have in
+      Ubuntu, but this isn't the time to add it.
+    - back down the Debian-specific versioned depends on sysvinit, ifupdown,
+      udev
   * Add build-dependency on libjson0-dev.
   * Export $TERM in init/Makefile.am; the Debian buildds don't set this,
     which results in test failures because of assumptions that it will be
@@ -18,6 +24,96 @@ upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
     rsyslog's upstart log (and any other job calling apparmor-profile-load).
 
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Nov 2012 09:26:10 -0800
+
+upstart (1.6.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Declare a Breaks: against old versions of cryptsetup which have upstart
+    jobs named in a way that will deadlock the boot.  (Ref: bug #694499)
+  * Make versioned build-dep on json-c (>= 0.10) explicit.
+  * Add debian/conf/dbus-reconnect.conf, to tell upstart to connect to the
+    system bus once dbus is started.  This is a temporary solution until
+    dbus in Debian has native upstart support.
+
+ -- Steve Langasek <vorlon@debian.org>  Mon, 10 Dec 2012 00:28:29 -0800
+
+upstart (1.6-3) unstable; urgency=low
+
+  * init/tests/test_job_process.c: don't test the blocked/ignored signal list
+    in a spawned job; this is not testing the upstart code but the
+    characteristics of the system, and the test is wrong because it assumes
+    the signal lists in /proc/self/status fit in an unsigned long int
+    - patently untrue on mips, where we have 128 signals for historical
+    reasons.
+
+ -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 12:25:21 -0600
+
+upstart (1.6-2) unstable; urgency=low
+
+  * init/tests/test_job_process.c: cherry-pick upstream fix for test which
+    was accidentally relying on a variable persisting after it's gone out of
+    scope.
+  * init/tests/test_job_process.c: drop change to print path in the test,     
+    should be fixed by the above.
+  * init/job_class.[ch]: instead of assuming a fixed value (0) as the
+    default nice value for job processes, use whatever the nice value of the
+    current process is.  This will be important later for user sessions
+    where an entire session may be started with a higher nice value; and it
+    fixes running the test suite as part of a nice'd build.
+  * init/tests/test_job_class.c: update test suite to match.
+
+ -- Steve Langasek <vorlon@debian.org>  Sun, 18 Nov 2012 01:54:29 -0600
+
+upstart (1.6-1) unstable; urgency=low
+
+  * New upstream release.
+  * Add build-dependency on libjson0-dev.
+  * Export $TERM in init/Makefile.am; the Debian buildds don't set this,
+    which results in test failures because of assumptions that it will be
+    available.
+  * init/tests/test_job_process.c: tests are failing to re-exec the test
+    binary on mips for no clear reason; output the path so we can try to
+    debug.
+  * init/tests/test_job_process.c: amd64 build failed with an inscrutible
+    error from waitid().  Print errno on failure to try to diagnose this. 
+
+ -- Steve Langasek <vorlon@debian.org>  Sat, 17 Nov 2012 23:19:37 -0600
+
+upstart (1.5-1) unstable; urgency=low
+
+  * New maintainer.
+  * New upstream release.  Closes: #627544.
+  * Drop /etc/init/dbus-reconnect.conf, no longer needed.
+  * Add new jobs from Ubuntu: console, container-detect, failsafe,
+    flush-early-job-log, rcS.conf, shutdown, wait-for-state.
+  * Use 'linux-any' in the architecture check in debian/control, instead of
+    trying to enumerate all non-linux archs.  Closes: #634513.
+  * Conflict with lxcguest package (Ubuntu-specific).
+  * Breaks old friendly-recovery (Ubuntu-specific).
+  * Mark upstart multi-arch: foreign.
+  * Add upstart-events(7) manpage from Ubuntu.
+  * Update packaging to dh(1), debian/compat=9 (from Ubuntu).
+  * debian/running-in-container: a script using container.conf to
+    answer whether upstart is running in a container.
+  * refresh soon-to-be-obsolete upstart-job helper from Ubuntu.
+  * Add bash-completion support.
+  * Add /var/log/upstart directory and logrotate support.
+  * Don't re-exec init on upgrade, we don't currently support stateful
+    re-exec.
+  * Switch to source format 1.0 for consistency with Ubuntu and for sane(r)
+    VCS handling.
+  * Add versioned dependencies on ifupdown and udev for the prerequisite
+    boot events.
+  * util/shutdown.c: look for sysvinit at /run/initctl before /dev/initctl,
+    so that we're compatible with both the old and new paths used by
+    sysvinit in Debian.  Closes: #659540.
+  * Move to bzr for the official package Vcs, for greater synergy with the
+    Ubuntu packaging.
+  * Use copyright-format/1.0 for debian/copyright.  This drops Scott from
+    the list of copyright holders, as an individual copyright is not
+    attested in any of the upstream sources.
+
+ -- Steve Langasek <vorlon@debian.org>  Mon, 12 Nov 2012 13:38:34 -0800
 
 upstart (1.5-0ubuntu9) quantal-proposed; urgency=low
 

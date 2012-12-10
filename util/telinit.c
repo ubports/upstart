@@ -38,11 +38,26 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+#include <nih-dbus/dbus_error.h>
+#include <nih-dbus/dbus_proxy.h>
+#include <nih-dbus/errors.h>
+#include <nih-dbus/dbus_connection.h>
+
+#include "dbus/upstart.h"
+
+#include "com.ubuntu.Upstart.h"
+
 #include "sysv.h"
 
 
 /* Prototypes for option functions */
 int env_option (NihOption *option, const char *arg);
+
+NihDBusProxy * upstart_open (const void *parent)
+	__attribute__ ((warn_unused_result));
+
+int restart_upstart (void)
+	__attribute__ ((warn_unused_result));
 
 
 /**
@@ -83,6 +98,91 @@ env_option (NihOption  *option,
 	return 0;
 }
 
+/**
+ * upstart_open:
+ * @parent: parent object for new proxy.
+ *
+ * Opens a connection to the Upstart init daemon and returns a proxy
+ * to the manager object. If @dest_name is not NULL, a connection is
+ * instead opened to the system bus and the proxy linked to the
+ * well-known name given.
+ *
+ * If @parent is not NULL, it should be a pointer to another object
+ * which will be used as a parent for the returned proxy.  When all
+ * parents of the returned proxy are freed, the returned proxy will
+ * also be freed.
+ *
+ * Returns: newly allocated D-Bus proxy or NULL on raised error.
+ **/
+NihDBusProxy *
+upstart_open (const void *parent)
+{
+	DBusError       dbus_error;
+	DBusConnection *connection;
+	NihDBusProxy *  upstart;
+
+	dbus_error_init (&dbus_error);
+
+	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
+	if (! connection) {
+		nih_dbus_error_raise (dbus_error.name, dbus_error.message);
+		dbus_error_free (&dbus_error);
+		return NULL;
+	}
+
+	dbus_connection_set_exit_on_disconnect (connection, FALSE);
+	dbus_error_free (&dbus_error);
+
+	upstart = nih_dbus_proxy_new (parent, connection,
+				      DBUS_SERVICE_UPSTART,
+				      DBUS_PATH_UPSTART,
+				      NULL, NULL);
+	if (! upstart) {
+		dbus_connection_unref (connection);
+		return NULL;
+	}
+
+	upstart->auto_start = FALSE;
+
+	/* Drop initial reference now the proxy holds one */
+	dbus_connection_unref (connection);
+
+	return upstart;
+}
+
+/**
+ * restart_upstart:
+ *
+ * Request Upstart restart itself.
+ *
+ * Returns: 0 on SUCCESS, -1 on raised error.
+ **/
+int
+restart_upstart (void)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	DBusPendingCall        *ret;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return -1;
+
+	/* Fire and forget:
+	 *
+	 * Ask Upstart to restart itself using the async interface to
+	 * avoid the client-side complaining if and when it detects that
+	 * Upstart has severed all connections to perform the re-exec.
+	 */
+	ret = upstart_restart (upstart, NULL, NULL, NULL, 0);
+
+	/* We don't care about the return code, but we have to keep
+	 * the compiler happy.
+	 */
+	if (ret != (DBusPendingCall *)TRUE)
+		return 0;
+
+	return 0;
+}
 
 #ifndef TEST
 /**
@@ -107,7 +207,7 @@ main (int   argc,
 {
 	char **args;
 	int    runlevel;
-	int    ret;
+	int    ret = 0;
 
 	nih_main_init (argv[0]);
 
@@ -174,9 +274,8 @@ main (int   argc,
 		break;
 	case 'U':
 	case 'u':
-		ret = kill (1, SIGTERM);
-		if (ret < 0)
-			nih_error_raise_system ();
+		/* If /sbin/init is not Upstart, just exit non-zero */
+		ret = restart_upstart ();
 		break;
 	default:
 		nih_assert_not_reached ();

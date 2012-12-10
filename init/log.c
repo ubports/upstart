@@ -848,7 +848,7 @@ log_serialise (Log *log)
 	}
 
 	/* Attempt to flush any cached data */
-	if (log->unflushed->len) {
+	if (log->unflushed && log->unflushed->len) {
 		/* Don't check return values since if this fails and
 		 * unflushed data remains, we encode it below.
 		 */
@@ -879,7 +879,7 @@ log_serialise (Log *log)
 	/* Encode unflushed data as hex to ensure any embedded
 	 * nulls are handled.
 	 */
-	if (log->unflushed->len) {
+	if (log->unflushed && log->unflushed->len) {
 		unflushed_hex = state_data_to_hex (NULL,
 				log->unflushed->buf,
 				log->unflushed->len);

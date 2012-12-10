@@ -27,10 +27,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.6\n"
+"Project-Id-Version: upstart 1.6.1\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
 "POT-Creation-Date: 2012-11-15 18:39+0000\n"
-"PO-Revision-Date: 2012-11-15 09:29+0000\n"
+"PO-Revision-Date: 2012-12-07 19:53+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -1372,14 +1372,23 @@ msgstr "Could not send socket event"
 msgid "Error emitting socket event"
 msgstr "Error emitting socket event"
 
-#~ msgid "unable to open pt master: %s"
-#~ msgstr "unable to open pt master: %s"
+#~ msgid "Ignoring state query from chroot session"
+#~ msgstr "Ignoring state query from chroot session"
 
-#~ msgid "unable to open pt slave: %s"
-#~ msgstr "unable to open pt slave: %s"
+#~ msgid "You do not have permission to request state"
+#~ msgstr "You do not have permission to request state"
+
+#~ msgid "Out of Memory"
+#~ msgstr "Out of Memory"
+
+#~ msgid "Ignoring restart request from chroot session"
+#~ msgstr "Ignoring restart request from chroot session"
+
+#~ msgid "You do not have permission to request restart"
+#~ msgstr "You do not have permission to request restart"
+
+#~ msgid "Restarting"
+#~ msgstr "Restarting"
 
 #~ msgid "Unable to initialize console, will try /dev/null"
 #~ msgstr "Unable to initialize console, will try /dev/null"
-
-#~ msgid "Failed to re-execute %s: %s"
-#~ msgstr "Failed to re-execute %s: %s"

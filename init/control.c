@@ -949,3 +949,121 @@ control_bus_release_name (void)
 
 	return 0;
 }
+
+/**
+ * control_get_state:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @state: output string returned to client.
+ *
+ * Convert internal state to JSON string.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_state (void           *data,
+		   NihDBusMessage  *message,
+		   char           **state)
+{
+	Session  *session;
+	uid_t     uid;
+	size_t    len;
+
+	nih_assert (message);
+	nih_assert (state);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* We don't want chroot sessions snooping outside their domain.
+	 *
+	 * Ideally, we'd allow them to query their own session, but the
+	 * current implementation doesn't lend itself to that.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring state query from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from obtaining state details, unless they
+	 * happen to own this process (which they may do in the test
+	 * scenario and when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request state"));
+		return -1;
+	}
+
+	if (state_to_string (state, &len) < 0)
+		goto error;
+
+	nih_ref (*state, message);
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+			_("Out of Memory"));
+	return -1;
+}
+
+/**
+ * control_restart:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the Restart method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request that Upstart performs a stateful re-exec.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_restart (void           *data,
+		 NihDBusMessage *message)
+{
+	Session  *session;
+	uid_t     uid;
+
+	nih_assert (message != NULL);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 *
+	 * Making this a NOP is safe since it is the Upstart outside the
+	 * chroot which manages all chroot jobs.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring restart request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from restarting Upstart, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request restart"));
+		return -1;
+	}
+
+	nih_info (_("Restarting"));
+
+	stateful_reexec ();
+
+	return 0;
+}

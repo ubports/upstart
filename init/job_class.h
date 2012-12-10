@@ -102,13 +102,6 @@ typedef enum console_type {
 #define JOB_DEFAULT_UMASK 022
 
 /**
- * JOB_DEFAULT_NICE:
- *
- * The default nice level for processes.
- **/
-#define JOB_DEFAULT_NICE 0
-
-/**
  * JOB_DEFAULT_OOM_SCORE_ADJ:
  *
  * The default OOM score adjustment for processes.
