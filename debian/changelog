@@ -8,7 +8,6 @@ upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
       Ubuntu, but this isn't the time to add it.
     - back down the Debian-specific versioned depends on sysvinit, ifupdown,
       udev
-  * Add build-dependency on libjson0-dev.
   * Export $TERM in init/Makefile.am; the Debian buildds don't set this,
     which results in test failures because of assumptions that it will be
     available.
