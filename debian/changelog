@@ -12,6 +12,11 @@ upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
     /etc/default/upstart-job configuration. Thanks to Jouko Orava
     (LP: #613231) 
 
+  [ Stéphane Graber ]
+  * debian/apparmor-profile-load: Ignore output from running-in-container.
+    This prevents the output of running-in-container from being appended to
+    rsyslog's upstart log (and any other job calling apparmor-profile-load).
+
   [ Dmitrijs Ledkovs, James Hunt ]
   * Add autopkgtests.
 
