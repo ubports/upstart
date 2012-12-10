@@ -1,0 +1,25 @@
+#---------------------------------------------------------------------
+# Source this file in all tests
+#---------------------------------------------------------------------
+
+# user provided by auto-package-testing environment
+user=ubuntu
+
+#------------------------------
+# Assertions
+
+# We must be running as root initially to perform setup
+test $(id -u) -eq 0 || { echo "ERROR: not root"; exit 1; }
+
+# User must exist
+getent passwd $user >/dev/null 2>&1 || \
+	{ echo "ERROR: no user '$user'"; exit 1; }
+
+#------------------------------
+# Init
+
+# we need to run as root, but that means all unpacked files are owned by
+# root too.
+chown -R ${user}: . ..
+
+#---------------------------------------------------------------------

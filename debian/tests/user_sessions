@@ -1,0 +1,32 @@
+#!/bin/sh -e
+#---------------------------------------------------------------------
+# Run Upstart User Session tests in DEP-8 environment.
+#---------------------------------------------------------------------
+
+. $(dirname $0)/test_setup
+
+#------------------------------
+# Init
+
+# Backup original config
+cp /etc/dbus-1/system.d/Upstart.conf \
+   /etc/dbus-1/system.d/Upstart.conf.ORIG
+
+# Enable user jobs (takes effect immediately)
+cp dbus/Upstart.conf.upstream \
+   /etc/dbus-1/system.d/Upstart.conf
+
+#------------------------------
+# test!
+
+su -c 'sh util/tests/test_user_sessions.sh' $user
+
+#------------------------------
+# clean up
+
+# disable user jobs by reverting to original config
+cp /etc/dbus-1/system.d/Upstart.conf.ORIG \
+   /etc/dbus-1/system.d/Upstart.conf
+
+#------------------------------
+exit 0

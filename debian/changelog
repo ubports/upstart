@@ -25,6 +25,9 @@ upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
     This prevents the output of running-in-container from being appended to
     rsyslog's upstart log (and any other job calling apparmor-profile-load).
 
+  [ Dmitrijs Ledkovs, James Hunt ]
+  * Add DEP-8 autopkgtests.
+
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Nov 2012 09:26:10 -0800
 
 upstart (1.6.1-1) unstable; urgency=low

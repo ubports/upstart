@@ -20,6 +20,15 @@ export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 override_dh_auto_configure:
 	dh_auto_configure -- --exec-prefix=
 
+override_dh_auto_test:
+ifeq (0,$(shell id -u))
+	# WARNING: RUNNING TESTS AS ROOT IS KNOWN TO FAIL
+	# WARNING: WILL RUN TESTS, BUT WILL IGNORE FAILURE
+	-dh_auto_test
+else
+	dh_auto_test
+endif
+
 override_dh_fixperms:
 	dh_fixperms
 	chmod 755 debian/upstart/lib/init/upstart-job
