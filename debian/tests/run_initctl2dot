@@ -1,0 +1,15 @@
+#!/bin/sh -e
+#---------------------------------------------------------------------
+# Attempt to generate an image of the available jobs on the system.
+#---------------------------------------------------------------------
+# Depends: graphviz
+
+. $(dirname $0)/test_setup
+
+outfile=upstart.png
+
+#------------------------------
+# Init
+
+initctl2dot -o - | dot -Tpng -o $ADTTMP/$outfile
+

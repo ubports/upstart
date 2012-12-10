@@ -1,0 +1,3 @@
+Tests: user_sessions
+Depends: @, dbus
+Restrictions: needs-root build-needed

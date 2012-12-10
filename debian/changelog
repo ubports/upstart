@@ -12,6 +12,9 @@ upstart (1.6-0ubuntu1) UNRELEASED; urgency=low
     /etc/default/upstart-job configuration. Thanks to Jouko Orava
     (LP: #613231) 
 
+  [ Dmitrijs Ledkovs, James Hunt ]
+  * Add autopkgtests.
+
  -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 15 Nov 2012 09:26:10 -0800
 
 upstart (1.5-0ubuntu9) quantal-proposed; urgency=low
