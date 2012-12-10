@@ -4,8 +4,11 @@ upstart (1.6.1-1) UNRELEASED; urgency=low
   * Declare a Breaks: against old versions of cryptsetup which have upstart
     jobs named in a way that will deadlock the boot.  (Ref: bug #694499)
   * Make versioned build-dep on json-c (>= 0.10) explicit.
+  * Add debian/conf/dbus-reconnect.conf, to tell upstart to connect to the
+    system bus once dbus is started.  This is a temporary solution until
+    dbus in Debian has native upstart support.
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 07 Dec 2012 16:05:11 -0800
+ -- Steve Langasek <vorlon@debian.org>  Fri, 07 Dec 2012 16:05:11 -0800
 
 upstart (1.6-3) unstable; urgency=low
 
