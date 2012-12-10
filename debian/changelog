@@ -19,8 +19,14 @@ upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
   * debian/upstart-job: Allow script to operate quietly by reading optional
     /etc/default/upstart-job configuration. Thanks to Jouko Orava
     (LP: #613231) 
+  * debian/control: Added debianutils for ischroot(1).
   * debian/upstart.postinst: Enabled stateful re-exec handling in selected
-    upgrade scenarios.
+    upgrade scenarios. Details:
+    - Only query running version if initctl is known to work.
+    - Discard initctl stderr just in case.
+    - Do not re-exec if running in a chroot (uses ischroot(1)).
+    - Removed redundent check on previously installed version.
+    - Updated lengthy commentary.
 
   [ Stéphane Graber ]
   * debian/apparmor-profile-load: Ignore output from running-in-container.

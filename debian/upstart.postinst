@@ -15,11 +15,6 @@
 # If prerm fails during replacement due to conflict:
 #	<postinst> abort-remove in-favour <new-package> <version>
 
-# Query running version of Upstart. This will be the null string if
-# Upstart is not running or the query failed for some reason, but the version
-# check below handles a null version string correctly.
-UPSTART_VERSION_RUNNING=$(initctl version|awk '{print $3}'|tr -d ')' || :)
-
 # Remove a no-longer used conffile
 rm_conffile()
 {
@@ -40,34 +35,50 @@ case "$1" in
 	    # that does.  It'll lose all state, but we didn't keep much
 	    # in those days.
 	    telinit u
-	elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.6 && \
-	     dpkg --compare-versions "$2" ge 1.6.1; then
-	    # Both the running version of Upstart and the
-	    # newly-installed version support stateful re-exec, so
-	    # restart immediately.
-	    #
-	    # Note that the check on the running version must
-	    # remain *indefinitely* to ensure correct behaviour:
-	    #
-	    # (a) If this script is invoked from within a chroot.
-	    #
-	    #     This also explains the careful and more specific
-	    #     version check on the packaged version in the second
-	    #     part of the test.
-	    #
-	    # (b) If Upstart is upgraded multiple times without a reboot.
-	    #
-	    # Note further that telinit may fail if dbus is not
-	    # installed and configured within a chroot environment or if
-	    # the init running outside the chroot is not in fact
-	    # Upstart. Although the failure is essentially harmless, its
-	    # possibility must be handled to avoid a needless upgrade failure.
-	    telinit u || :
 	else
-	    # Before we shutdown or reboot, we need to re-exec so that we
-	    # can safely remount the root filesystem; we can't just do that
-	    # here because we lose state.
-	    touch /var/run/init.upgraded || :
+	    # Query running version of Upstart, but only when we know
+	    # that initctl will work.
+	    #
+	    # The calculated version string may be the null string if
+	    # Upstart is not running (where for example an alternative
+	    # init is running outside a chroot environment) or if the
+	    # query failed for some reason. However, the version check
+	    # below handles a null version string correctly.
+	    UPSTART_VERSION_RUNNING=$(initctl version 2>/dev/null |\
+		awk '{print $3}'|tr -d ')' || :)
+	
+	    if ischroot; then
+		# Do not honour re-exec when requested from within a
+		# chroot since:
+		#
+		# (a) The version of Upstart outside might not support it.
+		# (b) An isolated environment such as a chroot should
+		#     not be able to modify its containing environment.
+		#
+		# A sufficiently new Upstart will actually handle a re-exec
+		# request coming from telinit within a chroot correctly,
+		# but it's simple enough to perform the check here and save
+		# Upstart the effort.
+		:
+	    elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.6.1; then
+		# We are not running inside a chroot and the running version
+		# of Upstart supports stateful re-exec, so we can
+		# restart immediately.
+		#
+		# XXX: Note that the check on the running version must
+		# remain *indefinitely* since it's the only safe way to
+		# know if stateful re-exec is supported: simply checking
+		# packaged version numbers is not sufficient since
+		# the package could be upgraded multiple times without a
+		# reboot.
+		telinit u || :
+	    else
+		# Before we shutdown or reboot, we need to re-exec so that we
+		# can safely remount the root filesystem; we can't just do that
+		# here because we lose state.
+		touch /var/run/init.upgraded || :
+	    fi
+	endif
 	fi
 
 	# Upgrade from karmic development version
