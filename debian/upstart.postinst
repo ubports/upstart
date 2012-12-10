@@ -15,6 +15,10 @@
 # If prerm fails during replacement due to conflict:
 #	<postinst> abort-remove in-favour <new-package> <version>
 
+# Query running version of Upstart. This will be the null string if
+# Upstart is not running or the query failed for some reason, but the version
+# check below handles a null version string correctly.
+UPSTART_VERSION_RUNNING=$(initctl version|awk '{print $3}'|tr -d ')' || :)
 
 # Remove a no-longer used conffile
 rm_conffile()
@@ -36,6 +40,29 @@ case "$1" in
 	    # that does.  It'll lose all state, but we didn't keep much
 	    # in those days.
 	    telinit u
+	elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.6 && \
+	     dpkg --compare-versions "$2" ge 1.6.1; then
+	    # Both the running version of Upstart and the
+	    # newly-installed version support stateful re-exec, so
+	    # restart immediately.
+	    #
+	    # Note that the check on the running version must
+	    # remain *indefinitely* to ensure correct behaviour:
+	    #
+	    # (a) If this script is invoked from within a chroot.
+	    #
+	    #     This also explains the careful and more specific
+	    #     version check on the packaged version in the second
+	    #     part of the test.
+	    #
+	    # (b) If Upstart is upgraded multiple times without a reboot.
+	    #
+	    # Note further that telinit may fail if dbus is not
+	    # installed and configured within a chroot environment or if
+	    # the init running outside the chroot is not in fact
+	    # Upstart. Although the failure is essentially harmless, its
+	    # possibility must be handled to avoid a needless upgrade failure.
+	    telinit u || :
 	else
 	    # Before we shutdown or reboot, we need to re-exec so that we
 	    # can safely remount the root filesystem; we can't just do that

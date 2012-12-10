@@ -19,6 +19,8 @@ upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
   * debian/upstart-job: Allow script to operate quietly by reading optional
     /etc/default/upstart-job configuration. Thanks to Jouko Orava
     (LP: #613231) 
+  * debian/upstart.postinst: Enabled stateful re-exec handling in selected
+    upgrade scenarios.
 
   [ Stéphane Graber ]
   * debian/apparmor-profile-load: Ignore output from running-in-container.
