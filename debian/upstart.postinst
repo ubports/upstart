@@ -78,7 +78,6 @@ case "$1" in
 		# here because we lose state.
 		touch /var/run/init.upgraded || :
 	    fi
-	endif
 	fi
 
 	# Upgrade from karmic development version
