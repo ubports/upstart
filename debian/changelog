@@ -12,6 +12,8 @@ upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
   * Export $TERM in init/Makefile.am; the Debian buildds don't set this,
     which results in test failures because of assumptions that it will be
     available.
+  * Hard-code a dependency on libjson0 (>= 0.10-1.1ubuntu1), the first
+    version of the package that installs to /lib instead of /usr/lib.
 
   [ James Hunt ]
   * debian/upstart-job: Allow script to operate quietly by reading optional
