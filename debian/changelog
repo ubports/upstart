@@ -1,4 +1,4 @@
-upstart (1.6.1-1ubuntu1) UNRELEASED; urgency=low
+upstart (1.6.1-1ubuntu1) raring; urgency=low
 
   [ Steve Langasek ]
   * New upstream release.
