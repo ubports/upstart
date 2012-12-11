@@ -181,7 +181,8 @@ test_process_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_job_class_SOURCES = tests/test_job_class.c
 test_job_class_LDADD = \
@@ -194,7 +195,8 @@ test_job_class_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_job_process_SOURCES = tests/test_job_process.c $(test_util_SOURCES)
 test_job_process_LDADD = \
@@ -208,7 +210,7 @@ test_job_process_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDADD = \
@@ -221,7 +223,8 @@ test_job_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_log_SOURCES = tests/test_log.c $(test_util_SOURCES)
 test_log_LDADD = \
@@ -235,7 +238,7 @@ test_log_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_state_SOURCES = tests/test_state.c $(test_util_SOURCES)
 test_state_LDADD = \
@@ -249,7 +252,7 @@ test_state_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \
@@ -262,7 +265,8 @@ test_event_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_event_operator_SOURCES = tests/test_event_operator.c
 test_event_operator_LDADD = \
@@ -275,7 +279,8 @@ test_event_operator_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_blocked_SOURCES = tests/test_blocked.c
 test_blocked_LDADD = \
@@ -288,7 +293,8 @@ test_blocked_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDADD = \
@@ -301,7 +307,8 @@ test_parse_job_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDADD = \
@@ -314,7 +321,8 @@ test_parse_conf_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES)
 test_conf_LDADD = \
@@ -327,7 +335,8 @@ test_conf_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_control_SOURCES = tests/test_control.c
 test_control_LDADD = \
@@ -340,7 +349,8 @@ test_control_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 
 install-data-local:
