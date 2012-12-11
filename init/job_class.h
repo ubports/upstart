@@ -225,10 +225,13 @@ typedef struct job_class {
 
 NIH_BEGIN_EXTERN
 
-extern NihHash *job_classes;
+extern NihHash  *job_classes;
+extern char    **job_environ;
 
 
 void        job_class_init                 (void);
+
+void        job_class_environment_init     (void);
 
 JobClass  * job_class_new                  (const void *parent,
 					    const char *name,

@@ -83,6 +83,13 @@ int default_console = -1;
  **/
 NihHash *job_classes = NULL;
 
+/**
+ * job_environ:
+ *
+ * Array of environment variables that will be set in the jobs
+ * environment.
+ **/
+char **job_environ = NULL;
 
 /**
  * job_class_init:
@@ -94,6 +101,23 @@ job_class_init (void)
 {
 	if (! job_classes)
 		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
+}
+
+/**
+ * job_class_environ_init:
+ *
+ * Initialise the job_environ array.
+ **/
+void
+job_class_environment_init (void)
+{
+	char * const default_environ[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
+
+	if (! job_environ) {
+		job_environ = NIH_MUST (nih_str_array_new (NULL));
+		NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
+	}
+
 }
 
 
@@ -509,10 +533,11 @@ job_class_environment (const void *parent,
 		       JobClass   *class,
 		       size_t     *len)
 {
-	char * const   builtin[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
-	char         **env;
+	char  **env;
 
 	nih_assert (class != NULL);
+
+	job_class_environment_init ();
 
 	env = nih_str_array_new (parent);
 	if (! env)
@@ -520,10 +545,10 @@ job_class_environment (const void *parent,
 	if (len)
 		*len = 0;
 
-	/* Copy the builtin set of environment variables, usually these just
+	/* Copy the set of environment variables, usually these just
 	 * pick up the values from init's own environment.
 	 */
-	if (! environ_append (&env, parent, len, TRUE, builtin))
+	if (! environ_append (&env, parent, len, TRUE, job_environ))
 		goto error;
 
 	/* Copy the set of environment variables from the job configuration,

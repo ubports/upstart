@@ -1067,3 +1067,140 @@ control_restart (void           *data,
 
 	return 0;
 }
+
+/**
+ * control_set_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @var: name[/value] pair of environment variable to set,
+ * @replace: TRUE if @name should be overwritten if already set, else
+ *  FALSE.
+ *
+ * Implements the SetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart store a particular name/value pair that
+ * will be exported to all jobs' environments.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_set_env (void           *data,
+		 NihDBusMessage *message,
+		 const char     *var,
+		 int             replace)
+{
+	Session   *session;
+	char     **ret;
+	uid_t      uid;
+
+	nih_assert (message != NULL);
+	nih_assert (var);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring set env request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from changing Upstarts environment, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify the init environment"));
+		return -1;
+	}
+
+	job_class_environment_init ();
+
+	ret = environ_add (&job_environ, NULL, NULL, replace, var);
+
+	if (! ret)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_get_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: name of environment variable to retrieve,
+ * @value: value of @name.
+ *
+ * Implements the SetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart store a particular name/value pair that
+ * will be exported to all jobs' environments.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_env (void             *data,
+		 NihDBusMessage   *message,
+		 char             *name,
+		 char            **value)
+{
+	Session     *session;
+	const char  *tmp;
+	uid_t        uid;
+
+	nih_assert (message != NULL);
+	nih_assert (name);
+	nih_assert (value);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring get env request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from changing Upstarts environment, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify the init environment"));
+		return -1;
+	}
+
+	job_class_environment_init ();
+
+	tmp = environ_get (job_environ, name);
+	if (! tmp)
+		goto error;
+
+	*value = nih_strdup (message, tmp);
+	if (! *value)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+			"%s: %s",
+			_("No such variable"), name);
+	return -1;
+}
