@@ -188,7 +188,7 @@ TESTS = \
 	test_sysv \
 	test_telinit
 
-EXTRA_DIST = tests/test_user_sessions.sh
+EXTRA_DIST += tests/test_user_sessions.sh
 
 check_PROGRAMS = $(TESTS)
 
