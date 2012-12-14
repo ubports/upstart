@@ -1082,7 +1082,7 @@ control_notify_event_emitted (Event *event)
 		DBusConnection *conn = (DBusConnection *)entry->data;
 
 		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
-											    event->name, event->env));
+							    event->name, event->env));
 	}
 }
 
