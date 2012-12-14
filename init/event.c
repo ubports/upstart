@@ -285,14 +285,6 @@ event_pending (Event *event)
 
 	nih_info (_("Handling %s event"), event->name);
 
-	NIH_LIST_FOREACH (control_conns, iter) {
-		NihListEntry   *entry = (NihListEntry *)iter;
-		DBusConnection *conn = (DBusConnection *)entry->data;
-
-		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
-											  event->name, event->env));
-	}
-
 	event->progress = EVENT_HANDLING;
 
 	event_pending_handle_jobs (event);
@@ -515,6 +507,14 @@ event_finished (Event *event)
 				new_event->env = NIH_MUST (nih_str_array_copy (
 						  new_event, NULL, event->env));
 		}
+	}
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+											  event->name, event->env));
 	}
 
 	nih_free (event);
