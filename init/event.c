@@ -509,13 +509,7 @@ event_finished (Event *event)
 		}
 	}
 
-	NIH_LIST_FOREACH (control_conns, iter) {
-		NihListEntry   *entry = (NihListEntry *)iter;
-		DBusConnection *conn = (DBusConnection *)entry->data;
-
-		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
-											  event->name, event->env));
-	}
+	control_notify_event_emitted (event);
 
 	nih_free (event);
 }

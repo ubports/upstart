@@ -55,6 +55,7 @@
 #include "control.h"
 #include "errors.h"
 #include "state.h"
+#include "event.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -1066,4 +1067,37 @@ control_restart (void           *data,
 	stateful_reexec ();
 
 	return 0;
+}
+
+/**
+ * control_notify_event_emitted
+ *
+ * Re-emits an event over DBUS using the EventEmitted signal
+ **/
+void
+control_notify_event_emitted (Event *event)
+{
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+											    event->name, event->env));
+	}
+}
+
+/**
+ * control_notify_restarted
+ *
+ * DBUS signal sent when upstart has re-executed itself.
+ **/
+void
+control_notify_restarted (void)
+{
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
+	}
 }

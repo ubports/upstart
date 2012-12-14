@@ -30,6 +30,8 @@
 
 #include <json.h>
 
+#include "event.h"
+
 /**
  * USE_SESSION_BUS_ENV:
  *
@@ -112,6 +114,9 @@ int control_get_state (void           *data,
 
 int  control_restart (void *data, NihDBusMessage *message)
 	__attribute__ ((warn_unused_result));
+
+void control_notify_event_emitted (Event *event);
+void control_notify_restarted (void);
 
 NIH_END_EXTERN
 

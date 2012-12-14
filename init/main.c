@@ -605,12 +605,7 @@ main (int   argc,
 		/* Emit the Restarted signal so that any listing Instance Init
 		 * knows that it needs to restart too.
 		 */
-		NIH_LIST_FOREACH (control_conns, iter) {
-			NihListEntry   *entry = (NihListEntry *)iter;
-			DBusConnection *conn = (DBusConnection *)entry->data;
-
-			NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
-		}
+		control_notify_restarted();
 	}
 
 	if (disable_sessions)
