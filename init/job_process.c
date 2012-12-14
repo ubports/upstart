@@ -773,7 +773,8 @@ job_process_spawn (Job          *job,
 
 	/* Adjust the process priority ("nice level").
 	 */
-	if (setpriority (PRIO_PROCESS, 0, class->nice) < 0) {
+	if (class->nice != JOB_NICE_INVALID &&
+	    setpriority (PRIO_PROCESS, 0, class->nice) < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (fds[1],
 					 JOB_PROCESS_ERROR_PRIORITY, 0);

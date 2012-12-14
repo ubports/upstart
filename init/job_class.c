@@ -221,7 +221,7 @@ job_class_new (const void *parent,
 	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
 	class->umask = JOB_DEFAULT_UMASK;
-	class->nice = getpriority (PRIO_PROCESS, 0);
+	class->nice = JOB_NICE_INVALID;
 	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
