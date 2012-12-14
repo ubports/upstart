@@ -64,7 +64,6 @@
 #include "control.h"
 #include "state.h"
 
-#include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
 #ifndef DEBUG

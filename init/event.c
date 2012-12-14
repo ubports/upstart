@@ -284,7 +284,6 @@ event_pending (Event *event)
 	nih_assert (event->progress == EVENT_PENDING);
 
 	nih_info (_("Handling %s event"), event->name);
-
 	event->progress = EVENT_HANDLING;
 
 	event_pending_handle_jobs (event);
