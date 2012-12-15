@@ -52,8 +52,6 @@
 #include <nih/error.h>
 #include <nih/logging.h>
 
-#include "dbus/upstart.h"
-
 #include "paths.h"
 #include "events.h"
 #include "system.h"
