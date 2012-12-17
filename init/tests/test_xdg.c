@@ -290,7 +290,8 @@ test_get_user_upstart_dirs (void)
 			TEST_EQ_STR (dirs[0], expected[0]);
 			TEST_EQ_STR (dirs[1], expected[1]);
 			TEST_EQ_STR (dirs[2], "/etc/xdg/upstart");
-			TEST_EQ (dirs[3], NULL);
+			TEST_EQ_STR (dirs[3], SYSTEM_USERCONFDIR);
+			TEST_EQ (dirs[4], NULL);
 			nih_free (dirs);
 		}
 		nih_free(expected);

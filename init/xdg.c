@@ -139,6 +139,8 @@ get_user_upstart_dirs (void)
 		NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, *p));
 	}
 
+	NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR));
+
 	return all_dirs;
 }
 

@@ -20,6 +20,7 @@
 #ifndef INIT_XDG_H
 #define INIT_XDG_H
 
+#include "paths.h"
 #include <nih/macros.h>
 
 NIH_BEGIN_EXTERN

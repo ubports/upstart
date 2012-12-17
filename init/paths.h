@@ -107,6 +107,15 @@
 #endif
 
 /**
+ * SYSTEM_USERCONFDIR:
+ *
+ * This is the path to system-wide user session jobs.
+ **/
+#ifndef SYSTEM_USERCONFDIR
+#define SYSTEM_USERCONFDIR "/usr/share/upstart/sessions"
+#endif
+
+/**
  * SHELL:
  *
  * This is the shell binary used whenever we need special processing for
