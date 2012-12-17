@@ -31,7 +31,6 @@
 #include "session.h"
 #include "conf.h"
 #include "paths.h"
-#include <sys/prctl.h>
 
 static int  log_file_open   (Log *log);
 static int  log_file_write  (Log *log, const char *buf, size_t len);
