@@ -605,6 +605,11 @@ main (int   argc,
 		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
+
+		/* Emit the Restarted signal so that any listing Instance Init
+		 * knows that it needs to restart too.
+		 */
+		control_notify_restarted();
 	}
 
 	if (disable_sessions)
