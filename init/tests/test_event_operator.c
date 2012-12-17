@@ -26,7 +26,6 @@
 #include <nih/string.h>
 #include <nih/tree.h>
 
-#include "control.h"
 #include "event_operator.h"
 #include "blocked.h"
 #include "parse_job.h"
@@ -843,8 +842,6 @@ test_operator_handle (void)
 	char          *env1[2], *env2[3], *env[2];
 	Event         *event;
 	int            ret;
-
-	control_init ();
 
 	TEST_FUNCTION ("event_operator_handle");
 	oper1 = event_operator_new (NULL, EVENT_OR, NULL, NULL);

@@ -1077,6 +1077,10 @@ control_restart (void           *data,
 void
 control_notify_event_emitted (Event *event)
 {
+	nih_assert (event != NULL);
+
+	control_init ();
+
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry   *entry = (NihListEntry *)iter;
 		DBusConnection *conn = (DBusConnection *)entry->data;
@@ -1094,6 +1098,8 @@ control_notify_event_emitted (Event *event)
 void
 control_notify_restarted (void)
 {
+	control_init ();
+
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry   *entry = (NihListEntry *)iter;
 		DBusConnection *conn = (DBusConnection *)entry->data;
