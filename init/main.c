@@ -119,6 +119,13 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
+/**
+ * user_mode:
+ *
+ * If TRUE, upstart runs in user session mode.
+ **/
+static int user_mode = 0;
+
 extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
@@ -163,6 +170,9 @@ static NihOption options[] = {
 
 	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
 		NULL, "NAME", &initial_event, NULL },
+
+	{ 0, "user", N_("start in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
