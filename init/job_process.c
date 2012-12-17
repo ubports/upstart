@@ -183,9 +183,8 @@ job_process_run (Job         *job,
 	 * automatically set script = TRUE since that's the best way to deal
 	 * with things like variables.
 	 */
-	if (strpbrk (proc->command, SHELL_CHARS)) {
+	if (strpbrk (proc->command, SHELL_CHARS))
 		proc->script = TRUE;
-	}
 
 	/* We run the process using a shell if it says it wants to be run
 	 * as such.
