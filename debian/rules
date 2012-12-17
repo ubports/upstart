@@ -15,7 +15,7 @@ endif
 export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
 %:
-	dh $@ --with bash-completion
+	dh $@ --with bash-completion --with autoreconf
 
 override_dh_auto_configure:
 	dh_auto_configure -- --exec-prefix=
