@@ -178,11 +178,18 @@ job_process_run (Job         *job,
 	nih_assert (proc != NULL);
 	nih_assert (proc->command != NULL);
 
-	/* We run the process using a shell if it says it wants to be run
-	 * as such, or if it contains any shell-like characters; since that's
-	 * the best way to deal with things like variables.
+
+	/* If the command string contains any shell-like characters,
+	 * automatically set script = TRUE since that's the best way to deal
+	 * with things like variables.
 	 */
-	if ((proc->script) || strpbrk (proc->command, SHELL_CHARS)) {
+	if (strpbrk (proc->command, SHELL_CHARS))
+		proc->script = TRUE;
+
+	/* We run the process using a shell if it says it wants to be run
+	 * as such.
+	 */
+	if (proc->script) {
 		char *nl, *p;
 
 		argc = 0;

@@ -680,6 +680,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -734,6 +736,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -790,6 +794,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_PRE_STOP]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -846,6 +852,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_POST_STOP]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
