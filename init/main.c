@@ -540,7 +540,7 @@ main (int   argc,
 		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
 
 	if (user_mode) {
-		dirs = get_user_upstart_dirs();
+		dirs = NIH_MUST (get_user_upstart_dirs ());
 		for (char **d = dirs; d && *d; d++)
 			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
 		nih_free (dirs);
