@@ -121,20 +121,20 @@ get_user_upstart_dirs (void)
 	char  **all_dirs = NULL;
 
 	all_dirs = nih_str_array_new (NULL);
-
-	if (all_dirs == NULL)
+	if (! all_dirs)
 		goto error;
 
 	/* The current order is inline with Enhanced User Sessions Spec */
 
 	/* User's: ~/.config/upstart or XDG_CONFIG_HOME/upstart */
 	path = xdg_get_config_home ();
-	if (path == NULL)
+	if (! path)
 		goto error;
+
 	if (path && path[0]) {
-	        if (nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR) == NULL)
+	        if (! nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR))
 			goto error;
-		if (nih_str_array_add (&all_dirs, NULL, NULL, path) == NULL)
+		if (! nih_str_array_add (&all_dirs, NULL, NULL, path))
 			goto error;
 		nih_free (path);
 		path = NULL;
@@ -142,10 +142,11 @@ get_user_upstart_dirs (void)
 
 	/* Legacy User's: ~/.init */
 	path = get_home_subdir (USERCONFDIR);
-	if (path == NULL)
+	if (! path)
 		goto error;
+
 	if (path && path[0]) {
-		if (nih_str_array_add (&all_dirs, NULL, NULL, path) == NULL)
+		if (! nih_str_array_add (&all_dirs, NULL, NULL, path))
 			goto error;
 		nih_free (path);
 		path = NULL;
@@ -153,30 +154,34 @@ get_user_upstart_dirs (void)
 
 	/* Systems': XDG_CONFIG_DIRS/upstart */
 	dirs = xdg_get_config_dirs ();
-	if (dirs == NULL)
+	if (! dirs)
 		goto error;
+
 	for (char **p = dirs; p && *p; p++) {
-		if (nih_strcat_sprintf (p, NULL, "/%s", INIT_XDG_SUBDIR) == NULL)
+		if (! nih_strcat_sprintf (p, NULL, "/%s", INIT_XDG_SUBDIR))
 			goto error;
-		if (nih_str_array_add (&all_dirs, NULL, NULL, *p) == NULL)
+		if (! nih_str_array_add (&all_dirs, NULL, NULL, *p))
 			goto error;
 	}
 	nih_free (dirs);
 	dirs = NULL;
 
 	/* System's read-only location */
-	if (nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR) == NULL)
+	if (! nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR))
 		goto error;
 
 	return all_dirs;
 	
 error:
-	if (path != NULL)
+	if (path)
 		nih_free (path);
-	if (dirs != NULL)
+
+	if (dirs)
 		nih_free (dirs);
-	if (all_dirs != NULL)
+
+	if (all_dirs)
 		nih_free (all_dirs);
+
 	return NULL;
 }
 
