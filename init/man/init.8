@@ -139,19 +139,40 @@ is not normally executed by a user process, and expects to have a process
 id of 1.  If this is not the case, it will actually execute
 .BR telinit (8)
 and pass all arguments to that.  See that manual page for further
-details. Unless \-\-user option is used, then it will read alternative
-configuration files and manage the individual user session in a
-similar fashion.
+details. However, if the
+.B \-\-user
+option is specified, it will read alternative configuration files and
+manage the individual user session in a similar fashion.
+.\"
+.SH ENVIRONMENT VARIABLES
+
+When run as a user process, the following variables may be used to find
+job configuration files:
+
+.IP \(bu 4
+.I $XDG_CONFIG_HOME
+.IP \(bu 4
+.I $XDG_CONFIG_DIRS
+.P
+
+See
+.B User Session Mode
+in
+.BR init (5)
+for further details.
+
 .\"
 .SH FILES
 .\"
 .I /etc/init.conf
 
-.I /etc/init/*.conf
+.I /etc/init/
 
 .I $HOME/.init/
 
-.I $XDG_CONFIG_DIRS/upstart/, $XDG_CONFIG_HOME/upstart/
+.I $XDG_CONFIG_DIRS/upstart/
+
+.I $XDG_CONFIG_HOME/upstart/
 .\"
 .SH AUTHOR
 Written by Scott James Remnant
