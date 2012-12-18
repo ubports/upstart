@@ -25,7 +25,7 @@
 
 NIH_BEGIN_EXTERN
 
-char *    get_home_subdir        (char * suffix)
+char *    get_home_subdir        (const char * suffix)
 	__attribute__ ((malloc, warn_unused_result));
 
 char *    xdg_get_config_home    (void)

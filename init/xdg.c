@@ -36,15 +36,17 @@
  * get_home_subdir:
  *
  * Construct path to directory in user's HOME dir.
+ * 
+ * Returns: newly-allocated path, or NULL on error.
  */
 
 char *
-get_home_subdir (char * suffix)
+get_home_subdir (const char * suffix)
 {
 	char *dir;
 	nih_assert (suffix && suffix[0]);
 	
-	dir = getenv("HOME");
+	dir = getenv ("HOME");
 	if ( dir && dir[0] ) {
 		dir = nih_sprintf (NULL, "%s/%s", dir, suffix);
 		return dir;
@@ -58,17 +60,17 @@ get_home_subdir (char * suffix)
  *
  * Determine an XDG compliant XDG_CONFIG_HOME
  *
+ * Returns: newly-allocated path, or NULL on error.
  **/
 char *
 xdg_get_config_home (void)
 {
 	nih_local char  **env = NULL;
-	size_t            len = 0;
 	char             *dir;
 
-	dir = getenv("XDG_CONFIG_HOME");
+	dir = getenv ("XDG_CONFIG_HOME");
 	
-	if ( dir && dir[0] ) {
+	if (dir && dir[0]) {
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -83,64 +85,98 @@ xdg_get_config_home (void)
  *
  * Determine a list of XDG compliant XDG_CONFIG_DIRS
  *
+ * Returns: newly-allocated array of paths, or NULL on error.
  **/
 char **
 xdg_get_config_dirs (void)
 {
 	char         *env_path;
-	char         *result = NULL;
-	size_t        len = 0;
 	char        **dirs = NULL;
 
 	env_path = getenv ("XDG_CONFIG_DIRS");
 	if (! env_path || ! env_path[0])
 		env_path = "/etc/xdg";
 
-	dirs = nih_str_split(NULL, env_path, ":", TRUE);
+	dirs = nih_str_split (NULL, env_path, ":", TRUE);
 
 	return dirs;
 }
 
 /**
- * xdg_get_dirs:
+ * get_user_upstart_dirs:
  *
- * Construct an array of user session config source paths to config dirs for a
- * particular user. This array can be iterated to add each of these
- * directories as config source dirs, when e.g. upstart is running as user session init.
- * This is a convenience function.
+ * Construct an array of user session config source paths to config
+ * dirs for a particular user. This array is sorted in highest
+ * priority order and therefore can be iterated to add each of these
+ * directories as config source dirs, when e.g. upstart is running as
+ * user session init.
  *
+ * Returns: newly-allocated array of paths, or NULL or error.
  **/
 char **
 get_user_upstart_dirs (void)
 {
-	char       *path;
+	char       *path = NULL;
 	char      **dirs = NULL;
 	char  **all_dirs = NULL;
 
 	all_dirs = nih_str_array_new (NULL);
 
+	if (all_dirs == NULL)
+		goto error;
+
+	/* The current order is inline with Enhanced User Sessions Spec */
+
+	/* User's: ~/.config/upstart or XDG_CONFIG_HOME/upstart */
 	path = xdg_get_config_home ();
+	if (path == NULL)
+		goto error;
 	if (path && path[0]) {
-		NIH_MUST (nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR));
-		NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, path));
-		nih_free(path);
+	        if (nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR) == NULL)
+			goto error;
+		if (nih_str_array_add (&all_dirs, NULL, NULL, path) == NULL)
+			goto error;
+		nih_free (path);
+		path = NULL;
 	}
 
+	/* Legacy User's: ~/.init */
 	path = get_home_subdir (USERCONFDIR);
+	if (path == NULL)
+		goto error;
 	if (path && path[0]) {
-		NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, path));
-		nih_free(path);
+		if (nih_str_array_add (&all_dirs, NULL, NULL, path) == NULL)
+			goto error;
+		nih_free (path);
+		path = NULL;
 	}
 
+	/* Systems': XDG_CONFIG_DIRS/upstart */
 	dirs = xdg_get_config_dirs ();
-
+	if (dirs == NULL)
+		goto error;
 	for (char **p = dirs; p && *p; p++) {
-		NIH_MUST (nih_strcat_sprintf (p, NULL, "/%s", INIT_XDG_SUBDIR));
-		NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, *p));
+		if (nih_strcat_sprintf (p, NULL, "/%s", INIT_XDG_SUBDIR) == NULL)
+			goto error;
+		if (nih_str_array_add (&all_dirs, NULL, NULL, *p) == NULL)
+			goto error;
 	}
+	nih_free (dirs);
+	dirs = NULL;
 
-	NIH_MUST (nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR));
+	/* System's read-only location */
+	if (nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR) == NULL)
+		goto error;
 
 	return all_dirs;
+	
+error:
+	if (path != NULL)
+		nih_free (path);
+	if (dirs != NULL)
+		nih_free (dirs);
+	if (all_dirs != NULL)
+		nih_free (all_dirs);
+	return NULL;
 }
 

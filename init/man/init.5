@@ -12,6 +12,10 @@ Default location of system job configuration files.
 .B $HOME/.init/
 Default location of user job configuration files.
 .\"
+.TP
+.B $XDG_CONFIG_HOME/upstart/, $XDG_CONFIG_DIRS/upstart/
+Default locations of user session job configuration files.
+.\"
 .SH DESCRIPTION
 On startup, the Upstart
 .BR init (8)
@@ -23,6 +27,11 @@ directory, and watches for future changes to these files using
 If D\-Bus has been configured to allow non\-privileged users to invoke all
 Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
 .B User Jobs
+for further details.
+
+If Upstart was invoked as a user process with \-\-user option, it will
+run in User Session mode. See
+.B User Session Mode
 for further details.
 
 To be considered by Upstart, files in this directory must have a
@@ -118,6 +127,20 @@ below).
 Note that User Jobs
 .B cannot
 be used within a chroot environment.
+
+.\"
+.SS User Session Mode
+
+Upstart can manage complete User Session. In this mode upstart is
+running as a user process. It will read configuration files from
+.B $XDG_CONFIG_HOME/upstart/,
+.B $XDG_CONFIG_DIRS/upstart/,
+.B $HOME/.init/ and
+.B /usr/share/upstart/sessions/.
+
+It will then launch the user's session. It will try to parent all
+spawned process with aid from prctl. And kill everything upon logout
+or shutdown.
 
 .\"
 .SS Configuration File Format

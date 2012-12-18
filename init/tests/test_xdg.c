@@ -56,16 +56,11 @@ test_get_home_subdir (void)
 
 		dir = get_home_subdir ("test");
 
-		/* if I inverted the below if statement and write it
-                 *  as "if ( test_alloc_failed )" and change around
-                 *  the branches respectively the unit test fails. Why
-                 *  is that?
-		 */
-		if ( ! test_alloc_failed ) {
+		if (test_alloc_failed) {
+			TEST_EQ_P (dir, NULL);
+		} else {
 			TEST_EQ_STR (dir, expected);
 			nih_free (dir);
-		} else {
-			TEST_EQ_P (dir, NULL);
 		}
 
 		if (expected)
@@ -86,7 +81,6 @@ test_get_config_home (void)
 	TEST_FILENAME (dirname);
 	TEST_EQ (setenv ("HOME", dirname, 1), 0);
 	TEST_EQ (unsetenv ("XDG_CONFIG_HOME"), 0);
-
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			expected = NIH_MUST (nih_sprintf (NULL, "%s/.config", dirname));
@@ -95,15 +89,11 @@ test_get_config_home (void)
 		outname = NULL;
 		outname = xdg_get_config_home ();
 
-		/* Something strange is going on.
-                 * I am expected the failed alloc branch
-                 * to pass TEST_EQ_P (outname, NULL)
-                 */
-
-		if (! test_alloc_failed)
+		if (! test_alloc_failed) {
 			TEST_EQ_STR (outname, expected);
-		else
-			TEST_EQ_STR (outname, expected);
+		} else {
+			TEST_EQ_P (outname, NULL);
+		}
 
 		if (outname)
 			nih_free (outname);
@@ -114,24 +104,22 @@ test_get_config_home (void)
 	TEST_FEATURE ("with HOME set and with empty environment override");
 	TEST_EQ (setenv ("XDG_CONFIG_HOME", "", 1), 0);
 
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			expected = NIH_MUST (nih_sprintf (NULL, "%s/.config", dirname));
-			outname = NULL;
-			/* the below call should be in _FAIL scope */
-			outname = xdg_get_config_home();
 		}
+		outname = NULL;
+		outname = xdg_get_config_home();
 
-		if (test_alloc_failed)
+		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
-		else {
+		} else {
 			TEST_EQ_STR (outname, expected);
 		}
 		if (outname)
 			nih_free (outname);
-
 		nih_free(expected);
-
 	}
 
 	TEST_FEATURE ("with HOME set and with environment override");
@@ -139,42 +127,33 @@ test_get_config_home (void)
 	TEST_EQ (setenv ("XDG_CONFIG_HOME", expected, 1), 0);
 
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			outname = NULL;
-			/* the below call should be in _FAIL scope */
-			outname = xdg_get_config_home();
-		}
+		outname = NULL;
+		outname = xdg_get_config_home();
 
-		if (test_alloc_failed)
+		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
-		else {
+		} else {
 			TEST_EQ_STR (outname, expected);
 		}
 		if (outname)
 			nih_free (outname);
-
 	}
-
 
 	TEST_FEATURE ("without HOME set and with environment override");
 	TEST_EQ (unsetenv ("HOME"), 0);
 
 	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			outname = NULL;
-			/* the below call should be in _FAIL scope */
-			outname = xdg_get_config_home();
-		}
+		outname = NULL;
+		outname = xdg_get_config_home();
 
-		if (test_alloc_failed)
+		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
-		else {
+		} else {
 			TEST_EQ_STR (outname, expected);
 		}
 		if (outname)
 			nih_free (outname);
 	}
-
 	nih_free(expected);
 
 	TEST_FEATURE ("without HOME set and with empty environment override");
@@ -205,9 +184,12 @@ test_get_config_dirs (void)
 	TEST_EQ (unsetenv ("XDG_CONFIG_DIRS"), 0);
 
 	TEST_ALLOC_FAIL {
+		dirs = NULL;
 		dirs = xdg_get_config_dirs();
 
-		if (! test_alloc_failed) {
+		if (test_alloc_failed) {
+			TEST_EQ_P (dirs, NULL);
+		} else {
 			TEST_EQ_STR (dirs[0], "/etc/xdg");
 			TEST_EQ (dirs[1], NULL);
 			nih_free (dirs);
@@ -217,9 +199,12 @@ test_get_config_dirs (void)
 	TEST_FEATURE ("with empty environment override");
 	TEST_EQ (setenv ("XDG_CONFIG_DIRS", "", 1), 0);
 	TEST_ALLOC_FAIL {
+		dirs = NULL;
 		dirs = xdg_get_config_dirs();
 
-		if (! test_alloc_failed) {
+		if (test_alloc_failed) {
+			TEST_EQ_P (dirs, NULL);
+		} else {
 			TEST_EQ_STR (dirs[0], "/etc/xdg");
 			TEST_EQ (dirs[1], NULL);
 			nih_free (dirs);
@@ -229,9 +214,12 @@ test_get_config_dirs (void)
 	TEST_FEATURE ("with environment override set to single path");
 	TEST_EQ (setenv ("XDG_CONFIG_DIRS", "/etc/xdg/xdg-test", 1), 0);
 	TEST_ALLOC_FAIL {
+		dirs = NULL;
 		dirs = xdg_get_config_dirs();
 
-		if (! test_alloc_failed) {
+		if (test_alloc_failed) {
+			TEST_EQ_P (dirs, NULL);
+		} else {
 			TEST_EQ_STR (dirs[0], "/etc/xdg/xdg-test");
 			TEST_EQ (dirs[1], NULL);
 			nih_free (dirs);
@@ -242,9 +230,12 @@ test_get_config_dirs (void)
 	TEST_FEATURE ("with environment override set to single path");
 	TEST_EQ (setenv ("XDG_CONFIG_DIRS", "/etc/xdg/xdg-test:/etc/xdg/xdg-other", 1), 0);
 	TEST_ALLOC_FAIL {
+		dirs = NULL;
 		dirs = xdg_get_config_dirs();
 
-		if (! test_alloc_failed) {
+		if (test_alloc_failed) {
+			TEST_EQ_P (dirs, NULL);
+		} else {
 			TEST_EQ_STR (dirs[0], "/etc/xdg/xdg-test");
 			TEST_EQ_STR (dirs[1], "/etc/xdg/xdg-other");
 			TEST_EQ (dirs[2], NULL);
@@ -284,9 +275,13 @@ test_get_user_upstart_dirs (void)
 			nih_free(path);
 		}
 
+		dirs = NULL;
 		dirs = get_user_upstart_dirs ();
 
-		if (! test_alloc_failed) {
+		printf ("%d, %d, %d\n\n", _test_alloc_count, _test_alloc_call, test_alloc_failed);
+		if (test_alloc_failed) {
+			TEST_EQ_P (dirs, NULL);
+		} else {
 			TEST_EQ_STR (dirs[0], expected[0]);
 			TEST_EQ_STR (dirs[1], expected[1]);
 			TEST_EQ_STR (dirs[2], "/etc/xdg/upstart");
