@@ -9198,6 +9198,8 @@ run_tests_in_pty (void)
 			io_error_handler, NULL);
 	TEST_NE_P (io, NULL);
 
+	ret = nih_main_loop ();
+
 	/* wait for child to finish */
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 
@@ -9207,7 +9209,6 @@ run_tests_in_pty (void)
 		      WIFSTOPPED (status) ?  WSTOPSIG (status) :
 		      EXIT_FAILURE;
 
-	ret = nih_main_loop ();
 	exit (exit_status ? exit_status : ret);
 }
 
