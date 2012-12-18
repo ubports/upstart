@@ -278,7 +278,6 @@ test_get_user_upstart_dirs (void)
 		dirs = NULL;
 		dirs = get_user_upstart_dirs ();
 
-		printf ("%d, %d, %d\n\n", _test_alloc_count, _test_alloc_call, test_alloc_failed);
 		if (test_alloc_failed) {
 			TEST_EQ_P (dirs, NULL);
 		} else {
