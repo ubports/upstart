@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include <ctype.h>
 
 #include <nih/macros.h>
@@ -201,10 +200,6 @@ main (int   argc,
 
 			exit (1);
 		}
-
-		/* Send all logging output to syslog */
-		openlog (program_name, LOG_PID, LOG_DAEMON);
-		nih_log_set_logger (nih_logger_syslog);
 	}
 
 	/* Handle TERM and INT signals gracefully */
