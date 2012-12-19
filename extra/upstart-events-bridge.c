@@ -234,6 +234,8 @@ upstart_forward_event (void *          data,
 		     const char *    path)
 {
 	char *              event_name = NULL;
+	char *              prefix = ":sys:";
+	char *              new_event_name = NULL;
 	char **             event_env = NULL;
 	int                 event_env_count = 0;
 	DBusError *         error = NULL;
@@ -247,9 +249,14 @@ upstart_forward_event (void *          data,
 
 	nih_assert (event_name != NULL);
 
+	/* Build the new event name */
+	new_event_name = malloc(strlen(prefix) + strlen(event_name) + 1);
+	strcat(new_event_name, prefix);
+	strcat(new_event_name, event_name);
+
 	/* Re-transmit the event */
 	pending_call = upstart_emit_event (session_upstart,
-			event_name, event_env, FALSE,
+			new_event_name, event_env, FALSE,
 			NULL, emit_event_error, NULL,
 			NIH_DBUS_TIMEOUT_NEVER);
 
@@ -262,6 +269,7 @@ upstart_forward_event (void *          data,
 
 	dbus_pending_call_unref (pending_call);
 	dbus_free_string_array (event_env);
+	free(new_event_name);
 }
 
 static void
