@@ -46,7 +46,9 @@
 
 /* Prototypes for static functions */
 static void upstart_disconnected (DBusConnection *connection);
-static void upstart_forward    (void *data, NihDBusMessage *message,
+static void upstart_forward_event    (void *data, NihDBusMessage *message,
+				  const char *path);
+static void upstart_forward_restarted    (void *data, NihDBusMessage *message,
 				  const char *path);
 static void emit_event_error     (void *data, NihDBusMessage *message);
 
@@ -136,7 +138,7 @@ main (int   argc,
 	}
 
 	if (! nih_dbus_proxy_connect (system_upstart, &upstart_com_ubuntu_Upstart0_6, "EventEmitted",
-				      (NihDBusSignalHandler)upstart_forward, NULL)) {
+				      (NihDBusSignalHandler)upstart_forward_event, NULL)) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -148,7 +150,7 @@ main (int   argc,
 	}
 
 	if (! nih_dbus_proxy_connect (system_upstart, &upstart_com_ubuntu_Upstart0_6, "Restarted",
-				      (NihDBusSignalHandler)upstart_forward, NULL)) {
+				      (NihDBusSignalHandler)upstart_forward_restarted, NULL)) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -227,7 +229,7 @@ upstart_disconnected (DBusConnection *connection)
 }
 
 static void
-upstart_forward (void *          data,
+upstart_forward_event (void *          data,
 		     NihDBusMessage *message,
 		     const char *    path)
 {
@@ -237,13 +239,13 @@ upstart_forward (void *          data,
 	DBusError *         error = NULL;
 	DBusPendingCall *   pending_call;
 
-	nih_assert (path != NULL);
-
 	/* Extract information from the original event */
 	dbus_message_get_args (message->message, error,
 	        DBUS_TYPE_STRING, &event_name,
 	        DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &event_env, &event_env_count,
 	        DBUS_TYPE_INVALID);
+
+	nih_assert (event_name != NULL);
 
 	/* Re-transmit the event */
 	pending_call = upstart_emit_event (session_upstart,
@@ -260,6 +262,29 @@ upstart_forward (void *          data,
 
 	dbus_pending_call_unref (pending_call);
 	dbus_free_string_array (event_env);
+}
+
+static void
+upstart_forward_restarted (void *          data,
+		     NihDBusMessage *message,
+		     const char *    path)
+{
+	DBusPendingCall *   pending_call;
+
+	/* Re-transmit the event */
+	pending_call = upstart_emit_event (session_upstart,
+			":sys:restarted", NULL, FALSE,
+			NULL, emit_event_error, NULL,
+			NIH_DBUS_TIMEOUT_NEVER);
+
+	if (! pending_call) {
+		NihError *err;
+		err = nih_error_get ();
+		nih_warn ("%s", err->message);
+		nih_free (err);
+	}
+
+	dbus_pending_call_unref (pending_call);
 }
 
 static void
