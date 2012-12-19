@@ -83,6 +83,9 @@ static inline int is_conf_file_std     (const char *path)
 static inline int is_conf_file_override(const char *path)
 	__attribute__ ((warn_unused_result));
 
+static inline char *toggle_conf_name   (const void *parent, const char *path)
+	__attribute__ ((warn_unused_result, malloc));
+
 /**
  * conf_sources:
  *
@@ -167,15 +170,12 @@ is_conf_file (const char *path)
  * "foo.override", whereas if @path is "foo.override", it will return
  * "foo.conf".
  *
- * Note that this function should be static, but isn't to allow the
- * tests to access it.
- *
  * @parent: parent of returned path,
  * @path: path to a configuration file.
  *
  * Returns: newly allocated toggled path, or NULL on error.
  **/
-char *
+static inline char *
 toggle_conf_name (const void     *parent,
 		 const char     *path)
 {
