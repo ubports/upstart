@@ -18,13 +18,15 @@ initdir = $(sysconfdir)/init
 
 sbin_PROGRAMS = \
 	upstart-socket-bridge \
-	upstart-events-bridge
+	upstart-event-bridge
 
 dist_init_DATA = \
-	conf/upstart-socket-bridge.conf
+	conf/upstart-socket-bridge.conf \
+	conf/upstart-event-bridge.conf
 
 dist_man_MANS = \
 	man/upstart-socket-bridge.8 \
+	man/upstart-event-bridge.8 \
 	man/socket-event.7
 
 upstart_socket_bridge_SOURCES = \
@@ -38,12 +40,12 @@ upstart_socket_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-upstart_events_bridge_SOURCES = \
-	upstart-events-bridge.c
-nodist_upstart_events_bridge_SOURCES = \
+upstart_event_bridge_SOURCES = \
+	upstart-event-bridge.c
+nodist_upstart_event_bridge_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS)
-upstart_events_bridge_LDADD = \
+upstart_event_bridge_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \

@@ -101,7 +101,7 @@ main (int   argc,
 
 	nih_option_set_synopsis (_("Bridge system upstart events into session upstart"));
 	nih_option_set_help (
-		_("By default, upstart-events-bridge does not detach from the "
+		_("By default, upstart-event-bridge does not detach from the "
 		  "console and remains in the foreground.  Use the --daemon "
 		  "option to have it detach."));
 
@@ -234,25 +234,28 @@ upstart_forward_event (void *          data,
 		     const char *    path)
 {
 	char *              event_name = NULL;
-	char *              prefix = ":sys:";
-	char *              new_event_name = NULL;
+	nih_local char *    new_event_name = NULL;
 	char **             event_env = NULL;
 	int                 event_env_count = 0;
-	DBusError *         error = NULL;
+	DBusError           error;
 	DBusPendingCall *   pending_call;
 
+	dbus_error_init (&error);
+
 	/* Extract information from the original event */
-	dbus_message_get_args (message->message, error,
+	if (!dbus_message_get_args (message->message, &error,
 	        DBUS_TYPE_STRING, &event_name,
 	        DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &event_env, &event_env_count,
-	        DBUS_TYPE_INVALID);
+	        DBUS_TYPE_INVALID)) {
+		nih_error("DBUS error: %s", error.message);
+		dbus_error_free(&error);
+		return;
+	}
 
 	nih_assert (event_name != NULL);
 
 	/* Build the new event name */
-	new_event_name = malloc(strlen(prefix) + strlen(event_name) + 1);
-	strcat(new_event_name, prefix);
-	strcat(new_event_name, event_name);
+	NIH_MUST (nih_strcat_sprintf (&new_event_name, NULL, ":sys:%s", event_name));
 
 	/* Re-transmit the event */
 	pending_call = upstart_emit_event (session_upstart,
@@ -269,7 +272,6 @@ upstart_forward_event (void *          data,
 
 	dbus_pending_call_unref (pending_call);
 	dbus_free_string_array (event_env);
-	free(new_event_name);
 }
 
 static void
