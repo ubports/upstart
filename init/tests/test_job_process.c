@@ -131,6 +131,9 @@ enum child_tests {
 	TEST_FDS
 };
 
+
+pid_t pty_child_pid;
+
 static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
@@ -9124,8 +9127,20 @@ io_error_handler (void   *data,
 	nih_free (err);
 
 	nih_free (io);
-	nih_main_loop_exit (EXIT_SUCCESS);
 }
+
+/* Grab child exit status and ask main loop to exit */
+void
+process_handler (void          *data,
+		pid_t           pid,
+		NihChildEvents  event,
+		int             status)
+{
+	nih_assert (pid == pty_child_pid);
+
+	nih_main_loop_exit (status);
+}
+
 
 /**
  * run_tests_in_pty:
@@ -9146,21 +9161,18 @@ io_error_handler (void   *data,
 void
 run_tests_in_pty (void)
 {
-	pid_t             pid;
 	int               pty_master;
 	int               pty_slave;
 	nih_local NihIo  *io = NULL;
 	int               ret;
-	int               status;
-	int               exit_status = 0;
 
 	ret = openpty (&pty_master, &pty_slave, NULL, NULL, NULL);
 	TEST_NE (ret, -1);
 
-	pid = fork ();
-	TEST_NE (pid, (pid_t)-1);
+	pty_child_pid = fork ();
+	TEST_NE (pty_child_pid, (pid_t)-1);
 
-	if (! pid) {
+	if (! pty_child_pid) {
 		int   i;
 		pid_t self;
 
@@ -9176,7 +9188,7 @@ run_tests_in_pty (void)
 
 		/* connect standard streams to the child end of the pty */
 		for (i = 0; i < 3; i++)
-			while (dup2(pty_slave, i) == -1 && errno == EBUSY)
+			while (dup2 (pty_slave, i) == -1 && errno == EBUSY)
 				;
 
 		/* clean up */
@@ -9198,18 +9210,14 @@ run_tests_in_pty (void)
 			io_error_handler, NULL);
 	TEST_NE_P (io, NULL);
 
+	/* Watch child for events */
+	NIH_MUST (nih_child_add_watch (NULL, pty_child_pid,
+				(NIH_CHILD_EXITED|NIH_CHILD_KILLED|NIH_CHILD_DUMPED),
+				process_handler, NULL)); 
+
 	ret = nih_main_loop ();
 
-	/* wait for child to finish */
-	TEST_EQ (waitpid (pid, &status, 0), pid);
-
-	/* catch exit status if it failed and return it via parent */
-	exit_status = WIFEXITED (status) ? WEXITSTATUS (status) :
-		      WIFSIGNALED (status) ? WTERMSIG (status) :
-		      WIFSTOPPED (status) ?  WSTOPSIG (status) :
-		      EXIT_FAILURE;
-
-	exit (exit_status ? exit_status : ret);
+	exit (ret ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
 /**
