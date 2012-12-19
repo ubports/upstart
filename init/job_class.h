@@ -347,6 +347,9 @@ JobClass * job_class_get (const char *name, Session *session)
 
 void job_class_prepare_reexec (void);
 
+char ** job_class_environment_get (const void *parent)
+	__attribute__ ((warn_unused_result, malloc));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

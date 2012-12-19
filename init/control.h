@@ -118,6 +118,24 @@ int  control_restart (void *data, NihDBusMessage *message)
 void control_notify_event_emitted (Event *event);
 void control_notify_restarted (void);
 
+int control_set_env (void           *data,
+		 NihDBusMessage *message,
+		 const char     *var,
+		 int             replace)
+	__attribute__ ((warn_unused_result));
+
+int control_get_env (void             *data,
+		 NihDBusMessage   *message,
+		 char             *name,
+		 char            **value)
+	__attribute__ ((warn_unused_result));
+
+int
+control_list_env (void             *data,
+		 NihDBusMessage   *message,
+		 char           ***env)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONTROL_H */

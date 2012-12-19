@@ -52,6 +52,10 @@
       <arg name="replace" type="b" direction="in" />
     </method>
 
+    <method name="ListEnv">
+      <arg name="env" type="as" direction="out" />
+    </method>
+
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">
       <arg name="job" type="o" />

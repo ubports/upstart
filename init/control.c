@@ -1180,11 +1180,10 @@ control_set_env (void           *data,
  * @name: name of environment variable to retrieve,
  * @value: value of @name.
  *
- * Implements the SetEnv method of the com.ubuntu.Upstart
+ * Implements the GetEnv method of the com.ubuntu.Upstart
  * interface.
  *
- * Called to request Upstart store a particular name/value pair that
- * will be exported to all jobs' environments.
+ * Called to obtain the value of a specified job environment variable.
  *
  * Returns: zero on success, negative value on raised error.
  **/
@@ -1215,14 +1214,14 @@ control_get_env (void             *data,
 		return 0;
 	}
 
-	/* Disallow users from changing Upstarts environment, unless they happen to
+	/* Disallow users from querying Upstarts environment, unless they happen to
 	 * own this process (which they may do in the test scenario and
 	 * when running Upstart as a non-privileged user).
 	 */
 	if (session && session->user != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify the init environment"));
+			_("You do not have permission to query the init environment"));
 		return -1;
 	}
 
@@ -1243,4 +1242,55 @@ error:
 			"%s: %s",
 			_("No such variable"), name);
 	return -1;
+}
+
+/**
+ * control_list_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @env: pointer to array of all job environment variables.
+ *
+ * Implements the ListEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain an array of all environment variables that will be
+ * set in a jobs environment.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_list_env (void            *data,
+		 NihDBusMessage   *message,
+		 char           ***env)
+{
+	Session     *session;
+	uid_t        uid;
+
+	nih_assert (message != NULL);
+	nih_assert (env);
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	uid = getuid ();
+
+	/* Disallow users from querying Upstarts environment, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to query the init environment"));
+		return -1;
+	}
+
+	job_class_environment_init ();
+
+	*env = job_class_environment_get (message);
+	if (! *env)
+		nih_return_no_memory_error (-1);
+
+	return 0;
 }

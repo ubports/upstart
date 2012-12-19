@@ -119,9 +119,29 @@ job_class_environment_init (void)
 		job_environ = NIH_MUST (nih_str_array_new (NULL));
 		NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
 	}
-
 }
 
+/**
+ * job_class_environment_get:
+ *
+ * Obtain a copy of the environment a job will be provided with.
+ *
+ * Returns: Newly-allocated copy of the job environment array, or NULL
+ * on error.
+ **/
+char **
+job_class_environment_get (const void *parent)
+{
+	char   **env = NULL;
+
+	job_class_environment_init ();
+
+	env = nih_str_array_copy (parent, NULL, job_environ);
+	if (! env)
+		return NULL;
+
+	return env;
+}
 
 /**
  * job_class_new:
