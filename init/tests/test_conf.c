@@ -2417,53 +2417,6 @@ no_inotify:
 }
 
 void
-test_toggle_conf_name (void)
-{
-	char override_ext[] = ".override";
-	char dirname[PATH_MAX];
-	char filename[PATH_MAX];
-	JobClass *job;
-	char *f;
-	char *p;
-
-	TEST_FUNCTION_FEATURE ("toggle_conf_name",
-			"changing conf to override");
-
-	TEST_FILENAME (dirname);
-	strcpy (filename, dirname);
-	strcat (filename, "/foo.conf");
-	f = toggle_conf_name (NULL, filename);
-	TEST_NE_P (f, NULL);
-
-	p = strstr (f, ".override");
-	TEST_NE_P (p, NULL);
-	TEST_EQ_P (p, f+strlen (f) - strlen (override_ext));
-	nih_free (f);
-
-	TEST_FEATURE ("changing override to conf");
-	strcpy (filename, dirname);
-	strcat (filename, "/bar.override");
-	f = toggle_conf_name (NULL, filename);
-	TEST_NE_P (f, NULL);
-
-	p = strstr (f, ".conf");
-	TEST_NE_P (p, NULL);
-	TEST_EQ_P (p, f+strlen (f) - strlen (".conf"));
-	nih_free (f);
-
-	/* test parent param */
-	job = job_class_new (NULL, "foo", NULL);
-	TEST_NE_P (job, NULL);
-
-	f = toggle_conf_name (job, filename);
-	TEST_NE_P (f, NULL);
-
-	TEST_EQ (TRUE, nih_alloc_parent (f, job));
-
-	nih_free (job);
-}
-
-void
 test_override (void)
 {
 	ConfSource *source;
@@ -4708,7 +4661,6 @@ main (int   argc,
 	test_source_reload_conf_dir ();
 	test_source_reload_file ();
 	test_source_reload ();
-	test_toggle_conf_name ();
 	test_override ();
 	test_file_destroy ();
 	test_select_job ();

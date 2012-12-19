@@ -154,6 +154,7 @@ TESTS = \
 	test_parse_job \
 	test_parse_conf \
 	test_conf \
+	test_conf_static \
 	test_xdg \
 	test_control
 
@@ -330,6 +331,20 @@ test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o \
+	session.o log.o state.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(JSON_LIBS) \
+	-lrt
+
+test_conf_static_SOURCES = tests/test_conf_static.c
+test_conf_static_LDADD = \
+	system.o environ.o process.o \
+	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o control.o \
 	session.o log.o state.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
