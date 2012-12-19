@@ -127,9 +127,6 @@ int         conf_file_destroy  (ConfFile *file);
 
 JobClass *  conf_select_job    (const char *name, const Session *session);
 
-char *toggle_conf_name         (const void *parent, const char *path)
-	__attribute__ ((warn_unused_result, malloc));
-
 #ifdef DEBUG
 
 /* used for debugging only */

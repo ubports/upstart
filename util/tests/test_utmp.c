@@ -857,6 +857,13 @@ test_write_runlevel (void)
 		gettimeofday (&tv, NULL);
 		record.ut_tv.tv_sec = tv.tv_sec;
 		record.ut_tv.tv_usec = tv.tv_usec;
+		/* utmp/wtmp records do not have nanosecond resolution
+		 * yet the tests expect time to lapse, but it might not
+		 * on very, very fast machines.
+		 * https://jenkins.qa.ubuntu.com/view/Raring/view/AutoPkgTest/job/raring-adt-upstart/
+		 * Is there a better way to fix the tests?
+		 */
+		usleep(200);
 
 		utmpxname (utmp_file);
 
