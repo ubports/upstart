@@ -680,6 +680,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -734,6 +736,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -790,6 +794,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_PRE_STOP]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -846,6 +852,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_POST_STOP]->script)
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -9190,6 +9198,8 @@ run_tests_in_pty (void)
 			io_error_handler, NULL);
 	TEST_NE_P (io, NULL);
 
+	ret = nih_main_loop ();
+
 	/* wait for child to finish */
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 
@@ -9199,7 +9209,6 @@ run_tests_in_pty (void)
 		      WIFSTOPPED (status) ?  WSTOPSIG (status) :
 		      EXIT_FAILURE;
 
-	ret = nih_main_loop ();
 	exit (exit_status ? exit_status : ret);
 }
 

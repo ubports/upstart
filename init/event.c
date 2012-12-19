@@ -42,6 +42,7 @@
 #include "event.h"
 #include "job.h"
 #include "blocked.h"
+#include "control.h"
 #include "errors.h"
 
 #include "com.ubuntu.Upstart.h"
@@ -506,6 +507,8 @@ event_finished (Event *event)
 						  new_event, NULL, event->env));
 		}
 	}
+
+	control_notify_event_emitted (event);
 
 	nih_free (event);
 }

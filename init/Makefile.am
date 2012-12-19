@@ -56,6 +56,7 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h \
 	control.c control.h \
+	xdg.c xdg.h \
 	errors.h
 nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
@@ -134,7 +135,6 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.6.json
 
 EXTRA_DIST = init.supp $(TEST_DATA_FILES)
-	
 
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h
@@ -154,6 +154,7 @@ TESTS = \
 	test_parse_job \
 	test_parse_conf \
 	test_conf \
+	test_xdg \
 	test_control
 
 check_PROGRAMS = $(TESTS)
@@ -336,6 +337,13 @@ test_conf_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
+	-lrt
+
+test_xdg_SOURCES = tests/test_xdg.c
+test_xdg_LDADD = \
+	xdg.o \
+	environ.o \
+	$(NIH_LIBS) \
 	-lrt
 
 test_control_SOURCES = tests/test_control.c

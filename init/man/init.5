@@ -1,4 +1,4 @@
-.TH init 5 2011-05-12 "Upstart"
+.TH init 5 2012-12-18 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -12,6 +12,10 @@ Default location of system job configuration files.
 .B $HOME/.init/
 Default location of user job configuration files.
 .\"
+.TP
+.B $XDG_CONFIG_HOME/upstart/, $XDG_CONFIG_DIRS/upstart/
+Default locations of user session job configuration files.
+.\"
 .SH DESCRIPTION
 On startup, the Upstart
 .BR init (8)
@@ -23,6 +27,11 @@ directory, and watches for future changes to these files using
 If D\-Bus has been configured to allow non\-privileged users to invoke all
 Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
 .B User Jobs
+for further details.
+
+If Upstart was invoked as a user process with \-\-user option, it will
+run in User Session mode. See
+.B User Session Mode
 for further details.
 
 To be considered by Upstart, files in this directory must have a
@@ -115,7 +124,47 @@ Note that this facility is distinct from the \fBchroot\fR stanza (see
 .B Process environment
 below).
 
-Note too that User Jobs can be created within a chroot environment.
+Note that User Jobs
+.B cannot
+be used within a chroot environment.
+
+.\"
+.SS User Session Mode
+
+Upstart can manage complete User Sessions. In this mode it runs with a
+process id greater than 1 and will read job configuration files from the
+following list of directories in the order shown:
+
+.IP \(bu 4
+.I $XDG_CONFIG_HOME/upstart/
+.IP \(bu 4
+.I $HOME/.init/
+.IP \(bu 4
+.I $XDG_CONFIG_DIRS/upstart/
+.IP \(bu 4
+.I /usr/share/upstart/sessions/
+.P
+
+Note that the first directory to contain a job is considered the owner
+of that job name: any subsequently searched directory that contains a
+job of the same name will be ignored. The same applies for override
+files: only the first override file found in the search order will be
+applied. Note that an override file does not have to be in the same
+directory as the job it overrides, but if not in the directory of the
+job it overrides, it must be in an
+.I earlier
+directory to that which contains the job.
+
+Jobs in these locations are expected to launch the user's session.
+Upstart will try to parent all spawned process with the aid of
+.BR prctl (2) "" .
+If successful this will ensure that even double-forking daemons will be
+reparented to the User Session process, and not to the
+.BR init (8)
+daemon running with process id 1.
+
+When running in User Session mode, Upstart will kill all job processes
+on session logout or shutdown.
 
 .\"
 .SS Configuration File Format
@@ -1000,5 +1049,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .SH SEE ALSO
 .BR init (8)
 .BR initctl (8)
-.BR sh (1)
+.BR prctl (2)
 .BR pty (7)
+.BR sh (1)

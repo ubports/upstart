@@ -60,6 +60,15 @@
       <arg name="job" type="o" />
     </signal>
 
+    <!-- Signal for events being emitted -->
+    <signal name="EventEmitted">
+      <arg name="name" type="s" />
+      <arg name="env" type="as" />
+    </signal>
+
+    <!-- Signal emitted after upstart restarted and reconnected to DBUS -->
+    <signal name="Restarted" />
+
     <!-- Event emission -->
     <method name="EmitEvent">
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />

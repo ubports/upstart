@@ -28,7 +28,6 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
 #include <nih/test.h>
 #include <nih/timer.h>
 #include <nih/child.h>

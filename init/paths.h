@@ -96,6 +96,24 @@
 #define CONFDIR_ENV "UPSTART_CONFDIR"
 #endif
 
+/**
+ * INIT_XDG_SUBDIR:
+ *
+ * This is the name of the sub folder we will use when constructing
+ * config source dirs with XDG compliant folders.
+ **/
+#ifndef INIT_XDG_SUBDIR
+#define INIT_XDG_SUBDIR "upstart"
+#endif
+
+/**
+ * SYSTEM_USERCONFDIR:
+ *
+ * This is the path to system-wide user session jobs.
+ **/
+#ifndef SYSTEM_USERCONFDIR
+#define SYSTEM_USERCONFDIR "/usr/share/upstart/sessions"
+#endif
 
 /**
  * SHELL:

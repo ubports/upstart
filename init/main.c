@@ -30,6 +30,13 @@
 #include <sys/resource.h>
 #include <sys/mount.h>
 
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 35
+#endif
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 #include <limits.h>
@@ -61,6 +68,7 @@
 #include "conf.h"
 #include "control.h"
 #include "state.h"
+#include "xdg.h"
 
 
 /* Prototypes for static functions */
@@ -79,6 +87,7 @@ static void usr1_handler    (void *data, NihSignal *signal);
 
 static void handle_confdir      (void);
 static void handle_logdir       (void);
+static void handle_usermode     (void);
 static int  console_type_setter (NihOption *option, const char *arg);
 
 
@@ -111,6 +120,13 @@ static char *initial_event = NULL;
  * If TRUE, do not emit a startup event.
  **/
 static int disable_startup_event = FALSE;
+
+/**
+ * user_mode:
+ *
+ * If TRUE, upstart runs in user session mode.
+ **/
+static int user_mode = FALSE;
 
 extern int          disable_sessions;
 extern int          disable_job_logging;
@@ -157,6 +173,9 @@ static NihOption options[] = {
 	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
 		NULL, "NAME", &initial_event, NULL },
 
+	{ 0, "user", N_("start in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
+
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
 
@@ -169,6 +188,7 @@ main (int   argc,
       char *argv[])
 {
 	char **args = NULL;
+	char **dirs = NULL;
 	int    ret;
 
 	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
@@ -187,6 +207,7 @@ main (int   argc,
 
 	handle_confdir ();
 	handle_logdir ();
+	handle_usermode ();
 
 	if (disable_job_logging)
 		nih_debug ("Job logging disabled");
@@ -512,8 +533,18 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
-	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+	if (! user_mode)
+		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+
+	if (conf_dir)
+		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+
+	if (user_mode) {
+		dirs = NIH_MUST (get_user_upstart_dirs ());
+		for (char **d = dirs; d && *d; d++)
+			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		nih_free (dirs);
+	}
 
 	conf_reload ();
 
@@ -598,12 +629,29 @@ main (int   argc,
 		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
+
+		/* Emit the Restarted signal so that any listing Instance Init
+		 * knows that it needs to restart too.
+		 */
+		control_notify_restarted();
 	}
 
 	if (disable_sessions)
 		nih_debug ("Sessions disabled");
 
 	job_class_environment_init ();
+	/* Set us as the child subreaper.
+	 * This ensures that even when init doesn't run as PID 1, it'll always be
+	 * the ultimate parent of everything it spawns. */
+
+#ifdef HAVE_SYS_PRCTL_H
+	if (getpid () > 1 && prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
+		nih_warn ("%s: %s", _("Unable to register as subreaper"),
+				  strerror (errno));
+
+		NIH_MUST (event_new (NULL, "child-subreaper-failed", NULL));
+	}
+#endif
 
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to
@@ -880,6 +928,9 @@ handle_confdir (void)
 	if (conf_dir)
 		goto out;
 
+	if (user_mode)
+		return;
+
 	conf_dir = CONFDIR;
 
 	dir = getenv (CONFDIR_ENV);
@@ -918,6 +969,18 @@ handle_logdir (void)
 out:
 	nih_debug ("Using alternate log directory %s",
 			log_dir);
+}
+
+/**
+ * handle_usermode:
+ *
+ * Setup user session mode.
+ **/
+static void
+handle_usermode (void)
+{
+	if (user_mode)
+		use_session_bus = TRUE;
 }
 
 /**  
