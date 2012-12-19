@@ -17,7 +17,10 @@ It emits events which match the pattern ":sys:*". Forwarding any event that's
 triggered on the system upstart as well as a virtual "restarted" event when
 upstart itself is restarted (during upgrades).
 
-See \fBevents\fP(7) and for further details.
+See \fBupstart-events\fP(7) and for further details.
+
+This bridge should be run as a user, after the session bus has been setup and
+only once per session init.
 
 .\"
 .SH OPTIONS
