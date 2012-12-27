@@ -63,3 +63,4 @@ extra/com.ubuntu.Upstart.[ch]
 extra/com.ubuntu.Upstart.Job.[ch]
 extra/upstart-socket-bridge
 extra/upstart-udev-bridge
+extra/upstart-event-bridge
