@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009,2010,2011 Canonical Ltd.
+ * Copyright © 2009,2010,2011,2012 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -86,6 +86,14 @@ static inline int is_conf_file_override(const char *path)
 static inline char *toggle_conf_name   (const void *parent, const char *path)
 	__attribute__ ((warn_unused_result, malloc));
 
+static inline char * conf_to_job_name  (const char *source_path,
+                                        const char *conf_path)
+	__attribute__ ((malloc, warn_unused_result));
+
+static char * conf_get_best_override   (const char *name,
+                                        const ConfSource *last_source)
+	__attribute__ ((malloc, warn_unused_result));
+
 /**
  * conf_sources:
  *
@@ -110,6 +118,8 @@ NihList *conf_sources = NULL;
 static inline int
 is_conf_file_std (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && IS_CONF_EXT_STD (ptr))
@@ -132,6 +142,8 @@ is_conf_file_std (const char *path)
 static inline int
 is_conf_file_override (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && IS_CONF_EXT_OVERRIDE (ptr))
@@ -154,6 +166,8 @@ is_conf_file_override (const char *path)
 static inline int
 is_conf_file (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && (ptr > path) && (ptr[-1] != '/') && IS_CONF_EXT (ptr))
@@ -161,6 +175,97 @@ is_conf_file (const char *path)
 
 	return FALSE;
 }
+
+/**
+ * conf_to_job_name:
+ * @source_path: path to ConfigSource
+ * @conf_path: path to configuration file
+ *
+ * Constructs the job name for a given @conf_path. Removes
+ * @source_path directory name from the front of @conf_path and
+ * extension from then end.
+ *
+ * Returns: newly-allocated name.
+ *
+ **/
+static inline char *
+conf_to_job_name (const char * source_path, const char * conf_path)
+{
+	const char *start, *end;
+	char       *name = NULL;
+	int        source_len;
+
+	nih_assert (source_path != NULL);
+	nih_assert (conf_path != NULL);
+
+	start = conf_path;
+	source_len = strlen (source_path);
+
+	if (! strncmp (start, source_path, source_len))
+		start += source_len;
+
+	while (*start == '/')
+		start++;
+
+	end = strrchr (start, '.');
+	if (end && IS_CONF_EXT (end)) {
+		name = NIH_MUST (nih_strndup (NULL, start, end - start));
+	} else {
+		name = NIH_MUST (nih_strdup (NULL, start));
+	}
+
+	return name;
+}
+
+
+/**
+ * conf_get_best_override:
+ * @conf_file: conf_file object
+ *
+ * Given a @conf_file iterate over all config sources & finds the
+ * first applicable override file. It will not look for override file
+ * beyond the @conf_file's ConfigSource.
+ *
+ * Returns: newly allocated path to override file or NULL.
+ **/
+static char *
+conf_get_best_override (const char *name, const ConfSource *last_source)
+{
+	char         *try_path=NULL;
+	struct stat   statbuf;
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+
+		ConfSource *source = (ConfSource *)iter;
+
+		/* Look at directories only */
+		if (source->type == CONF_FILE)
+			continue;
+
+		/* Reclaim memory */
+		if (try_path)
+			nih_free (try_path);
+
+		/* construct path */
+		try_path = NIH_MUST (nih_sprintf (NULL, "%s/%s%s", source->path, name, CONF_EXT_OVERRIDE));
+
+		/* Found it! */
+		if (lstat (try_path, &statbuf) == 0 && S_ISREG (statbuf.st_mode))
+			return try_path;
+
+		/* Warning, you have reached the end of the conveyor!
+		 * Ignore overrides beyond .conf itself.
+		 */
+		if (source == last_source)
+			break;
+	}
+
+	if (try_path)
+		nih_free (try_path);
+
+	return NULL;
+}
+
 
 /**
  * Convert a configuration file name to an override file name and vice
@@ -670,6 +775,66 @@ conf_dir_filter (ConfSource *source,
 }
 
 /**
+ * conf_load_path_with_override:
+ * @source: configuration source
+ * @conf_path: path to config file
+ *
+ * Loads given @conf_path as a config file in a given @source. Then it
+ * finds an override file. If an override file is found it applies it
+ * as well.
+ **/
+static void
+conf_load_path_with_override (ConfSource *source,
+			      const char *conf_path)
+{
+	int ret=0;
+	const char *error_path=NULL;
+	char *override_path=NULL;
+	nih_local char *job_name=NULL;
+
+	nih_assert (source != NULL);
+	nih_assert (conf_path != NULL);
+
+	/* reload conf file */
+	nih_debug ("Loading configuration file %s", conf_path);
+	ret = conf_reload_path (source, conf_path, NULL);
+	if (ret < 0) {
+		error_path = conf_path;
+		goto error;
+	}
+
+	job_name = conf_to_job_name (source->path, conf_path);
+	override_path = conf_get_best_override (job_name, source);
+	if (! override_path)
+		return;
+
+	/* overlay override settings */
+	nih_debug ("Loading override file %s for %s", conf_path, override_path);
+	ret = conf_reload_path (source, conf_path, override_path);
+	if (ret < 0) {
+		error_path = override_path;
+		goto error;
+	}
+	if (override_path)
+		nih_free (override_path);
+	return;
+
+error:
+	{
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s: %s", error_path,
+			   _("Error while loading configuration file"),
+			   err->message);
+		nih_free (err);
+		if (override_path)
+			nih_free (override_path);
+	}
+}
+
+
+/**
  * conf_create_modify_handler:
  * @source: configuration source,
  * @watch: NihWatch for source,
@@ -693,85 +858,45 @@ conf_create_modify_handler (ConfSource  *source,
 			    struct stat *statbuf)
 {
 	ConfFile *file = NULL;
-	const char *error_path = path;
-	nih_local char *new_path = NULL;
-	int ret;
+	char *config_path = NULL;
+	nih_local char *job_name = NULL;
 
 	nih_assert (source != NULL);
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
-	nih_assert (statbuf != NULL);
 
 	/* note that symbolic links are ignored */
-	if (! S_ISREG (statbuf->st_mode))
+	if (statbuf && ! S_ISREG (statbuf->st_mode))
 		return;
 
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
+	/* ignore non-config file changes */
+	if (! is_conf_file (path))
+		return;
 
-	if (is_conf_file_override (path)) {
-		if (! file) {
-			/* override file has no corresponding conf file */
-			nih_debug ("Ignoring orphan override file %s", path);
-			return;
+        /* For config file, load it and it's override file */
+	if (is_conf_file_std (path)) {
+		conf_load_path_with_override (source, path);
+		return;
+	}
+
+	/* For override files, reload all matching conf+override combos */
+	job_name = conf_to_job_name (source->path, path);
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->type == CONF_FILE)
+			continue;
+
+		config_path = nih_sprintf (NULL, "%s/%s%s", source->path, job_name, CONF_EXT_STD);
+		file = (ConfFile *)nih_hash_lookup (source->files, config_path);
+		if (file) {
+			/* Find its override file and reload both */
+			conf_load_path_with_override (source, config_path);
 		}
-
-		/* reload conf file */
-		nih_debug ("Loading configuration file %s", new_path);
-		ret = conf_reload_path (source, new_path, NULL);
-		if (ret < 0) {
-			error_path = new_path;
-			goto error;
-		}
-
-		/* overlay override settings */
-		nih_debug ("Loading override file %s for %s", path, new_path);
-		ret = conf_reload_path (source, new_path, path);
-		if (ret < 0) {
-			error_path = path;
-			goto error;
-		}
-	} else {
-		nih_debug ("Loading configuration and override files for %s", path);
-
-		/* load conf file */
-		nih_debug ("Loading configuration file %s", path);
-		ret = conf_reload_path (source, path, NULL);
-		if (ret < 0) {
-			error_path = path;
-			goto error;
-		}
-
-		/* ensure we ignore directory changes (which won't have overrides. */
-		if (is_conf_file_std (path)) {
-			struct stat st;
-			if (stat (new_path, &st) == 0) {
-				/* overlay override settings */
-				nih_debug ("Loading override file %s for %s", new_path, path);
-				ret = conf_reload_path (source, path, new_path);
-				if (ret < 0) {
-					error_path = new_path;
-					goto error;
-				}
-			}
-
-		}
+		nih_free (config_path);
 	}
 
 	return;
-
-error:
-	{
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s: %s", error_path,
-				_("Error while loading configuration file"),
-				err->message);
-		nih_free (err);
-		if (file)
-			nih_unref (file, source);
-	}
 }
 
 /**
@@ -823,28 +948,19 @@ conf_delete_handler (ConfSource *source,
 
 	/* non-override files (and directories) are the simple case, so handle
 	 * them and leave.
-	 */ 
+	 */
 	if (! is_conf_file_override (path)) {
 		nih_unref (file, source);
 		return;
 	}
 
-	/* if an override file is deleted for which there is a corresponding
-	 * conf file, reload the conf file to remove any modifications
-	 * introduced by the override file.
+	/* Deleting override file is about the same as changing one.
+	 * We need to iterate across all matching jobs and reload them
+	 * with new "best" override file, if any.
 	 */
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
-
-	if (file) {
-		nih_debug ("Reloading configuration for %s on deletion of overide (%s)",
-				new_path, path);
-
-		if ( conf_reload_path (source, new_path, NULL) < 0 ) {
-			nih_warn ("%s: %s", new_path,
-					_("Unable to reload configuration after override deletion"));
-		}
-	}
+	nih_debug ("Reloading configuration for matching configs on deletion of overide (%s)",
+		   path);
+	conf_create_modify_handler (source, watch, path, NULL);
 }
 
 /**
@@ -867,64 +983,18 @@ conf_file_visitor (ConfSource  *source,
 		   const char  *path,
 		   struct stat *statbuf)
 {
-	ConfFile *file = NULL;
-	nih_local char *new_path = NULL;
-
 	nih_assert (source != NULL);
 	nih_assert (dirname != NULL);
 	nih_assert (path != NULL);
 	nih_assert (statbuf != NULL);
 
-	/* We assume that CONF_EXT_STD files are visited before
-	 * CONF_EXT_OVERRIDE files. Happily, this assumption is currently
-	 * valid since CONF_EXT_STD comes before CONF_EXT_OVERRIDE if ordered
-	 * alphabetically.
-	 *
-	 * If this were ever to change (for example if we decided to
-	 * rename the CONF_EXT_OVERRIDE files to end in ".abc", say), the logic
-	 * in this function would be erroneous since it would never be possible when
-	 * visiting an override file (before a conf file) to lookup a conf file
-	 * in the hash, since the conf file would not yet have been seen and thus would
-	 * not exist in the hash (yet).
-	 */
-	nih_assert (CONF_EXT_STD[1] < CONF_EXT_OVERRIDE[1]);
-
 	if (! S_ISREG (statbuf->st_mode))
 		return 0;
 
-	if (is_conf_file_std (path)) {
-		if (conf_reload_path (source, path, NULL) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error ("%s: %s: %s", path,
-					_("Error while loading configuration file"),
-					err->message);
-			nih_free (err);
-		}
-		return 0;
-	}
-
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
-
-	if (file) {
-		/* we're visiting an override file with an associated conf file that
-		 * has already been loaded, so just overlay the override file. If
-		 * there is no corresponding conf file, we ignore the override file.
-		 */
-		if (conf_reload_path (source, new_path, path) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error ("%s: %s: %s", new_path,
-					_("Error while reloading configuration file"),
-					err->message);
-			nih_free (err);
-		}
-	}
-
-	return 0;
+	if (is_conf_file_std (path))
+		conf_load_path_with_override (source, path);
+	
+	return 0;      
 }
 
 
@@ -957,7 +1027,6 @@ conf_reload_path (ConfSource *source,
 {
 	ConfFile       *file = NULL;
 	nih_local char *buf = NULL;
-	const char     *start, *end;
 	nih_local char *name = NULL;
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
@@ -1014,23 +1083,8 @@ conf_reload_path (ConfSource *source,
 
 		break;
 	case CONF_JOB_DIR:
-		/* Construct the job name by taking the path and removing
-		 * the directory name from the front and the extension
-		 * from the end.
-		 */
-		start = path;
-		if (! strncmp (start, source->path, strlen (source->path)))
-			start += strlen (source->path);
 
-		while (*start == '/')
-			start++;
-
-		end = strrchr (start, '.');
-		if (end && IS_CONF_EXT (end)) {
-			name = NIH_MUST (nih_strndup (NULL, start, end - start));
-		} else {
-			name = NIH_MUST (nih_strdup (NULL, start));
-		}
+		name = conf_to_job_name (source->path, path);
 
 		/* Create a new job item and parse the buffer to produce
 		 * the job definition.
@@ -1388,4 +1442,3 @@ debug_show_conf_sources (void)
 }
 
 #endif /* DEBUG */
-
