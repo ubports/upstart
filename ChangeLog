@@ -1,3 +1,11 @@
+2013-01-04  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/conf.c: add ability to apply override files from higher
+	  priority configuration sources.
+	* init/tests/test_conf.c: test that multiple override files are
+	  correctly applied and removed.
+	* init/tests/test_conf_static.c: test override file detection.
+
 2012-12-17  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Document that User Jobs are not supported
