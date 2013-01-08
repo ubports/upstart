@@ -126,6 +126,9 @@ int show_config_action            (NihCommand *command, char * const *args);
 int check_config_action           (NihCommand *command, char * const *args);
 int usage_action                  (NihCommand *command, char * const *args);
 int notify_disk_writeable_action  (NihCommand *command, char * const *args);
+int get_env_action                (NihCommand *command, char * const *args);
+int set_env_action                (NihCommand *command, char * const *args);
+int list_env_action               (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -175,6 +178,15 @@ int no_wait = FALSE;
  * between jobs and events.
  **/
 int enumerate_events = FALSE;
+
+/**
+ * retain_var:
+ *
+ * If FALSE, the set-env command will replace any existing variable of
+ * the same name in the job environment table. If TRUE, the original
+ * value will be retained.
+ **/
+int retain_var = FALSE;
 
 /**
  * check_config_mode:
@@ -1305,6 +1317,157 @@ show_config_action (NihCommand *  command,
 			}
 		}
 	}
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * get_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "get-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+get_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	nih_local char          *envvar = NULL;
+	NihError                *err;
+	char                    *name;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	name = args[0];
+
+	if (! name) {
+		fprintf (stderr, _("%s: missing variable name\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_get_env_sync (NULL, upstart, name, &envvar) < 0)
+		goto error;
+
+	nih_message ("%s", envvar);
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * set_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "set-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+set_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	char                    *envvar;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	envvar = args[0];
+
+	if (! envvar) {
+		fprintf (stderr, _("%s: missing variable value\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_set_env_sync (NULL, upstart, envvar, ! retain_var) < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+
+/**
+ * list_env_strcmp_compar:
+ *
+ * Function to sort environment variables for list_env_action().
+ **/
+static int
+list_env_strcmp_compar (const void *a, const void *b) 
+{
+	        return strcasecmp (*(char * const *)a, *(char * const *)b);
+}
+
+/**
+ * list_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "list-env" command.
+ *
+ * Output is in case-insensitive lexicographically sorted order.
+ *
+ * Returns: command exit status.
+ **/
+int
+list_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	nih_local char         **env = NULL;
+	char                   **e;
+	NihError                *err;
+	size_t                   len;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_list_env_sync (NULL, upstart, &env) < 0)
+		goto error;
+
+	/* Determine array size */
+	for (len = 0; env[len]; len++)
+		;
+
+	qsort (env, len, sizeof (env[0]), list_env_strcmp_compar);
+
+	for (e = env; e && *e; e++)
+		nih_message ("%s", *e);
 
 	return 0;
 
@@ -2492,6 +2655,17 @@ NihOption check_config_options[] = {
 };
 
 /**
+ * set_env_options:
+ *
+ * Command-line options accepted for the set-env command.
+ **/
+NihOption set_env_options[] = {
+	{ 'r', "retain", N_("do not replace the value of the variable if already set"),
+	  NULL, NULL, &retain_var, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
  * usage_options:
  *
  * Command-line options accepted for the usage command.
@@ -2619,6 +2793,21 @@ static NihCommand commands[] = {
 	  N_("List all jobs and events which cannot be satisfied by "
 	     "currently available job configuration files"),
 	  NULL, check_config_options, check_config_action },
+
+	{ "get-env", N_("VARIABLE"),
+	  N_("Get job environment variable"),
+	  N_("Display the value of a job environment variable"),
+	  NULL, NULL, get_env_action },
+
+	{ "list-env", NULL,
+	  N_("List all job environment variables"),
+	  N_("Returns unsorted list of job environment variables and values"),
+	  NULL, NULL, list_env_action },
+
+	{ "set-env", N_("VARIABLE[=VALUE]"),
+	  N_("Set job environment variable"),
+	  N_("Set a job environment variable"),
+	  NULL, set_env_options, set_env_action },
 
 	{ "usage",  N_("JOB"),
 	  N_("Show job usage message if available."),

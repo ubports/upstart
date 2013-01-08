@@ -1309,8 +1309,8 @@ error:
  * Implements the ListEnv method of the com.ubuntu.Upstart
  * interface.
  *
- * Called to obtain an array of all environment variables that will be
- * set in a jobs environment.
+ * Called to obtain an unsorted array of all environment variables
+ * that will be set in a jobs environment.
  *
  * Returns: zero on success, negative value on raised error.
  **/
