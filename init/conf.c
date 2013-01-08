@@ -209,7 +209,7 @@ conf_to_job_name (const char * source_path, const char * conf_path)
 
 	end = strrchr (start, '.');
 	if (end && IS_CONF_EXT (end))
-		name = NIH_MUST (nih_strndup (NULL, start, end - start))
+		name = NIH_MUST (nih_strndup (NULL, start, end - start));
 	else
 		name = NIH_MUST (nih_strdup (NULL, start));
 
