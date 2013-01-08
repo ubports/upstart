@@ -226,12 +226,21 @@ typedef struct job_class {
 NIH_BEGIN_EXTERN
 
 extern NihHash  *job_classes;
-extern char    **job_environ;
-
 
 void        job_class_init                 (void);
 
 void        job_class_environment_init     (void);
+
+void        job_class_environment_reset    (void);
+
+int         job_class_environment_set      (const char *var, int replace);
+int         job_class_environment_unset    (const char *name);
+
+char **     job_class_environment_get_all  (const void *parent)
+	__attribute__ ((warn_unused_result, malloc));
+
+const char *job_class_environment_get      (const char *name)
+	__attribute__ ((warn_unused_result));
 
 JobClass  * job_class_new                  (const void *parent,
 					    const char *name,
@@ -346,9 +355,6 @@ JobClass * job_class_get (const char *name, Session *session)
 	__attribute__ ((warn_unused_result));
 
 void job_class_prepare_reexec (void);
-
-char ** job_class_environment_get (const void *parent)
-	__attribute__ ((warn_unused_result, malloc));
 
 NIH_END_EXTERN
 

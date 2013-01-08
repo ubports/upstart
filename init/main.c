@@ -640,6 +640,7 @@ main (int   argc,
 		nih_debug ("Sessions disabled");
 
 	job_class_environment_init ();
+
 	/* Set us as the child subreaper.
 	 * This ensures that even when init doesn't run as PID 1, it'll always be
 	 * the ultimate parent of everything it spawns. */

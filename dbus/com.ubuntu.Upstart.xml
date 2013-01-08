@@ -52,9 +52,15 @@
       <arg name="replace" type="b" direction="in" />
     </method>
 
+    <method name="UnsetEnv">
+      <arg name="name" type="s" direction="in" />
+    </method>
+
     <method name="ListEnv">
       <arg name="env" type="as" direction="out" />
     </method>
+
+    <method name="ResetEnv"/>
 
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">

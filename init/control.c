@@ -1126,13 +1126,12 @@ control_notify_restarted (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_set_env (void           *data,
-		 NihDBusMessage *message,
-		 const char     *var,
-		 int             replace)
+control_set_env (void            *data,
+		 NihDBusMessage  *message,
+		 const char      *var,
+		 int              replace)
 {
 	Session   *session;
-	char     **ret;
 	uid_t      uid;
 
 	nih_assert (message != NULL);
@@ -1162,14 +1161,72 @@ control_set_env (void           *data,
 		return -1;
 	}
 
-	job_class_environment_init ();
-
-	ret = environ_add (&job_environ, NULL, NULL, replace, var);
-
-	if (! ret)
+	if (job_class_environment_set (var, replace) < 0)
 		nih_return_no_memory_error (-1);
 
 	return 0;
+}
+
+/**
+ * control_unset_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @name: variable to clear from the job environment array.
+ *
+ * Implements the UnsetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart remove a particular variable from the job
+ * environment array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_unset_env (void           *data,
+		   NihDBusMessage *message,
+		   const char     *name)
+{
+	Session     *session;
+	uid_t        uid;
+
+	nih_assert (message != NULL);
+	nih_assert (name);
+
+	uid = getuid ();
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring unset env request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from changing Upstarts environment, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify the init environment"));
+		return -1;
+	}
+
+	if (job_class_environment_unset (name) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+			"%s: %s",
+			_("No such variable"), name);
+	return -1;
 }
 
 /**
@@ -1194,8 +1251,8 @@ control_get_env (void             *data,
 		 char            **value)
 {
 	Session     *session;
-	const char  *tmp;
 	uid_t        uid;
+	const char  *tmp;
 
 	nih_assert (message != NULL);
 	nih_assert (name);
@@ -1225,9 +1282,7 @@ control_get_env (void             *data,
 		return -1;
 	}
 
-	job_class_environment_init ();
-
-	tmp = environ_get (job_environ, name);
+	tmp = job_class_environment_get (name);
 	if (! tmp)
 		goto error;
 
@@ -1260,9 +1315,9 @@ error:
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_list_env (void            *data,
-		 NihDBusMessage   *message,
-		 char           ***env)
+control_list_env (void             *data,
+		 NihDBusMessage    *message,
+		 char            ***env)
 {
 	Session     *session;
 	uid_t        uid;
@@ -1286,11 +1341,61 @@ control_list_env (void            *data,
 		return -1;
 	}
 
-	job_class_environment_init ();
-
-	*env = job_class_environment_get (message);
+	*env = job_class_environment_get_all (message);
 	if (! *env)
 		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_reset_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the ResetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to reset the environment all subsequent jobs will run in to
+ * the default minimal environment.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_reset_env (void           *data,
+		 NihDBusMessage   *message)
+{
+	Session     *session;
+	uid_t        uid;
+
+	nih_assert (message != NULL);
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	uid = getuid ();
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring reset env request from chroot session"));
+		return 0;
+	}
+
+	/* Disallow users from modifying Upstarts environment, unless they happen to
+	 * own this process (which they may do in the test scenario and
+	 * when running Upstart as a non-privileged user).
+	 */
+	if (session && session->user != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to reset the init environment"));
+		return -1;
+	}
+
+	job_class_environment_reset ();
 
 	return 0;
 }

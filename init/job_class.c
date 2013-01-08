@@ -91,7 +91,7 @@ NihHash *job_classes = NULL;
  * Array of environment variables that will be set in the jobs
  * environment.
  **/
-char **job_environ = NULL;
+static char **job_environ = NULL;
 
 /**
  * job_class_init:
@@ -122,25 +122,106 @@ job_class_environment_init (void)
 }
 
 /**
- * job_class_environment_get:
+ * job_class_environment_reset:
  *
- * Obtain a copy of the environment a job will be provided with.
- *
- * Returns: Newly-allocated copy of the job environment array, or NULL
- * on error.
+ * Reset the environment back to defaults.
  **/
-char **
-job_class_environment_get (const void *parent)
+void
+job_class_environment_reset (void)
 {
-	char   **env = NULL;
+	if (job_environ)
+		nih_free (job_environ);
+
+	job_environ = NULL;
+
+	job_class_environment_init ();
+}
+
+/**
+ * job_class_environment_set:
+ *
+ * @var: name[/value] pair of environment variable to set,
+ * @replace: TRUE if @name should be overwritten if already set, else
+ *  FALSE.
+ *
+ * Set specified variable in job environment.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_environment_set (const char *var, int replace)
+{
+	nih_assert (var);
 
 	job_class_environment_init ();
 
-	env = nih_str_array_copy (parent, NULL, job_environ);
-	if (! env)
-		return NULL;
+	if (! environ_add (&job_environ, NULL, NULL, replace, var))
+		return -1;
 
-	return env;
+	return 0;
+}
+
+/**
+ * job_class_environment_unset:
+ *
+ * @var: name of environment variable to unset.
+ *
+ * Remove specified variable from job environment array.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_environment_unset (const char *name)
+{
+	nih_assert (name);
+
+	job_class_environment_init ();
+
+	if (! environ_remove (&job_environ, NULL, NULL, name))
+		return -1;
+
+	return 0;
+}
+
+/**
+ * job_class_environment_get_all:
+ *
+ * @parent: parent for new environment array.
+ *
+ * Obtain a copy of the entire environment a job will be provided with.
+ *
+ * Returns: Newly-allocated copy of the job environment array,
+ * or NULL on error.
+ **/
+char **
+job_class_environment_get_all (const void *parent)
+{
+	job_class_environment_init ();
+
+	return nih_str_array_copy (parent, NULL, job_environ);
+}
+
+/**
+ * job_class_environment_get:
+ *
+ * @name: name of variable to query.
+ *
+ * Determine value of variable @name in job environment.
+ *
+ * XXX: The returned value must not be freed.
+ *
+ * Returns: pointer to static storage value of @name, or NULL if @name
+ * does not exist in job environment.
+ *
+ **/
+const char *
+job_class_environment_get (const char *name)
+{
+	nih_assert (name);
+
+	job_class_environment_init ();
+
+	return environ_get (job_environ, name);
 }
 
 /**
