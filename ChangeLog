@@ -1,3 +1,30 @@
+2013-01-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml:
+	  - Added UnsetEnv and ResetEnv methods.
+	* init/control.c:
+	  - control_set_env(): Now uses job_class_environment_set() rather than
+	    directly manipulating job_environ array.
+	  - control_unset_env(): New function.
+	  - control_get_env(): Now calls job_class_environment_get().
+	  - control_list_env(): Now calls job_class_environment_get_all().
+	    Comments.
+	  - control_reset_env(): New function.
+	* init/environ.c:
+	  - environ_remove(): New function.
+	* init/job_class.c:
+	  - job_environ now static.
+	  - job_class_environment_reset(): New function.
+	  - job_class_environment_set(): New function.
+	  - job_class_environment_unset(): New function.
+	  - job_class_environment_get(): Simplified.
+	  - job_class_environment_get_all(): New function.
+	* util/initctl.c:
+	  - Added following new commands:
+	    - 'get-env'
+	    - 'set-env'
+	    - 'list-env'
+
 2013-01-04  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/conf.c: add ability to apply override files from higher
@@ -6,10 +33,33 @@
 	  correctly applied and removed.
 	* init/tests/test_conf_static.c: test override file detection.
 
+2012-12-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml: Added ListEnv method.
+	* init/control.c:
+	  - Fixed comments.
+	  - control_list_end(): New function.
+	* init/control.h:
+	  - Added missing prototypes for control_set_env() and
+	    control_get_env().
+	  - Added control_list_env().
+	* init/job_class.c:
+	  - job_class_environment_get(): New function.
+	* init/job_class.h: Added job_class_environment_get().
+
 2012-12-17  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Document that User Jobs are not supported
 	  within a chroot environment.
+	* dbus/com.ubuntu.Upstart.xml: Added "GetEnv" and "SetEnv" methods.
+	* init/control.c:
+	  - control_set_env(): Implementation of "SetEnv" D-Bus method.
+	  - control_get_env(): Implementation of "GetEnv" D-Bus method.
+	* init/job_class.c:
+	  - Added job_environ environment table.
+	  - job_class_environ_init(): Initialise job_environ.
+	  - job_class_environment: Use job_environ.
+	* init/main.c: main(): Call job_class_environ_init().
 
 2012-12-14  Steve Langasek  <steve.langasek@ubuntu.com>
 	* init/job_class.[ch]: instead of assuming a fixed value (0) as the
