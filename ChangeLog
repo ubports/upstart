@@ -1,3 +1,11 @@
+01-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5:
+	  - Overhauled 'Job environment' section.
+	* util/initctl.c:
+	  - Added 'unset-env' and 'reset-env' commands.
+	  - Added missing periods in usage text.
+
 2013-01-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* dbus/com.ubuntu.Upstart.xml:

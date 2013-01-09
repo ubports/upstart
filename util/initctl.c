@@ -129,6 +129,8 @@ int notify_disk_writeable_action  (NihCommand *command, char * const *args);
 int get_env_action                (NihCommand *command, char * const *args);
 int set_env_action                (NihCommand *command, char * const *args);
 int list_env_action               (NihCommand *command, char * const *args);
+int unset_env_action              (NihCommand *command, char * const *args);
+int reset_env_action              (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -1420,9 +1422,89 @@ error:
 
 
 /**
+ * unset_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "unset-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+unset_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	char                    *name;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	name = args[0];
+
+	if (! name) {
+		fprintf (stderr, _("%s: missing variable name\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_unset_env_sync (NULL, upstart, name) < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * reset_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "reset-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+reset_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_reset_env_sync (NULL, upstart) < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
  * list_env_strcmp_compar:
  *
- * Function to sort environment variables for list_env_action().
+ * @a: first string to compare,
+ * @b: second string to compare.
+ *
+ * qsort() function to sort environment variables for list_env_action().
  **/
 static int
 list_env_strcmp_compar (const void *a, const void *b) 
@@ -2764,7 +2846,7 @@ static NihCommand commands[] = {
 	  NULL, version_options, version_action },
 	{ "log-priority", N_("[PRIORITY]"),
 	  N_("Change the minimum priority of log messages from the init "
-	     "daemon"),
+	     "daemon."),
 	  N_("PRIORITY may be one of:\n"
 	     "  `debug' (messages useful for debugging upstart are logged, "
 	     "equivalent to --debug on kernel command-line);\n"
@@ -2791,23 +2873,33 @@ static NihCommand commands[] = {
 	{ "check-config", N_("[CONF]"),
 	  N_("Check for unreachable jobs/event conditions."),
 	  N_("List all jobs and events which cannot be satisfied by "
-	     "currently available job configuration files"),
+	     "currently available job configuration files."),
 	  NULL, check_config_options, check_config_action },
 
 	{ "get-env", N_("VARIABLE"),
-	  N_("Get job environment variable"),
-	  N_("Display the value of a job environment variable"),
+	  N_("Retrieve value of a job environment variable."),
+	  N_("Display the value of a variable from the job environment table."),
 	  NULL, NULL, get_env_action },
 
 	{ "list-env", NULL,
-	  N_("List all job environment variables"),
-	  N_("Returns unsorted list of job environment variables and values"),
+	  N_("Show all job environment variables."),
+	  N_("Displays sorted list of variables and their values from the job environment table."),
 	  NULL, NULL, list_env_action },
 
+	{ "reset-env", N_("VARIABLE"),
+	  N_("Revert all job environment variable changes."),
+	  N_("Discards all changes make to the job environment table, setting it back to its default value."),
+	  NULL, NULL, reset_env_action },
+
 	{ "set-env", N_("VARIABLE[=VALUE]"),
-	  N_("Set job environment variable"),
-	  N_("Set a job environment variable"),
+	  N_("Set a job environment variable."),
+	  N_("Adds or updates a variable in the job environment table."),
 	  NULL, set_env_options, set_env_action },
+
+	{ "unset-env", N_("VARIABLE"),
+	  N_("Remove a job environment variable."),
+	  N_("Discards the specified variable from the job environment table."),
+	  NULL, NULL, unset_env_action },
 
 	{ "usage",  N_("JOB"),
 	  N_("Show job usage message if available."),
@@ -2817,7 +2909,7 @@ static NihCommand commands[] = {
 	{ "notify-disk-writeable", NULL,
 	  N_("Inform Upstart that disk is now writeable."),
 	  N_("Run to ensure output from jobs ending before "
-			  "disk is writeable are flushed to disk"),
+			  "disk is writeable are flushed to disk."),
 	  NULL, NULL, notify_disk_writeable_action },
 
 	NIH_COMMAND_LAST

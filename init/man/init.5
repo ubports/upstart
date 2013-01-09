@@ -415,26 +415,17 @@ automatically started.  When specified, the only way to start such a job
 is via \fBstart\fP (8).
 
 .SS Job environment
-Each job is run with the environment from the events or commands that
-started it.  In addition, you may define defaults in the job which may
-be overridden later and specify which environment variables are exported
-into the events generated for the job.
-
-The special
-.B UPSTART_EVENTS
-environment variable contains the list of events that started the job,
-it will not be present if the job was started manually.
-
-In addition, the
-.B pre\-stop
-and
-.B post\-stop
-scripts are run with the environment of the events or commands that
-stopped the job.  The
-.B UPSTART_STOP_EVENTS
-environment variable contains the list of events that stopped the job,
-it will not be present if the job was stopped manually.
-
+Each job is run with an environment constructed from the
+following categories:
+.\"
+.IP \(bu 4
+A minimal set of standard system variables added by Upstart.
+.sp 1
+All jobs contain the \fBTERM\fP and \fBPATH\fP variables.
+.\"
+.IP \(bu 4
+A set of special variables added by Upstart that relate to the job itself.
+.sp 1
 All jobs also contain the
 .B UPSTART_JOB
 and
@@ -443,7 +434,36 @@ environment variables, containing the name of the job and instance.  These
 are mostly used by the
 .BR initctl (8)
 utility to default to acting on the job the commands are called from.
+.\"
+.IP \(bu 4
+Those variables introduced by the events or command that started the
+job.
+.sp 1
+The special
+.B UPSTART_EVENTS
+environment variable contains the list of events that started the job,
+it will not be present if the job was started manually.
 
+The
+.B pre\-stop
+and
+.B post\-stop
+scripts are run with the environment of the events or commands that
+stopped the job.  The
+.B UPSTART_STOP_EVENTS
+environment variable contains the list of events that stopped the job,
+it will not be present if the job was stopped manually.
+.\"
+.IP \(bu 4
+Variables set within the job itself using the
+.B env
+and
+.B export
+stanzas. These provide default values - if the command or event which causes the
+job to start specifies alternative values, those are given priority over
+the defaults.
+.RS
+.\"
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overridden
@@ -466,6 +486,15 @@ events for this job
 and to all resultant events
 .ft
 (not just those relating to the current job).
+.RE
+.\"
+.IP \(bu 4
+Variables set using the 
+.BR initctl (8)
+job environment commands (such as \fIset-env\fP).
+.sp 1
+These commands also allow unsetting of variables.
+
 .\"
 .SS Services, tasks and respawning
 Jobs are
