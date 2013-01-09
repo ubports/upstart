@@ -548,21 +548,62 @@ written successfully to disk, the internal cache is deleted.
 .RE
 .\"
 .TP
+.B get-env
+.I VARIABLE
+
+Query the value of the specified variable in the job environment table.
+.\"
+.TP
+.B set-env
+.RI [ OPTIONS "] " VARIABLE[=VALUE]
+
+Adds or updates a variable in the job environment table. Variables set
+in this way will apply to all subsequently-starting jobs.
+
+.B OPTIONS
+.RS
+.IP "\fB\-r\fP, \fB\-\-retain\fP"
+
+If the specified variable is already set, do not modify it.
+.RE
+.\"
+.TP
+.B unset-env
+.I VARIABLE
+
+Remove the specified variable from the job environment table. If the
+variable does not already exist in the table, no change will be made.
+.\"
+.TP
+.B list-env
+
+Display a lexicographically sorted list of all variables and their
+values in the job environment table.
+.\"
+.TP
+.B reset-env
+
+Discards all changes make to the job environment table, setting it back
+to its default set of variables and values.
+.\"
+.TP
 .B usage
 .I JOB
 .RI [ KEY=VALUE ]...
 
-Show usage information an instance of the named
-.IR JOB
-defined with
+Show usage information for the named
+.IR JOB "."
+If the job specified does not define the
 .BR usage
-stanza.
+stanza, a blank usage will be displayed.
 
-For job with
+Example output for a job that specifies the
 .BR usage
-stanza a line like the following is output, see
+stanza is shown below. See
 .BR init (5)
-:
+for further details of the
+.B usage
+stanza:
 
 .nf
   Usage: tty DEV=ttyX - where X is console id
@@ -585,6 +626,7 @@ This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
+.BR init (5)
 .BR init (8)
 .BR telinit (8)
 .BR shutdown (8)

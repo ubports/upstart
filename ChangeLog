@@ -1,10 +1,20 @@
-01-09  James Hunt  <james.hunt@ubuntu.com>
+2013-01-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5:
 	  - Overhauled 'Job environment' section.
 	* util/initctl.c:
 	  - Added 'unset-env' and 'reset-env' commands.
 	  - Added missing periods in usage text.
+	  - list_env_qsort_compar(): Renamed from list_env_strcmp_compar(). Now
+	    uses strcoll(3) for locale-awareness.
+	* init/job_class.c:
+	  - job_class_environment_set():
+	    - Comments.
+	    - Handle scenario where user specifies a variable without an equals.
+	* util/man/initctl.8:
+	  - Added details for 'get-env', 'set-env', 'unset-env', 'list-env' and
+	    'reset-env'.
+	  - Tidied up 'usage' stanza section.
 
 2013-01-08  James Hunt  <james.hunt@ubuntu.com>
 

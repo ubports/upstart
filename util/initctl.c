@@ -1499,7 +1499,7 @@ error:
 }
 
 /**
- * list_env_strcmp_compar:
+ * list_env_qsort_compar:
  *
  * @a: first string to compare,
  * @b: second string to compare.
@@ -1507,9 +1507,9 @@ error:
  * qsort() function to sort environment variables for list_env_action().
  **/
 static int
-list_env_strcmp_compar (const void *a, const void *b) 
+list_env_qsort_compar (const void *a, const void *b) 
 {
-	        return strcasecmp (*(char * const *)a, *(char * const *)b);
+	        return strcoll (*(char * const *)a, *(char * const *)b);
 }
 
 /**
@@ -1519,7 +1519,7 @@ list_env_strcmp_compar (const void *a, const void *b)
  *
  * This function is called for the "list-env" command.
  *
- * Output is in case-insensitive lexicographically sorted order.
+ * Output is in lexicographically sorted order.
  *
  * Returns: command exit status.
  **/
@@ -1546,7 +1546,7 @@ list_env_action (NihCommand *command, char * const *args)
 	for (len = 0; env[len]; len++)
 		;
 
-	qsort (env, len, sizeof (env[0]), list_env_strcmp_compar);
+	qsort (env, len, sizeof (env[0]), list_env_qsort_compar);
 
 	for (e = env; e && *e; e++)
 		nih_message ("%s", *e);

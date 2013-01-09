@@ -140,7 +140,7 @@ job_class_environment_reset (void)
 /**
  * job_class_environment_set:
  *
- * @var: name[/value] pair of environment variable to set,
+ * @var: environment variable to set in form 'name[=value]',
  * @replace: TRUE if @name should be overwritten if already set, else
  *  FALSE.
  *
@@ -151,11 +151,25 @@ job_class_environment_reset (void)
 int
 job_class_environment_set (const char *var, int replace)
 {
+	nih_local char *envvar = NULL;
+
 	nih_assert (var);
 
 	job_class_environment_init ();
 
-	if (! environ_add (&job_environ, NULL, NULL, replace, var))
+	/* If variable does not contain a delimiter, add one to ensure
+	 * it gets entered into the job environment table. Without the
+	 * delimiter, the variable will be silently ignored unless it's
+	 * already set in inits environment. But in that case there is
+	 * no point in setting such a variable to its already existing
+	 * value.
+	 */
+	if (! strchr (var, '='))
+		envvar = NIH_MUST (nih_sprintf (NULL, "%s=", var));
+	else
+		envvar = NIH_MUST (nih_strdup (NULL, var));
+
+	if (! environ_add (&job_environ, NULL, NULL, replace, envvar))
 		return -1;
 
 	return 0;
