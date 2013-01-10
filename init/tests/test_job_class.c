@@ -969,6 +969,11 @@ test_environment (void)
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
 
+	/* necessary to call this initially to avoid disrupting
+	 * TEST_ALLOC_FAIL()'s bookkeeping.
+	 */
+	job_class_environment_init ();
+
 	TEST_ALLOC_FAIL {
 		env = job_class_environment (NULL, class, &len);
 

@@ -1,3 +1,17 @@
+2013-01-10  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Define job environment table.
+	* init/tests/test_job_class.c(): test_environment(): Added call
+	  to job_class_environment_init() which is now required to avoid
+	  confusing TEST_ALLOC_FAIL().
+	* util/man/initctl.8:
+	  - Further details in list-env section.
+	  - Escape dashes in command names.
+	* util/tests/test_initctl.c:
+	  - New utility macros: _WAIT_FOR_FILE(), WAIT_FOR_FILE()
+	    and TEST_STR_MATCH().
+	  - Initial tests for testing job environment table commands.
+
 2013-01-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5:

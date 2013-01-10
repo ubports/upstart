@@ -421,7 +421,18 @@ following categories:
 .IP \(bu 4
 A minimal set of standard system variables added by Upstart.
 .sp 1
-All jobs contain the \fBTERM\fP and \fBPATH\fP variables.
+All jobs contain the
+.B TERM
+and
+.B PATH
+variables.
+.\"
+.IP \(bu 4
+Variables set using the 
+.BR initctl (8)
+job environment commands (such as \fIset-env\fP).
+.sp 1
+These commands also allow unsetting of variables.
 .\"
 .IP \(bu 4
 A set of special variables added by Upstart that relate to the job itself.
@@ -487,14 +498,11 @@ and to all resultant events
 .ft
 (not just those relating to the current job).
 .RE
-.\"
-.IP \(bu 4
-Variables set using the 
-.BR initctl (8)
-job environment commands (such as \fIset-env\fP).
-.sp 1
-These commands also allow unsetting of variables.
 
+The first two categories above comprise the
+.I job environment table
+which is applied to all jobs. Note that changing the job environment
+table will only affect newly-started jobs.
 .\"
 .SS Services, tasks and respawning
 Jobs are

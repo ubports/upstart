@@ -21,6 +21,7 @@
  */
 
 #include <nih/test.h>
+#include <nih/file.h>
 #include <nih-dbus/test_dbus.h>
 
 #include <dbus/dbus.h>
@@ -308,6 +309,71 @@
                                                                      \
 	TEST_EQ (unlink (filename), 0);                              \
 }
+
+/**
+ * _WAIT_FOR_FILE():
+ *
+ * @path: full path to file to look for,
+ * @sleep_secs: number of seconds to sleep per loop,
+ * @loops: number of times to check for file.
+ *
+ * Wait for a reasonable period of time for @path to be created.
+ *
+ * Abort if file does not appear within (sleep_secs * loops) seconds.
+ *
+ * XXX:WARNING: this is intrinsically racy since although the file has
+ * been _created_, it has not necessarily been fully written at the
+ * point this macro signifies success. For that we need inotify or
+ * similar.
+ **/
+#define _WAIT_FOR_FILE(path, sleep_secs, loops)                      \
+{                                                                    \
+	int              ok;                                         \
+	struct stat      statbuf;                                    \
+                                                                     \
+	assert (path[0]);                                            \
+                                                                     \
+	/* Wait for log to be created */                             \
+	ok = FALSE;                                                  \
+	for (int i = 0; i < loops; i++) {                            \
+		sleep (sleep_secs);                                  \
+		if (! stat (logfile, &statbuf)) {                    \
+			ok = TRUE;                                   \
+			break;                                       \
+		}                                                    \
+	}                                                            \
+	TEST_EQ (ok, TRUE);                                          \
+}
+
+/**
+ * WAIT_FOR_FILE():
+ *
+ * @path: full path to file to look for.
+ *
+ * Wait for a "reasonable period of time" for @path to be created.
+ *
+ * Abort if file does not appear within.
+ **/
+#define WAIT_FOR_FILE(path)                                         \
+        _WAIT_FOR_FILE (path, 1, 5)
+
+/**
+ * TEST_STR_MATCH:
+ * @_string: string to check,
+ * @_pattern: pattern to expect.
+ *
+ * Check that @_string matches the glob pattern @_pattern, which
+ * should include the terminating newline if one is expected.
+ *
+ * Notes: Analagous to TEST_FILE_MATCH().
+ **/
+#define TEST_STR_MATCH(_string, _pattern)                            \
+	do {                                                         \
+		if (fnmatch ((_pattern), _string, 0))		     \
+			TEST_FAILED ("wrong string value, "          \
+					"expected '%s' got '%s'",    \
+			     (_pattern), _string);                   \
+	} while (0)
 
 /**
  * job_to_pid:
@@ -15050,6 +15116,282 @@ test_usage (void)
 	TEST_DBUS_END (dbus_pid);
 }
 
+void
+test_default_job_env (const char *confdir, const char *logdir,
+		      pid_t upstart_pid, pid_t dbus_pid)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	nih_local char  *logfile = NULL;
+	size_t           line_count;
+	FILE            *fi;
+
+	assert (confdir);
+	assert (logdir);
+	assert (upstart_pid);
+	assert (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure list-env returns default environment");
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_STR_MATCH (output[0], "PATH=*");
+	TEST_STR_MATCH (output[1], "TERM=*");
+	TEST_EQ (line_count, 2);
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure get-env returns expected TERM variable");
+
+	cmd = nih_sprintf (NULL, "%s get-env TERM 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	/* don't check the actual value (in case user has changed it from
+	 * default value when compiling), just see if it matches a
+	 * reasonable pattern.
+	 */
+	TEST_EQ_STR (output[0], getenv ("TERM"));
+	TEST_EQ (line_count, 1);
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure get-env returns expected PATH variable");
+
+	cmd = nih_sprintf (NULL, "%s get-env PATH 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	/* don't check the actual value (in case user has changed it from
+	 * default value when compiling), just see if it matches a
+	 * reasonable pattern.
+	 */
+	TEST_STR_MATCH (output[0], "[a-zA-Z/:][a-zA-Z0-9/:]*");
+	TEST_EQ (line_count, 1);
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure job gets given default environment");
+
+	CREATE_FILE (confdir, "foo.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s start foo 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	fi = fopen (logfile, "r");
+	TEST_NE_P (fi, NULL);
+	TEST_FILE_MATCH (fi, "PATH=*");
+	TEST_FILE_MATCH (fi, "TERM=*");
+
+	/* asterisk required to match '\r\n' */
+	TEST_FILE_MATCH (fi, "UPSTART_JOB=foo*");
+	TEST_FILE_MATCH (fi, "UPSTART_INSTANCE=*");
+	TEST_FILE_END (fi);
+	fclose (fi);
+
+
+	DELETE_FILE (confdir, "foo.conf");
+	TEST_EQ (unlink (logfile), 0);
+
+	/*******************************************************************/
+}
+
+/**
+ * Clear the job process table, then reset it back to defaults.
+ **/
+void
+test_clear_job_env (const char *confdir, const char *logdir,
+		      pid_t upstart_pid, pid_t dbus_pid)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	nih_local char  *logfile = NULL;
+	size_t           line_count;
+	size_t           i;
+	FILE            *fi;
+
+	assert (confdir);
+	assert (logdir);
+	assert (upstart_pid);
+	assert (dbus_pid);
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_GT (line_count, 0);
+
+	/* Remove all variables from the job environment table */
+	for (i = 0; i < line_count; i++) {
+		char    **output2;
+		size_t    line_count2;
+		char      *p;
+		nih_local char *name = NULL;
+
+		/* Every variable is expected to be returned with a
+		 * delimiter, even if one was not specified when
+		 * variable was set.
+		 */
+		p = strchr (output[i], '=');
+		TEST_NE_P (p, NULL);
+
+		name = NIH_MUST (nih_strdup (NULL, ""));
+		TEST_TRUE (nih_strncat (&name, NULL, output[i], p - output[i]));
+
+		/* Clear the variable */
+		cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+		TEST_NE_P (cmd, NULL);
+		RUN_COMMAND (NULL, cmd, &output2, &line_count2);
+		TEST_EQ (line_count2, 0);
+	}
+
+	nih_free (output);
+
+	/* No variables should remain */
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	assert0 (line_count);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure job runs in empty environment");
+
+	/* we have to cheat by setting PATH to allow 'env' to be found.
+	 * Add a silly entry at the end so we can check our version has
+	 * been set.
+	 */
+	CREATE_FILE (confdir, "empty-env.conf",
+			"env PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin:/wibble\n"
+			"exec env");
+
+	cmd = nih_sprintf (NULL, "%s start empty-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"empty-env.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	fi = fopen (logfile, "r");
+	TEST_NE_P (fi, NULL);
+
+	/* Ensure it looks like our PATH */
+	TEST_FILE_MATCH (fi, "PATH=*/wibble*");
+
+	/* Although the environment is empty (except for PATH now), we
+	 * still expect the special variables to be set.
+	 */
+	TEST_FILE_MATCH (fi, "UPSTART_JOB=empty-env*");
+	TEST_FILE_MATCH (fi, "UPSTART_INSTANCE=*");
+	TEST_FILE_END (fi);
+	fclose (fi);
+
+	DELETE_FILE (confdir, "empty-env.conf");
+	TEST_EQ (unlink (logfile), 0);
+
+	/* reset environment */
+	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	assert0 (line_count);
+
+	/* re-check */
+	test_default_job_env (confdir, logdir, upstart_pid, dbus_pid);
+	/*******************************************************************/
+}
+
+void
+test_modified_job_env (const char *confdir, const char *logdir,
+		pid_t upstart_pid, pid_t dbus_pid)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	size_t           line_count;
+
+	assert (confdir);
+	assert (logdir);
+	assert (upstart_pid);
+	assert (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("call reset-env with default environment");
+
+	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	/* Ensure nothing changed */
+	test_default_job_env (confdir, logdir, upstart_pid, dbus_pid);
+
+	test_clear_job_env (confdir, logdir, upstart_pid, dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env in name=value form");
+
+	cmd = nih_sprintf (NULL, "%s set-env foo=bar 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+}
+
+/*
+ * Test all the commands which affect the job environment table together
+ * as they are so closely related.
+ */
+void
+test_job_env (void)
+{
+	char             confdir[PATH_MAX];
+	char             logdir[PATH_MAX];
+	pid_t            dbus_pid = 0;
+	pid_t            upstart_pid = 0;
+
+	TEST_GROUP ("job process table commands");
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+        TEST_FILENAME (logdir);
+        TEST_EQ (mkdir (logdir, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+	START_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	test_default_job_env (confdir, logdir, upstart_pid, dbus_pid);
+
+	test_modified_job_env (confdir, logdir, upstart_pid, dbus_pid);
+
+	/*******************************************************************/
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+        TEST_EQ (rmdir (confdir), 0);
+        TEST_EQ (rmdir (logdir), 0);
+}
+
 
 /**
  * in_chroot:
@@ -15122,6 +15464,7 @@ main (int   argc,
 	test_version_action ();
 	test_log_priority_action ();
 	test_usage ();
+	test_job_env ();
 	test_reexec ();
 
 	if (in_chroot () && !dbus_configured ()) {

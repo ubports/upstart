@@ -548,13 +548,28 @@ written successfully to disk, the internal cache is deleted.
 .RE
 .\"
 .TP
-.B get-env
+.B list\-env
+
+Display a lexicographically sorted list of all variables and their
+values in the job environment table.
+
+Note that this table only includes the minimal set of standard system
+variables added by the
+.BR init (8)
+daemon along with any variables set using
+.BR set\-env "."
+See
+.BR init (5)
+for further details.
+.\"
+.TP
+.B get\-env
 .I VARIABLE
 
 Query the value of the specified variable in the job environment table.
 .\"
 .TP
-.B set-env
+.B set\-env
 .RI [ OPTIONS "] " VARIABLE[=VALUE]
 
 Adds or updates a variable in the job environment table. Variables set
@@ -568,20 +583,14 @@ If the specified variable is already set, do not modify it.
 .RE
 .\"
 .TP
-.B unset-env
+.B unset\-env
 .I VARIABLE
 
 Remove the specified variable from the job environment table. If the
 variable does not already exist in the table, no change will be made.
 .\"
 .TP
-.B list-env
-
-Display a lexicographically sorted list of all variables and their
-values in the job environment table.
-.\"
-.TP
-.B reset-env
+.B reset\-env
 
 Discards all changes make to the job environment table, setting it back
 to its default set of variables and values.
