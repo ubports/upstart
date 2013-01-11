@@ -224,6 +224,9 @@
  *
  * Run a command and return its standard output. It is the callers
  * responsibility to free @result. Errors from running @cmd are fatal.
+ *
+ * Note: trailing '\n' characters are removed in returned command
+ * output.
  **/
 #define RUN_COMMAND(parent, cmd, result, len)                        \
 {                                                                    \
@@ -15205,26 +15208,26 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_EQ (unlink (logfile), 0);
 
 	/*******************************************************************/
+	TEST_FEATURE ("ensure invalid query shows unknown variable");
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			"foo-bar-baz");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo-bar-baz");
+
+	/*******************************************************************/
 }
 
-/**
- * Clear the job process table, then reset it back to defaults.
- **/
 void
-test_clear_job_env (const char *confdir, const char *logdir,
-		      pid_t upstart_pid, pid_t dbus_pid)
+clear_job_env (void)
 {
 	nih_local char  *cmd = NULL;
 	char           **output;
 	nih_local char  *logfile = NULL;
 	size_t           line_count;
 	size_t           i;
-	FILE            *fi;
-
-	assert (confdir);
-	assert (logdir);
-	assert (upstart_pid);
-	assert (dbus_pid);
 
 	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
@@ -15263,6 +15266,42 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	assert0 (line_count);
+}
+
+/**
+ * Clear the job process table, then reset it back to defaults.
+ **/
+void
+test_clear_job_env (const char *confdir, const char *logdir,
+		      pid_t upstart_pid, pid_t dbus_pid)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	nih_local char  *logfile = NULL;
+	size_t           line_count;
+	FILE            *fi;
+
+	assert (confdir);
+	assert (logdir);
+	assert (upstart_pid);
+	assert (dbus_pid);
+
+	clear_job_env ();
+
+	/* ensure get-env tolerates empty environment */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			"foo");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/* ensure unset-env tolerates empty environment */
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, "foo");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
 
 	/*******************************************************************/
 	TEST_FEATURE ("ensure job runs in empty environment");
@@ -15311,7 +15350,6 @@ test_clear_job_env (const char *confdir, const char *logdir,
 
 	/* re-check */
 	test_default_job_env (confdir, logdir, upstart_pid, dbus_pid);
-	/*******************************************************************/
 }
 
 void
@@ -15319,8 +15357,12 @@ test_modified_job_env (const char *confdir, const char *logdir,
 		pid_t upstart_pid, pid_t dbus_pid)
 {
 	nih_local char  *cmd = NULL;
+	nih_local char  *name = NULL;
+	nih_local char  *value = NULL;
 	char           **output;
+	nih_local char  *logfile = NULL;
 	size_t           line_count;
+	FILE            *fi;
 
 	assert (confdir);
 	assert (logdir);
@@ -15341,12 +15383,443 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	test_clear_job_env (confdir, logdir, upstart_pid, dbus_pid);
 
 	/*******************************************************************/
-	TEST_FEATURE ("set-env in name=value form");
+	TEST_FEATURE ("set-env in 'name=value' form");
 
-	cmd = nih_sprintf (NULL, "%s set-env foo=bar 2>&1", INITCTL_BINARY);
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", INITCTL_BINARY,
+			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env in 'name=' form");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s= 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env in 'name' form");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env for already set variable");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+
+	/* set it */
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", INITCTL_BINARY,
+			name, value);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	/* check it */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	/* set it again */
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", INITCTL_BINARY,
+			name, value);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	/* check it again */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env --retain");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+
+	/* set it */
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", INITCTL_BINARY,
+			name, value);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	/* check it */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env --retain %s=%s 2>&1",
+			INITCTL_BINARY, name, "HELLO");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	/* check that value did *NOT* change */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env with space within value and trailing tab");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_sprintf (NULL, "space tab\t"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			name, value);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", INITCTL_BINARY,
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
+	/*******************************************************************/
+	TEST_FEATURE ("list-env output order");
+
+	clear_job_env ();
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"zygote", "cell");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"median", "middle");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"aardvark", "mammal");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ_STR (output[0], "aardvark=mammal");
+	TEST_EQ_STR (output[1], "median=middle");
+	TEST_EQ_STR (output[2], "zygote=cell");
+	TEST_EQ (line_count, 3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, "aardvark");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ_STR (output[0], "median=middle");
+	TEST_EQ_STR (output[1], "zygote=cell");
+	TEST_EQ (line_count, 2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", INITCTL_BINARY, "zygote");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ_STR (output[0], "median=middle");
+	TEST_EQ (line_count, 1);
+	nih_free (output);
+
+	/* re-add */
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"aardvark", "mammal");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"zygote", "cell");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ_STR (output[0], "aardvark=mammal");
+	TEST_EQ_STR (output[1], "median=middle");
+	TEST_EQ_STR (output[2], "zygote=cell");
+	TEST_EQ (line_count, 3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	assert0 (line_count);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure job runs in modified environment");
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"aardvark", "mammal");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"FOO", "BAR");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", INITCTL_BINARY,
+			"_________", "_________");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	CREATE_FILE (confdir, "modified-env.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s start modified-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"modified-env.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	fi = fopen (logfile, "r");
+	TEST_NE_P (fi, NULL);
+
+	/* defaults */
+	TEST_FILE_MATCH (fi, "PATH=*");
+	TEST_FILE_MATCH (fi, "TERM=*");
+
+	/* variables we added */
+	TEST_FILE_MATCH (fi, "aardvark=mammal*");
+	TEST_FILE_MATCH (fi, "FOO=BAR*");
+	TEST_FILE_MATCH (fi, "_________=_________*");
+
+	/* special vars */
+	TEST_FILE_MATCH (fi, "UPSTART_JOB=modified-env*");
+	TEST_FILE_MATCH (fi, "UPSTART_INSTANCE=*");
+
+	TEST_FILE_END (fi);
+	fclose (fi);
+
+	DELETE_FILE (confdir, "modified-env.conf");
+	TEST_EQ (unlink (logfile), 0);
+
+	/* reset environment */
+	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	assert0 (line_count);
+
+	/*******************************************************************/
+}
+
+void
+test_job_env_invalid_args (const char *confdir, const char *logdir,
+		pid_t upstart_pid, pid_t dbus_pid)
+{
+	nih_local char  *cmd = NULL;
+	nih_local char  *name = NULL;
+	nih_local char  *value = NULL;
+	char           **output;
+	size_t           line_count;
+
+	assert (confdir);
+	assert (logdir);
+	assert (upstart_pid);
+	assert (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("call get-env without specifying a variable");
+
+	cmd = nih_sprintf (NULL, "%s get-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 2);
+	TEST_EQ_STR (output[0], "initctl: missing variable name");
+	TEST_EQ_STR (output[1], "Try `initctl --help\' for more information.");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("call set-env without specifying a variable");
+
+	cmd = nih_sprintf (NULL, "%s set-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 2);
+	TEST_EQ_STR (output[0], "initctl: missing variable value");
+	TEST_EQ_STR (output[1], "Try `initctl --help\' for more information.");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("call unset-env without specifying a variable");
+
+	cmd = nih_sprintf (NULL, "%s unset-env 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 2);
+	TEST_EQ_STR (output[0], "initctl: missing variable name");
+	TEST_EQ_STR (output[1], "Try `initctl --help\' for more information.");
+	nih_free (output);
+
+	/*******************************************************************/
 }
 
 /*
@@ -15377,6 +15850,8 @@ test_job_env (void)
 	START_UPSTART (upstart_pid);
 
 	/*******************************************************************/
+
+	test_job_env_invalid_args (confdir, logdir, upstart_pid, dbus_pid);
 
 	test_default_job_env (confdir, logdir, upstart_pid, dbus_pid);
 

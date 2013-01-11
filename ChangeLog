@@ -1,3 +1,8 @@
+2013-01-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - Lots of new job environment table tests.
+
 2013-01-10  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Define job environment table.
