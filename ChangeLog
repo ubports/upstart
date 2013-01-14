@@ -1,3 +1,12 @@
+2013-01-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/initctl.c:
+	  - Grouped all environment commands in usage output.
+	  - Added --global, --job and --instance options for all environment
+	    commands. These are currently dummies, but --global will soon be
+	    required to make changes to the global job environment table when
+	    initctl is invoked from within a job.
+
 2013-01-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_initctl.c:

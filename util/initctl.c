@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright  2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -212,6 +212,28 @@ int check_config_warn = FALSE;
  * Used to record details of all known jobs and events.
  **/
 CheckConfigData check_config_data;
+
+/**
+ * apply_globally:
+ *
+ * If TRUE, make changes to global job environment table rather than the
+ * running jobs instances environment table.
+ **/
+int apply_globally = FALSE;
+
+/**
+ * job_name:
+ *
+ * Name of job to apply changes to.
+ **/
+const char *job_name = NULL;
+
+/**
+ * job_instance:
+ *
+ * Name of job instance to apply changes to.
+ **/
+const char *job_instance = NULL;
 
 /**
  * NihOption setter function to handle selection of appropriate D-Bus
@@ -2742,8 +2764,74 @@ NihOption check_config_options[] = {
  * Command-line options accepted for the set-env command.
  **/
 NihOption set_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'i', "instance", N_("job instance name"),
+	  NULL, "INSTANCE", &job_instance, NULL },
+	{ 'j', "job", N_("job name"),
+	  NULL, "NAME", &job_name, NULL },
 	{ 'r', "retain", N_("do not replace the value of the variable if already set"),
 	  NULL, NULL, &retain_var, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * get_env_options:
+ *
+ * Command-line options accepted for the get-env command.
+ **/
+NihOption get_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'i', "instance", N_("job instance name"),
+	  NULL, "INSTANCE", &job_instance, NULL },
+	{ 'j', "job", N_("job name"),
+	  NULL, "NAME", &job_name, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * unset_env_options:
+ *
+ * Command-line options accepted for the unset-env command.
+ **/
+NihOption unset_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'i', "instance", N_("job instance name"),
+	  NULL, "INSTANCE", &job_instance, NULL },
+	{ 'j', "job", N_("job name"),
+	  NULL, "NAME", &job_name, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * list_env_options:
+ *
+ * Command-line options accepted for the list-env command.
+ **/
+NihOption list_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'i', "instance", N_("job instance name"),
+	  NULL, "INSTANCE", &job_instance, NULL },
+	{ 'j', "job", N_("job name"),
+	  NULL, "NAME", &job_name, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * reset_env_options:
+ *
+ * Command-line options accepted for the reset-env command.
+ **/
+NihOption reset_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'i', "instance", N_("job instance name"),
+	  NULL, "INSTANCE", &job_instance, NULL },
+	{ 'j', "job", N_("job name"),
+	  NULL, "NAME", &job_name, NULL },
 	NIH_OPTION_LAST
 };
 
@@ -2769,6 +2857,13 @@ static NihCommandGroup job_commands = { N_("Job") };
  * Group of commands related to events.
  **/
 static NihCommandGroup event_commands = { N_("Event") };
+
+/**
+ * env_group:
+ *
+ * Group of commands related to Job environment variables.
+ **/
+static NihCommandGroup env_group = { N_("Environment") };
 
 /**
  * commands:
@@ -2879,27 +2974,27 @@ static NihCommand commands[] = {
 	{ "get-env", N_("VARIABLE"),
 	  N_("Retrieve value of a job environment variable."),
 	  N_("Display the value of a variable from the job environment table."),
-	  NULL, NULL, get_env_action },
+	  &env_group, get_env_options, get_env_action },
 
 	{ "list-env", NULL,
 	  N_("Show all job environment variables."),
 	  N_("Displays sorted list of variables and their values from the job environment table."),
-	  NULL, NULL, list_env_action },
+	  &env_group, list_env_options, list_env_action },
 
 	{ "reset-env", N_("VARIABLE"),
 	  N_("Revert all job environment variable changes."),
 	  N_("Discards all changes make to the job environment table, setting it back to its default value."),
-	  NULL, NULL, reset_env_action },
+	  &env_group, reset_env_options, reset_env_action },
 
 	{ "set-env", N_("VARIABLE[=VALUE]"),
 	  N_("Set a job environment variable."),
 	  N_("Adds or updates a variable in the job environment table."),
-	  NULL, set_env_options, set_env_action },
+	  &env_group, set_env_options, set_env_action },
 
 	{ "unset-env", N_("VARIABLE"),
 	  N_("Remove a job environment variable."),
 	  N_("Discards the specified variable from the job environment table."),
-	  NULL, NULL, unset_env_action },
+	  &env_group, unset_env_options, unset_env_action },
 
 	{ "usage",  N_("JOB"),
 	  N_("Show job usage message if available."),
