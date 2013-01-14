@@ -56,6 +56,31 @@ get_home_subdir (const char * suffix)
 }
 
 /**
+ * xdg_get_cache_home:
+ *
+ * Determine an XDG compliant XDG_CACHE_HOME
+ *
+ * Returns: newly-allocated path, or NULL on error.
+ **/
+char *
+xdg_get_cache_home (void)
+{
+	nih_local char  **env = NULL;
+	char             *dir;
+
+	dir = getenv ("XDG_CACHE_HOME");
+	
+	if (dir && dir[0]) {
+		dir = nih_strdup (NULL, dir);
+		return dir;
+	}
+
+	dir = get_home_subdir (".cache");
+
+	return dir;
+}
+
+/**
  * xdg_get_config_home:
  *
  * Determine an XDG compliant XDG_CONFIG_HOME
@@ -185,3 +210,20 @@ error:
 	return NULL;
 }
 
+/**
+ * get_user_log_dir:
+ *
+ * Constructs an XDG compliant path to a cache directory in the user's
+ * home directory. It can be used to store logs.
+ *
+ * Returns: newly-allocated array of paths, or NULL or error.
+ **/
+char *
+get_user_log_dir (void)
+{
+	char *path=NULL;
+	path = xdg_get_cache_home ();
+	if (! path)
+		return NULL;
+	return nih_sprintf (NULL, "%s/%s", path, INIT_XDG_SUBDIR);
+}

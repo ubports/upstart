@@ -69,25 +69,23 @@ test_get_home_subdir (void)
 }
 
 void
-test_get_config_home (void)
+_test_get_home (char * env_var_name, char * dir_name, char * (*function)(void))
 {
 	char   dirname[PATH_MAX];
 	char * outname;
 	char * expected;
 
-	TEST_FUNCTION ("xdg_get_config_home");
-
 	TEST_FEATURE ("with HOME set and without environment override");
 	TEST_FILENAME (dirname);
 	TEST_EQ (setenv ("HOME", dirname, 1), 0);
-	TEST_EQ (unsetenv ("XDG_CONFIG_HOME"), 0);
+	TEST_EQ (unsetenv (env_var_name), 0);
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			expected = NIH_MUST (nih_sprintf (NULL, "%s/.config", dirname));
+			expected = NIH_MUST (nih_sprintf (NULL, "%s/%s", dirname, dir_name));
 		}
 
 		outname = NULL;
-		outname = xdg_get_config_home ();
+		outname = function ();
 
 		if (! test_alloc_failed) {
 			TEST_EQ_STR (outname, expected);
@@ -102,15 +100,15 @@ test_get_config_home (void)
 	}
 
 	TEST_FEATURE ("with HOME set and with empty environment override");
-	TEST_EQ (setenv ("XDG_CONFIG_HOME", "", 1), 0);
+	TEST_EQ (setenv (env_var_name, "", 1), 0);
 
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
-			expected = NIH_MUST (nih_sprintf (NULL, "%s/.config", dirname));
+			expected = NIH_MUST (nih_sprintf (NULL, "%s/%s", dirname, dir_name));
 		}
 		outname = NULL;
-		outname = xdg_get_config_home();
+		outname = function ();
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
@@ -124,11 +122,11 @@ test_get_config_home (void)
 
 	TEST_FEATURE ("with HOME set and with environment override");
 	expected = NIH_MUST (nih_strdup (NULL, "/home/me/.config-test"));
-	TEST_EQ (setenv ("XDG_CONFIG_HOME", expected, 1), 0);
+	TEST_EQ (setenv (env_var_name, expected, 1), 0);
 
 	TEST_ALLOC_FAIL {
 		outname = NULL;
-		outname = xdg_get_config_home();
+		outname = function ();
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
@@ -144,7 +142,7 @@ test_get_config_home (void)
 
 	TEST_ALLOC_FAIL {
 		outname = NULL;
-		outname = xdg_get_config_home();
+		outname = function ();
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (outname, NULL);
@@ -157,21 +155,36 @@ test_get_config_home (void)
 	nih_free(expected);
 
 	TEST_FEATURE ("without HOME set and with empty environment override");
-	TEST_EQ (setenv ("XDG_CONFIG_HOME", "", 1), 0);
+	TEST_EQ (setenv (env_var_name, "", 1), 0);
 
 	TEST_ALLOC_FAIL {
 		outname = NULL;
-		outname = xdg_get_config_home();
+		outname = function ();
 		TEST_EQ_P (outname, NULL);
 	}
 
 	TEST_FEATURE ("without HOME set and without environment override");
-	TEST_EQ (unsetenv ("XDG_CONFIG_HOME"), 0);
+	TEST_EQ (unsetenv (env_var_name), 0);
 	TEST_ALLOC_FAIL {
 		outname = NULL;
-		outname = xdg_get_config_home();
+		outname = function ();
 		TEST_EQ_P (outname, NULL);
 	}
+}
+
+void
+test_get_config_home (void)
+{
+	TEST_FUNCTION ("xdg_get_config_home");
+	_test_get_home ("XDG_CONFIG_HOME", ".config", &xdg_get_config_home);
+
+}
+
+void
+test_get_cache_home (void)
+{
+	TEST_FUNCTION ("xdg_get_cache_home");
+	_test_get_home ("XDG_CACHE_HOME", ".cache", &xdg_get_cache_home);
 }
 
 void
@@ -288,9 +301,36 @@ test_get_user_upstart_dirs (void)
 			TEST_EQ (dirs[4], NULL);
 			nih_free (dirs);
 		}
-		nih_free(expected);
+		nih_free (expected);
 	}
 
+}
+
+void
+test_get_user_log_dir (void)
+{
+	char dirname[PATH_MAX];
+	char         *expected;
+	char             *path;
+
+	TEST_FUNCTION ("get_user_log_dir");
+	TEST_FEATURE ("with HOME set");
+	TEST_FILENAME (dirname);
+	TEST_EQ (setenv ("HOME", dirname, 1), 0);
+	TEST_EQ (unsetenv ("XDG_CACHE_HOME"), 0);
+
+	expected = nih_sprintf (NULL, "%s/.cache/upstart", dirname);
+
+	TEST_ALLOC_FAIL {
+		path = get_user_log_dir ();
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+		} else {
+			TEST_EQ_STR (path, expected);
+			nih_free (path);
+		}
+	}
+	nih_free (expected);
 }
 
 int
@@ -301,6 +341,8 @@ main (int   argc,
 	test_get_config_home ();
 	test_get_config_dirs ();
 	test_get_user_upstart_dirs ();
+	test_get_cache_home ();
+	test_get_user_log_dir ();
 
 	return 0;
 }
