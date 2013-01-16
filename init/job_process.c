@@ -65,6 +65,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "errors.h"
+#include "control.h"
 
 
 /**
@@ -126,6 +127,8 @@ static void job_process_trace_signal    (Job *job, ProcessType process,
 static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
+extern int          use_session_bus;
+extern char         *control_server_address;
 
 /**
  * job_process_run:
@@ -275,6 +278,9 @@ job_process_run (Job         *job,
 			       "UPSTART_JOB=%s", job->class->name));
 	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_INSTANCE=%s", job->name));
+	if (use_session_bus)
+		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
+			       "UPSTART_SESSION=%s", control_server_address));
 
 	/* If we're about to spawn the main job and we expect it to become
 	 * a daemon or fork before we can move out of spawned, we need to
