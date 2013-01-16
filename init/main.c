@@ -549,19 +549,17 @@ main (int   argc,
 	conf_reload ();
 
 	/* Create a listening server for private connections. */
-	if (use_session_bus == FALSE) {
-		while (control_server_open () < 0) {
-			NihError *err;
+	while (control_server_open () < 0) {
+		NihError *err;
 
-			err = nih_error_get ();
-			if (err->number != ENOMEM) {
-				nih_warn ("%s: %s", _("Unable to listen for private connections"),
-					err->message);
-				nih_free (err);
-				break;
-			}
+		err = nih_error_get ();
+		if (err->number != ENOMEM) {
+			nih_warn ("%s: %s", _("Unable to listen for private connections"),
+				err->message);
 			nih_free (err);
+			break;
 		}
+		nih_free (err);
 	}
 
 	/* Open connection to the appropriate D-Bus bus; we normally expect this to

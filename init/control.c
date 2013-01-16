@@ -80,7 +80,7 @@ int use_session_bus = FALSE;
  *
  * Address on which the control server may be reached.
  **/
-const char *control_server_address = DBUS_ADDRESS_UPSTART;
+char *control_server_address = NULL;
 
 /**
  * control_server:
@@ -116,6 +116,14 @@ control_init (void)
 {
 	if (! control_conns)
 		control_conns = NIH_MUST (nih_list_new (NULL));
+
+	if (! control_server_address) {
+		if (use_session_bus)
+			NIH_MUST (nih_strcat_sprintf(&control_server_address, NULL,
+					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid(), getpid()));
+		else
+			NIH_MUST (nih_strcat_sprintf(&control_server_address, NULL, DBUS_ADDRESS_UPSTART));
+	}
 }
 
 
