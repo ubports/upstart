@@ -444,6 +444,10 @@ are mostly used by the
 .BR initctl (8)
 utility to default to acting on the job the commands are called from.
 
+When running in a user session, the additional UPSTART_SESSION environment
+variable is also set and contains the DBus path to the private bus used by
+the upstart instance daemon.
+
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overridden
