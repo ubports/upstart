@@ -221,7 +221,7 @@ error:
 char *
 get_user_log_dir (void)
 {
-	char *path=NULL;
+	nih_local char *path = NULL;
 	path = xdg_get_cache_home ();
 	if (! path)
 		return NULL;
