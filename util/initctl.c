@@ -299,10 +299,21 @@ upstart_open (const void *parent)
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
 
-	if (use_dbus < 0)
-		use_dbus = getuid () ? TRUE : FALSE;
-	if (use_dbus >= 0 && dbus_bus_type < 0)
-		dbus_bus_type = DBUS_BUS_SYSTEM;
+	if (!user_mode) {
+		if (use_dbus < 0)
+			use_dbus = getuid () ? TRUE : FALSE;
+		if (use_dbus >= 0 && dbus_bus_type < 0)
+			dbus_bus_type = DBUS_BUS_SYSTEM;
+	}
+	else {
+		if (getenv("UPSTART_SESSION") && use_dbus <= 0) {
+			use_dbus = FALSE;
+			dest_address = getenv("UPSTART_SESSION");
+		}
+		else if (dbus_bus_type < 0)
+			dbus_bus_type = DBUS_BUS_SESSION;
+	}
+
 
 	dbus_error_init (&dbus_error);
 	if (use_dbus) {
