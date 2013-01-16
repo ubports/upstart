@@ -312,8 +312,7 @@ upstart_open (const void *parent)
 		if (user_addr && use_dbus <= 0) {
 			use_dbus = FALSE;
 			dest_address = user_addr;
-		}
-		else if (dbus_bus_type < 0)
+		} else if (dbus_bus_type < 0)
 			dbus_bus_type = DBUS_BUS_SESSION;
 	}
 
@@ -2377,7 +2376,7 @@ static NihOption options[] = {
 	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "dest", N_("destination well-known name on D-Bus bus"),
 	  NULL, "NAME", &dest_name, NULL },
-	{ 0, "user", N_("start in user mode (as used for user sessions)"),
+	{ 0, "user", N_("run in user mode (as used for user sessions)"),
 		NULL, NULL, &user_mode, NULL },
 
 	NIH_OPTION_LAST
