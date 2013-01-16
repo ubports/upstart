@@ -299,6 +299,7 @@ upstart_open (const void *parent)
 	DBusError       dbus_error;
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
+	char * user_addr;
 
 	if (!user_mode) {
 		if (use_dbus < 0)
@@ -307,9 +308,10 @@ upstart_open (const void *parent)
 			dbus_bus_type = DBUS_BUS_SYSTEM;
 	}
 	else {
-		if (getenv("UPSTART_SESSION") && use_dbus <= 0) {
+		user_addr = getenv("UPSTART_SESSION");
+		if (user_addr && use_dbus <= 0) {
 			use_dbus = FALSE;
-			dest_address = getenv("UPSTART_SESSION");
+			dest_address = user_addr;
 		}
 		else if (dbus_bus_type < 0)
 			dbus_bus_type = DBUS_BUS_SESSION;
