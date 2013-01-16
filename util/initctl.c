@@ -308,7 +308,7 @@ upstart_open (const void *parent)
 			dbus_bus_type = DBUS_BUS_SYSTEM;
 	}
 	else {
-		user_addr = getenv("UPSTART_SESSION");
+		user_addr = getenv ("UPSTART_SESSION");
 		if (user_addr && use_dbus <= 0) {
 			use_dbus = FALSE;
 			dest_address = user_addr;
