@@ -145,6 +145,13 @@ int use_dbus = -1;
 int dbus_bus_type = -1;
 
 /**
+ * user_mode:
+ *
+ * If TRUE, upstart runs in user session mode.
+ **/
+static int user_mode = FALSE;
+
+/**
  * dest_name:
  *
  * Name on the D-Bus system bus that the message should be sent to when
@@ -2356,6 +2363,8 @@ static NihOption options[] = {
 	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "dest", N_("destination well-known name on D-Bus bus"),
 	  NULL, "NAME", &dest_name, NULL },
+	{ 0, "user", N_("start in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
 
 	NIH_OPTION_LAST
 };
