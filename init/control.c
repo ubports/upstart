@@ -119,10 +119,10 @@ control_init (void)
 
 	if (! control_server_address) {
 		if (use_session_bus)
-			NIH_MUST (nih_strcat_sprintf(&control_server_address, NULL,
-					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid(), getpid()));
+			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL,
+					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid (), getpid ()));
 		else
-			NIH_MUST (nih_strcat_sprintf(&control_server_address, NULL, DBUS_ADDRESS_UPSTART));
+			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL, DBUS_ADDRESS_UPSTART));
 	}
 }
 
