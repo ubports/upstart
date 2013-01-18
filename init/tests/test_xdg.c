@@ -120,6 +120,27 @@ _test_get_home (char * env_var_name, char * dir_name, char * (*function)(void))
 		nih_free(expected);
 	}
 
+	TEST_FEATURE ("with HOME set and with relative environment override");
+	TEST_EQ (setenv (env_var_name, "../", 1), 0);
+
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			expected = NIH_MUST (nih_sprintf (NULL, "%s/%s", dirname, dir_name));
+		}
+		outname = NULL;
+		outname = function ();
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (outname, NULL);
+		} else {
+			TEST_EQ_STR (outname, expected);
+		}
+		if (outname)
+			nih_free (outname);
+		nih_free(expected);
+	}
+
 	TEST_FEATURE ("with HOME set and with environment override");
 	expected = NIH_MUST (nih_strdup (NULL, "/home/me/.config-test"));
 	TEST_EQ (setenv (env_var_name, expected, 1), 0);

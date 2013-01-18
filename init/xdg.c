@@ -47,7 +47,7 @@ get_home_subdir (const char * suffix)
 	nih_assert (suffix && suffix[0]);
 	
 	dir = getenv ("HOME");
-	if (dir && dir[0]) {
+	if (dir && dir[0] == '/') {
 		dir = nih_sprintf (NULL, "%s/%s", dir, suffix);
 		return dir;
 	}
@@ -70,7 +70,7 @@ xdg_get_cache_home (void)
 
 	dir = getenv ("XDG_CACHE_HOME");
 	
-	if (dir && dir[0]) {
+	if (dir && dir[0] == '/') {
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -95,7 +95,7 @@ xdg_get_config_home (void)
 
 	dir = getenv ("XDG_CONFIG_HOME");
 	
-	if (dir && dir[0]) {
+	if (dir && dir[0] == '/') {
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -183,6 +183,8 @@ get_user_upstart_dirs (void)
 		goto error;
 
 	for (char **p = dirs; p && *p; p++) {
+		if (! *p == '/')
+			continue;
 		if (! nih_strcat_sprintf (p, NULL, "/%s", INIT_XDG_SUBDIR))
 			goto error;
 		if (! nih_str_array_add (&all_dirs, NULL, NULL, *p))
@@ -223,7 +225,7 @@ get_user_log_dir (void)
 {
 	nih_local char *path = NULL;
 	path = xdg_get_cache_home ();
-	if (! path)
-		return NULL;
-	return nih_sprintf (NULL, "%s/%s", path, INIT_XDG_SUBDIR);
+	if (path && path == '/')
+		nih_sprintf (NULL, "%s/%s", path, INIT_XDG_SUBDIR);
+	return NULL
 }
