@@ -65,6 +65,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "errors.h"
+#include "xdg.h"
 
 
 /**
@@ -2191,7 +2192,7 @@ job_process_log_path (Job *job, int user_job)
 	nih_assert (class->name);
 
 	/* Override, primarily for tests */
-	if (getenv (LOGDIR_ENV)) {
+	if (getenv (LOGDIR_ENV) && ! user_mode) {
 		dir = nih_strdup (NULL, getenv (LOGDIR_ENV));
 		nih_debug ("Using alternative directory '%s' for logs", dir);
 	} else {

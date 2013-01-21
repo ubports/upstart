@@ -25,7 +25,11 @@
 
 NIH_BEGIN_EXTERN
 
-char *    get_home_subdir        (const char * suffix)
+extern int          user_mode;
+
+void      create_dir             (char * dir);
+
+char *    get_home_subdir        (const char * suffix, int create)
 	__attribute__ ((malloc, warn_unused_result));
 
 char *    xdg_get_config_home    (void)

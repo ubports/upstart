@@ -121,13 +121,6 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-/**
- * user_mode:
- *
- * If TRUE, upstart runs in user session mode.
- **/
-static int user_mode = FALSE;
-
 extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
