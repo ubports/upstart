@@ -809,7 +809,8 @@ log_clear_unflushed (void)
 			/* Parent job has ended and unflushed data
 			 * exists.
 			 */
-			nih_assert (log->unflushed->len && ! log->io);
+			nih_assert (log->unflushed->len);
+			nih_assert (! log->io);
 		} else {
 			/* Parent job itself has ended, but job spawned one or
 			 * more processes that are still running and

@@ -1,3 +1,7 @@
+2013-01-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:log_clear_unflushed(): Simplify asserts.
+
 2013-01-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:
