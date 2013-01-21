@@ -127,7 +127,7 @@ static void job_process_trace_signal    (Job *job, ProcessType process,
 static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
-extern int          use_session_bus;
+extern int          user_mode;
 extern char         *control_server_address;
 
 /**
@@ -278,7 +278,7 @@ job_process_run (Job         *job,
 			       "UPSTART_JOB=%s", job->class->name));
 	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_INSTANCE=%s", job->name));
-	if (use_session_bus)
+	if (user_mode)
 		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_SESSION=%s", control_server_address));
 
