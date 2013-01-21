@@ -301,19 +301,26 @@ upstart_open (const void *parent)
 	NihDBusProxy *  upstart;
 	char * user_addr;
 
-	if (!user_mode) {
+	user_addr = getenv ("UPSTART_SESSION");
+
+	if (user_addr && dbus_bus_type < 0) {
+		user_mode = TRUE;
+	}
+
+	if (! user_mode) {
 		if (use_dbus < 0)
 			use_dbus = getuid () ? TRUE : FALSE;
 		if (use_dbus >= 0 && dbus_bus_type < 0)
 			dbus_bus_type = DBUS_BUS_SYSTEM;
 	}
 	else {
-		user_addr = getenv ("UPSTART_SESSION");
-		if (user_addr && use_dbus <= 0) {
-			use_dbus = FALSE;
-			dest_address = user_addr;
-		} else if (dbus_bus_type < 0)
-			dbus_bus_type = DBUS_BUS_SESSION;
+		if (! user_addr) {
+			nih_error ("UPSTART_SESSION isn't set in the environment. "
+				       "Unable to locate the Upstart instance.");
+			return NULL;
+		}
+		dest_address = user_addr;
+		use_dbus = FALSE;
 	}
 
 
