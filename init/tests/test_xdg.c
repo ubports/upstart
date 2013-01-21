@@ -373,7 +373,9 @@ test_get_user_upstart_dirs (void)
 		}
 		TEST_ALLOC_SAFE {
 			rmdir (expected[0]);
-			rmdir (nih_sprintf (NULL, "%s/.config", dirname));
+			path = nih_sprintf (NULL, "%s/.config", dirname);
+			rmdir (path);
+			nih_free (path);
 			nih_free (expected);
 		}
 	}
@@ -409,7 +411,9 @@ test_get_user_upstart_dirs (void)
 		}
 		TEST_ALLOC_SAFE {
 			rmdir (expected[0]);
-			rmdir (nih_sprintf (NULL, "%s/.config", dirname));
+			path = nih_sprintf (NULL, "%s/.config", dirname);
+			rmdir (path);
+			nih_free (path);
 			nih_free (expected);
 		}
 	}
@@ -444,7 +448,9 @@ test_get_user_log_dir (void)
 	}
 	rmdir (expected);
 	nih_free (expected);
-	rmdir (nih_sprintf (NULL, "%s/.cache", dirname));
+	path = nih_sprintf (NULL, "%s/.cache", dirname);
+	rmdir (path);
+	nih_free (path);
 	rmdir (dirname);
 }
 
