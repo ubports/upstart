@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -94,6 +95,8 @@ main (int   argc,
 	DBusConnection *     system_connection;
 	DBusConnection *     session_connection;
 	int                  ret;
+	nih_local char *     pidfile_path = NULL;
+	nih_local char *     pidfile = NULL;
 
 
 	nih_main_init (argv[0]);
@@ -190,6 +193,21 @@ main (int   argc,
 
 	/* Become daemon */
 	if (daemonise) {
+		/* Deal with the pidfile location when becoming a daemon.
+		 * We need to be able to run one bridge per upstart daemon.
+		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid in
+		 * its name.
+		 */
+		pidfile_path = getenv ("XDG_RUNTIME_DIR");
+		if (!pidfile_path)
+			pidfile_path = getenv ("HOME");
+
+		if (pidfile_path) {
+			NIH_MUST(nih_strcat_sprintf(&pidfile, NULL, "%s/upstart-event-bridge.%d.pid",
+					                        pidfile_path, getpid()));
+			nih_main_set_pidfile (pidfile);
+		}
+
 		if (nih_main_daemonise () < 0) {
 			NihError *err;
 
@@ -212,6 +230,11 @@ main (int   argc,
 	}
 
 	ret = nih_main_loop ();
+
+	/* Destroy any PID file we may have created */
+	if (daemonise) {
+		nih_main_unlink_pidfile();
+	}
 
 	return ret;
 }
