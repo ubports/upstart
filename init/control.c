@@ -129,7 +129,7 @@ control_init (void)
 			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL,
 					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid (), getpid ()));
 		else
-			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL, DBUS_ADDRESS_UPSTART));
+			control_server_address = nih_strdup (NULL, DBUS_ADDRESS_UPSTART);
 	}
 }
 
