@@ -4,6 +4,12 @@ upstart (1.6.1-1ubuntu2) UNRELEASED; urgency=low
   * Call autoreconf so we can use the same packaging for snapshots as for
     release tarballs. Add depends on dh-autoreconf and autopoint.
 
+  [ James Hunt ]
+  * init/log.c: Cherry-pick of upstream fix for jobs which end before
+    the log disk becomes writeable and which spawn off additional
+    processes which persist after the main job process has ended
+    (LP: #1096531).
+
  -- James Hunt <james.hunt@ubuntu.com>  Tue, 22 Jan 2013 15:18:30 +0000
 
 upstart (1.6.1-1ubuntu1) raring; urgency=low
