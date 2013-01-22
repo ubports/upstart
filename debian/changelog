@@ -4,11 +4,7 @@ upstart (1.6.1-1ubuntu2) UNRELEASED; urgency=low
   * Call autoreconf so we can use the same packaging for snapshots as for
     release tarballs. Add depends on dh-autoreconf and autopoint.
 
-  [ James Hunt ]
-  * debian/conf/tty-serial.conf: Auto-start a getty for serial console
-    access if 'console=' kernel parameter specified (LP: #702574).
-
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 09 Jan 2013 19:18:54 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 22 Jan 2013 15:18:30 +0000
 
 upstart (1.6.1-1ubuntu1) raring; urgency=low
 
