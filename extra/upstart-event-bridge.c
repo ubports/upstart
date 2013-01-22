@@ -68,11 +68,11 @@ static int daemonise = FALSE;
 static NihDBusProxy *system_upstart = NULL;
 
 /**
- * session_upstart:
+ * user_upstart:
  *
- * Proxy to session Upstart daemon.
+ * Proxy to user Upstart daemon instance.
  **/
-static NihDBusProxy *session_upstart = NULL;
+static NihDBusProxy *user_upstart = NULL;
 
 /**
  * options:
@@ -93,15 +93,16 @@ main (int   argc,
 {
 	char **              args;
 	DBusConnection *     system_connection;
-	DBusConnection *     session_connection;
+	DBusConnection *     user_connection;
 	int                  ret;
 	nih_local char *     pidfile_path = NULL;
 	nih_local char *     pidfile = NULL;
+	char *               user_session_addr = NULL;
 
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("Bridge system upstart events into session upstart"));
+	nih_option_set_synopsis (_("Bridge system upstart events into the user session upstart"));
 	nih_option_set_help (
 		_("By default, upstart-event-bridge does not detach from the "
 		  "console and remains in the foreground.  Use the --daemon "
@@ -110,6 +111,12 @@ main (int   argc,
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
+
+	user_session_addr = getenv ("UPSTART_SESSION");
+	if (! user_session_addr) {
+		nih_fatal (_("UPSTART_SESSION isn't set in environment"));
+		exit (1);
+	}
 
 	/* Initialise the connection to system Upstart */
 	system_connection = NIH_SHOULD (nih_dbus_bus (DBUS_BUS_SYSTEM, upstart_disconnected));
@@ -163,24 +170,24 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Initialise the connection to session Upstart */
-	session_connection = nih_dbus_bus (DBUS_BUS_SESSION, upstart_disconnected);
+	/* Initialise the connection to user session Upstart */
+	user_connection = NIH_SHOULD (nih_dbus_connect (user_session_addr, upstart_disconnected));
 
-	if (! session_connection) {
+	if (! user_connection) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not connect to session Upstart"),
+		nih_fatal ("%s: %s", _("Could not connect to the user session Upstart"),
 			   err->message);
 		nih_free (err);
 
 		exit (1);
 	}
 
-	session_upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, session_connection,
-						  DBUS_SERVICE_UPSTART, DBUS_PATH_UPSTART,
+	user_upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, user_connection,
+						  NULL, DBUS_PATH_UPSTART,
 						  NULL, NULL));
-	if (! session_upstart) {
+	if (! user_upstart) {
 		NihError *err;
 
 		err = nih_error_get ();
@@ -276,7 +283,7 @@ upstart_forward_event (void *          data,
 	NIH_MUST (nih_strcat_sprintf (&new_event_name, NULL, ":sys:%s", event_name));
 
 	/* Re-transmit the event */
-	pending_call = upstart_emit_event (session_upstart,
+	pending_call = upstart_emit_event (user_upstart,
 			new_event_name, event_env, FALSE,
 			NULL, emit_event_error, NULL,
 			NIH_DBUS_TIMEOUT_NEVER);
@@ -300,7 +307,7 @@ upstart_forward_restarted (void *          data,
 	DBusPendingCall *   pending_call;
 
 	/* Re-transmit the event */
-	pending_call = upstart_emit_event (session_upstart,
+	pending_call = upstart_emit_event (user_upstart,
 			":sys:restarted", NULL, FALSE,
 			NULL, emit_event_error, NULL,
 			NIH_DBUS_TIMEOUT_NEVER);
