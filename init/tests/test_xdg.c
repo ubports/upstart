@@ -42,25 +42,6 @@ _test_dir_created (char * dirname) {
 }
 
 void
-test_create_dir (void)
-{
-	char dirname[PATH_MAX];
-
-	TEST_FUNCTION ("create_dir");
-
-	/* Should not fail */
-	create_dir (NULL);
-	create_dir ("/foo/bar");
-	
-	TEST_FILENAME (dirname);
-	create_dir (dirname);
-	
-	_test_dir_created (dirname);
-
-	TEST_EQ (rmdir (dirname), 0);
-}	
-
-void
 test_get_home_subdir (void)
 {
 	char    dirname[PATH_MAX];
@@ -458,7 +439,6 @@ int
 main (int   argc,
       char *argv[])
 {
-	test_create_dir ();
 	test_get_home_subdir ();
 	test_get_config_home ();
 	test_get_config_dirs ();

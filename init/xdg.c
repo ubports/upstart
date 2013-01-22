@@ -42,25 +42,6 @@
 int user_mode = FALSE;
 
 /**
- * create_dir:
- * @dir: directory to create
- *
- * Attempts to create specified directory.
- */
-void
-create_dir (char * dir)
-{
-	if (dir == NULL)
-		return;
-
-	/* As per XDG spec the directory should be 0700, but it's not
-	 * clear if this is before or after applying umask. Should the
-	 * dir first created and then chmod it until it's 0700? */
-
-	mkdir (dir, 0700);
-}
-
-/**
  * get_home_subdir:
  * @suffix: sub-directory name
  * @create: flag to create sub-directory
@@ -75,13 +56,16 @@ char *
 get_home_subdir (const char * suffix, int create)
 {
 	char *dir;
-	nih_assert (suffix && suffix[0]);
+	nih_assert (suffix != NULL);
+	nih_assert (suffix[0]);
 	
 	dir = getenv ("HOME");
 	if (dir && dir[0] == '/') {
 		dir = nih_sprintf (NULL, "%s/%s", dir, suffix);
+		if (! dir)
+			return NULL;
 		if (create)
-			create_dir (dir);
+			mkdir (dir, 0700);
 		return dir;
 	}
 
@@ -104,7 +88,7 @@ xdg_get_cache_home (void)
 	dir = getenv ("XDG_CACHE_HOME");
 	
 	if (dir && dir[0] == '/') {
-		create_dir (dir);
+		mkdir (dir, 0700);
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -137,7 +121,7 @@ xdg_get_config_home (void)
 	dir = getenv ("XDG_CONFIG_HOME");
 	
 	if (dir && dir[0] == '/') {
-		create_dir (dir);
+		mkdir (dir, 0700);
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -205,7 +189,7 @@ get_user_upstart_dirs (void)
 	if (path && path[0]) {
 	        if (! nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR))
 			goto error;
-		create_dir (path);
+		mkdir (path, 0700);
 		if (! nih_str_array_add (&all_dirs, NULL, NULL, path))
 			goto error;
 		nih_free (path);
@@ -275,7 +259,9 @@ get_user_log_dir (void)
 	path = xdg_get_cache_home ();
 	if (path && path[0] == '/') {
 		dir = nih_sprintf (NULL, "%s/%s", path, INIT_XDG_SUBDIR);
-		create_dir (dir);
+		if (! dir)
+			return NULL;
+		mkdir (dir, 0700);
 		return dir;
 	}
 	return NULL;
