@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -98,6 +97,8 @@ main (int   argc,
 	nih_local char *     pidfile_path = NULL;
 	nih_local char *     pidfile = NULL;
 	char *               user_session_addr = NULL;
+	char **              user_session_path = NULL;
+	nih_local char *     path_element = NULL;
 
 
 	nih_main_init (argv[0]);
@@ -202,16 +203,27 @@ main (int   argc,
 	if (daemonise) {
 		/* Deal with the pidfile location when becoming a daemon.
 		 * We need to be able to run one bridge per upstart daemon.
-		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid in
-		 * its name.
+		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid of
+		 * the Upstart instance (last part of the DBus path) in the filename.
 		 */
+
+		/* Extract PID from UPSTART_SESSION */
+		user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
+		for (int i = 0; user_session_path[i] != NULL; i++)
+			path_element = user_session_path[i];
+
+		if (! path_element) {
+			nih_fatal (_("Invalid value for UPSTART_SESSION"));
+			exit (1);
+		}
+
 		pidfile_path = getenv ("XDG_RUNTIME_DIR");
 		if (!pidfile_path)
 			pidfile_path = getenv ("HOME");
 
 		if (pidfile_path) {
-			NIH_MUST(nih_strcat_sprintf(&pidfile, NULL, "%s/upstart-event-bridge.%d.pid",
-					                        pidfile_path, getpid()));
+			NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/upstart-event-bridge.%s.pid",
+					                        pidfile_path, path_element));
 			nih_main_set_pidfile (pidfile);
 		}
 
