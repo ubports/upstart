@@ -1,4 +1,4 @@
-upstart (1.6.1-1ubuntu2) UNRELEASED; urgency=low
+upstart (1.6.1-1ubuntu2) raring; urgency=low
 
   [ Stéphane Graber ]
   * Call autoreconf so we can use the same packaging for snapshots as for
