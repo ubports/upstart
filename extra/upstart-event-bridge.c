@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2012 Canonical Ltd.
+ * Copyright © 2012-2013 Canonical Ltd.
  * Author: Stéphane Graber <stgraber@ubuntu.com>
  *
  * This program is free software; you can redistribute it and/or modify
