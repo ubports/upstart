@@ -150,7 +150,7 @@ int dbus_bus_type = -1;
  * If TRUE, talk to Upstart over the private socket defined in UPSTART_SESSION
  * if UPSTART_SESSION isn't defined, then fallback to the session bus.
  **/
-static int user_mode = FALSE;
+int user_mode = FALSE;
 
 /**
  * dest_name:

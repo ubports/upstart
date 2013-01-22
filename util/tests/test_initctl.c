@@ -29,7 +29,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <regex.h>
-#include <sys/types.h>        
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <nih-dbus/dbus_error.h>
@@ -379,6 +379,7 @@ out:
 }
 
 extern int use_dbus;
+extern int user_mode;
 extern int dbus_bus_type;
 extern char *dest_name;
 extern const char *dest_address;
@@ -718,6 +719,36 @@ test_upstart_open (void)
 		dbus_shutdown ();
 	}
 
+
+	/* Check that when we attempt to connect to Upstart in user mode but
+	 * without UPSTART_SESSION set in the environment, an appropriate
+	 * error is output.
+	 */
+	TEST_FEATURE ("with user-mode and no target");
+	TEST_ALLOC_FAIL {
+		use_dbus = -1;
+		dbus_bus_type = -1;
+		dest_name = NULL;
+		dest_address = DBUS_ADDRESS_UPSTART;
+		user_mode = TRUE;
+
+		unsetenv("UPSTART_SESSION");
+
+		TEST_DIVERT_STDERR (output) {
+			proxy = upstart_open (NULL);
+		}
+		rewind (output);
+
+		TEST_EQ_P (proxy, NULL);
+
+		TEST_FILE_EQ (output, ("test: UPSTART_SESSION isn't set in the environment. "
+				       "Unable to locate the Upstart instance.\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		dbus_shutdown ();
+		user_mode = FALSE;
+	}
 
 	fclose (output);
 }
