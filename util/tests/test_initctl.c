@@ -522,10 +522,12 @@ test_upstart_open (void)
 		dest_address = DBUS_ADDRESS_UPSTART;
 		user_mode = TRUE;
 
-		setenv("UPSTART_SESSION", "unix:abstract=/com/ubuntu/upstart/test-session", TRUE);
+		assert0 (setenv ("UPSTART_SESSION",
+				 "unix:abstract=/com/ubuntu/upstart/test-session",
+				 TRUE));
 
 		TEST_ALLOC_SAFE {
-			server = nih_dbus_server (getenv("UPSTART_SESSION"),
+			server = nih_dbus_server (getenv ("UPSTART_SESSION"),
 						  my_connect_handler,
 						  NULL);
 			assert (server != NULL);
@@ -588,7 +590,7 @@ test_upstart_open (void)
 
 		dbus_shutdown ();
 
-		unsetenv("UPSTART_SESSION");
+		unsetenv ("UPSTART_SESSION");
 		user_mode = FALSE;
 	}
 
@@ -815,7 +817,7 @@ test_upstart_open (void)
 		dest_address = DBUS_ADDRESS_UPSTART;
 		user_mode = TRUE;
 
-		unsetenv("UPSTART_SESSION");
+		unsetenv ("UPSTART_SESSION");
 
 		TEST_DIVERT_STDERR (output) {
 			proxy = upstart_open (NULL);
