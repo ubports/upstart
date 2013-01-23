@@ -25,8 +25,6 @@
 
 NIH_BEGIN_EXTERN
 
-extern int          user_mode;
-
 char *    get_home_subdir        (const char * suffix, int create)
 	__attribute__ ((malloc, warn_unused_result));
 
