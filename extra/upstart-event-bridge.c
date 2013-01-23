@@ -94,11 +94,11 @@ main (int   argc,
 	DBusConnection *     system_connection;
 	DBusConnection *     user_connection;
 	int                  ret;
-	nih_local char *     pidfile_path = NULL;
-	nih_local char *     pidfile = NULL;
+	char *               pidfile_path = NULL;
+	char *               pidfile = NULL;
 	char *               user_session_addr = NULL;
-	char **              user_session_path = NULL;
-	nih_local char *     path_element = NULL;
+	nih_local char **    user_session_path = NULL;
+	char *               path_element = NULL;
 
 
 	nih_main_init (argv[0]);
