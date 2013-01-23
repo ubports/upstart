@@ -46,7 +46,7 @@ cleanup()
     kill -9 "$upstart_pid" >/dev/null 2>&1
   fi
 
-  if [ "$started_dbus" = y -a -n "$DBUS_SESSION_BUS_PID" ]
+  if [ "$started_dbus" = y ] && [ -n "$DBUS_SESSION_BUS_PID" ]
   then
     debug "stopping dbus-daemon (running with PID $DBUS_SESSION_BUS_PID)"
     kill -0 "$DBUS_SESSION_BUS_PID" >/dev/null 2>&1 && \
