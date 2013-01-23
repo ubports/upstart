@@ -949,6 +949,11 @@ handle_logdir (void)
 	if (log_dir)
 		goto out;
 
+	if (user_mode) {
+		log_dir = get_user_log_dir ();
+		return;
+	}
+
 	log_dir = JOB_LOGDIR;
 
 	dir = getenv (LOGDIR_ENV);

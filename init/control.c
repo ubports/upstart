@@ -76,13 +76,6 @@ static void  control_bus_flush      (void);
 int use_session_bus = FALSE;
 
 /**
- * user_mode:
- *
- * If TRUE, upstart runs in user session mode.
- **/
-int user_mode = FALSE;
-
-/**
  * control_server_address:
  *
  * Address on which the control server may be reached.
@@ -112,6 +105,8 @@ DBusConnection *control_bus = NULL;
  **/
 NihList *control_conns = NULL;
 
+/* External definitions */
+extern int user_mode;
 
 /**
  * control_init:
