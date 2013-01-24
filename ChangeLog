@@ -26,6 +26,14 @@
 	      directory becomes writeable.
 	    (LP: #1096531).
 
+2013-01-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/init-checkconf.sh:
+	  - Check copy is successful.
+	  - Auto-start dbus-launch if not running and command is available (for
+	    example in non-desktop environments) (LP: #881885).
+	  - Auto-stop dbus-daemon if we started it.
+
 2013-01-04  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/conf.c: add ability to apply override files from higher
