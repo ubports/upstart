@@ -1,3 +1,21 @@
+2013-01-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_init(): Create session file in user mode.
+	  - control_cleanup(): New function for cleanup activities.
+	  - control_session_file_create(): Create session file containing
+	    UPSTART_SESSION details.
+	  - control_session_file_remove(): Delete the session file.
+	* init/main.c: Call control_cleanup() to remove session file.
+	* init/paths.h: Added INIT_XDG_SESSION_SUBDIR and SESSION_ENV.
+	* init/xdg.c:
+	  - get_subdir(): Refactor of get_home_subdir().
+	  - get_home_subdir(): Now calls get_subdir().
+	  - Replaced mkdir mode values with INIT_XDG_PATH_MODE.
+	  - xdg_get_runtime_dir(): Obtain XDG_RUNTIME_DIR value.
+	  - get_session_dir(): Obtain path to session directory.
+	* init/xdg.h: Added INIT_XDG_PATH_MODE.
+
 2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/xdg.[ch]: add xdg_get_cache_home and get_user_log_dir

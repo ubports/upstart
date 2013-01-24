@@ -116,6 +116,16 @@
 #endif
 
 /**
+ * INIT_XDG_SESSION_SUBDIR:
+ *
+ * Directory below XDG_RUNTIME_DIR/INIT_XDG_SUBDIR used to
+ * store session details.
+ **/
+#ifndef INIT_XDG_SESSION_SUBDIR
+#define INIT_XDG_SESSION_SUBDIR "sessions"
+#endif
+
+/**
  * SHELL:
  *
  * This is the shell binary used whenever we need special processing for
@@ -166,6 +176,14 @@
 #define LOGDIR_ENV "UPSTART_LOGDIR" 
 #endif
 
+/**
+ * SESSION_ENV:
+ *
+ * Environment variable that is set when running as a Session Init.
+ **/
+#ifndef SESSION_ENV
+#define SESSION_ENV "UPSTART_SESSION"
+#endif
 
 /**
  * File extension for standard configuration files.

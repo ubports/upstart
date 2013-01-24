@@ -42,34 +42,67 @@
 int user_mode = FALSE;
 
 /**
- * get_home_subdir:
- * @suffix: sub-directory name
- * @create: flag to create sub-directory
+ * session_file:
+ *
+ * Full path to file containing UPSTART_SESSION details (only set when
+ * user_mode in operation).
+ *
+ * File is created on startup and removed on clean shutdown.
+ **/
+const char *session_file = NULL;
+
+/**
+ * get_subdir:
+ * @dir: initial directory,
+ * @suffix: sub-directory of @dir,
+ * @create: flag to create sub-directory.
  * 
- * Construct path to @suffix directory in user's HOME dir. If @create
- * flag is TRUE, also attempt to create that directory. Errors upon
- * directory creation are ignored.
+ * Construct path by appending @suffix to @dir. If @create
+ * flag is TRUE, also attempt to create that directory.
+ *
+ * Errors upon directory creation are ignored.
  * 
- * Returns: newly-allocated path, or NULL on error.
+ * Returns: Newly-allocated path, or NULL on error.
  **/
 char *
-get_home_subdir (const char * suffix, int create)
+get_subdir (const char *dir, const char *suffix, int create)
 {
-	char *dir;
+	char *newdir;
+	nih_assert (dir != NULL);
 	nih_assert (suffix != NULL);
 	nih_assert (suffix[0]);
 	
-	dir = getenv ("HOME");
 	if (dir && dir[0] == '/') {
-		dir = nih_sprintf (NULL, "%s/%s", dir, suffix);
-		if (! dir)
+		newdir = nih_sprintf (NULL, "%s/%s", dir, suffix);
+		if (! newdir)
 			return NULL;
 		if (create)
-			mkdir (dir, 0700);
-		return dir;
+			mkdir (newdir, INIT_XDG_PATH_MODE);
+		return newdir;
 	}
 
 	return NULL;
+}
+
+/**
+ * get_home_subdir:
+ *
+ * @suffix: sub-directory name,
+ * @create: flag to create sub-directory.
+ *
+ * Construct path to @suffix directory in user's HOME directory.
+ * If @create is TRUE, also attempt to create that directory.
+ *
+ * Errors upon directory creation are ignored.
+ * 
+ * Returns: Newly-allocated path, or NULL on error.
+ **/
+char *
+get_home_subdir (const char *suffix, int create)
+{
+	char *env = getenv ("HOME");
+
+	return get_subdir (env, suffix, create);
 }
 
 /**
@@ -82,13 +115,12 @@ get_home_subdir (const char * suffix, int create)
 char *
 xdg_get_cache_home (void)
 {
-	nih_local char  **env = NULL;
 	char             *dir;
 
 	dir = getenv ("XDG_CACHE_HOME");
 	
 	if (dir && dir[0] == '/') {
-		mkdir (dir, 0700);
+		mkdir (dir, INIT_XDG_PATH_MODE);
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -115,13 +147,12 @@ xdg_get_cache_home (void)
 char *
 xdg_get_config_home (void)
 {
-	nih_local char  **env = NULL;
-	char             *dir;
+	char  *dir;
 
 	dir = getenv ("XDG_CONFIG_HOME");
 	
 	if (dir && dir[0] == '/') {
-		mkdir (dir, 0700);
+		mkdir (dir, INIT_XDG_PATH_MODE);
 		dir = nih_strdup (NULL, dir);
 		return dir;
 	}
@@ -133,6 +164,60 @@ xdg_get_config_home (void)
 	dir = get_home_subdir (".config", TRUE);
 
 	return dir;
+}
+
+/**
+ * xdg_get_runtime_dir:
+ *
+ * Determine an XDG compliant XDG_RUNTIME_DIR.
+ *
+ * Returns: newly-allocated path, or NULL on error.
+ **/
+char *
+xdg_get_runtime_dir (void)
+{
+	char *dir;
+
+	dir = getenv ("XDG_RUNTIME_DIR");
+
+	if (dir && dir[0] == '/') {
+		mkdir (dir, INIT_XDG_PATH_MODE);
+		dir = nih_strdup (NULL, dir);
+		return dir;
+	}
+
+	return dir;
+}
+
+/**
+ * get_session_dir:
+ *
+ * Determine full path to XDG-compliant session directory used to store
+ * session files.
+ *
+ * Returns: Newly-allocated path, or NULL on error.
+ **/
+char *
+get_session_dir (void)
+{
+	nih_local char  *runtime_dir = NULL;
+	nih_local char  *dir = NULL;
+	char            *session_dir;
+
+	runtime_dir = xdg_get_runtime_dir ();
+
+	if (runtime_dir && runtime_dir[0] == '/') {
+		dir = get_subdir (runtime_dir, INIT_XDG_SUBDIR, TRUE);
+		if (! dir)
+			return NULL;
+
+		session_dir = get_subdir (dir, INIT_XDG_SESSION_SUBDIR,
+				TRUE);
+
+		return session_dir;
+	}
+
+	return NULL;
 }
 
 /**
@@ -189,7 +274,7 @@ get_user_upstart_dirs (void)
 	if (path && path[0]) {
 	        if (! nih_strcat_sprintf (&path, NULL, "/%s", INIT_XDG_SUBDIR))
 			goto error;
-		mkdir (path, 0700);
+		mkdir (path, INIT_XDG_PATH_MODE);
 		if (! nih_str_array_add (&all_dirs, NULL, NULL, path))
 			goto error;
 		nih_free (path);
@@ -261,7 +346,7 @@ get_user_log_dir (void)
 		dir = nih_sprintf (NULL, "%s/%s", path, INIT_XDG_SUBDIR);
 		if (! dir)
 			return NULL;
-		mkdir (dir, 0700);
+		mkdir (dir, INIT_XDG_PATH_MODE);
 		return dir;
 	}
 	return NULL;
