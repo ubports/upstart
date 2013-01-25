@@ -1,4 +1,4 @@
-.TH init 5 2012-12-18 "Upstart"
+.TH init 7 2013-01-25 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -9,12 +9,13 @@ init \- Upstart init daemon job configuration
 Default location of system job configuration files.
 .\"
 .TP
-.B $HOME/.init/
-Default location of user job configuration files.
-.\"
-.TP
 .B $XDG_CONFIG_HOME/upstart/, $XDG_CONFIG_DIRS/upstart/
 Default locations of user session job configuration files.
+.\"
+.TP
+.B $HOME/.init/
+Deprecated location of user job configuration files (still
+honoured by User Session Mode).
 .\"
 .SH DESCRIPTION
 On startup, the Upstart
@@ -23,11 +24,6 @@ daemon reads its job configuration from files in the
 .I /etc/init/
 directory, and watches for future changes to these files using
 .BR inotify (7).
-
-If D\-Bus has been configured to allow non\-privileged users to invoke all
-Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
-.B User Jobs
-for further details.
 
 If Upstart was invoked as a user process with \-\-user option, it will
 run in User Session mode. See
@@ -85,33 +81,6 @@ interpreted, they are not named.
 
 Configuration files are plain text and should not be executable.
 .\"
-.SS User Jobs
-
-A User Job is a job configuration file created by a non\-privileged user
-in their
-.B $HOME/.init/
-directory. Job configuration files in this directory have the same
-syntax as system job configuration files.
-Files in this directory will be read and an
-.BR inotify (7)
-watch created the first time a user runs 
-.BR initctl (8) "."
-
-Any user can create user jobs, but that user can control
-.I only
-jobs they create.
-
-Users are able to manage their jobs using the standard
-.BR initctl (8)
-facility.
-
-Note that stanzas which manipulate resources limits may cause a job to
-fail to start should the value provided to such a stanza attempt to
-exceed the maximum value the users privilege level allows.
-
-Note that a user job configuration file cannot have the same name as a
-system job configuration file.
-.\"
 .SS Chroot Support
 
 Upstart is able to manage jobs within a \fBchroot\fP(2). To control jobs
@@ -123,10 +92,6 @@ chroot (in fact it is not recommended).
 Note that this facility is distinct from the \fBchroot\fR stanza (see
 .B Process environment
 below).
-
-Note that User Jobs
-.B cannot
-be used within a chroot environment.
 
 .\"
 .SS User Session Mode
@@ -149,11 +114,8 @@ Note that the first directory to contain a job is considered the owner
 of that job name: any subsequently searched directory that contains a
 job of the same name will be ignored. The same applies for override
 files: only the first override file found in the search order will be
-applied. Note that an override file does not have to be in the same
-directory as the job it overrides, but if not in the directory of the
-job it overrides, it must be in an
-.I earlier
-directory to that which contains the job.
+applied. Note that an override file can be in the same directory or
+earlier to that directory which contains the job file.
 
 Jobs in these locations are expected to launch the user's session.
 Upstart will try to parent all spawned process with the aid of
@@ -165,6 +127,12 @@ daemon running with process id 1.
 
 When running in User Session mode, Upstart will kill all job processes
 on session logout or shutdown.
+
+All log output will be in
+.I $XDG_CACHE_HOME/upstart
+which defaults to
+.I $HOME/.cache/upstart
+.
 
 .\"
 .SS Configuration File Format
@@ -697,19 +665,18 @@ Upstart 1.4.
 .B log
 .RS
 .B
-Only applies to system jobs:
-if specified by user jobs, the job will be considered to have specified
-the value
-.BR none "."
-
-For system jobs, if \fBlog\fR is specified, standard input is connected
+If \fBlog\fR is specified, standard input is connected
 to
 .IR /dev/null ","
 and standard output and standard error are connected to a pseudo-tty
 which logs all job output.
 
 Output is logged to file
-.IR /var/log/upstart/<job-log-file> "."
+.IR /var/log/upstart/<job-log-file>
+or
+.IR $XDG_CACHE_HOME/upstart/<job-log-file>
+for system and user session jobs respectively.
+
 If a job has specified \fBinstance\fR,
 .I <job-log-file>
 will equate to
@@ -907,7 +874,7 @@ in the
 block is used for all job processes. If both stanzas are unspecified,
 all job processes will run with its group ID set to 0 in the case of
 system jobs, and as the primary group of the user in the case of User
-Jobs.
+Session jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
@@ -1051,19 +1018,33 @@ System job override files.
 .
 .TP
 .I $HOME/.init/*.conf
-User job configuration files.
-Note that you may make the directory
-.I $HOME/.init/
-a symbolic link to
-.BR $HOME/.config/upstart/ "."
+User job configuration files
+.BR (deprecated) .
 .
 .TP
 .I $HOME/.init/*.override
 User job override files.
+.BR (deprecated) .
+.
+.TP
+.I $XDG_CONFIG_HOME/upstart/*.conf
+User session job configuration files. See
+.B User Session Mode
+for other locations.
+.
+.TP
+.I $XDG_CONFIG_HOME/upstart/*.override
+User session job override files. See
+.B User Session Mode
+for other locations.
 .
 .TP
 .I /var/log/upstart/*.log
 Default location of system job output logs.
+.
+.TP
+.I $XDG_CACHE_HOME/upstart/*.log
+Default location of user session job output logs.
 .RE
 .\"
 .SH AUTHOR
@@ -1077,7 +1058,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2009-2011 Canonical Ltd.
+Copyright \(co 2009-2013 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

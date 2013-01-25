@@ -281,40 +281,17 @@ job_class_new (const void *parent,
 		goto error;
 
 	class->session = session;
-	if (class->session
-	    && class->session->chroot
-	    && class->session->user) {
-		nih_local char *uid = NULL;
 
-		uid = nih_sprintf (NULL, "%d", class->session->user);
-		if (! uid)
-			goto error;
-
-		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-					     session->chroot, uid,
-					     class->name, NULL);
-
-	} else if (class->session
-		   && class->session->chroot) {
+	if (class->session && class->session->chroot) {
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 					     session->chroot,
 					     class->name, NULL);
-
-	} else if (class->session
-		   && class->session->user) {
-		nih_local char *uid = NULL;
-
-		uid = nih_sprintf (NULL, "%d", class->session->user);
-		if (! uid)
-			goto error;
-
-		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-					     uid, class->name, NULL);
 
 	} else {
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 					     class->name, NULL);
 	}
+
 	if (! class->path)
 		goto error;
 
@@ -1735,12 +1712,12 @@ job_class_serialise (const JobClass *class)
 	if (! json)
 		return NULL;
 	
-	/* XXX: user and chroot jobs are not currently supported
+	/* XXX: chroot jobs are not currently supported
 	 * due to ConfSources not currently being serialised.
 	 */
 	if (class->session) {
-		nih_info ("WARNING: serialisation of user jobs and "
-			"chroot sessions not currently supported");
+		nih_info ("WARNING: serialisation of chroot "
+				"sessions not currently supported");
 		goto error;
 	}
 
@@ -1968,12 +1945,12 @@ job_class_deserialise (json_object *json)
 
 	session = session_from_index (session_index);
 
-	/* XXX: user and chroot jobs are not currently supported
+	/* XXX: chroot jobs are not currently supported
 	 * due to ConfSources not currently being serialised.
 	 */
 	if (session) {
-		nih_info ("WARNING: deserialisation of user jobs and "
-			"chroot sessions not currently supported");
+		nih_info ("WARNING: deserialisation of chroot "
+				"sessions not currently supported");
 		goto error;
 	}
 

@@ -87,7 +87,6 @@ static void usr1_handler    (void *data, NihSignal *signal);
 
 static void handle_confdir      (void);
 static void handle_logdir       (void);
-static void handle_usermode     (void);
 static int  console_type_setter (NihOption *option, const char *arg);
 
 
@@ -121,13 +120,7 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-/**
- * user_mode:
- *
- * If TRUE, upstart runs in user session mode.
- **/
-static int user_mode = FALSE;
-
+extern int          user_mode;
 extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
@@ -207,7 +200,6 @@ main (int   argc,
 
 	handle_confdir ();
 	handle_logdir ();
-	handle_usermode ();
 
 	if (disable_job_logging)
 		nih_debug ("Job logging disabled");
@@ -215,7 +207,7 @@ main (int   argc,
 	control_handle_bus_type ();
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 
 		int needs_devtmpfs = 0;
 
@@ -391,7 +383,7 @@ main (int   argc,
 		nih_signal_reset ();
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Catch fatal errors immediately rather than waiting for a new
 		 * iteration through the main loop.
 		 */
@@ -408,7 +400,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGALRM, nih_signal_handler);
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Ask the kernel to send us SIGINT when control-alt-delete is
 		 * pressed; generate an event with the same name.
 		 */
@@ -581,7 +573,7 @@ main (int   argc,
 	}
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Now that the startup is complete, send all further logging output
 		 * to kmsg instead of to the console.
 		 */
@@ -959,6 +951,11 @@ handle_logdir (void)
 	if (log_dir)
 		goto out;
 
+	if (user_mode) {
+		log_dir = get_user_log_dir ();
+		return;
+	}
+
 	log_dir = JOB_LOGDIR;
 
 	dir = getenv (LOGDIR_ENV);
@@ -970,18 +967,6 @@ handle_logdir (void)
 out:
 	nih_debug ("Using alternate log directory %s",
 			log_dir);
-}
-
-/**
- * handle_usermode:
- *
- * Setup user session mode.
- **/
-static void
-handle_usermode (void)
-{
-	if (user_mode)
-		use_session_bus = TRUE;
 }
 
 /**  

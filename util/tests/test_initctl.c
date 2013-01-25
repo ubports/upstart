@@ -30,7 +30,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <regex.h>
-#include <sys/types.h>        
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <nih-dbus/dbus_error.h>
@@ -448,6 +448,7 @@ out:
 }
 
 extern int use_dbus;
+extern int user_mode;
 extern int dbus_bus_type;
 extern char *dest_name;
 extern const char *dest_address;
@@ -575,6 +576,91 @@ test_upstart_open (void)
 		dbus_server_unref (server);
 
 		dbus_shutdown ();
+	}
+
+	/* Check that we can create a proxy to Upstart's private internal
+	 * server in user mode, and that this is the default behaviour if we don't
+	 * fiddle with the other options.  The returned proxy should
+	 * hold the only reference to the connection.
+	 */
+	TEST_FEATURE ("with user-mode");
+	TEST_ALLOC_FAIL {
+		use_dbus = -1;
+		dbus_bus_type = -1;
+		dest_name = NULL;
+		dest_address = DBUS_ADDRESS_UPSTART;
+		user_mode = TRUE;
+
+		assert0 (setenv ("UPSTART_SESSION",
+				 "unix:abstract=/com/ubuntu/upstart/test-session",
+				 TRUE));
+
+		TEST_ALLOC_SAFE {
+			server = nih_dbus_server (getenv ("UPSTART_SESSION"),
+						  my_connect_handler,
+						  NULL);
+			assert (server != NULL);
+		}
+
+		my_connect_handler_called = FALSE;
+		last_connection = NULL;
+
+		TEST_DIVERT_STDERR (output) {
+			proxy = upstart_open (NULL);
+		}
+		rewind (output);
+
+		if (test_alloc_failed
+		    && (proxy == NULL)) {
+			TEST_FILE_EQ (output, "test: Cannot allocate memory\n");
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			if (last_connection) {
+				dbus_connection_close (last_connection);
+				dbus_connection_unref (last_connection);
+			}
+
+			dbus_server_disconnect (server);
+			dbus_server_unref (server);
+
+			dbus_shutdown ();
+			continue;
+		}
+
+		nih_main_loop ();
+
+		TEST_TRUE (my_connect_handler_called);
+		TEST_NE_P (last_connection, NULL);
+
+		TEST_NE_P (proxy, NULL);
+		TEST_ALLOC_SIZE (proxy, sizeof (NihDBusProxy));
+
+		TEST_NE_P (proxy->connection, NULL);
+		TEST_EQ_P (proxy->name, NULL);
+		TEST_EQ_P (proxy->owner, NULL);
+		TEST_EQ_STR (proxy->path, DBUS_PATH_UPSTART);
+		TEST_ALLOC_PARENT (proxy->path, proxy);
+		TEST_FALSE (proxy->auto_start);
+
+		TEST_EQ_P (proxy->lost_handler, NULL);
+		TEST_EQ_P (proxy->data, NULL);
+
+		nih_free (proxy);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		dbus_connection_close (last_connection);
+		dbus_connection_unref (last_connection);
+
+		dbus_server_disconnect (server);
+		dbus_server_unref (server);
+
+		dbus_shutdown ();
+
+		unsetenv ("UPSTART_SESSION");
+		user_mode = FALSE;
 	}
 
 
@@ -787,6 +873,36 @@ test_upstart_open (void)
 		dbus_shutdown ();
 	}
 
+
+	/* Check that when we attempt to connect to Upstart in user mode but
+	 * without UPSTART_SESSION set in the environment, an appropriate
+	 * error is output.
+	 */
+	TEST_FEATURE ("with user-mode and no target");
+	TEST_ALLOC_FAIL {
+		use_dbus = -1;
+		dbus_bus_type = -1;
+		dest_name = NULL;
+		dest_address = DBUS_ADDRESS_UPSTART;
+		user_mode = TRUE;
+
+		unsetenv ("UPSTART_SESSION");
+
+		TEST_DIVERT_STDERR (output) {
+			proxy = upstart_open (NULL);
+		}
+		rewind (output);
+
+		TEST_EQ_P (proxy, NULL);
+
+		TEST_FILE_EQ (output, ("test: UPSTART_SESSION isn't set in the environment. "
+				       "Unable to locate the Upstart instance.\n"));
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		dbus_shutdown ();
+		user_mode = FALSE;
+	}
 
 	fclose (output);
 }
@@ -12442,6 +12558,9 @@ test_notify_disk_writeable (void)
 
 	/* Ensure again that no log file written */
 	TEST_LT (stat (logfile_name, &statbuf), 0);
+
+	/* Must not be run as root */
+	TEST_TRUE (getuid ());
 
 	cmd = nih_sprintf (NULL, "%s notify-disk-writeable 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);

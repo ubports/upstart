@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,6 @@
 #ifndef USE_SESSION_BUS_ENV
 #define USE_SESSION_BUS_ENV "UPSTART_USE_SESSION_BUS"
 #endif
-
 
 NIH_BEGIN_EXTERN
 
@@ -120,19 +119,22 @@ void control_notify_restarted (void);
 
 int control_set_env (void           *data,
 		 NihDBusMessage *message,
+		 char * const    *job_details,
 		 const char     *var,
 		 int             replace)
 	__attribute__ ((warn_unused_result));
 
 int control_get_env (void             *data,
 		 NihDBusMessage   *message,
-		 char             *name,
+		 char * const     *job_details,
+		 const char       *name,
 		 char            **value)
 	__attribute__ ((warn_unused_result));
 
 int
 control_list_env (void             *data,
 		 NihDBusMessage   *message,
+		 char * const     *job_details,
 		 char           ***env)
 	__attribute__ ((warn_unused_result));
 

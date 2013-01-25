@@ -39,6 +39,13 @@ commands.
 .\"
 .SH OPTIONS
 .TP
+.B \-\-user
+User mode. In this mode, initctl will talk to the
+.BR init (8)
+daemon using the D\-Bus private socket defined in the UPSTART_SESSION
+environment variable.
+.\"
+.TP
 .B \-\-session
 Connect to
 .BR init (8)

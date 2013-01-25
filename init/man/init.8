@@ -67,6 +67,8 @@ by placing them on the kernel command-line.
 .B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than
 \fI/etc/init\fP.
+For user session mode, read job configuration files from this
+directory at highest priority.
 .\"
 .TP
 .B \-\-default-console \fIvalue\fP
@@ -81,7 +83,8 @@ for all possible values of
 .TP
 .B \-\-logdir \fIdirectory\fP
 Write job output log files to a directory other than
-\fI/var/log/upstart\fP.
+\fI/var/log/upstart\fP (system mode) or \fI$XDG_CACHE_HOME/upstart\fP
+(user session mode).
 .\"
 .TP
 .B \-\-no\-log

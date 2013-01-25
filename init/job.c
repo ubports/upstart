@@ -1701,7 +1701,7 @@ error:
 /**
  * job_serialise_all:
  *
- * Convert existing Session objects to JSON representation.
+ * Convert existing Job objects to JSON representation.
  *
  * Returns: JSON object containing array of Job objects, or NULL on error.
  **/

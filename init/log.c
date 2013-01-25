@@ -793,6 +793,11 @@ log_clear_unflushed (void)
 		elem = (NihListEntry *)iter;
 		log = elem->data;
 
+		/* To be added to this list, log should have been
+		 * detached from its parent job.
+		 */
+		nih_assert (log->detached);
+
 		/* We expect 'an' error (as otherwise why would the log be
 		 * in this list?), but don't assert EROFS specifically
 		 * as a precaution (since an attempt to flush the log at
@@ -800,9 +805,20 @@ log_clear_unflushed (void)
 		 */
 		nih_assert (log->open_errno);
 
-		nih_assert (log->unflushed->len);
-		nih_assert (log->remote_closed);
-		nih_assert (log->detached);
+		if (log->remote_closed) {
+			/* Parent job has ended and unflushed data
+			 * exists.
+			 */
+			nih_assert (log->unflushed->len);
+			nih_assert (! log->io);
+		} else {
+			/* Parent job itself has ended, but job spawned one or
+			 * more processes that are still running and
+			 * which might still produce output (the error
+			 * handler has therefore not been called).
+			 */
+			nih_assert (log->io);
+		}
 
 		if (log_file_open (log) != 0)
 			return -1;
@@ -810,6 +826,7 @@ log_clear_unflushed (void)
 		if (log_file_write (log, NULL, 0) < 0)
 			return -1;
 
+		/* This will handle any remaining unflushed log data */
 		nih_free (log);
 	}
 

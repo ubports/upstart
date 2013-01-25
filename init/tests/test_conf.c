@@ -1404,6 +1404,8 @@ no_inotify:
 	fclose (f);
 
 	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);

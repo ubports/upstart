@@ -25,16 +25,22 @@
 
 NIH_BEGIN_EXTERN
 
-char *    get_home_subdir        (const char * suffix)
+char *    get_home_subdir        (const char * suffix, int create)
 	__attribute__ ((malloc, warn_unused_result));
 
 char *    xdg_get_config_home    (void)
+	__attribute__ ((malloc, warn_unused_result));
+
+char *    xdg_get_cache_home     (void)
 	__attribute__ ((malloc, warn_unused_result));
 
 char **   xdg_get_config_dirs    (void)
 	__attribute__ ((malloc, warn_unused_result));
 
 char **   get_user_upstart_dirs  (void)
+	__attribute__ ((malloc, warn_unused_result));
+
+char *    get_user_log_dir       (void)
 	__attribute__ ((malloc, warn_unused_result));
 
 NIH_END_EXTERN
