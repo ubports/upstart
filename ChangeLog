@@ -27,6 +27,18 @@
 	* util/tests/test_initctl.c: test_notify_disk_writeable(): Ensure this
 	  test is not run as root.
 
+2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/xdg.[ch]: add xdg_get_cache_home and get_user_log_dir
+	  functions. These retrieve XDG_CACHE_HOME and a subdir inside it
+	  for upstart.
+	* init/tests/test_xdg.c: reuse test_get_config_home to test both
+	  xdg_get_cache_home and xdg_get_config_home. Add test for
+	  get_user_log_dir.
+	* init/main.c: use get_user_log_dir to setup logging
+	  directory in user_mode. For now, command line argument is
+	  honoured, while the environment override is not.
+
 2013-01-21  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:log_clear_unflushed(): Simplify asserts.
@@ -42,6 +54,14 @@
 	      job itself has exited and which produce output before the log
 	      directory becomes writeable.
 	    (LP: #1096531).
+
+2013-01-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/init-checkconf.sh:
+	  - Check copy is successful.
+	  - Auto-start dbus-launch if not running and command is available (for
+	    example in non-desktop environments) (LP: #881885).
+	  - Auto-stop dbus-daemon if we started it.
 
 2013-01-04  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 

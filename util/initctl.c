@@ -145,6 +145,14 @@ int use_dbus = -1;
 int dbus_bus_type = -1;
 
 /**
+ * user_mode:
+ *
+ * If TRUE, talk to Upstart over the private socket defined in UPSTART_SESSION
+ * if UPSTART_SESSION isn't defined, then fallback to the session bus.
+ **/
+int user_mode = FALSE;
+
+/**
  * dest_name:
  *
  * Name on the D-Bus system bus that the message should be sent to when
@@ -291,11 +299,30 @@ upstart_open (const void *parent)
 	DBusError       dbus_error;
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
+	char * user_addr;
 
-	if (use_dbus < 0)
-		use_dbus = getuid () ? TRUE : FALSE;
-	if (use_dbus >= 0 && dbus_bus_type < 0)
-		dbus_bus_type = DBUS_BUS_SYSTEM;
+	user_addr = getenv ("UPSTART_SESSION");
+
+	if (user_addr && dbus_bus_type < 0) {
+		user_mode = TRUE;
+	}
+
+	if (! user_mode) {
+		if (use_dbus < 0)
+			use_dbus = getuid () ? TRUE : FALSE;
+		if (use_dbus >= 0 && dbus_bus_type < 0)
+			dbus_bus_type = DBUS_BUS_SYSTEM;
+	}
+	else {
+		if (! user_addr) {
+			nih_error ("UPSTART_SESSION isn't set in the environment. "
+				       "Unable to locate the Upstart instance.");
+			return NULL;
+		}
+		dest_address = user_addr;
+		use_dbus = FALSE;
+	}
+
 
 	dbus_error_init (&dbus_error);
 	if (use_dbus) {
@@ -2356,6 +2383,8 @@ static NihOption options[] = {
 	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "dest", N_("destination well-known name on D-Bus bus"),
 	  NULL, "NAME", &dest_name, NULL },
+	{ 0, "user", N_("run in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
 
 	NIH_OPTION_LAST
 };

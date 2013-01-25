@@ -48,7 +48,6 @@ json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
 
-extern int   use_session_bus;
 extern char *log_dir;
 
 /**
