@@ -1,5 +1,32 @@
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
+	* dbus/com.ubuntu.Upstart.xml:
+	  - Added 'job_details' string array as first parameter for GetEnv,
+	    SetEnv, UnsetEnv, ListEnv and ResetEnv to allow methods to either
+	    act globally or on a specific job environment.
+	* init/control.c:
+	  - control_set_env():
+	  - control_unset_env():
+	  - control_get_env():
+	  - control_list_env():
+	  - control_reset_env():
+	    - Disallow setting for PID 1.
+	    - Operate globally or on specified job.
+	* init/control.h: control_get_job(): Macro to simplify extracting job
+	  from provided job details.
+	* init/job.c: job_find(): New function.
+	* init/job_class.c:
+	  - job_class_environment_set(): Delimiter handling now moved to
+	    control_set_env() so it can be shared by job and global logic.
+	  - job_class_find(): New function.
+	* init/state.c:
+	  - Removed state_get_job() and replaced calls with job_find().
+	* util/initctl.c:
+	  - Updated *_action() functions for new D-Bus parameters and made use
+	    of new function get_job_details().
+
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/control.c:
 	  - control_reload_configuration(): Added missing permission checks.
 	  - control_emit_event_with_file(): Added missing permission checks.

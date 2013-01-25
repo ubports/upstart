@@ -72,11 +72,6 @@ static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
 
-static Job *
-state_get_job (const Session *session, const char *job_class,
-	       const char *job_name)
-	__attribute__ ((warn_unused_result));
-
 static void state_write_file (NihIoBuffer *buffer);
 
 /**
@@ -1214,7 +1209,7 @@ state_deserialise_resolve_deps (json_object *json)
 				goto error;
 
 			/* lookup job */
-			job = state_get_job (class->session, class->name, job_name);
+			job = job_find (class->session, NULL, class->name, job_name);
 			if (! job)
 				goto error;
 
@@ -1507,7 +1502,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 
 			session = session_from_index (session_index);
 
-			job = state_get_job (session, job_class_name, job_name);
+			job = job_find (session, NULL, job_class_name, job_name);
 			if (! job)
 				goto error;
 
@@ -1702,48 +1697,6 @@ state_index_to_job_class (int job_class_index)
 		i++;
 	}
 
-	return NULL;
-}
-
-/**
- * state_get_job:
- *
- * @session: session of job class,
- * @job_class: name of job class,
- * @job_name: name of job instance.
- *
- * Lookup job based on parent class name and
- * job instance name.
- *
- * Returns: existing Job on success, or NULL if job class or
- * job not found.
- **/
-static Job *
-state_get_job (const Session *session,
-	       const char *job_class,
-	       const char *job_name)
-{
-	JobClass  *class = NULL;
-	Job       *job;
-
-	nih_assert (job_class);
-	nih_assert (job_classes);
-
-	do {
-		class = (JobClass *)nih_hash_search (job_classes,
-				job_class, class ? &class->entry : NULL);
-	} while (class && class->session != session);
-
-	if (! class)
-		goto error;
-
-	job = (Job *)nih_hash_lookup (class->instances, job_name);
-	if (! job)
-		goto error;
-
-	return job;
-
-error:
 	return NULL;
 }
 

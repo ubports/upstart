@@ -220,6 +220,12 @@ json_object *job_serialise_all (const NihHash *jobs)
 int         job_deserialise_all (JobClass *parent, json_object *json)
 	__attribute__ ((warn_unused_result));
 
+Job *       job_find            (const Session *session,
+				 JobClass       *class,
+				 char  *job_class,
+				 const char *job_name)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

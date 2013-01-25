@@ -2211,3 +2211,43 @@ error:
 	nih_free (timer);
 	return NULL;
 }
+
+/**
+ * job_find:
+ *
+ * @session: session of job class,
+ * @job_class: name of job class,
+ * @job_name: name of job instance.
+ *
+ * Lookup job based on parent class name and
+ * job instance name.
+ *
+ * Returns: existing Job on success, or NULL if job class or
+ * job are not found in @session.
+ **/
+Job *
+job_find (const Session  *session,
+	  JobClass       *class,
+	  char           *job_class,
+	  const char     *job_name)
+{
+	Job       *job;
+
+	nih_assert (class || job_class);
+	nih_assert (job_classes);
+
+	if (! class)
+		class = job_class_find (session, job_class);
+
+	if (! class)
+		goto error;
+
+	job = (Job *)nih_hash_lookup (class->instances, job_name);
+	if (! job)
+		goto error;
+
+	return job;
+
+error:
+	return NULL;
+}

@@ -43,24 +43,30 @@
     </method>
 
     <method name="GetEnv">
+      <arg name="job_details" type="as" direction="in" />
       <arg name="name" type="s" direction="in" />
       <arg name="value" type="s" direction="out" />
     </method>
 
     <method name="SetEnv">
+      <arg name="job_details" type="as" direction="in" />
       <arg name="var" type="s" direction="in" />
       <arg name="replace" type="b" direction="in" />
     </method>
 
     <method name="UnsetEnv">
+      <arg name="job_details" type="as" direction="in" />
       <arg name="name" type="s" direction="in" />
     </method>
 
     <method name="ListEnv">
+      <arg name="job_details" type="as" direction="in" />
       <arg name="env" type="as" direction="out" />
     </method>
 
-    <method name="ResetEnv"/>
+    <method name="ResetEnv">
+      <arg name="job_details" type="as" direction="in" />
+    </method>
 
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">

@@ -50,6 +50,7 @@
 #include "environ.h"
 #include "session.h"
 #include "job_class.h"
+#include "job.h"
 #include "blocked.h"
 #include "conf.h"
 #include "control.h"
@@ -1233,6 +1234,9 @@ control_set_env (void            *data,
 		return -1;
 	}
 
+	/* Lookup the job */
+	control_get_job (job, job_name, instance);
+
 	/* If variable does not contain a delimiter, add one to ensure
 	 * it gets entered into the job environment table. Without the
 	 * delimiter, the variable will be silently ignored unless it's
@@ -1335,6 +1339,9 @@ control_unset_env (void            *data,
 		return -1;
 	}
 
+	/* Lookup the job */
+	control_get_job (job, job_name, instance);
+
 	if (job) {
 		/* Modify job-specific environment */
 
@@ -1434,6 +1441,9 @@ control_get_env (void             *data,
 		return -1;
 	}
 
+	/* Lookup the job */
+	control_get_job (job, job_name, instance);
+
 	if (job) {
 		tmp = environ_get (job->env, name);
 		if (! tmp)
@@ -1526,6 +1536,9 @@ control_list_env (void             *data,
 		return -1;
 	}
 
+	/* Lookup the job */
+	control_get_job (job, job_name, instance);
+
 	if (job) {
 		*env = nih_str_array_copy (job, NULL, job->env);
 		if (! *env)
@@ -1612,6 +1625,10 @@ control_reset_env (void           *data,
 			_("You do not have permission to modify job environment"));
 		return -1;
 	}
+
+	/* Lookup the job */
+	control_get_job (job, job_name, instance);
+
 
 	if (job) {
 		size_t len;

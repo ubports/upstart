@@ -44,6 +44,45 @@
 #define USE_SESSION_BUS_ENV "UPSTART_USE_SESSION_BUS"
 #endif
 
+/**
+ * control_get_job:
+ * 
+ * @job: Job that will be set,
+ * @job_name: name of job to search for,
+ * @instance: instance of @job_name to search for.
+ *
+ * Determine the Job associated with @job_name and @instance and set it
+ * to @job.
+ *
+ * Returns: -1 on raised error, or nothing on success.
+ **/
+#define control_get_job(job, job_name, instance)                     \
+{                                                                    \
+	if (job_name != NULL ) {                                     \
+		JobClass *class;                                     \
+                                                                     \
+		class = job_class_find (session, job_name);          \
+		if (! class) {                                       \
+			nih_dbus_error_raise_printf (                \
+				DBUS_INTERFACE_UPSTART               \
+				".Error.UnknownJob",                 \
+				_("Unknown job: %s"),                \
+				job_name);                           \
+			return -1;                                   \
+		}                                                    \
+                                                                     \
+		job = job_find (session, class, NULL, instance);     \
+		if (! job) {                                         \
+			nih_dbus_error_raise_printf (                \
+				DBUS_INTERFACE_UPSTART               \
+				".Error.UnknownJobInstance",         \
+				_("Unknown instance: %s of job %s"), \
+				job_name, instance);                 \
+			return -1;                                   \
+		}                                                    \
+	}                                                            \
+}
+
 NIH_BEGIN_EXTERN
 
 extern DBusServer     *control_server;

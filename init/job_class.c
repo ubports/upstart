@@ -151,25 +151,11 @@ job_class_environment_reset (void)
 int
 job_class_environment_set (const char *var, int replace)
 {
-	nih_local char *envvar = NULL;
-
 	nih_assert (var);
 
 	job_class_environment_init ();
 
-	/* If variable does not contain a delimiter, add one to ensure
-	 * it gets entered into the job environment table. Without the
-	 * delimiter, the variable will be silently ignored unless it's
-	 * already set in inits environment. But in that case there is
-	 * no point in setting such a variable to its already existing
-	 * value.
-	 */
-	if (! strchr (var, '='))
-		envvar = NIH_MUST (nih_sprintf (NULL, "%s=", var));
-	else
-		envvar = NIH_MUST (nih_strdup (NULL, var));
-
-	if (! environ_add (&job_environ, NULL, NULL, replace, envvar))
+	if (! environ_add (&job_environ, NULL, NULL, replace, var))
 		return -1;
 
 	return 0;
@@ -226,7 +212,6 @@ job_class_environment_get_all (const void *parent)
  *
  * Returns: pointer to static storage value of @name, or NULL if @name
  * does not exist in job environment.
- *
  **/
 const char *
 job_class_environment_get (const char *name)
@@ -2335,4 +2320,30 @@ job_class_prepare_reexec (void)
 
 error:
 	nih_warn (_("unable to clear CLOEXEC bit on log fd"));
+}
+
+/**
+ * job_class_find:
+ *
+ * @session: session,
+ * @name: name of JobClass.
+ *
+ * Lookup a JobClass by session and name.
+ *
+ * Returns: JobClass associated with @session, or NULL if not found.
+ */
+JobClass *
+job_class_find (const Session *session,
+		const char *name)
+{
+	JobClass *class;
+
+	nih_assert (name);
+
+	do {
+		class = (JobClass *)nih_hash_search (job_classes,
+				name, class ? &class->entry : NULL);
+	} while (class && class->session != session);
+
+	return class;
 }

@@ -103,6 +103,8 @@ static void   display_check_errors (const char *job_class,
 
 static int    allow_job (const char *job);
 static int    allow_event (const char *event);
+static char **get_job_details (void)
+	__attribute__ ((warn_unused_result));
 
 #ifndef TEST
 
@@ -1393,6 +1395,7 @@ get_env_action (NihCommand *command, char * const *args)
 {
 	nih_local NihDBusProxy  *upstart = NULL;
 	nih_local char          *envvar = NULL;
+	nih_local char         **job_details = NULL;
 	NihError                *err;
 	char                    *name;
 
@@ -1407,11 +1410,17 @@ get_env_action (NihCommand *command, char * const *args)
 		return 1;
 	}
 
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	if (upstart_get_env_sync (NULL, upstart, name, &envvar) < 0)
+	job_details = NIH_MUST (nih_str_array_new (NULL));
+
+	if (upstart_get_env_sync (NULL, upstart, job_details, name, &envvar) < 0)
 		goto error;
 
 	nih_message ("%s", envvar);
@@ -1441,23 +1450,32 @@ set_env_action (NihCommand *command, char * const *args)
 	nih_local NihDBusProxy  *upstart = NULL;
 	NihError                *err;
 	char                    *envvar;
+	nih_local char         **job_details = NULL;
+	int                      ret;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	envvar = args[0];
-
-	if (! envvar) {
+	if (! args[0]) {
 		fprintf (stderr, _("%s: missing variable value\n"), program_name);
 		nih_main_suggest_help ();
 		return 1;
 	}
 
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	envvar = args[0];
+
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	if (upstart_set_env_sync (NULL, upstart, envvar, ! retain_var) < 0)
+	ret = upstart_set_env_sync (NULL, upstart, job_details,
+			envvar, ! retain_var);
+
+	if (ret < 0)
 		goto error;
 
 	return 0;
@@ -1485,6 +1503,7 @@ unset_env_action (NihCommand *command, char * const *args)
 	nih_local NihDBusProxy  *upstart = NULL;
 	NihError                *err;
 	char                    *name;
+	nih_local char         **job_details = NULL;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
@@ -1497,11 +1516,15 @@ unset_env_action (NihCommand *command, char * const *args)
 		return 1;
 	}
 
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	if (upstart_unset_env_sync (NULL, upstart, name) < 0)
+	if (upstart_unset_env_sync (NULL, upstart, job_details, name) < 0)
 		goto error;
 
 	return 0;
@@ -1527,15 +1550,20 @@ reset_env_action (NihCommand *command, char * const *args)
 {
 	nih_local NihDBusProxy  *upstart = NULL;
 	NihError                *err;
+	nih_local char         **job_details = NULL;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	if (upstart_reset_env_sync (NULL, upstart) < 0)
+	if (upstart_reset_env_sync (NULL, upstart, job_details) < 0)
 		goto error;
 
 	return 0;
@@ -1580,15 +1608,20 @@ list_env_action (NihCommand *command, char * const *args)
 	char                   **e;
 	NihError                *err;
 	size_t                   len;
+	nih_local char         **job_details = NULL;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	if (upstart_list_env_sync (NULL, upstart, &env) < 0)
+	if (upstart_list_env_sync (NULL, upstart, job_details, &env) < 0)
 		goto error;
 
 	/* Determine array size */
@@ -2634,6 +2667,65 @@ allow_event (const char *event)
 
 out:
 	return TRUE;
+}
+
+/**
+ * get_job_details:
+ *
+ * Determine the job and job instance name that the caller should act
+ * upon. Used by the job environment commands. The caller can determine
+ * how to react based on the values in the returned array:
+ *
+ * - If user has requested global operation via the command line, return
+ *   an allocated array with zero elements.
+ *
+ * - If user has specified a job name and possible instance value via the
+ *   command line, return an array containing first the job name, then the
+ *   instance value.
+ *
+ * - If no command-line options have been specified, try to extract the
+ *   job and instance names from the environment variables set within a
+ *   jobs environment.
+ *
+ * Returns: Newly-allocated array containing job name and job
+ * instance, or an empty array if job and instance cannot be resolved,
+ * or NULL on error.
+ **/
+char **
+get_job_details (void)
+{
+	char        **details;
+	const char   *upstart_job = NULL;
+	const char   *upstart_instance = NULL;
+
+	details = nih_str_array_new (NULL);
+
+	if (! details)
+		return NULL;
+
+	/* The global option trounces all others */
+	if (apply_globally) {
+		upstart_job = upstart_instance = NULL;
+	} else if (job_name) {
+		upstart_job = job_name;
+		upstart_instance = job_instance ? job_instance : "";
+	} else {
+		upstart_job = getenv ("UPSTART_JOB");
+		upstart_instance = getenv ("UPSTART_INSTANCE");
+
+		if (! (upstart_job && upstart_instance)) {
+			fprintf (stderr, _("%s: missing job name\n"), program_name);
+			nih_main_suggest_help ();
+			return NULL;
+		}
+	}
+
+	if (upstart_job) {
+		NIH_MUST (nih_str_array_add (&details, NULL, NULL, upstart_job));
+		NIH_MUST (nih_str_array_add (&details, NULL, NULL, upstart_instance));
+	}
+
+	return details;
 }
 
 
