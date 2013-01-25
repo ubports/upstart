@@ -28,10 +28,10 @@
  *     detect that is *has* changed filesystem context.
  *
  *   - Since ConfSources are NOT serialised, it is currently not possible
- *     to support user jobs and chroot jobs (because the only ConfSource
+ *     to support chroot jobs (because the only ConfSource
  *     objects created are those at startup (for '/etc/init/'): any
- *     pre-existing ConfSources with non-NULL sessions representing
- *     user jobs will be ignored).
+ *     pre-existing ConfSources with non-NULL Session objects will
+ *     be ignored).
  *
  *   - parent/child timeout handling: we won't support down-grading initially.
  *

@@ -65,6 +65,8 @@ static void  control_disconnected   (DBusConnection *conn);
 static void  control_register_all   (DBusConnection *conn);
 
 static void  control_bus_flush      (void);
+static int   control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
+	__attribute__ ((warn_unused_result));
 
 /**
  * use_session_bus:
@@ -368,13 +370,26 @@ control_register_all (DBusConnection *conn)
  * Called to request that Upstart reloads its configuration from disk,
  * useful when inotify is not available or the user is generally paranoid.
  *
+ * Notes: chroot sessions are permitted to make this call.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
 control_reload_configuration (void           *data,
 			      NihDBusMessage *message)
 {
+	uid_t     uid, origin_uid;
+
 	nih_assert (message != NULL);
+
+	uid = getuid ();
+
+	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to reload configuration"));
+		return -1;
+	}
 
 	nih_info (_("Reloading configuration"));
 
@@ -564,12 +579,22 @@ control_emit_event_with_file (void            *data,
 			      int              wait,
 			      int              file)
 {
-	Event   *event;
-	Blocked *blocked;
+	Event    *event;
+	Blocked  *blocked;
+	uid_t     uid, origin_uid;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
 	nih_assert (env != NULL);
+
+	uid = getuid ();
+
+	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to emit an event"));
+		return -1;
+	}
 
 	/* Verify that the name is valid */
 	if (! strlen (name)) {
@@ -783,6 +808,11 @@ control_handle_bus_type (void)
  * Called to flush the job logs for all jobs that ended before the log
  * disk became writeable.
  *
+ * Notes: Session Inits are permitted to make this call. In the common
+ * case of starting a Session Init as a child of a Display Manager this
+ * is somewhat meaningless, but it does mean that if a Session Init were
+ * started from a system job, behaviour would be as expected.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
@@ -791,13 +821,16 @@ control_notify_disk_writeable (void   *data,
 {
 	int       ret;
 	Session  *session;
+	uid_t     uid, origin_uid;
 
 	nih_assert (message != NULL);
+
+	uid = getuid ();
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
 
-	if (session && session->user) {
+	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to notify disk is writeable"));
@@ -968,7 +1001,7 @@ control_get_state (void           *data,
 		   char           **state)
 {
 	Session  *session;
-	uid_t     uid;
+	uid_t     uid, origin_uid;
 	size_t    len;
 
 	nih_assert (message);
@@ -993,7 +1026,7 @@ control_get_state (void           *data,
 	 * happen to own this process (which they may do in the test
 	 * scenario and when running Upstart as a non-privileged user).
 	 */
-	if (session && session->user != uid) {
+	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to request state"));
@@ -1031,7 +1064,7 @@ control_restart (void           *data,
 		 NihDBusMessage *message)
 {
 	Session  *session;
-	uid_t     uid;
+	uid_t     origin_uid, uid;
 
 	nih_assert (message != NULL);
 
@@ -1055,7 +1088,7 @@ control_restart (void           *data,
 	 * own this process (which they may do in the test scenario and
 	 * when running Upstart as a non-privileged user).
 	 */
-	if (session && session->user != uid) {
+	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to request restart"));
@@ -1106,4 +1139,44 @@ control_notify_restarted (void)
 
 		NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
 	}
+}
+
+/**
+ * control_get_origin_uid:
+ * @message: D-Bus connection and message received,
+ * @uid: returned uid value.
+ *
+ * Returns TRUE: if @uid now contains uid corresponding to @message,
+ * else FALSE.
+ **/
+static int
+control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
+{
+	DBusError       dbus_error;
+	unsigned long   unix_user = 0;
+	const char     *sender;
+
+	nih_assert (message);
+	nih_assert (uid);
+
+	dbus_error_init (&dbus_error);
+
+	sender = dbus_message_get_sender (message->message);
+	if (sender) {
+		unix_user = dbus_bus_get_unix_user (message->connection, sender,
+						    &dbus_error);
+		if (unix_user == (unsigned long)-1) {
+			dbus_error_free (&dbus_error);
+			return FALSE;
+		}
+	} else {
+		if (! dbus_connection_get_unix_user (message->connection,
+						     &unix_user)) {
+			return FALSE;
+		}
+	}
+
+	*uid = (uid_t)unix_user;
+
+	return TRUE;
 }

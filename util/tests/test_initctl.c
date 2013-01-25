@@ -12374,6 +12374,9 @@ test_notify_disk_writeable (void)
 	/* Ensure again that no log file written */
 	TEST_LT (stat (logfile_name, &statbuf), 0);
 
+	/* Must not be run as root */
+	TEST_TRUE (getuid ());
+
 	cmd = nih_sprintf (NULL, "%s notify-disk-writeable 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);

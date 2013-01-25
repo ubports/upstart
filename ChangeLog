@@ -1,3 +1,32 @@
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_reload_configuration(): Added missing permission checks.
+	  - control_emit_event_with_file(): Added missing permission checks.
+	  - Added calls to new function control_get_origin_uid() to allow
+	    D-Bus methods to be policed by filtering on uid, rather than
+	    relying on the same information that used to be stored in the
+	    old Session object.
+	* init/job.c: Typo.
+	* init/job_class.c:
+	  - job_class_new(): Removed user elements from session code.
+	  - job_class_serialise(): Comments.
+	  - job_class_deserialise(): Comments.
+	* init/job_process.c: job_process_spawn(): Removed user session
+	  handling.
+	* init/session.c: Removed user session handling since it is
+	  about to be replaced by the ability to run Upstart as a
+	  non-privileged user (aka a 'Session Init').
+	* init/session.h: Updated prototypes.
+	* init/state.h: Comments.
+	* init/tests/test_conf.c: test_source_reload_job_dir(): Added missing
+	  check.
+	* init/tests/test_state.c:
+	  - session_diff(): Removed user check.
+	  - Updated all calls to session_new().
+	* util/tests/test_initctl.c: test_notify_disk_writeable(): Ensure this
+	  test is not run as root.
+
 2013-01-21  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:log_clear_unflushed(): Simplify asserts.
