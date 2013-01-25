@@ -1149,6 +1149,7 @@ control_session_file_create (void)
 {
 	nih_local char *session_dir = NULL;
 	FILE           *f;
+	int             ret;
 
 	nih_assert (control_server_address);
 
@@ -1166,9 +1167,10 @@ control_session_file_create (void)
 		return;
 	}
 
-	if (fprintf (f, SESSION_ENV "=%s\n", control_server_address) < 0) {
+	ret = fprintf (f, SESSION_ENV "=%s\n", control_server_address);
+
+	if (ret < 0)
 		nih_error ("%s: %s", _("unable to write session file"), session_file);
-	}
 
 	fclose (f);
 }

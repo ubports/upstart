@@ -7,6 +7,7 @@ AM_CFLAGS = \
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
+	-DINITCTL_BUILD \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
@@ -29,7 +30,8 @@ sbin_PROGRAMS = \
 	telinit
 
 initctl_SOURCES = \
-	initctl.c initctl.h
+	initctl.c initctl.h \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
@@ -192,7 +194,10 @@ EXTRA_DIST += tests/test_user_sessions.sh
 
 check_PROGRAMS = $(TESTS)
 
-test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_SOURCES = \
+	tests/test_initctl.c \
+	initctl.c \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
 test_initctl_LDADD = \
 	com.ubuntu.Upstart.o \

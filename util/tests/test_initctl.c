@@ -44,6 +44,7 @@
 #include <nih/main.h>
 #include <nih/command.h>
 #include <nih/error.h>
+#include <nih/file.h>
 #include <nih/string.h>
 
 #include "dbus/upstart.h"
@@ -104,61 +105,6 @@
 }
 
 /**
- * _START_UPSTART:
- *
- * @pid: pid_t that will contain pid of running instance on success,
- * @confdir: full path to configuration directory, or NULL to use
- *           the default,
- * @logdir: full path to log directory, or NULL to use the default.
- *
- * Start an instance of Upstart. Fork errors are fatal. Waits for a
- * reasonable amount of time for Upstart to appear on D-Bus.
- **/
-#define _START_UPSTART(pid, confdir, logdir)                         \
-{                                                                    \
-	nih_local char  **args = NULL;                               \
-	nih_local char   *conf_opts = NULL;                          \
-	nih_local char   *log_opts = NULL;                           \
-	                                                             \
-	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));             \
-	                                                             \
-	args = NIH_MUST (nih_str_array_new (NULL));                  \
-	                                                             \
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
-				UPSTART_BINARY));                    \
-	                                                             \
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
-				"--session"));                       \
-	                                                             \
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
-				"--no-startup-event"));              \
-	                                                             \
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,              \
-				"--no-sessions"));                   \
-	                                                             \
-	if (confdir != NULL) {                                       \
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
-				"--confdir"));                       \
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
-				confdir));                           \
-	}                                                            \
-	                                                             \
-	if (logdir != NULL) {                                        \
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
-				"--logdir"));                        \
-		NIH_MUST (nih_str_array_add (&args, NULL, NULL,      \
-				logdir));                            \
-	}                                                            \
-	                                                             \
-	TEST_NE (pid = fork (), -1);                                 \
-	                                                             \
-	if (pid == 0)                                                \
-		execv (args[0], args);                               \
-	                                                             \
-	WAIT_FOR_UPSTART ();                                         \
-}
-
-/**
  * START_UPSTART:
  *
  * @pid: pid_t that will contain pid of running instance on success.
@@ -166,7 +112,7 @@
  * Start an instance of Upstart and return PID in @pid.
  **/
 #define START_UPSTART(pid)                                           \
-	_START_UPSTART (pid, NULL, NULL)
+	start_upstart_common (&(pid), NULL, NULL, NULL)
 
 /**
  * KILL_UPSTART:
@@ -307,6 +253,104 @@
         strcat (filename, name);                                     \
                                                                      \
 	TEST_EQ (unlink (filename), 0);                              \
+}
+
+/**
+ * _start_upstart:
+ *
+ * @pid: PID of running instance,
+ * @args: optional list of arguments to specify.
+ *
+ * Start an instance of Upstart.
+ *
+ * If the instance fails to start, abort(3) is called.
+ **/
+void
+_start_upstart (pid_t *pid, char * const *args)
+{
+	nih_local char  **argv = NULL;
+
+	assert (pid);
+
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	argv = NIH_MUST (nih_str_array_new (NULL));
+
+	NIH_MUST (nih_str_array_add (&argv, NULL, NULL,
+				UPSTART_BINARY));
+
+	if (args)
+		NIH_MUST (nih_str_array_append (&argv, NULL, NULL, args));
+
+	TEST_NE (*pid = fork (), -1);
+
+	if (*pid == 0)
+		execv (argv[0], argv);
+
+	WAIT_FOR_UPSTART ();
+}
+
+/**
+ * start_upstart_common:
+ *
+ * @pid: PID of running instance,
+ * @confdir: full path to configuration directory,
+ * @logdir: full path to log directory,
+ * @extra: optional extra arguments.
+ *
+ * Wrapper round _start_upstart() which specifies common options.
+ **/
+void
+start_upstart_common (pid_t *pid, const char *confdir,
+		      const char *logdir, char * const *extra)
+{
+	nih_local char  **args = NULL;
+
+	assert (pid);
+
+	args = NIH_MUST (nih_str_array_new (NULL));
+
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+				"--session"));
+
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+				"--no-startup-event"));
+
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+				"--no-sessions"));
+
+	if (confdir) {
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+					"--confdir"));
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+					confdir));
+	}
+
+	if (logdir) {
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+					"--logdir"));
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+					logdir));
+	}
+
+	if (extra)
+		NIH_MUST (nih_str_array_append (&args, NULL, NULL, extra));
+
+	_start_upstart (pid, args);
+}
+
+/**
+ * start_upstart:
+ *
+ * @pid: PID of running instance.
+ *
+ * Wrapper round _start_upstart() which just runs an instance with no
+ * options.
+ **/
+void
+start_upstart (pid_t *pid)
+{
+	start_upstart_common (pid, NULL, NULL, NULL);
 }
 
 /**
@@ -11324,7 +11368,7 @@ test_reexec (void)
 	/*******************************************************************/
 	TEST_FEATURE ("single job producing output across a re-exec");
 
-	_START_UPSTART (upstart_pid, confdir, logdir);
+	start_upstart_common (&upstart_pid, confdir, logdir, NULL);
 
 	contents = nih_sprintf (NULL, 
 			"pre-start exec echo pre-start\n"
@@ -11476,6 +11520,109 @@ test_reexec (void)
 
         TEST_EQ (rmdir (confdir), 0);
         TEST_EQ (rmdir (logdir), 0);
+
+	/*******************************************************************/
+}
+
+void
+test_list_sessions (void)
+{
+	char             dirname[PATH_MAX];
+	char             confdir[PATH_MAX];
+	nih_local char  *cmd = NULL;
+	nih_local char  **args = NULL;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid    = 0;
+	char           **output;
+	size_t           lines;
+	struct stat      statbuf;
+	nih_local char  *contents = NULL;
+	nih_local char  *session_file = NULL;
+	nih_local char  *path = NULL;
+	nih_local char  *expected = NULL;
+	size_t           len;
+	char            *value;
+
+	TEST_GROUP ("list-sessions");
+
+	/*******************************************************************/
+	TEST_FEATURE ("with no instances");
+
+	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/*******************************************************************/
+	TEST_FEATURE ("with 1 running instance");
+
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
+
+	args = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL, "--user"));
+
+	/* Start to create session file */
+	TEST_DBUS (dbus_pid);
+	start_upstart_common (&upstart_pid, NULL, NULL, args);
+
+	session_file = nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+			dirname, (int)upstart_pid);
+
+	/* session file should now have been created by Upstart */
+	TEST_EQ (stat (session_file, &statbuf), 0);
+
+	contents = nih_file_read (NULL, session_file, &len);
+	TEST_NE_P (contents, NULL);
+	TEST_TRUE (len);
+
+	/* overwrite '\n' */
+	contents[len-1] = '\0';
+
+	TEST_EQ_P (strstr (contents, "UPSTART_SESSION="), contents);
+	value  = strchr (contents, '=');
+	TEST_NE_P (value, NULL);
+
+	/* jump over '=' */
+	value++;
+	TEST_NE_P (value, NULL);
+
+	expected = nih_sprintf (NULL, "%d %s", (int)upstart_pid, value);
+
+	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_EQ_STR (output[0], expected);
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/* Upstart cannot yet be instructed to shutdown cleanly, so for
+	 * now we have to remove the session file manually.
+	 */
+	TEST_EQ (unlink (session_file), 0);
+
+	/* Remove the directory tree the Session Init created */
+	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", dirname));
+        TEST_EQ (rmdir (path), 0);
+	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart", dirname));
+        TEST_EQ (rmdir (path), 0);
+
+	/*******************************************************************/
+
+	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+
+        TEST_EQ (rmdir (dirname), 0);
+        TEST_EQ (rmdir (confdir), 0);
 
 	/*******************************************************************/
 }
@@ -15239,6 +15386,7 @@ main (int   argc,
 	test_log_priority_action ();
 	test_usage ();
 	test_reexec ();
+	test_list_sessions ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"

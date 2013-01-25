@@ -555,6 +555,16 @@ written successfully to disk, the internal cache is deleted.
 .RE
 .\"
 .TP
+.B list\-sessions
+List the pid of the Session Init process followed by the value of
+.B UPSTART_SESSION
+in use for that session separted by a space character. Session files
+relating to non-longer running Session Init processes are considered
+\(aqstale\(aq and are not listed (although when run using
+.BR \-\-verbose ","
+the full path of the stale session file is displayed).
+.\"
+.TP
 .B usage
 .I JOB
 .RI [ KEY=VALUE ]...
