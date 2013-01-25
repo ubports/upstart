@@ -26,6 +26,8 @@
 	  - Updated all calls to session_new().
 	* util/tests/test_initctl.c: test_notify_disk_writeable(): Ensure this
 	  test is not run as root.
+	* util/tests/test_user_sessions.sh: Removed.
+	* init/man/init.5: Updated to reflect removal of user jobs.
 
 2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
