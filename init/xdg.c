@@ -100,7 +100,11 @@ get_subdir (const char *dir, const char *suffix, int create)
 char *
 get_home_subdir (const char *suffix, int create)
 {
-	char *env = getenv ("HOME");
+	char *env;
+
+	env = getenv ("HOME");
+	if (! env)
+		return NULL;
 
 	return get_subdir (env, suffix, create);
 }

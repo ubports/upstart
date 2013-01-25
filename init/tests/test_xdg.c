@@ -435,6 +435,49 @@ test_get_user_log_dir (void)
 	rmdir (dirname);
 }
 
+void
+test_get_session_dir (void)
+{
+	char dirname[PATH_MAX];
+	char         *expected;
+	char             *path;
+
+	TEST_FUNCTION ("get_session_dir");
+
+	TEST_FEATURE ("with XDG_RUNTIME_DIR set");
+
+	TEST_FILENAME (dirname);
+	assert0 (setenv ("XDG_RUNTIME_DIR", dirname, 1));
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	expected = nih_sprintf (NULL, "%s/upstart/sessions", dirname);
+
+	TEST_ALLOC_FAIL {
+		path = get_session_dir ();
+		if (test_alloc_failed) {
+			TEST_EQ_P (path, NULL);
+		} else {
+			TEST_EQ_STR (path, expected);
+			_test_dir_created (expected);
+			nih_free (path);
+		}
+	}
+
+	TEST_FEATURE ("with XDG_RUNTIME_DIR unset");
+	assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+
+	/* no fallback */
+	path = get_session_dir ();
+	TEST_EQ_P (path, NULL);
+
+	rmdir (expected);
+	nih_free (expected);
+	path = nih_sprintf (NULL, "%s/upstart", dirname);
+	rmdir (path);
+	nih_free (path);
+	rmdir (dirname);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -445,6 +488,7 @@ main (int   argc,
 	test_get_user_upstart_dirs ();
 	test_get_cache_home ();
 	test_get_user_log_dir ();
+	test_get_session_dir ();
 
 	return 0;
 }

@@ -1,3 +1,8 @@
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_xdg.c: Added test_get_session_dir().
+	* init/xdg.c: get_home_subdir(): Handle unset 'HOME' immediately.
+
 2013-01-24  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c:
