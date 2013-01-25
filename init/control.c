@@ -56,15 +56,19 @@
 #include "errors.h"
 #include "state.h"
 #include "event.h"
+#include "paths.h"
+#include "xdg.h"
 
 #include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
-static int   control_server_connect (DBusServer *server, DBusConnection *conn);
-static void  control_disconnected   (DBusConnection *conn);
-static void  control_register_all   (DBusConnection *conn);
+static int   control_server_connect      (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected        (DBusConnection *conn);
+static void  control_register_all        (DBusConnection *conn);
 
-static void  control_bus_flush      (void);
+static void  control_bus_flush           (void);
+static void  control_session_file_create (void);
+static void  control_session_file_remove (void);
 
 /**
  * use_session_bus:
@@ -80,7 +84,7 @@ int use_session_bus = FALSE;
  *
  * Address on which the control server may be reached.
  **/
-const char *control_server_address = DBUS_ADDRESS_UPSTART;
+char *control_server_address = NULL;
 
 /**
  * control_server:
@@ -105,6 +109,10 @@ DBusConnection *control_bus = NULL;
  **/
 NihList *control_conns = NULL;
 
+/* External definitions */
+extern int user_mode;
+
+extern char *session_file;
 
 /**
  * control_init:
@@ -116,8 +124,29 @@ control_init (void)
 {
 	if (! control_conns)
 		control_conns = NIH_MUST (nih_list_new (NULL));
+
+	if (! control_server_address) {
+		if (user_mode) {
+			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL,
+					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid (), getpid ()));
+
+			control_session_file_create ();
+		} else {
+			control_server_address = NIH_MUST (nih_strdup (NULL, DBUS_ADDRESS_UPSTART));
+		}
+	}
 }
 
+/**
+ * control_cleanup:
+ *
+ * Perform cleanup operations.
+ **/
+void
+control_cleanup (void)
+{
+	control_session_file_remove ();
+}
 
 /**
  * control_server_open:
@@ -1106,4 +1135,54 @@ control_notify_restarted (void)
 
 		NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
 	}
+}
+
+/**
+ * control_session_file_create:
+ *
+ * Create session file if possible.
+ *
+ * Errors are not fatal - the file is just not created.
+ **/
+static void
+control_session_file_create (void)
+{
+	nih_local char *session_dir = NULL;
+	FILE           *f;
+
+	nih_assert (control_server_address);
+
+	session_dir = get_session_dir ();
+
+	if (! session_dir)
+		return;
+
+	NIH_MUST (nih_strcat_sprintf (&session_file, NULL, "%s/%d%s",
+				session_dir, (int)getpid (), SESSION_EXT));
+
+	f = fopen (session_file, "w");
+	if (! f) {
+		nih_error ("%s: %s", _("unable to create session file"), session_file);
+		return;
+	}
+
+	if (fprintf (f, SESSION_ENV "=%s\n", control_server_address) < 0) {
+		nih_error ("%s: %s", _("unable to write session file"), session_file);
+	}
+
+	fclose (f);
+}
+
+/**
+ * control_session_file_remove:
+ *
+ * Delete session file.
+ *
+ * Errors are not fatal.
+ **/
+static void
+control_session_file_remove (void)
+{
+	if (session_file)
+		(void)unlink (session_file);
 }

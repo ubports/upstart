@@ -65,6 +65,8 @@
 #include "job_class.h"
 #include "job.h"
 #include "errors.h"
+#include "control.h"
+#include "xdg.h"
 
 
 /**
@@ -126,6 +128,8 @@ static void job_process_trace_signal    (Job *job, ProcessType process,
 static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
+extern int          user_mode;
+extern char         *control_server_address;
 
 /**
  * job_process_run:
@@ -275,6 +279,9 @@ job_process_run (Job         *job,
 			       "UPSTART_JOB=%s", job->class->name));
 	NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
 			       "UPSTART_INSTANCE=%s", job->name));
+	if (user_mode)
+		NIH_MUST (environ_set (&env, NULL, &envc, TRUE,
+			       "UPSTART_SESSION=%s", control_server_address));
 
 	/* If we're about to spawn the main job and we expect it to become
 	 * a daemon or fork before we can move out of spawned, we need to
@@ -2191,7 +2198,7 @@ job_process_log_path (Job *job, int user_job)
 	nih_assert (class->name);
 
 	/* Override, primarily for tests */
-	if (getenv (LOGDIR_ENV)) {
+	if (getenv (LOGDIR_ENV) && ! user_mode) {
 		dir = nih_strdup (NULL, getenv (LOGDIR_ENV));
 		nih_debug ("Using alternative directory '%s' for logs", dir);
 	} else {

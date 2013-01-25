@@ -149,11 +149,8 @@ Note that the first directory to contain a job is considered the owner
 of that job name: any subsequently searched directory that contains a
 job of the same name will be ignored. The same applies for override
 files: only the first override file found in the search order will be
-applied. Note that an override file does not have to be in the same
-directory as the job it overrides, but if not in the directory of the
-job it overrides, it must be in an
-.I earlier
-directory to that which contains the job.
+applied. Note that an override file can be in the same directory or
+earlier to that directory which contains the job file.
 
 Jobs in these locations are expected to launch the user's session.
 Upstart will try to parent all spawned process with the aid of
@@ -165,6 +162,12 @@ daemon running with process id 1.
 
 When running in User Session mode, Upstart will kill all job processes
 on session logout or shutdown.
+
+All log output will be in
+.I $XDG_CACHE_HOME/upstart
+which defaults to
+.I $HOME/.cache/upstart
+.
 
 .\"
 .SS Configuration File Format
@@ -444,6 +447,10 @@ are mostly used by the
 .BR initctl (8)
 utility to default to acting on the job the commands are called from.
 
+When running in a user session, the additional UPSTART_SESSION environment
+variable is also set and contains the DBus path to the private bus used by
+the upstart instance daemon.
+
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overridden
@@ -660,19 +667,23 @@ Upstart 1.4.
 .B log
 .RS
 .B
-Only applies to system jobs:
+Only applies to system and user session jobs:
 if specified by user jobs, the job will be considered to have specified
 the value
 .BR none "."
 
-For system jobs, if \fBlog\fR is specified, standard input is connected
+For system and user session jobs jobs, if \fBlog\fR is specified, standard input is connected
 to
 .IR /dev/null ","
 and standard output and standard error are connected to a pseudo-tty
 which logs all job output.
 
 Output is logged to file
-.IR /var/log/upstart/<job-log-file> "."
+.IR /var/log/upstart/<job-log-file>
+or
+.IR $XDG_CACHE_HOME/upstart/<job-log-file>
+for system and user session jobs respectively.
+
 If a job has specified \fBinstance\fR,
 .I <job-log-file>
 will equate to
@@ -1015,18 +1026,33 @@ System job override files.
 .TP
 .I $HOME/.init/*.conf
 User job configuration files.
-Note that you may make the directory
-.I $HOME/.init/
-a symbolic link to
-.BR $HOME/.config/upstart/ "."
 .
 .TP
 .I $HOME/.init/*.override
 User job override files.
 .
 .TP
+.I $XDG_CONFIG_HOME/upstart/*.conf
+User session job configuration files. See
+.B User Session Mode
+for other locations.
+.
+.TP
+.I $XDG_CONFIG_HOME/upstart/*.override
+User session job override files. See
+.B User Session Mode
+for other locations.
+.
+.TP
 .I /var/log/upstart/*.log
 Default location of system job output logs.
+.
+.TP
+.I $XDG_CACHE_HOME/upstart/*.log
+Default location of user session job output logs.
+.TP
+.I $XDG_RUNTIME_DIR/upstart/sessions/*.session
+Location of session files created when running in User Session mode.
 .RE
 .\"
 .SH AUTHOR
