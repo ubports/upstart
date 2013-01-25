@@ -2,6 +2,11 @@
 
 	* init/tests/test_xdg.c: Added test_get_session_dir().
 	* init/xdg.c: get_home_subdir(): Handle unset 'HOME' immediately.
+	* init/control.c: Make use of SESSION_EXT.
+	* init/man/init.5: Added session files.
+	* init/paths.h:
+	  - Comments.
+	  - Added SESSION_EXT.
 
 2013-01-24  James Hunt  <james.hunt@ubuntu.com>
 

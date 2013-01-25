@@ -186,11 +186,15 @@
 #endif
 
 /**
+ * CONF_EXT_STD:
+ *
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"
 
 /**
+ * CONF_EXT_OVERRIDE:
+ *
  * File extension for override files.
  *
  * Note that override files are not stored in the ConfSource 'files' hash:
@@ -198,6 +202,15 @@
  * the corresponding (CONF_EXT_STD) object.
  **/
 #define CONF_EXT_OVERRIDE ".override"
+
+/**
+ * SESSION_EXT:
+ *
+ * File extension for session files.
+ **/
+#ifndef SESSION_EXT
+#define SESSION_EXT ".session"
+#endif
 
 /**
  * Determine if specified path extension representes a standard

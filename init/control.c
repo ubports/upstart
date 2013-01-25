@@ -1157,8 +1157,8 @@ control_session_file_create (void)
 	if (! session_dir)
 		return;
 
-	NIH_MUST (nih_strcat_sprintf (&session_file, NULL, "%s/%d.session",
-				session_dir, (int)getpid ()));
+	NIH_MUST (nih_strcat_sprintf (&session_file, NULL, "%s/%d%s",
+				session_dir, (int)getpid (), SESSION_EXT));
 
 	f = fopen (session_file, "w");
 	if (! f) {
