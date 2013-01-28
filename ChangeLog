@@ -10,6 +10,20 @@
 	* util/initctl.c:
 	  - get_job_details(): Fix order in which arguments are
 	    checked.
+	* util/Makefile.am: Define INITCTL_BINARY and UPSTART_BINARY to ensure
+	  full path available to tests.
+	* util/tests/test_initctl.c:
+	  - New macros:
+	    - _TEST_STR_ARRAY_CONTAINS()
+	    - TEST_STR_ARRAY_CONTAINS()
+	    - TEST_STR_ARRAY_NOT_CONTAINS()
+	    - _TEST_FILE_CONTAINS()
+	    - TEST_FILE_CONTAINS()
+	    - TEST_FILE_NOT_CONTAINS()
+	  - get_initctl(): Function to replace original INITCTL_BINARY define.
+	  - test_global_and_local_job_env(): New function to test initctl
+	    '--global', '--job' and '--instance' options from within and without
+	    a job.
 
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 

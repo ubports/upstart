@@ -11,6 +11,12 @@ AM_CPPFLAGS = \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
+INITCTL_BINARY = $(abs_builddir)/initctl
+UPSTART_BINARY = $(abs_builddir)/../init/init
+
+AM_CPPFLAGS += \
+	-DUPSTART_BINARY="\"$(UPSTART_BINARY)\"" \
+	-DINITCTL_BINARY="\"$(INITCTL_BINARY)\""
 
 dist_man_MANS = \
 	man/initctl.8 \
