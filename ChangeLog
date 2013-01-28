@@ -7,6 +7,9 @@
 	  - Added --job, --instance, --global options for list-env, set-env,
 	    get-env, unset-env, reset-env.
 	  - Explain PID 1 limitation for set-env, unset-env, reset-env.
+	* util/initctl.c:
+	  - get_job_details(): Fix order in which arguments are
+	    checked.
 
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 

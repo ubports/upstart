@@ -2703,14 +2703,12 @@ get_job_details (void)
 	if (! details)
 		return NULL;
 
-	/* The global option trounces all others */
-	if (apply_globally) {
-		upstart_job = upstart_instance = NULL;
-	} else if (job_name) {
+	if (job_name) {
 		upstart_job = job_name;
 		upstart_instance = job_instance ? job_instance : "";
-	} else {
-		upstart_job = getenv ("UPSTART_JOB");
+	} else if (apply_globally) {
+		upstart_job = upstart_instance = NULL;
+	} else if ((upstart_job = getenv ("UPSTART_JOB")) != NULL) {
 		upstart_instance = getenv ("UPSTART_INSTANCE");
 
 		if (! (upstart_job && upstart_instance)) {
@@ -2718,6 +2716,10 @@ get_job_details (void)
 			nih_main_suggest_help ();
 			return NULL;
 		}
+	} else {
+		/* Running outside of job implies global */
+		apply_globally = TRUE;
+		upstart_job = upstart_instance = NULL;
 	}
 
 	if (upstart_job) {
