@@ -1,3 +1,13 @@
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_get_env(): Allow PID 1 environment to be queried for
+	    consistency with control_list_env().
+	* init/man/initctl.8:
+	  - Added --job, --instance, --global options for list-env, set-env,
+	    get-env, unset-env, reset-env.
+	  - Explain PID 1 limitation for set-env, unset-env, reset-env.
+
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* dbus/com.ubuntu.Upstart.xml:

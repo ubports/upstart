@@ -556,51 +556,178 @@ written successfully to disk, the internal cache is deleted.
 .\"
 .TP
 .B list\-env
+.RI [ OPTIONS "]
 
 Display a lexicographically sorted list of all variables and their
-values in the job environment table.
+values in a job environment table.
 
-Note that this table only includes the minimal set of standard system
-variables added by the
+When run from within a job, this command will automatically query the
+job-specific environment table; otherwise the global environment table
+that is applied to all jobs when they first start is queried.
+
+Note that the global job environment table only includes the minimal set
+of standard system variables added by the
 .BR init (8)
 daemon along with any variables set using
 .BR set\-env "."
 See
 .BR init (5)
 for further details.
+
+.B OPTIONS
+.RS
+.IP "\fB\-j\fP, \fB\-\-job\fP"
+Operate on the job environment table for the specified job. This option is
+implied when run from within a job.
+.RE
+.RS
+.IP "\fB\-i\fP, \fB\-\-instance\fP"
+Operate on the job environment table for the specified job instance
+(requires \fI\-\-job\fR). This option is implied when run from within a
+job.
+.RE
+.RS
+.IP "\fB\-g\fP, \fB\-\-global\fP"
+Operate on the global job environment table. This option is implied when not
+run from within a job.
+.RE
 .\"
 .TP
 .B get\-env
-.I VARIABLE
+.RI [ OPTIONS "] " VARIABLE
 
-Query the value of the specified variable in the job environment table.
+Display the value of the specified variable in a job environment table.
+
+When run from within a job, this command will automatically query the
+job-specific environment table; otherwise the global environment table
+that is applied to all jobs when they first start is queried.
+
+.B OPTIONS
+.RS
+.IP "\fB\-j\fP, \fB\-\-job\fP"
+Operate on the job environment table for the specified job. This option is
+implied when run from within a job.
+.RE
+.RS
+.IP "\fB\-i\fP, \fB\-\-instance\fP"
+Operate on the job environment table for the specified job instance
+(requires \fI\-\-job\fR). This option is implied when run from within a
+job.
+.RE
+.RS
+.IP "\fB\-g\fP, \fB\-\-global\fP"
+Operate on the global job environment table. This option is implied when not
+run from within a job.
+.RE
 .\"
 .TP
 .B set\-env
 .RI [ OPTIONS "] " VARIABLE[=VALUE]
 
-Adds or updates a variable in the job environment table. Variables set
+Adds or updates a variable in a job environment table. Variables set
 in this way will apply to all subsequently-starting jobs.
+
+This command is only permitted When running in
+.B User Session Mode.
+See 
+.BR init (5)
+for further details.
 
 .B OPTIONS
 .RS
 .IP "\fB\-r\fP, \fB\-\-retain\fP"
-
 If the specified variable is already set, do not modify it.
+.RE
+.RS
+.IP "\fB\-j\fP, \fB\-\-job\fP"
+Operate on the job environment table for the specified job. This option is
+implied when run from within a job.
+.RE
+.RS
+.IP "\fB\-i\fP, \fB\-\-instance\fP"
+Operate on the job environment table for the specified job instance
+(requires \fI\-\-job\fR). This option is implied when run from within a
+job.
+.RE
+.RS
+.IP "\fB\-g\fP, \fB\-\-global\fP"
+Operate on the global job environment table. This option is implied when not
+run from within a job.
 .RE
 .\"
 .TP
 .B unset\-env
-.I VARIABLE
+.RI [ OPTIONS "] " VARIABLE
 
-Remove the specified variable from the job environment table. If the
+Remove the specified variable from a job environment table. If the
 variable does not already exist in the table, no change will be made.
+
+This command is only permitted When running in
+.B User Session Mode.
+See 
+.BR init (5)
+for further details.
+
+.B OPTIONS
+.RS
+.IP "\fB\-r\fP, \fB\-\-retain\fP"
+If the specified variable is already set, do not modify it.
+.RE
+.RS
+.IP "\fB\-j\fP, \fB\-\-job\fP"
+Operate on the job environment table for the specified job. This option is
+implied when run from within a job.
+.RE
+.RS
+.IP "\fB\-i\fP, \fB\-\-instance\fP"
+Operate on the job environment table for the specified job instance
+(requires \fI\-\-job\fR). This option is implied when run from within a
+job.
+.RE
+.RS
+.IP "\fB\-g\fP, \fB\-\-global\fP"
+Operate on the global job environment table. This option is implied when not
+run from within a job.
+.RE
 .\"
 .TP
 .B reset\-env
+.R [ OPTIONS ]
 
-Discards all changes make to the job environment table, setting it back
+Discards all changes make to a job environment table, setting it back
 to its default set of variables and values.
+
+This command is only permitted When running in
+.B User Session Mode.
+See 
+.BR init (5)
+for further details.
+
+Note that the effect of the Session Init process that manages the User
+Session Mode restarting is equivalent to this command having been
+called.
+
+.B OPTIONS
+.RS
+.IP "\fB\-r\fP, \fB\-\-retain\fP"
+If the specified variable is already set, do not modify it.
+.RE
+.RS
+.IP "\fB\-j\fP, \fB\-\-job\fP"
+Operate on the job environment table for the specified job. This option is
+implied when run from within a job.
+.RE
+.RS
+.IP "\fB\-i\fP, \fB\-\-instance\fP"
+Operate on the job environment table for the specified job instance
+(requires \fI\-\-job\fR). This option is implied when run from within a
+job.
+.RE
+.RS
+.IP "\fB\-g\fP, \fB\-\-global\fP"
+Operate on the global job environment table. This option is implied when not
+run from within a job.
+.RE
 .\"
 .TP
 .B usage
