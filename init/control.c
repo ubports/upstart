@@ -388,13 +388,14 @@ int
 control_reload_configuration (void           *data,
 			      NihDBusMessage *message)
 {
-	uid_t     uid, origin_uid;
+	uid_t     uid;
+	uid_t     origin_uid = 0;
 
 	nih_assert (message != NULL);
 
 	uid = getuid ();
 
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (control_get_origin_uid (message, &origin_uid) || origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to reload configuration"));
@@ -591,7 +592,8 @@ control_emit_event_with_file (void            *data,
 {
 	Event    *event;
 	Blocked  *blocked;
-	uid_t     uid, origin_uid;
+	uid_t     uid;
+	uid_t     origin_uid = 0;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
@@ -599,7 +601,7 @@ control_emit_event_with_file (void            *data,
 
 	uid = getuid ();
 
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (control_get_origin_uid (message, &origin_uid) || origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to emit an event"));
@@ -831,7 +833,8 @@ control_notify_disk_writeable (void   *data,
 {
 	int       ret;
 	Session  *session;
-	uid_t     uid, origin_uid;
+	uid_t     uid;
+	uid_t     origin_uid = 0;
 
 	nih_assert (message != NULL);
 
@@ -840,7 +843,7 @@ control_notify_disk_writeable (void   *data,
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
 
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (control_get_origin_uid (message, &origin_uid) || origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to notify disk is writeable"));
@@ -1011,7 +1014,8 @@ control_get_state (void           *data,
 		   char           **state)
 {
 	Session  *session;
-	uid_t     uid, origin_uid;
+	uid_t     uid;
+	uid_t     origin_uid = 0;
 	size_t    len;
 
 	nih_assert (message);
@@ -1036,7 +1040,7 @@ control_get_state (void           *data,
 	 * happen to own this process (which they may do in the test
 	 * scenario and when running Upstart as a non-privileged user).
 	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (control_get_origin_uid (message, &origin_uid) || origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to request state"));
@@ -1074,7 +1078,8 @@ control_restart (void           *data,
 		 NihDBusMessage *message)
 {
 	Session  *session;
-	uid_t     origin_uid, uid;
+	uid_t     uid;
+	uid_t     origin_uid = 0;
 
 	nih_assert (message != NULL);
 
@@ -1098,7 +1103,7 @@ control_restart (void           *data,
 	 * own this process (which they may do in the test scenario and
 	 * when running Upstart as a non-privileged user).
 	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (control_get_origin_uid (message, &origin_uid) || origin_uid != uid) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to request restart"));
