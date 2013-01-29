@@ -1,3 +1,12 @@
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/xdg.c:
+	  - get_subdir(): Remove double-check on @dir.
+	  - xdg_get_runtime_dir():
+	    - Don't attempt to create as unlikely to be able to if it
+	      doesn't already exist.
+	    - Simplify logic.
+
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_xdg.c: Added test_get_session_dir().

@@ -68,11 +68,12 @@ char *
 get_subdir (const char *dir, const char *suffix, int create)
 {
 	char *newdir;
+
 	nih_assert (dir != NULL);
 	nih_assert (suffix != NULL);
 	nih_assert (suffix[0]);
 	
-	if (dir && dir[0] == '/') {
+	if (dir[0] == '/') {
 		newdir = nih_sprintf (NULL, "%s/%s", dir, suffix);
 		if (! newdir)
 			return NULL;
@@ -175,6 +176,9 @@ xdg_get_config_home (void)
  *
  * Determine an XDG compliant XDG_RUNTIME_DIR.
  *
+ * Note: No attempt is made to create this directory since if it does
+ * not exist, a non-priv user is unlikely be able to create it anyway.
+ *
  * Returns: newly-allocated path, or NULL on error.
  **/
 char *
@@ -184,11 +188,8 @@ xdg_get_runtime_dir (void)
 
 	dir = getenv ("XDG_RUNTIME_DIR");
 
-	if (dir && dir[0] == '/') {
-		mkdir (dir, INIT_XDG_PATH_MODE);
+	if (dir && dir[0] == '/')
 		dir = nih_strdup (NULL, dir);
-		return dir;
-	}
 
 	return dir;
 }
