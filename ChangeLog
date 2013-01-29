@@ -1,3 +1,14 @@
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/initctl.c: list_session_action():
+	  - Test for stale session earlier.
+	  - Simplify checks on "UPSTART_SESSION".
+	* util/tests/test_initctl.c: test_list_sessions():
+	  - Added test with XDG_RUNTIME_DIR explicitly unset.
+	  - Changed "with no instances" test to set XDG_RUNTIME_DIR to a
+	    temporary value.
+	  - Revert XDG_RUNTIME_DIR on cleanup.
+
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c: control_session_file_create(): Simplified.

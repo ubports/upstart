@@ -1789,6 +1789,11 @@ list_sessions_action (NihCommand *command, char * const *args)
 
 		NIH_MUST (nih_strcat_sprintf (&path, NULL, "%s/%s", session_dir, file));
 
+		if (kill (pid, 0)) {
+			nih_info ("%s: %s", _("Ignoring stale session file"), path);
+			continue;
+		}
+
 		contents = nih_file_read (NULL, path, &len);
 
 		if (! contents)
@@ -1797,23 +1802,14 @@ list_sessions_action (NihCommand *command, char * const *args)
 		if (contents[len-1] == '\n')
 			contents[len-1] = '\0';
 
-		p = strchr (contents, '=');
-		if (! p)
+		p = strstr (contents, "UPSTART_SESSION" "=");
+		if (p != contents)
 			continue;
 
-		/* Invalid contents */
-		if (strncmp (contents, "UPSTART_SESSION", (p - contents)))
-			continue;
-
-		session = p + 1;
+		session = p + strlen ("UPSTART_SESSION") + 1;
 
 		if (! session || ! *session)
 			continue;
-
-		if (kill (pid, 0)) {
-			nih_info ("%s: %s", _("Ignoring stale session file"), path);
-			continue;
-		}
 
 		nih_message ("%d %s", (int)pid, session);
 	}

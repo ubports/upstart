@@ -11540,13 +11540,40 @@ test_list_sessions (void)
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 	nih_local char  *expected = NULL;
+	nih_local char  *orig_xdg_runtime_dir = NULL;
 	size_t           len;
 	char            *value;
 
 	TEST_GROUP ("list-sessions");
 
+        TEST_FILENAME (dirname);
+        TEST_EQ (mkdir (dirname, 0755), 0);
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring this variable (assuming the tests all pass...).
+	 */
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (orig_xdg_runtime_dir)
+		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+
 	/*******************************************************************/
-	TEST_FEATURE ("with no instances");
+	TEST_FEATURE ("with no instances and XDG_RUNTIME_DIR unset");
+
+	assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_EQ_STR (output[0], "initctl: Unable to query session directory");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("with no instances and XDG_RUNTIME_DIR set");
+
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
 
 	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
@@ -11555,12 +11582,6 @@ test_list_sessions (void)
 
 	/*******************************************************************/
 	TEST_FEATURE ("with 1 running instance");
-
-        TEST_FILENAME (dirname);
-        TEST_EQ (mkdir (dirname, 0755), 0);
-
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
@@ -11619,7 +11640,14 @@ test_list_sessions (void)
 
 	/*******************************************************************/
 
-	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
+	if (orig_xdg_runtime_dir) {
+		/* restore */
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+	} else {
+		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	}
+
+	assert0 (unsetenv ("UPSTART_CONFDIR"));
 
         TEST_EQ (rmdir (dirname), 0);
         TEST_EQ (rmdir (confdir), 0);
