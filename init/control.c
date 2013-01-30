@@ -1186,6 +1186,9 @@ control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
  *
  * Determine if caller should be allowed to make a control request.
  *
+ * Note that these permission checks rely on D-Bus to limit
+ * session bus access to the same user.
+ *
  * Returns: TRUE if permission is granted, else FALSE.
  **/
 static int
