@@ -34,6 +34,8 @@
 #include "paths.h"
 #include "xdg.h"
 
+#ifndef INITCTL_BUILD
+
 /**
  * user_mode:
  *
@@ -50,6 +52,8 @@ int user_mode = FALSE;
  * File is created on startup and removed on clean shutdown.
  **/
 const char *session_file = NULL;
+
+#endif /* INITCTL_BUILD */
 
 /**
  * get_subdir:
