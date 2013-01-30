@@ -54,6 +54,7 @@ extern NihList        *control_conns;
 
 
 void control_init                 (void);
+void control_cleanup              (void);
 
 int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));

@@ -15,6 +15,25 @@
 
 	* init/control.c: More careful uid checking.
 
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/xdg.c:
+	  - get_subdir(): Remove double-check on @dir.
+	  - xdg_get_runtime_dir():
+	    - Don't attempt to create as unlikely to be able to if it
+	      doesn't already exist.
+	    - Simplify logic.
+
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_xdg.c: Added test_get_session_dir().
+	* init/xdg.c: get_home_subdir(): Handle unset 'HOME' immediately.
+	* init/control.c: Make use of SESSION_EXT.
+	* init/man/init.5: Added session files.
+	* init/paths.h:
+	  - Comments.
+	  - Added SESSION_EXT.
+
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c:
@@ -45,6 +64,24 @@
 	  test is not run as root.
 	* util/tests/test_user_sessions.sh: Removed.
 	* init/man/init.5: Updated to reflect removal of user jobs.
+
+2013-01-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_init(): Create session file in user mode.
+	  - control_cleanup(): New function for cleanup activities.
+	  - control_session_file_create(): Create session file containing
+	    UPSTART_SESSION details.
+	  - control_session_file_remove(): Delete the session file.
+	* init/main.c: Call control_cleanup() to remove session file.
+	* init/paths.h: Added INIT_XDG_SESSION_SUBDIR and SESSION_ENV.
+	* init/xdg.c:
+	  - get_subdir(): Refactor of get_home_subdir().
+	  - get_home_subdir(): Now calls get_subdir().
+	  - Replaced mkdir mode values with INIT_XDG_PATH_MODE.
+	  - xdg_get_runtime_dir(): Obtain XDG_RUNTIME_DIR value.
+	  - get_session_dir(): Obtain path to session directory.
+	* init/xdg.h: Added INIT_XDG_PATH_MODE.
 
 2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 

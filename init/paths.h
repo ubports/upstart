@@ -116,6 +116,16 @@
 #endif
 
 /**
+ * INIT_XDG_SESSION_SUBDIR:
+ *
+ * Directory below XDG_RUNTIME_DIR/INIT_XDG_SUBDIR used to
+ * store session details.
+ **/
+#ifndef INIT_XDG_SESSION_SUBDIR
+#define INIT_XDG_SESSION_SUBDIR "sessions"
+#endif
+
+/**
  * SHELL:
  *
  * This is the shell binary used whenever we need special processing for
@@ -166,13 +176,25 @@
 #define LOGDIR_ENV "UPSTART_LOGDIR" 
 #endif
 
+/**
+ * SESSION_ENV:
+ *
+ * Environment variable that is set when running as a Session Init.
+ **/
+#ifndef SESSION_ENV
+#define SESSION_ENV "UPSTART_SESSION"
+#endif
 
 /**
+ * CONF_EXT_STD:
+ *
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"
 
 /**
+ * CONF_EXT_OVERRIDE:
+ *
  * File extension for override files.
  *
  * Note that override files are not stored in the ConfSource 'files' hash:
@@ -180,6 +202,15 @@
  * the corresponding (CONF_EXT_STD) object.
  **/
 #define CONF_EXT_OVERRIDE ".override"
+
+/**
+ * SESSION_EXT:
+ *
+ * File extension for session files.
+ **/
+#ifndef SESSION_EXT
+#define SESSION_EXT ".session"
+#endif
 
 /**
  * Determine if specified path extension representes a standard

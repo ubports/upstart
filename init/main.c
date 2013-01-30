@@ -651,6 +651,8 @@ main (int   argc,
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
+	control_cleanup ();
+
 	return ret;
 }
 
