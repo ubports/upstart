@@ -1,3 +1,16 @@
+2013-01-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - Typos.
+	  - Improved uid checks.
+	  - Replaced direct call to control_get_origin_uid() with call to new
+	    control_check_permission() (as early as possible) for clarity and
+	    to confine policy to one location. 
+	  - control_set_log_prioity(): Added missing call to
+	    control_check_permission().
+	  - control_get_origin_uid(): Check message contents before allowing
+	    D-Bus calls.
+
 2013-01-29  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c: More careful uid checking.
