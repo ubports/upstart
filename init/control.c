@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,11 +60,15 @@
 #include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
-static int   control_server_connect (DBusServer *server, DBusConnection *conn);
-static void  control_disconnected   (DBusConnection *conn);
-static void  control_register_all   (DBusConnection *conn);
+static int   control_server_connect   (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected     (DBusConnection *conn);
+static void  control_register_all     (DBusConnection *conn);
 
-static void  control_bus_flush      (void);
+static void  control_bus_flush        (void);
+static int   control_get_origin_uid   (NihDBusMessage *message, uid_t *uid)
+	__attribute__ ((warn_unused_result));
+static int   control_check_permission (NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
 
 /**
  * use_session_bus:
@@ -378,6 +382,8 @@ control_register_all (DBusConnection *conn)
  * Called to request that Upstart reloads its configuration from disk,
  * useful when inotify is not available or the user is generally paranoid.
  *
+ * Notes: chroot sessions are permitted to make this call.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
@@ -385,6 +391,13 @@ control_reload_configuration (void           *data,
 			      NihDBusMessage *message)
 {
 	nih_assert (message != NULL);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to reload configuration"));
+		return -1;
+	}
 
 	nih_info (_("Reloading configuration"));
 
@@ -574,12 +587,19 @@ control_emit_event_with_file (void            *data,
 			      int              wait,
 			      int              file)
 {
-	Event   *event;
-	Blocked *blocked;
+	Event    *event;
+	Blocked  *blocked;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
 	nih_assert (env != NULL);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to emit an event"));
+		return -1;
+	}
 
 	/* Verify that the name is valid */
 	if (! strlen (name)) {
@@ -741,6 +761,13 @@ control_set_log_priority (void *          data,
 	nih_assert (message != NULL);
 	nih_assert (log_priority != NULL);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to set log priority"));
+		return -1;
+	}
+
 	if (! strcmp (log_priority, "debug")) {
 		nih_log_set_priority (NIH_LOG_DEBUG);
 
@@ -793,6 +820,11 @@ control_handle_bus_type (void)
  * Called to flush the job logs for all jobs that ended before the log
  * disk became writeable.
  *
+ * Notes: Session Inits are permitted to make this call. In the common
+ * case of starting a Session Init as a child of a Display Manager this
+ * is somewhat meaningless, but it does mean that if a Session Init were
+ * started from a system job, behaviour would be as expected.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
@@ -804,15 +836,15 @@ control_notify_disk_writeable (void   *data,
 
 	nih_assert (message != NULL);
 
-	/* Get the relevant session */
-	session = session_from_dbus (NULL, message);
-
-	if (session && session->user) {
+	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to notify disk is writeable"));
 		return -1;
 	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
 
 	/* "nop" when run from a chroot */
 	if (session && session->chroot)
@@ -978,13 +1010,17 @@ control_get_state (void           *data,
 		   char           **state)
 {
 	Session  *session;
-	uid_t     uid;
 	size_t    len;
 
 	nih_assert (message);
 	nih_assert (state);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request state"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -997,17 +1033,6 @@ control_get_state (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring state query from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from obtaining state details, unless they
-	 * happen to own this process (which they may do in the test
-	 * scenario and when running Upstart as a non-privileged user).
-	 */
-	if (session && session->user != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request state"));
-		return -1;
 	}
 
 	if (state_to_string (state, &len) < 0)
@@ -1041,11 +1066,15 @@ control_restart (void           *data,
 		 NihDBusMessage *message)
 {
 	Session  *session;
-	uid_t     uid;
 
 	nih_assert (message != NULL);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request restart"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -1059,17 +1088,6 @@ control_restart (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring restart request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from restarting Upstart, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (session && session->user != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request restart"));
-		return -1;
 	}
 
 	nih_info (_("Restarting"));
@@ -1116,4 +1134,84 @@ control_notify_restarted (void)
 
 		NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
 	}
+}
+
+/**
+ * control_get_origin_uid:
+ * @message: D-Bus connection and message received,
+ * @uid: returned uid value.
+ *
+ * Returns TRUE: if @uid now contains uid corresponding to @message,
+ * else FALSE.
+ **/
+static int
+control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
+{
+	DBusError       dbus_error;
+	unsigned long   unix_user = 0;
+	const char     *sender;
+
+	nih_assert (message);
+	nih_assert (uid);
+
+	dbus_error_init (&dbus_error);
+
+	if (! message->message || ! message->connection)
+		return FALSE;
+
+	sender = dbus_message_get_sender (message->message);
+	if (sender) {
+		unix_user = dbus_bus_get_unix_user (message->connection, sender,
+						    &dbus_error);
+		if (unix_user == (unsigned long)-1) {
+			dbus_error_free (&dbus_error);
+			return FALSE;
+		}
+	} else {
+		if (! dbus_connection_get_unix_user (message->connection,
+						     &unix_user)) {
+			return FALSE;
+		}
+	}
+
+	*uid = (uid_t)unix_user;
+
+	return TRUE;
+}
+
+/**
+ * control_check_permission:
+ *
+ * @message: D-Bus connection and message received.
+ *
+ * Determine if caller should be allowed to make a control request.
+ *
+ * Note that these permission checks rely on D-Bus to limit
+ * session bus access to the same user.
+ *
+ * Returns: TRUE if permission is granted, else FALSE.
+ **/
+static int
+control_check_permission (NihDBusMessage *message)
+{
+	int    ret;
+	uid_t  uid;
+	pid_t  pid;
+	uid_t  origin_uid = 0;
+
+	nih_assert (message);
+
+	uid = getuid ();
+	pid = getpid ();
+
+	ret = control_get_origin_uid (message, &origin_uid);
+
+	/* Its possible that D-Bus might be unable to determine the user
+	 * making the request. In this case, deny the request unless
+	 * we're running as a Session Init or via the test harness.
+	 */
+	if ((ret && origin_uid == uid) || user_mode || (uid && pid != 1))
+		return TRUE;
+
+	return FALSE;
 }

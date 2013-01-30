@@ -1,4 +1,4 @@
-.TH init 5 2012-12-18 "Upstart"
+.TH init 5 2013-01-25 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -9,12 +9,13 @@ init \- Upstart init daemon job configuration
 Default location of system job configuration files.
 .\"
 .TP
-.B $HOME/.init/
-Default location of user job configuration files.
-.\"
-.TP
 .B $XDG_CONFIG_HOME/upstart/, $XDG_CONFIG_DIRS/upstart/
 Default locations of user session job configuration files.
+.\"
+.TP
+.B $HOME/.init/
+Deprecated location of user job configuration files (still
+honoured by User Session Mode).
 .\"
 .SH DESCRIPTION
 On startup, the Upstart
@@ -23,11 +24,6 @@ daemon reads its job configuration from files in the
 .I /etc/init/
 directory, and watches for future changes to these files using
 .BR inotify (7).
-
-If D\-Bus has been configured to allow non\-privileged users to invoke all
-Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
-.B User Jobs
-for further details.
 
 If Upstart was invoked as a user process with \-\-user option, it will
 run in User Session mode. See
@@ -85,33 +81,6 @@ interpreted, they are not named.
 
 Configuration files are plain text and should not be executable.
 .\"
-.SS User Jobs
-
-A User Job is a job configuration file created by a non\-privileged user
-in their
-.B $HOME/.init/
-directory. Job configuration files in this directory have the same
-syntax as system job configuration files.
-Files in this directory will be read and an
-.BR inotify (7)
-watch created the first time a user runs 
-.BR initctl (8) "."
-
-Any user can create user jobs, but that user can control
-.I only
-jobs they create.
-
-Users are able to manage their jobs using the standard
-.BR initctl (8)
-facility.
-
-Note that stanzas which manipulate resources limits may cause a job to
-fail to start should the value provided to such a stanza attempt to
-exceed the maximum value the users privilege level allows.
-
-Note that a user job configuration file cannot have the same name as a
-system job configuration file.
-.\"
 .SS Chroot Support
 
 Upstart is able to manage jobs within a \fBchroot\fP(2). To control jobs
@@ -123,10 +92,6 @@ chroot (in fact it is not recommended).
 Note that this facility is distinct from the \fBchroot\fR stanza (see
 .B Process environment
 below).
-
-Note that User Jobs
-.B cannot
-be used within a chroot environment.
 
 .\"
 .SS User Session Mode
@@ -447,9 +412,10 @@ are mostly used by the
 .BR initctl (8)
 utility to default to acting on the job the commands are called from.
 
-When running in a user session, the additional UPSTART_SESSION environment
-variable is also set and contains the DBus path to the private bus used by
-the upstart instance daemon.
+When running in a user session, the additional
+.B UPSTART_SESSION
+environment variable is also set and contains the DBus path to the
+private bus used by the upstart instance daemon.
 
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
@@ -667,12 +633,7 @@ Upstart 1.4.
 .B log
 .RS
 .B
-Only applies to system and user session jobs:
-if specified by user jobs, the job will be considered to have specified
-the value
-.BR none "."
-
-For system and user session jobs jobs, if \fBlog\fR is specified, standard input is connected
+If \fBlog\fR is specified, standard input is connected
 to
 .IR /dev/null ","
 and standard output and standard error are connected to a pseudo-tty
@@ -881,7 +842,7 @@ in the
 block is used for all job processes. If both stanzas are unspecified,
 all job processes will run with its group ID set to 0 in the case of
 system jobs, and as the primary group of the user in the case of User
-Jobs.
+Session jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
@@ -1025,11 +986,13 @@ System job override files.
 .
 .TP
 .I $HOME/.init/*.conf
-User job configuration files.
+User job configuration files
+.BR (deprecated) .
 .
 .TP
 .I $HOME/.init/*.override
 User job override files.
+.BR (deprecated) .
 .
 .TP
 .I $XDG_CONFIG_HOME/upstart/*.conf
@@ -1063,7 +1026,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2009-2011 Canonical Ltd.
+Copyright \(co 2009-2013 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

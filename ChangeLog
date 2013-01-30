@@ -1,3 +1,51 @@
+2013-01-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - Typos.
+	  - Improved uid checks.
+	  - Replaced direct call to control_get_origin_uid() with call to new
+	    control_check_permission() (as early as possible) for clarity and
+	    to confine policy to one location. 
+	  - control_set_log_prioity(): Added missing call to
+	    control_check_permission().
+	  - control_get_origin_uid(): Check message contents before allowing
+	    D-Bus calls.
+
+2013-01-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c: More careful uid checking.
+
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_reload_configuration(): Added missing permission checks.
+	  - control_emit_event_with_file(): Added missing permission checks.
+	  - Added calls to new function control_get_origin_uid() to allow
+	    D-Bus methods to be policed by filtering on uid, rather than
+	    relying on the same information that used to be stored in the
+	    old Session object.
+	* init/job.c: Typo.
+	* init/job_class.c:
+	  - job_class_new(): Removed user elements from session code.
+	  - job_class_serialise(): Comments.
+	  - job_class_deserialise(): Comments.
+	* init/job_process.c: job_process_spawn(): Removed user session
+	  handling.
+	* init/session.c: Removed user session handling since it is
+	  about to be replaced by the ability to run Upstart as a
+	  non-privileged user (aka a 'Session Init').
+	* init/session.h: Updated prototypes.
+	* init/state.h: Comments.
+	* init/tests/test_conf.c: test_source_reload_job_dir(): Added missing
+	  check.
+	* init/tests/test_state.c:
+	  - session_diff(): Removed user check.
+	  - Updated all calls to session_new().
+	* util/tests/test_initctl.c: test_notify_disk_writeable(): Ensure this
+	  test is not run as root.
+	* util/tests/test_user_sessions.sh: Removed.
+	* init/man/init.5: Updated to reflect removal of user jobs.
+
 2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/xdg.[ch]: add xdg_get_cache_home and get_user_log_dir

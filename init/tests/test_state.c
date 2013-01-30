@@ -217,9 +217,6 @@ session_diff (const Session *a, const Session *b)
 	if (obj_string_check (a, b, chroot))
 		goto fail;
 
-	if (obj_num_check (a, b, user))
-		goto fail;
-
 	if (obj_string_check (a, b, conf_path))
 		goto fail;
 
@@ -871,12 +868,12 @@ test_session_serialise (void)
 	TEST_NE_P (json, NULL);
 
 	/* Create a couple of sessions */
-	session1 = session_new (NULL, "/abc", getuid ());
+	session1 = session_new (NULL, "/abc");
 	TEST_NE_P (session1, NULL);
 	session1->conf_path = NIH_MUST (nih_strdup (session1, "/def/ghi"));
 	TEST_LIST_NOT_EMPTY (sessions);
 
-	session2 = session_new (NULL, "/foo", 0);
+	session2 = session_new (NULL, "/foo");
 	TEST_NE_P (session2, NULL);
 	session2->conf_path = NIH_MUST (nih_strdup (session2, "/bar/baz"));
 
@@ -1264,7 +1261,7 @@ test_blocking (void)
 	TEST_LIST_EMPTY (conf_sources);
 	TEST_HASH_EMPTY (job_classes);
 
-	session = session_new (NULL, "/my/session", getuid ());
+	session = session_new (NULL, "/my/session");
 	TEST_NE_P (session, NULL);
 	session->conf_path = NIH_MUST (nih_strdup (session, "/lives/here"));
 	TEST_LIST_NOT_EMPTY (sessions);
@@ -1659,7 +1656,7 @@ test_event_serialise (void)
 	TEST_NE_P (env, NULL);
 	TEST_NE_P (environ_add (&env, NULL, &len, TRUE, "FOO=BAR"), NULL);
 
-	session = session_new (NULL, "/abc", getuid ());
+	session = session_new (NULL, "/abc");
 	TEST_NE_P (session, NULL);
 	session->conf_path = NIH_MUST (nih_strdup (session, "/def/ghi"));
 	TEST_LIST_NOT_EMPTY (sessions);
