@@ -1,5 +1,9 @@
 2013-01-30  James Hunt  <james.hunt@ubuntu.com>
 
+	* TESTING.sessions: Removed as basic sessions have now gone.
+
+2013-01-30  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/control.c:
 	  - Typos.
 	  - Improved uid checks.
