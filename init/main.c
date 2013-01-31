@@ -538,6 +538,8 @@ main (int   argc,
 		nih_free (dirs);
 	}
 
+	job_class_environment_init ();
+
 	conf_reload ();
 
 	/* Create a listening server for private connections. */
@@ -630,8 +632,6 @@ main (int   argc,
 
 	if (disable_sessions)
 		nih_debug ("Sessions disabled");
-
-	job_class_environment_init ();
 
 	/* Set us as the child subreaper.
 	 * This ensures that even when init doesn't run as PID 1, it'll always be

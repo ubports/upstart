@@ -60,6 +60,14 @@
 
 #define BUFFER_SIZE 1024
 
+/* A 'reasonable' path, but which also contains a marker at the end so
+ * we know when we're looking at a PATH these tests have set.
+ */
+#define TEST_INITCTL_DEFAULT_PATH "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/wibble"
+
+/* Default value for TERM if not already set */
+#define TEST_INITCTL_DEFAULT_TERM "linux"
+
 /**
  * WAIT_FOR_UPSTART:
  *
@@ -15604,15 +15612,35 @@ test_default_job_env (const char *confdir, const char *logdir,
 	assert (dbus_pid);
 
 	/*******************************************************************/
+	/* Ensure basic variables are set in the current environment */
+
+	if (! getenv ("TERM")) {
+		fprintf (stderr, "WARNING: setting TERM to '%s' as not set\n",
+				TEST_INITCTL_DEFAULT_TERM);
+		assert0 (setenv ("TERM", TEST_INITCTL_DEFAULT_TERM, 1));
+	}
+
+	if (! getenv ("PATH")) {
+		fprintf (stderr, "WARNING: setting PATH to '%s' as not set\n",
+				TEST_INITCTL_DEFAULT_PATH);
+		assert0 (setenv ("PATH", TEST_INITCTL_DEFAULT_PATH, 1));
+	}
+
+	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	assert0 (line_count);
+
+	/*******************************************************************/
 	TEST_FEATURE ("ensure list-env returns default environment");
 
 	cmd = nih_sprintf (NULL, "%s list-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
+	TEST_EQ (line_count, 2);
 	TEST_STR_MATCH (output[0], "PATH=*");
 	TEST_STR_MATCH (output[1], "TERM=*");
-	TEST_EQ (line_count, 2);
 	nih_free (output);
 
 	/*******************************************************************/
@@ -15622,9 +15650,9 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
+	TEST_EQ (line_count, 2);
 	TEST_STR_MATCH (output[0], "PATH=*");
 	TEST_STR_MATCH (output[1], "TERM=*");
-	TEST_EQ (line_count, 2);
 	nih_free (output);
 
 	/*******************************************************************/
@@ -15634,10 +15662,6 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	/* don't check the actual value (in case user has changed it from
-	 * default value when compiling), just see if it matches a
-	 * reasonable pattern.
-	 */
 	TEST_EQ_STR (output[0], getenv ("TERM"));
 	TEST_EQ (line_count, 1);
 	nih_free (output);
@@ -15649,10 +15673,6 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	/* don't check the actual value (in case user has changed it from
-	 * default value when compiling), just see if it matches a
-	 * reasonable pattern.
-	 */
 	TEST_EQ_STR (output[0], getenv ("TERM"));
 	TEST_EQ (line_count, 1);
 	nih_free (output);
@@ -15664,12 +15684,8 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	/* don't check the actual value (in case user has changed it from
-	 * default value when compiling), just see if it matches a
-	 * reasonable pattern.
-	 */
-	TEST_STR_MATCH (output[0], "[a-zA-Z/:][a-zA-Z0-9/:]*");
 	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], getenv ("PATH"));
 	nih_free (output);
 
 	/*******************************************************************/
@@ -15679,12 +15695,8 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	/* don't check the actual value (in case user has changed it from
-	 * default value when compiling), just see if it matches a
-	 * reasonable pattern.
-	 */
-	TEST_STR_MATCH (output[0], "[a-zA-Z/:][a-zA-Z0-9/:]*");
 	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], getenv ("PATH"));
 	nih_free (output);
 
 	/*******************************************************************/
@@ -15790,6 +15802,7 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	nih_local char  *cmd = NULL;
 	char           **output;
 	nih_local char  *logfile = NULL;
+	nih_local char  *contents = NULL;
 	size_t           line_count;
 	FILE            *fi;
 
@@ -15822,9 +15835,12 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	 * Add a silly entry at the end so we can check our version has
 	 * been set.
 	 */
-	CREATE_FILE (confdir, "empty-env.conf",
-			"env PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin:/wibble\n"
-			"exec env");
+	contents = nih_sprintf (NULL,
+			"env PATH=%s\n"
+			"exec env", TEST_INITCTL_DEFAULT_PATH);
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "empty-env.conf", contents);
 
 	cmd = nih_sprintf (NULL, "%s start empty-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);

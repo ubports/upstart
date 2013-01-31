@@ -179,6 +179,19 @@ control_list_env (void             *data,
 		 char           ***env)
 	__attribute__ ((warn_unused_result));
 
+int
+control_reset_env (void           *data,
+		 NihDBusMessage   *message,
+		 char * const    *job_details)
+	__attribute__ ((warn_unused_result));
+
+int
+control_unset_env (void            *data,
+		   NihDBusMessage  *message,
+		   char * const    *job_details,
+		   const char      *name)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_CONTROL_H */

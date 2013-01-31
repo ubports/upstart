@@ -1184,7 +1184,6 @@ control_set_env (void            *data,
 		 const char      *var,
 		 int              replace)
 {
-	uid_t            uid, origin_uid;
 	Session         *session;
 	Job             *job = NULL;
 	char            *job_name = NULL;
@@ -1203,7 +1202,14 @@ control_set_env (void            *data,
 	} else if (getpid () == 1) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissable to modify PID 1 job environment"));
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
 		return -1;
 	}
 
@@ -1214,8 +1220,6 @@ control_set_env (void            *data,
 		return -1;
 	}
 
-	uid = getuid ();
-
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
 
@@ -1225,17 +1229,6 @@ control_set_env (void            *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring set env request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from changing Upstarts environment, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
 	}
 
 	/* Lookup the job */
@@ -1290,7 +1283,6 @@ control_unset_env (void            *data,
 		   char * const    *job_details,
 		   const char      *name)
 {
-	uid_t            uid, origin_uid;
 	Session         *session;
 	Job             *job = NULL;
 	char            *job_name = NULL;
@@ -1300,6 +1292,13 @@ control_unset_env (void            *data,
 	nih_assert (job_details);
 	nih_assert (name);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
@@ -1308,7 +1307,7 @@ control_unset_env (void            *data,
 	} else if (getpid () == 1) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissable to modify PID 1 job environment"));
+			_("Not permissible to modify PID 1 job environment"));
 		return -1;
 	}
 
@@ -1319,8 +1318,6 @@ control_unset_env (void            *data,
 		return -1;
 	}
 
-	uid = getuid ();
-
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
 
@@ -1330,17 +1327,6 @@ control_unset_env (void            *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring unset env request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from changing Upstarts environment, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
 	}
 
 	/* Lookup the job */
@@ -1392,7 +1378,6 @@ control_get_env (void             *data,
 		 const char       *name,
 		 char            **value)
 {
-	uid_t        uid, origin_uid;
 	Session     *session;
 	const char  *tmp;
 	Job         *job = NULL;
@@ -1401,6 +1386,13 @@ control_get_env (void             *data,
 
 	nih_assert (message != NULL);
 	nih_assert (job_details);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to query job environment"));
+		return -1;
+	}
 
 	if (job_details[0]) {
 		job_name = job_details[0];
@@ -1416,8 +1408,6 @@ control_get_env (void             *data,
 		return -1;
 	}
 
-	uid = getuid ();
-
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
 
@@ -1427,17 +1417,6 @@ control_get_env (void             *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring get env request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from querying Upstarts environment, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
 	}
 
 	/* Lookup the job */
@@ -1495,7 +1474,6 @@ control_list_env (void             *data,
 		 char * const      *job_details,
 		 char            ***env)
 {
-	uid_t      uid, origin_uid;
 	Session   *session;
 	Job       *job = NULL;
 	char      *job_name = NULL;
@@ -1504,6 +1482,13 @@ control_list_env (void             *data,
 	nih_assert (message);
 	nih_assert (job_details);
 	nih_assert (env);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to query job environment"));
+		return -1;
+	}
 
 	if (job_details[0]) {
 		job_name = job_details[0];
@@ -1519,21 +1504,8 @@ control_list_env (void             *data,
 		return -1;
 	}
 
-	uid = getuid ();
-
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
-
-	/* Disallow users from changing Upstarts environment, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to query job environment"));
-		return -1;
-	}
 
 	/* Lookup the job */
 	control_get_job (session, job, job_name, instance);
@@ -1573,7 +1545,6 @@ control_reset_env (void           *data,
 		 NihDBusMessage   *message,
 		 char * const    *job_details)
 {
-	uid_t       uid, origin_uid;
 	Session    *session;
 	Job        *job = NULL;
 	char       *job_name = NULL;
@@ -1590,11 +1561,16 @@ control_reset_env (void           *data,
 	} else if (getpid () == 1) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissable to modify PID 1 job environment"));
+			_("Not permissible to modify PID 1 job environment"));
 		return -1;
 	}
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
 
 	/* Verify that job name is valid */
 	if (job_name && ! strlen (job_name)) {
@@ -1612,17 +1588,6 @@ control_reset_env (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring reset env request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from modifying Upstarts environment, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
 	}
 
 	/* Lookup the job */

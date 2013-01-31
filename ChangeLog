@@ -1,3 +1,22 @@
+2013-01-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - Use control_check_permission() rather than
+	    control_get_origin_uid() directly.
+	* init/control.h: Prototypes.
+	* init/job_class.c: Change calls to job_class_environment_init()
+	  to asserts as the former only needs to be called once.
+	* init/main.c: main(): Make job_class_environment_init() call as
+	  early as possible.
+	* init/tests/test_event.c: main(): Call
+	  job_class_environment_init().
+	* util/tests/test_initctl.c:
+	  - test_default_job_env():
+	    - Set TERM and PATH if not set.
+	    - Check line counts before checking expected output.
+	  - test_clear_job_env():
+	    - Make use of TEST_INITCTL_DEFAULT_PATH.
+
 2013-01-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* TESTING.sessions: Removed as basic sessions have now gone.

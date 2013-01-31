@@ -2047,6 +2047,8 @@ main (int   argc,
 	/* run tests in legacy (pre-session support) mode */
 	setenv ("UPSTART_NO_SESSIONS", "1", 1);
 
+	job_class_environment_init ();
+
 	test_new ();
 	test_block ();
 	test_unblock ();

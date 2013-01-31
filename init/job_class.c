@@ -152,8 +152,7 @@ int
 job_class_environment_set (const char *var, int replace)
 {
 	nih_assert (var);
-
-	job_class_environment_init ();
+	nih_assert (job_environ);
 
 	if (! environ_add (&job_environ, NULL, NULL, replace, var))
 		return -1;
@@ -174,8 +173,7 @@ int
 job_class_environment_unset (const char *name)
 {
 	nih_assert (name);
-
-	job_class_environment_init ();
+	nih_assert (job_environ);
 
 	if (! environ_remove (&job_environ, NULL, NULL, name))
 		return -1;
@@ -196,7 +194,7 @@ job_class_environment_unset (const char *name)
 char **
 job_class_environment_get_all (const void *parent)
 {
-	job_class_environment_init ();
+	nih_assert (job_environ);
 
 	return nih_str_array_copy (parent, NULL, job_environ);
 }
@@ -217,8 +215,7 @@ const char *
 job_class_environment_get (const char *name)
 {
 	nih_assert (name);
-
-	job_class_environment_init ();
+	nih_assert (job_environ);
 
 	return environ_get (job_environ, name);
 }
@@ -615,8 +612,7 @@ job_class_environment (const void *parent,
 	char  **env;
 
 	nih_assert (class != NULL);
-
-	job_class_environment_init ();
+	nih_assert (job_environ);
 
 	env = nih_str_array_new (parent);
 	if (! env)
