@@ -30,6 +30,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fnmatch.h>
+#include <pwd.h>
+#include <dirent.h>
+#include <ctype.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -41,6 +44,7 @@
 #include <nih/error.h>
 #include <nih/hash.h>
 #include <nih/tree.h>
+#include <nih/file.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_proxy.h>
@@ -53,7 +57,8 @@
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
-#include "../init/events.h"
+#include "init/events.h"
+#include "init/xdg.h"
 #include "initctl.h"
 
 
@@ -133,6 +138,7 @@ int set_env_action                (NihCommand *command, char * const *args);
 int list_env_action               (NihCommand *command, char * const *args);
 int unset_env_action              (NihCommand *command, char * const *args);
 int reset_env_action              (NihCommand *command, char * const *args);
+int list_sessions_action          (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -1418,8 +1424,6 @@ get_env_action (NihCommand *command, char * const *args)
 	if (! upstart)
 		return 1;
 
-	job_details = NIH_MUST (nih_str_array_new (NULL));
-
 	if (upstart_get_env_sync (NULL, upstart, job_details, name, &envvar) < 0)
 		goto error;
 
@@ -2005,6 +2009,119 @@ error:
 
 	return 1;
 }
+
+
+/**
+ * list_sessions_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "list-sessions" command.
+ *
+ * Unlike other commands, this does not attempt to connect to Upstart.
+ *
+ * Returns: command exit status.
+ **/
+int
+list_sessions_action (NihCommand *command, char * const *args)
+{
+	nih_local const char *session_dir = NULL;
+	DIR                  *dir;
+	struct dirent        *ent;
+
+	nih_assert (command);
+	nih_assert (args);
+	
+	session_dir = get_session_dir ();
+
+	if (! session_dir) {
+		nih_error (_("Unable to query session directory"));
+		return 1;
+	}
+
+	dir = opendir (session_dir);
+	if (! dir)
+		goto error;
+
+	while ((ent = readdir (dir))) {
+		nih_local char  *contents = NULL;
+		size_t           len;
+		nih_local char  *path = NULL;
+		pid_t            pid;
+		nih_local char  *name = NULL;
+		char            *session;
+		char            *p;
+		char            *ext;
+		char            *file;
+		int              all_digits = TRUE;
+
+		file = ent->d_name;
+
+		if (! strcmp (file, ".") || ! strcmp (file, ".."))
+			continue;
+
+		ext = p = strchr (file, '.');
+
+		/* No extension */
+		if (! ext)
+			continue;
+
+		/* Invalid extension */
+		if (strcmp (ext, ".session"))
+			continue;
+
+		NIH_MUST (nih_strncat (&name, NULL, file, (p - file)));
+
+		for (p = name; p && *p; p++) {
+			if (! isdigit (*p)) {
+				all_digits = FALSE;
+				break;
+			}
+		}
+
+		/* Invalid name */
+		if (! all_digits)
+			continue;
+
+		pid = (pid_t) atol (name);
+
+		NIH_MUST (nih_strcat_sprintf (&path, NULL, "%s/%s", session_dir, file));
+
+		if (kill (pid, 0)) {
+			nih_info ("%s: %s", _("Ignoring stale session file"), path);
+			continue;
+		}
+
+		contents = nih_file_read (NULL, path, &len);
+
+		if (! contents)
+			continue;
+
+		if (contents[len-1] == '\n')
+			contents[len-1] = '\0';
+
+		p = strstr (contents, "UPSTART_SESSION" "=");
+		if (p != contents)
+			continue;
+
+		session = p + strlen ("UPSTART_SESSION") + 1;
+
+		if (! session || ! *session)
+			continue;
+
+		nih_message ("%d %s", (int)pid, session);
+	}
+
+	closedir (dir);
+
+	return 0;
+
+error:
+	nih_error ("unable to determine sessions");
+	return 1;
+
+}
+
 
 static void
 start_reply_handler (char **         job_path,
@@ -3129,6 +3246,11 @@ static NihCommand commands[] = {
 	  N_("Run to ensure output from jobs ending before "
 			  "disk is writeable are flushed to disk."),
 	  NULL, NULL, notify_disk_writeable_action },
+
+	{ "list-sessions", NULL,
+	  N_("List all sessions."),
+	  N_("Displays list of running Session Init sessions"),
+	  NULL, NULL, list_sessions_action },
 
 	NIH_COMMAND_LAST
 };

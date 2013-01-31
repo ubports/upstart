@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -57,17 +57,23 @@
 #include "errors.h"
 #include "state.h"
 #include "event.h"
+#include "paths.h"
+#include "xdg.h"
 
 #include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
-static int   control_server_connect (DBusServer *server, DBusConnection *conn);
-static void  control_disconnected   (DBusConnection *conn);
-static void  control_register_all   (DBusConnection *conn);
+static int   control_server_connect      (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected        (DBusConnection *conn);
+static void  control_register_all        (DBusConnection *conn);
 
-static void  control_bus_flush      (void);
-static int   control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
+static void  control_bus_flush           (void);
+static int   control_get_origin_uid      (NihDBusMessage *message, uid_t *uid)
 	__attribute__ ((warn_unused_result));
+static int   control_check_permission    (NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+static void  control_session_file_create (void);
+static void  control_session_file_remove (void);
 
 /**
  * use_session_bus:
@@ -111,6 +117,8 @@ NihList *control_conns = NULL;
 /* External definitions */
 extern int user_mode;
 
+extern char *session_file;
+
 /**
  * control_init:
  *
@@ -123,14 +131,27 @@ control_init (void)
 		control_conns = NIH_MUST (nih_list_new (NULL));
 
 	if (! control_server_address) {
-		if (user_mode)
+		if (user_mode) {
 			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL,
 					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid (), getpid ()));
-		else
-			control_server_address = nih_strdup (NULL, DBUS_ADDRESS_UPSTART);
+
+			control_session_file_create ();
+		} else {
+			control_server_address = NIH_MUST (nih_strdup (NULL, DBUS_ADDRESS_UPSTART));
+		}
 	}
 }
 
+/**
+ * control_cleanup:
+ *
+ * Perform cleanup operations.
+ **/
+void
+control_cleanup (void)
+{
+	control_session_file_remove ();
+}
 
 /**
  * control_server_open:
@@ -389,13 +410,9 @@ int
 control_reload_configuration (void           *data,
 			      NihDBusMessage *message)
 {
-	uid_t     uid, origin_uid;
-
 	nih_assert (message != NULL);
 
-	uid = getuid ();
-
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to reload configuration"));
@@ -592,15 +609,12 @@ control_emit_event_with_file (void            *data,
 {
 	Event    *event;
 	Blocked  *blocked;
-	uid_t     uid, origin_uid;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
 	nih_assert (env != NULL);
 
-	uid = getuid ();
-
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to emit an event"));
@@ -767,6 +781,13 @@ control_set_log_priority (void *          data,
 	nih_assert (message != NULL);
 	nih_assert (log_priority != NULL);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to set log priority"));
+		return -1;
+	}
+
 	if (! strcmp (log_priority, "debug")) {
 		nih_log_set_priority (NIH_LOG_DEBUG);
 
@@ -832,21 +853,18 @@ control_notify_disk_writeable (void   *data,
 {
 	int       ret;
 	Session  *session;
-	uid_t     uid, origin_uid;
 
 	nih_assert (message != NULL);
 
-	uid = getuid ();
-
-	/* Get the relevant session */
-	session = session_from_dbus (NULL, message);
-
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
+	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to notify disk is writeable"));
 		return -1;
 	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
 
 	/* "nop" when run from a chroot */
 	if (session && session->chroot)
@@ -1012,13 +1030,17 @@ control_get_state (void           *data,
 		   char           **state)
 {
 	Session  *session;
-	uid_t     uid, origin_uid;
 	size_t    len;
 
 	nih_assert (message);
 	nih_assert (state);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request state"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -1031,17 +1053,6 @@ control_get_state (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring state query from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from obtaining state details, unless they
-	 * happen to own this process (which they may do in the test
-	 * scenario and when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request state"));
-		return -1;
 	}
 
 	if (state_to_string (state, &len) < 0)
@@ -1075,11 +1086,15 @@ control_restart (void           *data,
 		 NihDBusMessage *message)
 {
 	Session  *session;
-	uid_t     origin_uid, uid;
 
 	nih_assert (message != NULL);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request restart"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -1093,17 +1108,6 @@ control_restart (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring restart request from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from restarting Upstart, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (control_get_origin_uid (message, &origin_uid) && origin_uid != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request restart"));
-		return -1;
 	}
 
 	nih_info (_("Restarting"));
@@ -1235,7 +1239,7 @@ control_set_env (void            *data,
 	}
 
 	/* Lookup the job */
-	control_get_job (job, job_name, instance);
+	control_get_job (session, job, job_name, instance);
 
 	/* If variable does not contain a delimiter, add one to ensure
 	 * it gets entered into the job environment table. Without the
@@ -1340,7 +1344,7 @@ control_unset_env (void            *data,
 	}
 
 	/* Lookup the job */
-	control_get_job (job, job_name, instance);
+	control_get_job (session, job, job_name, instance);
 
 	if (job) {
 		/* Modify job-specific environment */
@@ -1437,7 +1441,7 @@ control_get_env (void             *data,
 	}
 
 	/* Lookup the job */
-	control_get_job (job, job_name, instance);
+	control_get_job (session, job, job_name, instance);
 
 	if (job) {
 		tmp = environ_get (job->env, name);
@@ -1532,7 +1536,7 @@ control_list_env (void             *data,
 	}
 
 	/* Lookup the job */
-	control_get_job (job, job_name, instance);
+	control_get_job (session, job, job_name, instance);
 
 	if (job) {
 		*env = nih_str_array_copy (job, NULL, job->env);
@@ -1622,7 +1626,7 @@ control_reset_env (void           *data,
 	}
 
 	/* Lookup the job */
-	control_get_job (job, job_name, instance);
+	control_get_job (session, job, job_name, instance);
 
 
 	if (job) {
@@ -1664,6 +1668,9 @@ control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
 
 	dbus_error_init (&dbus_error);
 
+	if (! message->message || ! message->connection)
+		return FALSE;
+
 	sender = dbus_message_get_sender (message->message);
 	if (sender) {
 		unix_user = dbus_bus_get_unix_user (message->connection, sender,
@@ -1682,4 +1689,93 @@ control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
 	*uid = (uid_t)unix_user;
 
 	return TRUE;
+}
+
+/**
+ * control_check_permission:
+ *
+ * @message: D-Bus connection and message received.
+ *
+ * Determine if caller should be allowed to make a control request.
+ *
+ * Note that these permission checks rely on D-Bus to limit
+ * session bus access to the same user.
+ *
+ * Returns: TRUE if permission is granted, else FALSE.
+ **/
+static int
+control_check_permission (NihDBusMessage *message)
+{
+	int    ret;
+	uid_t  uid;
+	pid_t  pid;
+	uid_t  origin_uid = 0;
+
+	nih_assert (message);
+
+	uid = getuid ();
+	pid = getpid ();
+
+	ret = control_get_origin_uid (message, &origin_uid);
+
+	/* Its possible that D-Bus might be unable to determine the user
+	 * making the request. In this case, deny the request unless
+	 * we're running as a Session Init or via the test harness.
+	 */
+	if ((ret && origin_uid == uid) || user_mode || (uid && pid != 1))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * control_session_file_create:
+ *
+ * Create session file if possible.
+ *
+ * Errors are not fatal - the file is just not created.
+ **/
+static void
+control_session_file_create (void)
+{
+	nih_local char *session_dir = NULL;
+	FILE           *f;
+	int             ret;
+
+	nih_assert (control_server_address);
+
+	session_dir = get_session_dir ();
+
+	if (! session_dir)
+		return;
+
+	NIH_MUST (nih_strcat_sprintf (&session_file, NULL, "%s/%d%s",
+				session_dir, (int)getpid (), SESSION_EXT));
+
+	f = fopen (session_file, "w");
+	if (! f) {
+		nih_error ("%s: %s", _("unable to create session file"), session_file);
+		return;
+	}
+
+	ret = fprintf (f, SESSION_ENV "=%s\n", control_server_address);
+
+	if (ret < 0)
+		nih_error ("%s: %s", _("unable to write session file"), session_file);
+
+	fclose (f);
+}
+
+/**
+ * control_session_file_remove:
+ *
+ * Delete session file.
+ *
+ * Errors are not fatal.
+ **/
+static void
+control_session_file_remove (void)
+{
+	if (session_file)
+		(void)unlink (session_file);
 }

@@ -1,3 +1,44 @@
+2013-01-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* TESTING.sessions: Removed as basic sessions have now gone.
+
+2013-01-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - Typos.
+	  - Improved uid checks.
+	  - Replaced direct call to control_get_origin_uid() with call to new
+	    control_check_permission() (as early as possible) for clarity and
+	    to confine policy to one location. 
+	  - control_set_log_prioity(): Added missing call to
+	    control_check_permission().
+	  - control_get_origin_uid(): Check message contents before allowing
+	    D-Bus calls.
+
+2013-01-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c: More careful uid checking.
+
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/xdg.c:
+	  - get_subdir(): Remove double-check on @dir.
+	  - xdg_get_runtime_dir():
+	    - Don't attempt to create as unlikely to be able to if it
+	      doesn't already exist.
+	    - Simplify logic.
+
+2013-01-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/initctl.c: list_session_action():
+	  - Test for stale session earlier.
+	  - Simplify checks on "UPSTART_SESSION".
+	* util/tests/test_initctl.c: test_list_sessions():
+	  - Added test with XDG_RUNTIME_DIR explicitly unset.
+	  - Changed "with no instances" test to set XDG_RUNTIME_DIR to a
+	    temporary value.
+	  - Revert XDG_RUNTIME_DIR on cleanup.
+
 2013-01-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c:
@@ -27,6 +68,24 @@
 
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/control.c: control_session_file_create(): Simplified.
+	* init/xdg.c: Added check for INITCTL_BUILD to hide certain symbols when
+	  building with initctl.
+	* util/Makefile.am:
+	  - Define INITCTL_BUILD.
+	  - Make use of xdg.[ch] in build of initctl and its test.
+	* util/initctl.c:
+	  - list_session_action(): Implementation of 'list-sessions' command.
+	* util/man/initctl.8: Updated for 'list-sessions' command.
+	* util/tests/test_initctl.c:
+	  - _start_upstart(): Replacement for _START_UPSTART() macro.
+	  - start_upstart_common(): Start an instance with common options.
+	  - start_upstart(): Simplest way to start an instance.
+	  - START_UPSTART(): Now calls start_upstart_common().
+	  - test_list_sessions(): Test 'list-sessions' command.
+
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
 	* dbus/com.ubuntu.Upstart.xml:
 	  - Added 'job_details' string array as first parameter for GetEnv,
 	    SetEnv, UnsetEnv, ListEnv and ResetEnv to allow methods to either
@@ -51,6 +110,16 @@
 	* util/initctl.c:
 	  - Updated *_action() functions for new D-Bus parameters and made use
 	    of new function get_job_details().
+
+2013-01-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_xdg.c: Added test_get_session_dir().
+	* init/xdg.c: get_home_subdir(): Handle unset 'HOME' immediately.
+	* init/control.c: Make use of SESSION_EXT.
+	* init/man/init.5: Added session files.
+	* init/paths.h:
+	  - Comments.
+	  - Added SESSION_EXT.
 
 2013-01-25  James Hunt  <james.hunt@ubuntu.com>
 
@@ -82,6 +151,24 @@
 	  test is not run as root.
 	* util/tests/test_user_sessions.sh: Removed.
 	* init/man/init.5: Updated to reflect removal of user jobs.
+
+2013-01-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c:
+	  - control_init(): Create session file in user mode.
+	  - control_cleanup(): New function for cleanup activities.
+	  - control_session_file_create(): Create session file containing
+	    UPSTART_SESSION details.
+	  - control_session_file_remove(): Delete the session file.
+	* init/main.c: Call control_cleanup() to remove session file.
+	* init/paths.h: Added INIT_XDG_SESSION_SUBDIR and SESSION_ENV.
+	* init/xdg.c:
+	  - get_subdir(): Refactor of get_home_subdir().
+	  - get_home_subdir(): Now calls get_subdir().
+	  - Replaced mkdir mode values with INIT_XDG_PATH_MODE.
+	  - xdg_get_runtime_dir(): Obtain XDG_RUNTIME_DIR value.
+	  - get_session_dir(): Obtain path to session directory.
+	* init/xdg.h: Added INIT_XDG_PATH_MODE.
 
 2013-01-21  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 

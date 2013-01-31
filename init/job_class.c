@@ -2336,9 +2336,10 @@ JobClass *
 job_class_find (const Session *session,
 		const char *name)
 {
-	JobClass *class;
+	JobClass *class = NULL;
 
 	nih_assert (name);
+	nih_assert (job_classes);
 
 	do {
 		class = (JobClass *)nih_hash_search (job_classes,
