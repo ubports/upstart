@@ -238,20 +238,6 @@ CheckConfigData check_config_data;
 int apply_globally = FALSE;
 
 /**
- * job_name:
- *
- * Name of job to apply changes to.
- **/
-const char *job_name = NULL;
-
-/**
- * job_instance:
- *
- * Name of job instance to apply changes to.
- **/
-const char *job_instance = NULL;
-
-/**
  * NihOption setter function to handle selection of appropriate D-Bus
  * bus.
  *
@@ -2820,10 +2806,7 @@ get_job_details (void)
 	if (! details)
 		return NULL;
 
-	if (job_name) {
-		upstart_job = job_name;
-		upstart_instance = job_instance ? job_instance : "";
-	} else if (apply_globally) {
+	if (apply_globally) {
 		upstart_job = upstart_instance = NULL;
 	} else if ((upstart_job = getenv ("UPSTART_JOB")) != NULL) {
 		upstart_instance = getenv ("UPSTART_INSTANCE");
@@ -3006,10 +2989,6 @@ NihOption check_config_options[] = {
 NihOption set_env_options[] = {
 	{ 'g', "global", N_("apply to global job environment table"),
 	  NULL, NULL, &apply_globally, NULL },
-	{ 'i', "instance", N_("job instance name"),
-	  NULL, "INSTANCE", &job_instance, NULL },
-	{ 'j', "job", N_("job name"),
-	  NULL, "NAME", &job_name, NULL },
 	{ 'r', "retain", N_("do not replace the value of the variable if already set"),
 	  NULL, NULL, &retain_var, NULL },
 	NIH_OPTION_LAST
@@ -3023,10 +3002,6 @@ NihOption set_env_options[] = {
 NihOption get_env_options[] = {
 	{ 'g', "global", N_("apply to global job environment table"),
 	  NULL, NULL, &apply_globally, NULL },
-	{ 'i', "instance", N_("job instance name"),
-	  NULL, "INSTANCE", &job_instance, NULL },
-	{ 'j', "job", N_("job name"),
-	  NULL, "NAME", &job_name, NULL },
 	NIH_OPTION_LAST
 };
 
@@ -3038,10 +3013,6 @@ NihOption get_env_options[] = {
 NihOption unset_env_options[] = {
 	{ 'g', "global", N_("apply to global job environment table"),
 	  NULL, NULL, &apply_globally, NULL },
-	{ 'i', "instance", N_("job instance name"),
-	  NULL, "INSTANCE", &job_instance, NULL },
-	{ 'j', "job", N_("job name"),
-	  NULL, "NAME", &job_name, NULL },
 	NIH_OPTION_LAST
 };
 
@@ -3053,10 +3024,6 @@ NihOption unset_env_options[] = {
 NihOption list_env_options[] = {
 	{ 'g', "global", N_("apply to global job environment table"),
 	  NULL, NULL, &apply_globally, NULL },
-	{ 'i', "instance", N_("job instance name"),
-	  NULL, "INSTANCE", &job_instance, NULL },
-	{ 'j', "job", N_("job name"),
-	  NULL, "NAME", &job_name, NULL },
 	NIH_OPTION_LAST
 };
 
@@ -3068,10 +3035,6 @@ NihOption list_env_options[] = {
 NihOption reset_env_options[] = {
 	{ 'g', "global", N_("apply to global job environment table"),
 	  NULL, NULL, &apply_globally, NULL },
-	{ 'i', "instance", N_("job instance name"),
-	  NULL, "INSTANCE", &job_instance, NULL },
-	{ 'j', "job", N_("job name"),
-	  NULL, "NAME", &job_name, NULL },
 	NIH_OPTION_LAST
 };
 

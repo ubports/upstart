@@ -16364,7 +16364,6 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	char           **output;
 	size_t           line_count;
 	FILE            *fi;
-	char             flagfile[PATH_MAX];
 
 	assert (confdir);
 	assert (logdir);
@@ -16386,100 +16385,6 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
-
-	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
-				logdir,
-				"foo.log"));
-
-	WAIT_FOR_FILE (logfile);
-
-	fi = fopen (logfile, "r");
-	TEST_FILE_CONTAINS (fi, "hello=world*");
-	TEST_NE_P (fi, NULL);
-
-	fclose (fi);
-
-	TEST_EQ (unlink (logfile), 0);
-	DELETE_FILE (confdir, "foo.conf");
-
-	/*******************************************************************/
-	TEST_FEATURE ("ensure set-env with explicit job arg can inject variable into main process");
-
-	contents = nih_sprintf (NULL, 
-			"pre-start exec %s set-env --job \"$UPSTART_JOB\" hello=world\n"
-			"exec %s list-env\n",
-			get_initctl (), get_initctl ());
-	TEST_NE_P (contents, NULL);
-
-	CREATE_FILE (confdir, "foo.conf", contents);
-
-	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
-
-	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
-				logdir,
-				"foo.log"));
-
-	WAIT_FOR_FILE (logfile);
-
-	fi = fopen (logfile, "r");
-	TEST_FILE_CONTAINS (fi, "hello=world*");
-	TEST_NE_P (fi, NULL);
-
-	fclose (fi);
-
-	TEST_EQ (unlink (logfile), 0);
-	DELETE_FILE (confdir, "foo.conf");
-
-	/*******************************************************************/
-	TEST_FEATURE ("ensure set-env with explicit instance arg can inject variable into main process");
-
-	contents = nih_sprintf (NULL, 
-			"pre-start exec %s set-env --instance \"$UPSTART_INSTANCE\" hello=world\n"
-			"exec %s list-env\n",
-			get_initctl (), get_initctl ());
-	TEST_NE_P (contents, NULL);
-
-	CREATE_FILE (confdir, "foo.conf", contents);
-
-	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
-
-	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
-				logdir,
-				"foo.log"));
-
-	WAIT_FOR_FILE (logfile);
-
-	fi = fopen (logfile, "r");
-	TEST_FILE_CONTAINS (fi, "hello=world*");
-	TEST_NE_P (fi, NULL);
-
-	fclose (fi);
-
-	TEST_EQ (unlink (logfile), 0);
-	DELETE_FILE (confdir, "foo.conf");
-
-	/*******************************************************************/
-	TEST_FEATURE ("ensure set-env with explicit job+instance args can inject variable into main process");
-
-	contents = nih_sprintf (NULL, 
-			"pre-start exec %s set-env --job \"$UPSTART_JOB\" "
-			"--instance \"$UPSTART_INSTANCE\" hello=world\n"
-			"exec %s list-env\n",
-			get_initctl (), get_initctl ());
-	TEST_NE_P (contents, NULL);
-
-	CREATE_FILE (confdir, "foo.conf", contents);
-
-	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	nih_free (output);
 
@@ -16596,86 +16501,9 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	TEST_STR_ARRAY_NOT_CONTAINS (output, "hello=world");
 	nih_free (output);
 
-	TEST_EQ (unlink (logfile), 0);
+	assert0 (unlink (logfile));
 	DELETE_FILE (confdir, "bar.conf");
 
-	/*******************************************************************/
-	TEST_FEATURE ("ensure set-env outside job with job args catches invalid job");
-
-	cmd = nih_sprintf (NULL, "%s set-env -j foo hello=world 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	TEST_EQ (line_count, 1);
-	TEST_EQ_STR (output[0], "initctl: Unknown job: foo");
-	nih_free (output);
-
-	/*******************************************************************/
-	TEST_FEATURE ("ensure set-env outside job with job args modifies job");
-
-        TEST_FILENAME (flagfile);
-	(void)unlink (flagfile);
-
-	contents = nih_sprintf (NULL, 
-			"pre-start script\n"
-			"  i=0\n"
-			"  # timeout after 5 seconds\n"
-			"  while [ $i -lt 50 ]\n"
-			"  do\n"
-			"    [ -f \"%s\" ] && break\n"
-			"    sleep 0.1\n"
-			"    i=$((i+1))\n"
-			"  done\n"
-			"end script\n"
-			"\n"
-			"exec env\n", flagfile);
-	TEST_NE_P (contents, NULL);
-
-	CREATE_FILE (confdir, "foo.conf", contents);
-
-	cmd = nih_sprintf (NULL, "%s start --no-wait foo 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
-
-	/* set variable */
-	cmd = nih_sprintf (NULL, "%s set-env -j foo hello=world 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-
-	/* check that it did NOT get set globally */
-	cmd = nih_sprintf (NULL, "%s get-env --global hello 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	TEST_EQ (line_count, 1);
-	TEST_EQ_STR (output[0], "initctl: No such variable: hello");
-
-	/* check that it DID get set for the job in question */
-	cmd = nih_sprintf (NULL, "%s get-env -j foo hello 2>&1", get_initctl ());
-	TEST_NE_P (cmd, NULL);
-	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	TEST_EQ (line_count, 1);
-	TEST_EQ_STR (output[0], "world");
-
-	/* Create flag file to allow job to continue so it can run its
-	 * main stanza.
-	 */
-	assert0 (fclose (fopen (flagfile, "w")));
-
-	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
-				logdir,
-				"foo.log"));
-	WAIT_FOR_FILE (logfile);
-
-	fi = fopen (logfile, "r");
-	TEST_NE_P (fi, NULL);
-
-	TEST_FILE_CONTAINS (fi, "hello=world*");
-
-	fclose (fi);
-
-	assert0 (unlink (flagfile));
-	assert0 (unlink (logfile));
-	DELETE_FILE (confdir, "foo.conf");
 
 	/*******************************************************************/
 }
