@@ -765,9 +765,11 @@ job_process_spawn (Job          *job,
 	 * configured in the job, or to the root directory of the filesystem
 	 * (or at least relative to the chroot).
 	 */
-	if (chdir (class->chdir ? class->chdir : "/") < 0) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
+	if (class->chdir || user_mode == FALSE) {
+		if (chdir (class->chdir ? class->chdir : "/") < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
+		}
 	}
 
 	/* Change the user and group of the process to the one
