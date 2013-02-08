@@ -128,7 +128,8 @@ static void job_process_trace_signal    (Job *job, ProcessType process,
 static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
-extern int          user_mode;
+extern int           user_mode;
+extern int           inherit_env;
 extern char         *control_server_address;
 
 /**
@@ -268,6 +269,9 @@ job_process_run (Job         *job,
 	} else {
 		env = NIH_MUST (nih_str_array_new (NULL));
 	}
+
+	if (user_mode && inherit_env)
+		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, environ));
 
 	if (job->stop_env
 	    && ((process == PROCESS_PRE_STOP)
