@@ -144,8 +144,25 @@ id of 1.  If this is not the case, it will actually execute
 and pass all arguments to that.  See that manual page for further
 details. However, if the
 .B \-\-user
-option is specified, it will read alternative configuration files and
-manage the individual user session in a similar fashion.
+option is specified, it will run as a
+.B Session Init
+and read alternative configuration files and manage the individual user
+session in a similar fashion.
+
+Sending a Session Init a
+.I SIGTERM
+signal is taken as a request to shutdown due to an impending system
+shutdown. In this scenario, the
+Session Init will emit the 
+.B session\-end
+event and  request all running jobs stop. It will attempt to honour jobs
+.B kill timeout
+values (see
+.BR init (5)
+for further details). Note however that system policy will prevail: if
+jobs request timeout values longer than the system policy allows for
+complete system shutdown, it will not be possible to honour them before
+the Session Init is killed by the system.
 .\"
 .SH ENVIRONMENT VARIABLES
 

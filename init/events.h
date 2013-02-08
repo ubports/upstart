@@ -31,6 +31,13 @@
 #define STARTUP_EVENT "debug"
 #endif
 
+/**
+ * SESSION_END_EVENT:
+ *
+ * Name of the event Upstart emits to denote a Session Init
+ * is shutting down.
+ **/
+#define SESSION_END_EVENT "session-end"
 
 /**
  * CTRLALTDEL_EVENT:

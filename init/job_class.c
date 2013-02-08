@@ -2344,3 +2344,33 @@ job_class_find (const Session *session,
 
 	return class;
 }
+
+/**
+ * job_class_max_kill_timeout:
+ *
+ * Determine maximum kill timeout for all running jobs.
+ *
+ * Returns: Maximum kill timeout (seconds).
+ **/
+time_t
+job_class_max_kill_timeout (void)
+{
+	time_t kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (job->class->kill_timeout > kill_timeout) {
+				kill_timeout = job->class->kill_timeout;
+				break;
+			}
+		}
+	}
+
+	return kill_timeout;
+}

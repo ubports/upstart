@@ -359,6 +359,9 @@ void job_class_prepare_reexec (void);
 JobClass * job_class_find (const Session *session, const char *name)
 	__attribute__ ((warn_unused_result));
 
+time_t     job_class_max_kill_timeout (void)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

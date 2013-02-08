@@ -103,6 +103,8 @@
     <method name="NotifyDiskWriteable">
     </method>
 
+    <method name="EndSession"/>
+
     <!-- Basic information about Upstart -->
     <property name="version" type="s" access="read" />
     <property name="log_priority" type="s" access="readwrite" />

@@ -78,6 +78,7 @@ NIH_BEGIN_EXTERN
 extern NihList *sessions;
 
 void           session_init        (void);
+void           session_destroy     (void);
 
 Session      * session_new         (const void *parent, const char *chroot)
 	__attribute__ ((malloc, warn_unused_result));

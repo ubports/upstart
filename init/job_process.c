@@ -99,6 +99,13 @@ typedef struct job_process_wire_error {
  **/
 char *log_dir = NULL;
 
+/**
+ * disable_respawn:
+ *
+ * If TRUE, disallow respawning.
+ **/
+int disable_respawn = FALSE;
+
 /* Prototypes for static functions */
 static void job_process_error_abort     (int fd, JobProcessErrorType type,
 					 int arg)
@@ -128,8 +135,10 @@ static void job_process_trace_signal    (Job *job, ProcessType process,
 static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
-extern int          user_mode;
 extern char         *control_server_address;
+extern int           user_mode;
+extern int           session_end;
+extern time_t        quiesce_phase_time;
 
 /**
  * job_process_run:
@@ -1219,6 +1228,52 @@ job_process_kill (Job         *job,
 }
 
 /**
+ * job_process_jobs_running:
+ *
+ * Determine if any jobs are running.
+ *
+ * Returns: TRUE if jobs are still running, else FALSE.
+ **/
+int
+job_process_jobs_running (void)
+{
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+/**
+ * job_process_stop_all:
+ *
+ * Stop all running jobs.
+ **/
+void
+job_process_stop_all (void)
+{
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		/* Note that instances get killed in a random order */
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			/* Request job instance stops */
+			job_change_goal (job, JOB_STOP);
+		}
+	}
+}
+
+/**
  * job_process_set_kill_timer:
  * @job: job to set kill timer for,
  * @process: process to be killed,
@@ -1547,7 +1602,7 @@ job_process_terminated (Job         *job,
 			 * that's a simple matter of doing nothing.  Check
 			 * the job isn't running away first though.
 			 */
-			if (failed && job->class->respawn) {
+			if (failed && job->class->respawn && ! disable_respawn) {
 				if (job_process_catch_runaway (job)) {
 					nih_warn (_("%s respawning too fast, stopped"),
 						  job_name (job));

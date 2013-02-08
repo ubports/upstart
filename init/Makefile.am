@@ -31,7 +31,8 @@ dist_man_MANS = \
 	man/keyboard-request.7 \
 	man/power-status-changed.7 \
 	man/upstart.7 \
-	man/inittab.5
+	man/inittab.5 \
+	man/session-end.7
 
 
 sbin_PROGRAMS = init
@@ -57,6 +58,7 @@ init_SOURCES = \
 	conf.c conf.h \
 	control.c control.h \
 	xdg.c xdg.h \
+	quiesce.c quiesce.h \
 	errors.h
 nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \

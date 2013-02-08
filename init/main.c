@@ -431,9 +431,10 @@ main (int   argc,
 
 	}
 
-	/* SIGTERM instructs us to re-exec ourselves; this should be the
-	 * last in the list to ensure that all other signals are handled
-	 * before a SIGTERM.
+	/* SIGTERM instructs us to re-exec ourselves when running as PID
+	 * 1, or to exit when running as a Session Init; this signal should
+	 * be the last in the list to ensure that all other signals are
+	 * handled before a SIGTERM.
 	 */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
@@ -653,8 +654,6 @@ main (int   argc,
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
-	control_cleanup ();
-
 	return ret;
 }
 
@@ -802,7 +801,8 @@ crash_handler (int signum)
  * @signal: signal caught.
  *
  * This is called when we receive the TERM signal, which instructs us
- * to reexec ourselves.
+ * to reexec ourselves when running as PID 1, or to perform a controlled
+ * exit when running as a Session Init.
  **/
 static void
 term_handler (void      *data,
@@ -811,8 +811,12 @@ term_handler (void      *data,
 	nih_assert (args_copy[0] != NULL);
 	nih_assert (signal != NULL);
 
-	nih_warn (_("Re-executing %s"), args_copy[0]);
+	if (user_mode) {
+		quiesce (QUIESCE_REQUESTER_SYSTEM);
+		return;
+	}
 
+	nih_warn (_("Re-executing %s"), args_copy[0]);
 	stateful_reexec ();
 }
 
@@ -823,7 +827,7 @@ term_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGINT signal, sent to us when somebody
+ * Handle having received the SIGINT signal, sent to us when somebody
  * presses Ctrl-Alt-Delete on the console.  We just generate a
  * ctrlaltdel event.
  **/
@@ -839,7 +843,7 @@ cad_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGWINCH signal, sent to us when somebody
+ * Handle having received the SIGWINCH signal, sent to us when somebody
  * presses Alt-UpArrow on the console.  We just generate a
  * kbdrequest event.
  **/
@@ -855,7 +859,7 @@ kbd_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGPWR signal, sent to us when powstatd
+ * Handle having received the SIGPWR signal, sent to us when powstatd
  * changes the /etc/powerstatus file.  We just generate a
  * power-status-changed event and jobs read the file.
  **/
@@ -871,7 +875,7 @@ pwr_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGHUP signal, which we use to instruct us to
+ * Handle having received the SIGHUP signal, which we use to instruct us to
  * reload our configuration.
  **/
 static void
@@ -887,7 +891,7 @@ hup_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGUSR signal, which we use to instruct us to
+ * Handle having received the SIGUSR signal, which we use to instruct us to
  * reconnect to D-Bus.
  **/
 static void

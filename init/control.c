@@ -57,6 +57,7 @@
 #include "errors.h"
 #include "state.h"
 #include "event.h"
+#include "events.h"
 #include "paths.h"
 #include "xdg.h"
 
@@ -115,9 +116,9 @@ DBusConnection *control_bus = NULL;
 NihList *control_conns = NULL;
 
 /* External definitions */
-extern int user_mode;
-
-extern char *session_file;
+extern int      user_mode;
+extern int      disable_respawn;
+extern char    *session_file;
 
 /**
  * control_init:
@@ -1743,4 +1744,51 @@ control_session_file_remove (void)
 {
 	if (session_file)
 		(void)unlink (session_file);
+}
+
+/**
+ * control_session_end:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the EndSession method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request that Upstart stop all jobs and exit. Only
+ * appropriate when running as a Session Init and user wishes to
+ * 'logout'.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_end_session (void             *data,
+		     NihDBusMessage   *message)
+{
+	Session  *session;
+
+	nih_assert (message);
+
+	/* Not supported at the system level */
+	if (getpid () == 1)
+		return 0;
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to end session"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring session end request from chroot session"));
+		return 0;
+	}
+
+	quiesce (QUIESCE_REQUESTER_SESSION);
+
+	return 0;
 }
