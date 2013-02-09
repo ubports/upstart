@@ -1,3 +1,10 @@
+2013-02-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_run(): Copy parent environment if
+	  inherit_env in operation for a Session Init.
+	* init/main.c: Added 'inherit-env' command-line option.
+	* init/man/init.8: Documented --inherit-env.
+
 2013-02-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/initctl.c: Remove ability to specify explicitly job and/or job

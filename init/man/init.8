@@ -81,6 +81,11 @@ for all possible values of
 .BR console "."
 .\"
 .TP
+.B \-\-inherit\-env
+Make jobs inherit the initial environment. Impotent when running as
+process id 1.
+.\"
+.TP
 .B \-\-logdir \fIdirectory\fP
 Write job output log files to a directory other than
 \fI/var/log/upstart\fP (system mode) or \fI$XDG_CACHE_HOME/upstart\fP
