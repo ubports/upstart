@@ -1,3 +1,10 @@
+2013-02-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c: log_serialise(): Handle re-exec scenario where
+	  jobs producing output have finished but where log data cannot
+	  be persisted (for example where disk is full or log directory
+	  is inaccessible). (LP: #1120660)
+
 2013-02-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_run(): Copy parent environment if
