@@ -115,6 +115,14 @@ static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd)
  **/
 int disable_job_logging = 0;
 
+/**
+ * inherit_env:
+ *
+ * If TRUE, copy init's environment to that provided to jobs.
+ **/
+int inherit_env = FALSE;
+
+
 /* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
 static void job_process_terminated      (Job *job, ProcessType process,
@@ -129,7 +137,6 @@ static void job_process_trace_fork      (Job *job, ProcessType process);
 static void job_process_trace_exec      (Job *job, ProcessType process);
 
 extern int           user_mode;
-extern int           inherit_env;
 extern char         *control_server_address;
 
 /**

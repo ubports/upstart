@@ -120,13 +120,7 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-/**
- * inherit_env:
- *
- * If TRUE, copy init's environment to that provided to jobs.
- **/
-int inherit_env = FALSE;
-
+extern int          inherit_env;
 extern int          user_mode;
 extern int          disable_sessions;
 extern int          disable_job_logging;
