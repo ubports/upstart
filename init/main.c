@@ -491,7 +491,6 @@ main (int   argc,
 			nih_warn ("%s",
 				_("Stateful re-exec supported but stateless re-exec requested"));
 		} else if (state_read (state_fd) < 0) {
-			nih_local char *arg = NULL;
 
 			/* Stateful re-exec has failed so try once more by
 			 * degrading to stateless re-exec, which even in
