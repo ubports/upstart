@@ -32,6 +32,7 @@
 #include <regex.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
@@ -89,57 +90,66 @@
 /* Default value for TERM if not already set */
 #define TEST_INITCTL_DEFAULT_TERM "linux"
 
+int
+set_upstart_session (void);
+
 /**
- * WAIT_FOR_UPSTART:
+ * wait_for_upstart:
+ *
+ * @user: TRUE if waiting for a Session Init (which uses a private bus
+ * rather than the session bus), else FALSE.
  *
  * Wait for Upstart to appear on D-Bus denoting its completion of
  * initialisation. Wait time is somewhat arbitrary (but more
  * than adequate!).
  **/
-#define WAIT_FOR_UPSTART()                                           \
-{                                                                    \
-	nih_local NihDBusProxy *upstart = NULL;                      \
-	DBusConnection         *connection;                          \
-	char                   *address;                             \
-	NihError               *err;                                 \
-	int                     running = FALSE;                     \
-	                                                             \
-	/* XXX: arbitrary value */                                   \
-	int                     attempts = 10;                       \
-	                                                             \
-	if (set_upstart_session ())                                  \
-		address = getenv ("UPSTART_SESSION");                \
-	else                                                         \
-		address = getenv ("DBUS_SESSION_BUS_ADDRESS");       \
-	                                                             \
-	TEST_TRUE (address);                                         \
-	                                                             \
-	while (attempts) {                                           \
-		attempts--;                                          \
-		sleep (1);                                           \
-		connection = nih_dbus_connect (address, NULL);       \
-                                                                     \
-		if (! connection) {                                  \
-			err = nih_error_get ();                      \
-			nih_free (err);                              \
-			continue;                                    \
-		}                                                    \
-		                                                     \
-		upstart = nih_dbus_proxy_new (NULL, connection,      \
-				      	      NULL,                  \
-					      DBUS_PATH_UPSTART,     \
-				      	      NULL, NULL);           \
-		                                                     \
-		if (! upstart) {                                     \
-			err = nih_error_get ();                      \
-			nih_free (err);                              \
-			dbus_connection_unref (connection);          \
-		} else {                                             \
-			running = TRUE;                              \
-			break;                                       \
-		}                                                    \
-	}                                                            \
-	TEST_EQ (running, TRUE);                                     \
+void
+wait_for_upstart (int user)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	DBusConnection         *connection;
+	char                   *address;
+	NihError               *err;
+	int                     running = FALSE;
+
+	/* XXX: arbitrary value */
+	int                     attempts = 10;
+
+	if (user) {
+		set_upstart_session ();
+		address = getenv ("UPSTART_SESSION");
+	} else {
+		address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	}
+
+	TEST_TRUE (address);
+
+	while (attempts) {
+		attempts--;
+		sleep (1);
+		connection = nih_dbus_connect (address, NULL);
+
+		if (! connection) {
+			err = nih_error_get ();
+			nih_free (err);
+			continue;
+		}
+
+		upstart = nih_dbus_proxy_new (NULL, connection,
+				      	      NULL,
+					      DBUS_PATH_UPSTART,
+				      	      NULL, NULL);
+
+		if (! upstart) {
+			err = nih_error_get ();
+			nih_free (err);
+			dbus_connection_unref (connection);
+		} else {
+			running = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (running, TRUE);
 }
 
 /**
@@ -200,7 +210,7 @@
  **/
 #define REEXEC_UPSTART(pid)                                          \
 	KILL_UPSTART (pid, SIGTERM, FALSE);                          \
-	WAIT_FOR_UPSTART ()
+	wait_for_upstart (FALSE)
 
 /**
  * RUN_COMMAND:
@@ -505,6 +515,9 @@ int test_user_mode = FALSE;
  * Attempt to "enter" an Upstart session by setting UPSTART_SESSION to
  * the value of the currently running session.
  *
+ * It is only legitimate to call this function if you have previously
+ * started a Session Init process.
+ *
  * Limitations: Assumes that at most 1 session is running.
  *
  * Returns: TRUE if it was possible to enter the currently running
@@ -516,24 +529,55 @@ set_upstart_session (void)
 	char                     *value;
 	nih_local char           *cmd = NULL;
 	nih_local char          **output = NULL;
-	size_t                    lines;
+	size_t                    lines = 0;
+	int                       got = FALSE;
+	int                       i;
+
+	/* XXX: arbitrary value */
+	int                       loops = 5;
+
+	/* list-sessions relies on this */
+	if (! getenv ("XDG_RUNTIME_DIR"))
+		return FALSE;
 
 	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
 	TEST_NE_P (cmd, NULL);
 
-	RUN_COMMAND (NULL, cmd, &output, &lines);
-	if (lines != 1)
-		return FALSE;
-
-	/* look for separator between pid and value of
-	 * UPSTART_SESSION.
+	/* We expect the list-sessions command to return a valid session
+	 * within a reasonable period of time.
 	 */
-	value = strstr (output[0], " ");
-	TEST_NE_P (value, NULL);
+	for (i = 0; i < loops; i++) {
+		sleep (1);
 
-	/* jump over space */
-	value  += 1;
-	TEST_NE_P (value, NULL);
+		RUN_COMMAND (NULL, cmd, &output, &lines);
+		if (lines != 1)
+			continue;
+
+		/* No pid in output */
+		if (! isdigit(output[0][0]))
+			continue;
+
+		/* look for separator between pid and value of
+		 * UPSTART_SESSION.
+		 */
+		value = strstr (output[0], " ");
+		if (! value)
+			continue;
+
+		/* jump over space */
+		value  += 1;
+		if (! value)
+			continue;
+
+		/* No socket address */
+		if (strstr (value, "unix:abstract") == value) {
+			got = TRUE;
+			break;
+		}
+	}
+
+	if (got != TRUE)
+		return FALSE;
 
 	assert0 (setenv ("UPSTART_SESSION", value, 1));
 
@@ -689,6 +733,8 @@ get_initctl (void)
  * _start_upstart:
  *
  * @pid: PID of running instance,
+ * @user: TRUE if upstart will run in User Session mode (FALSE to
+ *  use the users D-Bus session bus),
  * @args: optional list of arguments to specify.
  *
  * Start an instance of Upstart.
@@ -696,7 +742,7 @@ get_initctl (void)
  * If the instance fails to start, abort(3) is called.
  **/
 void
-_start_upstart (pid_t *pid, char * const *args)
+_start_upstart (pid_t *pid, int user, char * const *args)
 {
 	nih_local char  **argv = NULL;
 	sigset_t          child_set, orig_set;
@@ -733,7 +779,7 @@ _start_upstart (pid_t *pid, char * const *args)
 	}
 
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
-	WAIT_FOR_UPSTART ();
+	wait_for_upstart (user);
 }
 
 /**
@@ -791,7 +837,7 @@ start_upstart_common (pid_t *pid, int user, const char *confdir,
 	if (extra)
 		NIH_MUST (nih_str_array_append (&args, NULL, NULL, extra));
 
-	_start_upstart (pid, args);
+	_start_upstart (pid, user, args);
 }
 
 /**

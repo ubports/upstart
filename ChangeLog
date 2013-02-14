@@ -1,5 +1,14 @@
 2013-02-14  James Hunt  <james.hunt@ubuntu.com>
 
+	* util/tests/test_initctl.c:
+	  - wait_for_upstart(): Functional replacement of WAIT_FOR_UPSTART()
+	    macro. Now accepts @user.
+	  - set_upstart_session(): Poll to ensure we give Upstart time to
+	    initialise and write the session file.
+	  - _start_upstart(): Extra @user parameter.
+
+2013-02-14  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/Makefile.am: Added quiesce.o, now required by control.o.
 	* init/main.c: main():
 	  - SIGHUP+SIGUSR1 handling now applies however you run init (since
