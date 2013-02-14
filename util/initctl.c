@@ -372,7 +372,7 @@ upstart_open (const void *parent)
 
 		dbus_connection_set_exit_on_disconnect (connection, FALSE);
 	} else {
-		if (dest_name) {
+		if (dest_name && ! user_mode) {
 			fprintf (stderr, _("%s: --dest given without --system\n"),
 				 program_name);
 			nih_main_suggest_help ();

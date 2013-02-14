@@ -178,7 +178,7 @@ test_process_SOURCES = tests/test_process.c $(test_util_SOURCES)
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -192,7 +192,7 @@ test_job_class_SOURCES = tests/test_job_class.c
 test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -206,7 +206,7 @@ test_job_process_SOURCES = tests/test_job_process.c $(test_util_SOURCES)
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -220,7 +220,7 @@ test_job_SOURCES = tests/test_job.c
 test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -234,7 +234,7 @@ test_log_SOURCES = tests/test_log.c $(test_util_SOURCES)
 test_log_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -248,7 +248,7 @@ test_state_SOURCES = tests/test_state.c $(test_util_SOURCES)
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -262,7 +262,7 @@ test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -276,7 +276,7 @@ test_event_operator_SOURCES = tests/test_event_operator.c
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -290,7 +290,7 @@ test_blocked_SOURCES = tests/test_blocked.c
 test_blocked_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -304,7 +304,7 @@ test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -318,7 +318,7 @@ test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -332,7 +332,7 @@ test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES)
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -346,7 +346,7 @@ test_conf_static_SOURCES = tests/test_conf_static.c
 test_conf_static_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o control.o \
+	parse_job.o parse_conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -367,7 +367,7 @@ test_control_SOURCES = tests/test_control.c
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \

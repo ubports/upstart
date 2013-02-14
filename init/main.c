@@ -421,15 +421,15 @@ main (int   argc,
 		nih_signal_set_handler (SIGPWR, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
-		/* SIGHUP instructs us to re-load our configuration */
-		nih_signal_set_handler (SIGHUP, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
-
-		/* SIGUSR1 instructs us to reconnect to D-Bus */
-		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
-
 	}
+
+	/* SIGHUP instructs us to re-load our configuration */
+	nih_signal_set_handler (SIGHUP, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+
+	/* SIGUSR1 instructs us to reconnect to D-Bus */
+	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
 
 	/* SIGTERM instructs us to re-exec ourselves when running as PID
 	 * 1, or to exit when running as a Session Init; this signal should
@@ -632,7 +632,7 @@ main (int   argc,
 	}
 
 	if (disable_sessions)
-		nih_debug ("Sessions disabled");
+		nih_debug ("Chroot Sessions disabled");
 
 	/* Set us as the child subreaper.
 	 * This ensures that even when init doesn't run as PID 1, it'll always be
