@@ -271,14 +271,13 @@ job_process_run (Job         *job,
 	 * so that initctl can have clever behaviour when called within them.
 	 */
 	envc = 0;
-	if (job->env) {
-		env = NIH_MUST (nih_str_array_copy (NULL, &envc, job->env));
-	} else {
-		env = NIH_MUST (nih_str_array_new (NULL));
-	}
+	env = NIH_MUST (nih_str_array_new (NULL));
 
 	if (user_mode && inherit_env)
 		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, environ));
+
+	if (job->env)
+		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, job->env));
 
 	if (job->stop_env
 	    && ((process == PROCESS_PRE_STOP)
