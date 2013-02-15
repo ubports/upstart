@@ -116,11 +116,11 @@ static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd)
 int disable_job_logging = 0;
 
 /**
- * inherit_env:
+ * no_inherit_env:
  *
- * If TRUE, copy init's environment to that provided to jobs.
+ * If TRUE, do not copy the Session Inits environment to that provided to jobs.
  **/
-int inherit_env = FALSE;
+int no_inherit_env = FALSE;
 
 
 /* Prototypes for static functions */
@@ -273,7 +273,7 @@ job_process_run (Job         *job,
 	envc = 0;
 	env = NIH_MUST (nih_str_array_new (NULL));
 
-	if (user_mode && inherit_env)
+	if (user_mode && ! no_inherit_env)
 		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, environ));
 
 	if (job->env)

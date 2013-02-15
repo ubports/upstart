@@ -81,9 +81,9 @@ for all possible values of
 .BR console "."
 .\"
 .TP
-.B \-\-inherit\-env
-Make jobs inherit the initial environment. Impotent when running as
-process id 1.
+.B \-\-no\-inherit\-env
+Stop jobs from inheriting the initial environment. Only meaningful when
+running in user mode.
 .\"
 .TP
 .B \-\-logdir \fIdirectory\fP
@@ -102,7 +102,7 @@ for further details.
 .\"
 .TP
 .B \-\-no\-sessions
-Disable user and chroot sessions.
+Disable chroot sessions.
 .\"
 .TP
 .B \-\-no\-startup\-event

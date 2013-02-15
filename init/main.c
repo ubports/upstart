@@ -120,7 +120,7 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
-extern int          inherit_env;
+extern int          no_inherit_env;
 extern int          user_mode;
 extern int          disable_sessions;
 extern int          disable_job_logging;
@@ -141,8 +141,8 @@ static NihOption options[] = {
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
 
-	{ 0, "inherit-env", N_("jobs will inherit environment of init"),
-		NULL, NULL, &inherit_env ,NULL },
+	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
+		NULL, NULL, &no_inherit_env ,NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
