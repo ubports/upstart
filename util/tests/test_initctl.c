@@ -16404,7 +16404,7 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	DELETE_FILE (confdir, "foo.conf");
 
 	/*******************************************************************/
-	TEST_FEATURE ("ensure 'set-env --global' does not inject variable into main process");
+	TEST_FEATURE ("ensure 'set-env --global' can inject a variable into main process");
 
 	cmd = nih_sprintf (NULL, "%s list-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -16443,7 +16443,7 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	/* we don't expect output from either set-env or get-env
 	 * (since 'hello' variable should not be set).
 	 */
-	TEST_FILE_MATCH (fi, "initctl: No such variable: hello*");
+	TEST_FILE_MATCH (fi, "world*\n");
 	TEST_FILE_END (fi);
 	fclose (fi);
 

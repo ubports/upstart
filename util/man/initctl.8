@@ -618,8 +618,16 @@ If the specified variable is already set, do not modify it.
 .RE
 .RS
 .IP "\fB\-g\fP, \fB\-\-global\fP"
-Operate on the global job environment table. This option is implied when not
-run from within a job.
+Operate on the global job environment table and all existing running job
+environment tables. This option is implied when not run from within a job.
+.sp
+This is an advanced option whose use is discouraged since it can change
+the environment of a job as it moves between different process stages
+(for example between
+.B pre\-start
+and the main process). See 
+.BR init (5)
+for further details.
 .RE
 .\"
 .TP
@@ -642,8 +650,16 @@ If the specified variable is already set, do not modify it.
 .RE
 .RS
 .IP "\fB\-g\fP, \fB\-\-global\fP"
-Operate on the global job environment table. This option is implied when not
-run from within a job.
+Operate on the global job environment table  and all existing running
+jobenvironment tables. This option is implied when not run from within a job.
+.sp
+This is an advanced option whose use is discouraged since it can change
+the environment of a job as it moves between different process stages
+(for example between
+.B pre\-start
+and the main process). See 
+.BR init (5)
+for further details.
 .RE
 .\"
 .TP
@@ -670,8 +686,11 @@ If the specified variable is already set, do not modify it.
 .RE
 .RS
 .IP "\fB\-g\fP, \fB\-\-global\fP"
-Operate on the global job environment table. This option is implied when not
-run from within a job.
+Operate on the global job environment table. This option is implied when
+not run from within a job.
+.sp
+Note that unlike \fBset\-env\fR and \fBunset\-env\fR, this option does
+not modify running job environment tables.
 .RE
 .\"
 .TP

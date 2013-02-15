@@ -1,3 +1,14 @@
+2013-02-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event_operator.c: Typo.
+	* init/job_class.c:
+	  - job_class_environment_reset(): Comments.
+	  - job_class_environment_set(): Apply to all running job objects too.
+	  - job_class_environment_unset(): Apply to all running job objects too.
+	* util/man/initctl.8: Updated on environment command semantics.
+	* util/tests/test_initctl.c: test_global_and_local_job_env(): Modified
+	  test for new semantics.
+
 2013-02-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_run(): Copy parent environment if
