@@ -692,6 +692,10 @@ timed_waitpid (pid_t pid, time_t timeout)
 	    if (ret2 < 0)
 		    return -1;
 
+	    if (! ret2)
+		    /* give child a chance to change state */
+		    sleep (1);
+
 	    if (ret2) {
 		    if (WIFEXITED (status))
 			    return ret2;
@@ -12156,6 +12160,7 @@ test_quiesce (void)
 {
 	char                      confdir[PATH_MAX];
 	char                      logdir[PATH_MAX];
+	char                      sessiondir[PATH_MAX];
 	nih_local char           *cmd = NULL;
 	pid_t                     upstart_pid = 0;
 	nih_local char           *logfile = NULL;
@@ -12163,6 +12168,8 @@ test_quiesce (void)
 	char                    **output;
 	size_t                    lines;
 	nih_local NihDBusProxy   *upstart = NULL;
+	nih_local char           *orig_xdg_runtime_dir = NULL;
+	nih_local char           *session_file = NULL;
 
 	TEST_GROUP ("Session Init quiesce");
 
@@ -12172,9 +12179,20 @@ test_quiesce (void)
         TEST_FILENAME (logdir);
         TEST_EQ (mkdir (logdir, 0755), 0);
 
+        TEST_FILENAME (sessiondir);
+        TEST_EQ (mkdir (sessiondir, 0755), 0);
+
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring this variable (assuming the tests all pass...).
+	 */
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (orig_xdg_runtime_dir)
+		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", sessiondir, 1), 0);
 
 	/* Reset initctl global from previous tests */
 	dest_name = NULL;
@@ -12197,6 +12215,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one long-running job");
@@ -12227,6 +12249,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -12262,6 +12288,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
@@ -12303,6 +12333,10 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
 	DELETE_FILE (confdir, "session-end.conf");
 
 	/*******************************************************************/
@@ -12343,6 +12377,10 @@ test_quiesce (void)
 	TEST_FILE_END (file);
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "session-end-term.conf");
 
@@ -12390,6 +12428,10 @@ test_quiesce (void)
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
 
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
 
@@ -12421,6 +12463,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one long-running job");
@@ -12454,6 +12500,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -12492,6 +12542,10 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
@@ -12536,6 +12590,10 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
 	DELETE_FILE (confdir, "session-end.conf");
 
 	/*******************************************************************/
@@ -12579,6 +12637,10 @@ test_quiesce (void)
 	TEST_FILE_END (file);
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
 
 	DELETE_FILE (confdir, "session-end-term.conf");
 
@@ -12628,8 +12690,32 @@ test_quiesce (void)
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
 
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
+
+	/*******************************************************************/
+	assert0 (unsetenv ("UPSTART_CONFDIR"));
+	assert0 (unsetenv ("UPSTART_LOGDIR"));
+
+	if (orig_xdg_runtime_dir) {
+		/* restore */
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+	} else {
+		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	}
+
+        TEST_EQ (rmdir (logdir), 0);
+        TEST_EQ (rmdir (confdir), 0);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", sessiondir));
+        TEST_EQ (rmdir (session_file), 0);
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", sessiondir));
+        TEST_EQ (rmdir (session_file), 0);
+        TEST_EQ (rmdir (sessiondir), 0);
 
 	/*******************************************************************/
 }
@@ -17259,6 +17345,7 @@ test_job_env (void)
 	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *cmd = NULL;
 	char           **output;
+	nih_local char  *session_file = NULL;
 
 	TEST_GROUP ("job process table commands");
 
@@ -17322,6 +17409,15 @@ test_job_env (void)
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
 	assert0 (unsetenv ("UPSTART_SESSION"));
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				runtimedir, (int)upstart_pid));
+	unlink (session_file);
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", runtimedir));
+        TEST_EQ (rmdir (session_file), 0);
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", runtimedir));
+        TEST_EQ (rmdir (session_file), 0);
+        TEST_EQ (rmdir (runtimedir), 0);
 
 	if (orig_xdg_runtime_dir) {
 		/* restore */

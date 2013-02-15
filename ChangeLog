@@ -1,3 +1,12 @@
+2013-02-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - timed_waitpid(): Back off if no status change.
+	  - test_quiesce():
+	    - Set XDG_RUNTIME_DIR to a temporary value.
+	    - Remove stale session files.
+	  - test_job_env(): Remove stale session files.
+
 2013-02-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_initctl.c:
