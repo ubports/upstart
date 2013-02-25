@@ -210,6 +210,9 @@ main (int   argc,
 
 	control_handle_bus_type ();
 
+	if (! user_mode)
+		no_inherit_env = TRUE;
+
 #ifndef DEBUG
 	if (use_session_bus == FALSE && user_mode == FALSE) {
 
