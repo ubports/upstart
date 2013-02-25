@@ -5,6 +5,7 @@ reboot, halt, poweroff \- reboot or stop the system
 .\"
 .SH SYNOPSIS
 \fBreboot\fR [\fIOPTION\fR]...
+.RI [ REBOOTCOMMAND ]
 
 \fBhalt\fR [\fIOPTION\fR]...
 
@@ -23,10 +24,11 @@ or
 .BR 6 ,
 this tool invokes the
 .BR reboot (2)
-system call itself and directly reboots the system.  Otherwise this
-simply invokes the
+system call itself (with REBOOTCOMMAND argument passed) and directly
+reboots the system.  Otherwise this simply invokes the
 .BR shutdown (8)
-tool with the appropriate arguments.
+tool with the appropriate arguments without passing REBOOTCOMMAND
+argument.
 
 Before invoking
 .BR reboot (2),

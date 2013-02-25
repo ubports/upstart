@@ -1,6 +1,7 @@
 upstart (1.6.1-1ubuntu3) UNRELEASED; urgency=low
 
   * Use verbose build (disable silent rules) by default.
+  * Cherry-pick r1436 to support passing reboot command.
 
  -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Sat, 16 Feb 2013 05:27:35 +0000
 
