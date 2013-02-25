@@ -125,6 +125,8 @@ job_class_environment_init (void)
  * job_class_environment_reset:
  *
  * Reset the environment back to defaults.
+ *
+ * Note: not applied to running job instances.
  **/
 void
 job_class_environment_reset (void)
@@ -157,6 +159,18 @@ job_class_environment_set (const char *var, int replace)
 	if (! environ_add (&job_environ, NULL, NULL, replace, var))
 		return -1;
 
+	/* Update all running jobs */
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (! environ_add (&job->env, job, NULL, replace, var))
+				return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -177,6 +191,18 @@ job_class_environment_unset (const char *name)
 
 	if (! environ_remove (&job_environ, NULL, NULL, name))
 		return -1;
+
+	/* Update all running jobs */
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if ( ! environ_remove (&job->env, job, NULL, name))
+				return -1;
+		}
+	}
 
 	return 0;
 }
