@@ -112,6 +112,7 @@ extern NihList *conf_sources;
 
 
 void        conf_init          (void);
+void        conf_destroy       (void);
 
 ConfSource *conf_source_new    (const void *parent, const char *path,
 				ConfSourceType type)

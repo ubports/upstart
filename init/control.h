@@ -31,6 +31,7 @@
 #include <json.h>
 
 #include "event.h"
+#include "quiesce.h"
 
 /**
  * USE_SESSION_BUS_ENV:

@@ -321,6 +321,17 @@ conf_init (void)
 		conf_sources = NIH_MUST (nih_list_new (NULL));
 }
 
+/**
+ * conf_destroy:
+ *
+ * Clear: the conf_sources list.
+ **/
+void
+conf_destroy (void)
+{
+	if (conf_sources)
+		nih_free (conf_sources);
+}
 
 /**
  * conf_source_new:

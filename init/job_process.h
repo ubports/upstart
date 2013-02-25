@@ -63,7 +63,6 @@
 #define JOB_PROCESS_LOG_FILE_EXT ".log"
 #endif
 
-
 /**
  * JobProcessErrorType:
  *
@@ -150,6 +149,10 @@ void   job_process_set_kill_timer (Job          *job,
 			    time_t        timeout);
 
 void   job_process_adj_kill_timer  (Job *job, time_t due);
+
+int    job_process_jobs_running (void);
+
+void   job_process_stop_all (void);
 
 NIH_END_EXTERN
 

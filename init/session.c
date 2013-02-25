@@ -89,6 +89,18 @@ session_init (void)
 		sessions = NIH_MUST (nih_list_new (NULL));
 }
 
+/**
+ * session_destroy:
+ *
+ * Clean up the sessions list.
+ **/
+void
+session_destroy (void)
+{
+	if (sessions)
+		nih_free (sessions);
+}
+
 
 /**
  * session_new:

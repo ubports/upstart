@@ -27,12 +27,17 @@ job responsible for generating the System V compatible
 .BR runlevel (7)
 event.  See that page for a more detailed explanation of this process.
 
+This event is emitted when running both as pid 1 and as a Session Init.
+
 Paradoxically there is currently no corresponding Upstart-native event
 signifying that the system is to be shutdown, only the System V compatible
 .B runlevel 0
 and
 .B runlevel 6
-events provide this functionality.
+events provide this functionality. However, when running as a Session
+Init, the
+.BR session\-end
+event performs this function.
 .\"
 .SH EXAMPLE
 A service with no other dependencies run on startup might use:
@@ -45,4 +50,6 @@ start on startup
 .\"
 .SH SEE ALSO
 .BR runlevel (7)
+.BR session\-end (7)
+.BR init (5)
 .BR init (8)

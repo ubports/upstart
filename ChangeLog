@@ -1,3 +1,77 @@
+2013-02-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - timed_waitpid(): Back off if no status change.
+	  - test_quiesce():
+	    - Set XDG_RUNTIME_DIR to a temporary value.
+	    - Remove stale session files.
+	  - test_job_env(): Remove stale session files.
+
+2013-02-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - wait_for_upstart(): Functional replacement of WAIT_FOR_UPSTART()
+	    macro. Now accepts @user.
+	  - set_upstart_session(): Poll to ensure we give Upstart time to
+	    initialise and write the session file.
+	  - _start_upstart(): Extra @user parameter.
+
+2013-02-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Added quiesce.o, now required by control.o.
+	* init/main.c: main():
+	  - SIGHUP+SIGUSR1 handling now applies however you run init (since
+	    it should react to these signals when run as a Session Init).
+	  - Qualified sessions message to avoid confusion.
+	* util/initctl.c: upstart_open(): Better handling for user_mode.
+	* util/tests/test_initctl.c:
+	  - WAIT_FOR_UPSTART(): Made session-aware.
+	  - KILL_UPSTART(): Reset user mode flag (taken from STOP_UPSTART()).
+	  - set_upstart_session(): New function.
+	  - self_pipe_write(): New Function.
+	  - self_pipe_setup(): New Function.
+	  - timed_waitpid(): New function.
+	  - _start_upstart():
+	     - Signal handling and extra checks.
+	     - Discard init output (unless UPSTART_TEST_VERBOSE set)
+	       for saner logs.
+	  - test_list_sessions():
+	    - Removed need for a dbus-daemon.
+	    - Added required initctl reset.
+	  - test_quiesce(): Tests for Session Init shutdown (both
+	    system-initiated and end-session request).
+	  - test_usage(): Added extra checks and tidyup.
+	  - main(): Added call to test_quiesce().
+
+2013-02-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml: Added 'EndSession' method.
+	* init/Makefile.am: Updated for quiesce.[ch].
+	* init/conf.c: conf_destroy(): Cleanup function.
+	* init/conf.h: Prototype.
+	* init/control.c: control_end_session(): 'EndSession' implemenation.
+	* init/control.h: Include.
+	* init/events.h: Added SESSION_END_EVENT.
+	* init/job_class.c: job_class_max_kill_timeout(): New function.
+	* init/job_class.h: Prototype.
+	* init/job_process.c:
+	  - Added disable_respawn to disallow respawns.
+	  - job_process_jobs_running(): New function.
+	  - job_process_stop_all(): New function.
+	  - job_process_terminated(): Honours disable_respawn.
+	* init/job_process.h: Prototypes.
+	* init/main.c:
+	  - Typos.
+	  - term_handler(): Quiesce rather than re-exec on receipt of SIGTERM
+	    when running as a Session Init.
+	  - main(): Make quiesce() handle cleanup.
+	* init/man/init.8: Update for Session Init SIGTERM handling.
+	* init/man/startup.7: Update for Session Init.
+	* init/session.c: session_destroy(): New function.
+	* init/session.h: Prototype.
+	* init/man/session-end.7: New man page.
+	* init/quiesce.[ch]: New files.
+
 2013-02-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: job_process_run(): Copy parent environment if
