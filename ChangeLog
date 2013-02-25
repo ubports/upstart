@@ -17,6 +17,13 @@
 	* util/man/initctl.8: Updated on environment command semantics.
 	* util/tests/test_initctl.c: test_global_and_local_job_env(): Modified
 	  test for new semantics.
+2013-02-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_run(): Invert meaning.
+	* init/main.c: Change '--inherit-env' to '--no-inherit-env'
+	  such that inheriting inits environment is now the default
+	  for Session Inits.
+	* init/man/init.8: Update for '--no-inherit-env'.
 
 2013-02-14  James Hunt  <james.hunt@ubuntu.com>
 
