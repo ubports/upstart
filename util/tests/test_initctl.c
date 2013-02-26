@@ -988,6 +988,8 @@ test_upstart_open (void)
 	 * hold the only reference to the connection.
 	 */
 	TEST_FEATURE ("with private connection");
+	unsetenv ("UPSTART_SESSION");
+
 	TEST_ALLOC_FAIL {
 		use_dbus = FALSE;
 		dest_name = NULL;

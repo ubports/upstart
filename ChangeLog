@@ -1,3 +1,9 @@
+2013-02-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_upstart_open(): Unset
+	  UPSTART_SESSION to avoid session-init environment affecting
+	  test run.
+
 2013-02-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_initctl.c:
