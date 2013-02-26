@@ -824,6 +824,9 @@ start_upstart_common (pid_t *pid, int user, const char *confdir,
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 				"--no-sessions"));
 
+	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+				"--no-inherit-env"));
+
 	if (confdir) {
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 					"--confdir"));
