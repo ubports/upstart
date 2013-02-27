@@ -237,7 +237,7 @@ int         job_class_environment_set      (const char *var, int replace);
 int         job_class_environment_unset    (const char *name);
 
 char **     job_class_environment_get_all  (const void *parent)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 const char *job_class_environment_get      (const char *name)
 	__attribute__ ((warn_unused_result));
@@ -245,7 +245,7 @@ const char *job_class_environment_get      (const char *name)
 JobClass  * job_class_new                  (const void *parent,
 					    const char *name,
 					    Session *session)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 int         job_class_consider             (JobClass *class);
 int         job_class_reconsider           (JobClass *class);
@@ -259,7 +259,7 @@ void        job_class_unregister           (JobClass *class,
 
 char      **job_class_environment          (const void *parent,
 					    JobClass *class, size_t *len)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 
 int         job_class_get_instance         (JobClass *class,
@@ -340,13 +340,13 @@ ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 
 json_object *job_class_serialise (const JobClass *class)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 JobClass *job_class_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 json_object * job_class_serialise_all (void)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));

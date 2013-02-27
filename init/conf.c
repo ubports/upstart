@@ -84,15 +84,15 @@ static inline int is_conf_file_override(const char *path)
 	__attribute__ ((warn_unused_result));
 
 static inline char *toggle_conf_name   (const void *parent, const char *path)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 static inline char * conf_to_job_name  (const char *source_path,
                                         const char *conf_path)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 static char * conf_get_best_override   (const char *name,
                                         const ConfSource *last_source)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 /**
  * conf_sources:

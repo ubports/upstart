@@ -81,12 +81,12 @@ void           session_init        (void);
 void           session_destroy     (void);
 
 Session      * session_new         (const void *parent, const char *chroot)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 Session      * session_from_dbus   (const void *parent, NihDBusMessage *message);
 
 json_object  * session_serialise_all   (void)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 int            session_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));

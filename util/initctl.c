@@ -64,13 +64,13 @@
 
 /* Prototypes for local functions */
 NihDBusProxy *upstart_open (const void *parent)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 char *        job_status   (const void *parent,
 			    NihDBusProxy *job_class, NihDBusProxy *job)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 char *        job_usage    (const void *parent,
 			    NihDBusProxy *job_class)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 /* Prototypes for static functions */
 static void   start_reply_handler (char **job_path, NihDBusMessage *message,

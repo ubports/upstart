@@ -165,7 +165,7 @@ typedef struct job {
 NIH_BEGIN_EXTERN
 
 Job *       job_new             (JobClass *class, const char *name)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 void        job_register        (Job *job, DBusConnection *conn, int signal);
 
 void        job_change_goal     (Job *job, JobGoal goal);
@@ -176,8 +176,7 @@ JobState    job_next_state      (Job *job);
 void        job_failed          (Job *job, ProcessType process, int status);
 void        job_finished        (Job *job, int failed);
 
-Event      *job_emit_event      (Job *job)
-	__attribute__ ((malloc));
+Event      *job_emit_event      (Job *job);
 
 
 const char *job_name            (Job *job);
@@ -215,7 +214,7 @@ json_object *job_serialise (const Job *job);
 Job *job_deserialise (JobClass *parent, json_object *json);
 
 json_object *job_serialise_all (const NihHash *jobs)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 int         job_deserialise_all (JobClass *parent, json_object *json)
 	__attribute__ ((warn_unused_result));

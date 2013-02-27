@@ -86,11 +86,11 @@ job_trace_state_str_to_enum (const char *state)
 
 static json_object *
 job_serialise_kill_timer (NihTimer *timer)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 static NihTimer *
 job_deserialise_kill_timer (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 /**
  * job_new:

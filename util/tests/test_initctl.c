@@ -938,10 +938,10 @@ extern const char *dest_address;
 extern int no_wait;
 
 extern NihDBusProxy *upstart_open (const void *parent)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 extern char *        job_status   (const void *parent,
 				   NihDBusProxy *job_class, NihDBusProxy *job)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 extern int start_action                (NihCommand *command, char * const *args);
 extern int stop_action                 (NihCommand *command, char * const *args);

@@ -78,7 +78,7 @@ extern NihList *log_unflushed_files;
 
 Log  *log_new                (const void *parent, const char *path,
 			      int fd, uid_t uid)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 void  log_io_reader          (Log *log, NihIo *io, const char *buf, size_t len);
 void  log_io_error_handler   (Log *log, NihIo *io);
 int   log_destroy            (Log *log)
@@ -89,9 +89,9 @@ int   log_clear_unflushed    (void)
 	__attribute__ ((warn_unused_result));
 void  log_unflushed_init     (void);
 json_object * log_serialise (Log *log)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 Log * log_deserialise (const void *parent, json_object *json)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

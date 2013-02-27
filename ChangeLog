@@ -1,3 +1,9 @@
+2013-02-27  James Hunt  <james.hunt@ubuntu.com>
+
+	* Removal of gcc 'malloc' function attribute resulting from
+	  a clarification in its description which makes its use invalid.
+	  (LP: #1123588).
+
 2013-02-26  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_initctl.c: test_upstart_open(): Unset

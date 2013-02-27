@@ -33,12 +33,12 @@ JobClass *parse_job (const void *parent, Session *session,
 		     JobClass *update, const char *name,
 		     const char *file, size_t len,
 		     size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 EventOperator *
 parse_on_simple (JobClass *class, const char *stanza_name,
 		 const char *string)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 NIH_END_EXTERN
 
 #endif /* INIT_PARSE_JOB_H */

@@ -50,7 +50,7 @@ int           environ_all_valid (char * const *env);
 
 char *        environ_expand    (const void *parent, const char *string,
 				 char * const *env)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

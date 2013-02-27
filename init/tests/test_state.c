@@ -60,11 +60,11 @@
  */
 json_object *
 state_serialise_blocked (const Blocked *blocked)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 Blocked *
 state_deserialise_blocked (void *parent, json_object *json, NihList *list)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 /**
  * AlreadySeen:

@@ -51,10 +51,10 @@ extern json_object *json_sessions;
 
 /* Prototypes for static functions */
 static json_object  *session_serialise   (const Session *session)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 static Session *session_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 
 /**

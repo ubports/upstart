@@ -116,9 +116,9 @@ void        conf_destroy       (void);
 
 ConfSource *conf_source_new    (const void *parent, const char *path,
 				ConfSourceType type)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 ConfFile *  conf_file_new      (ConfSource *source, const char *path)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
