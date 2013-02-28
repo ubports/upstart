@@ -1869,7 +1869,7 @@ perform_reexec (void)
 	if (! restart)
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL, "--restart"));
 
-	execv (args_copy[0], args_copy);
+	execvp (args_copy[0], args_copy);
 	nih_error_raise_system ();
 
 	err = nih_error_get ();
