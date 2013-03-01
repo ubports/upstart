@@ -854,14 +854,8 @@ log_serialise (Log *log)
 	if (! json)
 		return NULL;
 
-	if (! log || (! log->io && log->unflushed && ! log->unflushed->len)) {
-		/* Create a "placeholder" log object for non-existent
-		 * log objects and for those that are no longer usable.
-		 */
-		if (! state_set_json_string_var (json, "path", NULL))
-			goto error;
-		return json;
-	}
+	if (! log || (! log->io && log->unflushed && ! log->unflushed->len))
+		goto placeholder;
 
 	/* Attempt to flush any cached data */
 	if (log->unflushed && log->unflushed->len) {
@@ -874,7 +868,12 @@ log_serialise (Log *log)
 			(void)log_file_write (log, NULL, 0);
 	}
 
-	nih_assert (log->io);
+	/* Job associated with log has ended. If we failed to write
+	 * unflushed data above, it will now be lost as we cannot
+	 * create a valid serialisation without an associated NihIo.
+	 */
+	if (! log->io)
+		goto placeholder;
 
 	if (! state_set_json_int_var_from_obj (json, log, fd))
 		goto error;
@@ -916,6 +915,14 @@ log_serialise (Log *log)
 	if (! state_set_json_int_var_from_obj (json, log, open_errno))
 		goto error;
 
+	return json;
+
+placeholder:
+	/* Create a "placeholder" log object for non-existent
+	 * log objects and for those that are no longer usable.
+	 */
+	if (! state_set_json_string_var (json, "path", NULL))
+		goto error;
 	return json;
 
 error:
