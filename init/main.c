@@ -150,7 +150,7 @@ static NihOption options[] = {
 	{ 0, "no-log", N_("disable job logging"),
 		NULL, NULL, &disable_job_logging, NULL },
 
-	{ 0, "no-sessions", N_("disable user and chroot sessions"),
+	{ 0, "no-sessions", N_("disable chroot sessions"),
 		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
