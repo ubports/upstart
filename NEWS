@@ -1,3 +1,5 @@
+1.8  xxxx-xx-xx
+
 1.7  2013-03-04 "We've all got one now"
 
 	* New initctl commands: set-env, unset-env, get-env, list-env,
