@@ -1,3 +1,8 @@
+2013-03-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/session.c: session_from_dbus(): Fixed off-by-one
+	  readlink error.
+
 2013-02-27  James Hunt  <james.hunt@ubuntu.com>
 
 	* Removal of gcc 'malloc' function attribute resulting from

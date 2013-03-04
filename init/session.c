@@ -184,7 +184,7 @@ session_from_dbus (const void     *parent,
 	/* Look up the root path for retrieved pid */
 	symlink = NIH_MUST (nih_sprintf (NULL, "/proc/%lu/root",
 				unix_process_id));
-	len = readlink (symlink, root, sizeof root);
+	len = readlink (symlink, root, sizeof (root)-1);
 	if (len < 0)
 		return NULL;
 
