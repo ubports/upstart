@@ -81,7 +81,7 @@ done
 AC_MSG_CHECKING([whether to include sbindir in PATH])
 eval upstart_sbindir=\"$sbindir\"
 case $upstart_sbindir in
-    /sbin|//sbin|/usr/sbin|/usr/local/sbin)
+    /sbin|NONE/sbin|//sbin|/usr/sbin|/usr/local/sbin)
     	AC_MSG_RESULT([no])
 	;;
     *)

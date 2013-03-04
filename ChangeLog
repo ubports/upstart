@@ -1,5 +1,10 @@
 2013-03-04  James Hunt  <james.hunt@ubuntu.com>
 
+	* configure.ac: Only add sbin to path if exec_prefix specified
+	  (LP: #1122510).
+
+2013-03-04  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/session.c: session_from_dbus(): Fixed off-by-one
 	  readlink error.
 
