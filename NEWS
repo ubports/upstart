@@ -1,4 +1,21 @@
-1.7  xxxx-xx-xx
+1.7  2013-03-04 "We've all got one now"
+
+	* New initctl commands: set-env, unset-env, get-env, list-env,
+	  reset-env, list-sessions (all except last with corresponding
+	  D-Bus methods).
+	* New D-Bus-only signals EventEmitted, Restarted, and EndSession method.
+	* Ability to run with PID >1 to allow Upstart to manage a user session.
+	  Running Upstart as a 'Session Init' in this way provides features
+	  above and beyond those provided by the original User Jobs such that
+	  the User Job facility has been removed entirely: to migrate from
+	  a system using User Jobs, simply ensure the user session is started with
+	  'init --user'.
+	* New upstart-event-bridge bridge which proxies system-level events down
+	  to Session Inits, allowing users jobs to react to udev events.
+	* Ability to read job configuration and override files from multiple
+	  freedesktop-compliant locations (Session Init only).
+	* Ability to shutdown both via a system shutdown request and via a user
+	  logout request (Session Init only).
 
 1.6.1  2012-12-07 "It glows in the dark"
 

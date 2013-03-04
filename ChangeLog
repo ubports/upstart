@@ -4,6 +4,8 @@
 	  readlink error.
 	* configure.ac: Only add sbin to path if exec_prefix specified
 	  (LP: #1122510).
+	* NEWS: Release 1.7
+	* configure.ac (NIH_COPYRIGHT): Update
 
 2013-02-27  James Hunt  <james.hunt@ubuntu.com>
 
