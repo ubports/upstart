@@ -1,4 +1,4 @@
-upstart (1.7-0ubuntu1) UNRELEASED; urgency=low
+upstart (1.7-0ubuntu1) raring; urgency=low
 
   [ Stéphane Graber ]
   * New upstream release
@@ -10,7 +10,7 @@ upstart (1.7-0ubuntu1) UNRELEASED; urgency=low
     supported and replace with a dummy test that just forces the
     tests to run.
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Thu, 07 Mar 2013 13:57:53 -0500
+ -- Stéphane Graber <stgraber@ubuntu.com>  Thu, 07 Mar 2013 16:16:13 -0500
 
 upstart (1.6.1-1ubuntu3) raring; urgency=low
 
