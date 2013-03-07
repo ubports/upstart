@@ -34,6 +34,8 @@ debug_enabled=n
 file_valid=n
 running=n
 check_scripts=y
+dbus_cmd=dbus-launch
+started_dbus=n
 
 cleanup()
 {
@@ -42,6 +44,13 @@ cleanup()
     debug "stopping secondary Upstart (running with PID $upstart_pid)"
     kill -0 "$upstart_pid" >/dev/null 2>&1 && \
     kill -9 "$upstart_pid" >/dev/null 2>&1
+  fi
+
+  if [ "$started_dbus" = y ] && [ -n "$DBUS_SESSION_BUS_PID" ]
+  then
+    debug "stopping dbus-daemon (running with PID $DBUS_SESSION_BUS_PID)"
+    kill -0 "$DBUS_SESSION_BUS_PID" >/dev/null 2>&1 && \
+    kill -9 "$DBUS_SESSION_BUS_PID" >/dev/null 2>&1
   fi
 
   [ -d "$confdir" ] && rm -rf "$confdir"
@@ -182,7 +191,7 @@ echo "$filename" | egrep -q '\.conf$' || die "file must end in .conf"
 
 job="${filename%.conf}"
 
-cp "$file" "$confdir"
+cp "$file" "$confdir" || die "failed to copy file $file to $confdir"
 debug "job=$job"
 
 upstart_running
@@ -191,6 +200,15 @@ debug "ok - no other running instances detected"
 
 upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
+
+# auto-start dbus if it isn't already running (required in non-desktop
+# environments).
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+  [ -z "$(which $dbus_cmd)" ] && die "cannot find $dbus_cmd"
+  eval $($dbus_cmd --auto-syntax)
+  started_dbus=y
+  debug "started $dbus_cmd"
+fi
 
 upstart_cmd=$(printf \
    "%s --session --no-sessions --no-startup-event --verbose --confdir %s" \

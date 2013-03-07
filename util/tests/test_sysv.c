@@ -203,6 +203,8 @@ test_change_runlevel (void)
 		gettimeofday (&tv, NULL);
 		record.ut_tv.tv_sec = tv.tv_sec;
 		record.ut_tv.tv_usec = tv.tv_usec;
+		/* See comment in test_utmp */
+		usleep(200);
 
 		utmpxname (utmp_file);
 
@@ -806,6 +808,8 @@ test_change_runlevel (void)
 		gettimeofday (&tv, NULL);
 		record.ut_tv.tv_sec = tv.tv_sec;
 		record.ut_tv.tv_usec = tv.tv_usec;
+		/* See comment in test_utmp */
+		usleep(200);
 
 		utmpxname (utmp_file);
 

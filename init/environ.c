@@ -155,6 +155,67 @@ environ_add (char       ***env,
 }
 
 /**
+ * environ_remove:
+ * @env: pointer to environment table,
+ * @parent: parent object for new array,
+ * @len: length of @env,
+ * @str: string to remove.
+ *
+ * Remove @str from environment table @env. If @str does not exist in
+ * @env, the returned array will have the same contents as the original
+ * @env.
+ *
+ * Returns: new array pointer or NULL if insufficient memory (or @env is
+ * too small to reduce).
+ **/
+char **
+environ_remove (char        ***env,
+		const void    *parent,
+		size_t        *len,
+		const char    *str)
+{
+	size_t    _len;
+	size_t    keylen;
+	size_t    new_len = 0;
+	char    **e;
+	char    **new_env;
+
+	nih_assert (env);
+	nih_assert (str);
+
+	if (! len) {
+		len = &_len;
+
+		_len = 0;
+		for (e = *env; e && *e; e++)
+			_len++;
+	}
+
+	/* Can't manipulate an empty array */
+	if (*len < 1)
+		return NULL;
+
+	new_env = nih_str_array_new (NULL);
+	if (! new_env)
+		return NULL;
+
+	for (e = *env; e && *e; e++) {
+		keylen = strcspn (*e, "=");
+
+		if (! strncmp (str, *e, keylen))
+			continue;
+
+		if (! environ_add (&new_env, parent, &new_len, TRUE, *e))
+			return NULL;
+	}
+
+	*env = new_env;
+	*len = new_len;
+
+	return new_env;
+}
+
+/**
  * environ_append:
  * @env: pointer to environment table,
  * @parent: parent object for new array,

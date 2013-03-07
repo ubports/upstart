@@ -77,7 +77,7 @@ typedef struct blocked {
 NIH_BEGIN_EXTERN
 
 Blocked *blocked_new (const void *parent, BlockedType type, void *data)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 const char *
 blocked_type_enum_to_str (BlockedType type)

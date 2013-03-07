@@ -28,6 +28,9 @@ NIH_BEGIN_EXTERN
 char **       environ_add       (char ***env, const void *parent, size_t *len,
 				 int replace, const char *str)
 	__attribute__ ((warn_unused_result));
+char **       environ_remove    (char ***env, const void *parent, size_t *len,
+				 const char *str)
+	__attribute__ ((warn_unused_result));
 char **       environ_append    (char ***env, const void *parent, size_t *len,
 				 int replace, char * const *new_env)
 	__attribute__ ((warn_unused_result));
@@ -47,7 +50,7 @@ int           environ_all_valid (char * const *env);
 
 char *        environ_expand    (const void *parent, const char *string,
 				 char * const *env)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

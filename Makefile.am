@@ -2,6 +2,6 @@
 
 SUBDIRS = intl dbus init util extra conf doc contrib po scripts
 
-EXTRA_DIST = HACKING TESTING.sessions
+EXTRA_DIST = HACKING
 
 ACLOCAL_AMFLAGS = --install -I m4

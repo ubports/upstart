@@ -1404,6 +1404,8 @@ no_inotify:
 	fclose (f);
 
 	source = conf_source_new (NULL, dirname, CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
 	ret = conf_source_reload (source);
 
 	TEST_EQ (ret, 0);
@@ -2417,53 +2419,6 @@ no_inotify:
 }
 
 void
-test_toggle_conf_name (void)
-{
-	char override_ext[] = ".override";
-	char dirname[PATH_MAX];
-	char filename[PATH_MAX];
-	JobClass *job;
-	char *f;
-	char *p;
-
-	TEST_FUNCTION_FEATURE ("toggle_conf_name",
-			"changing conf to override");
-
-	TEST_FILENAME (dirname);
-	strcpy (filename, dirname);
-	strcat (filename, "/foo.conf");
-	f = toggle_conf_name (NULL, filename);
-	TEST_NE_P (f, NULL);
-
-	p = strstr (f, ".override");
-	TEST_NE_P (p, NULL);
-	TEST_EQ_P (p, f+strlen (f) - strlen (override_ext));
-	nih_free (f);
-
-	TEST_FEATURE ("changing override to conf");
-	strcpy (filename, dirname);
-	strcat (filename, "/bar.override");
-	f = toggle_conf_name (NULL, filename);
-	TEST_NE_P (f, NULL);
-
-	p = strstr (f, ".conf");
-	TEST_NE_P (p, NULL);
-	TEST_EQ_P (p, f+strlen (f) - strlen (".conf"));
-	nih_free (f);
-
-	/* test parent param */
-	job = job_class_new (NULL, "foo", NULL);
-	TEST_NE_P (job, NULL);
-
-	f = toggle_conf_name (job, filename);
-	TEST_NE_P (f, NULL);
-
-	TEST_EQ (TRUE, nih_alloc_parent (f, job));
-
-	nih_free (job);
-}
-
-void
 test_override (void)
 {
 	ConfSource *source;
@@ -2471,7 +2426,8 @@ test_override (void)
 	FILE       *f;
 	int         ret, fd[4096], i = 0;
 	char        dirname[PATH_MAX];
-	char        filename[PATH_MAX], override[PATH_MAX];
+	char        filename[PATH_MAX], override[PATH_MAX], override2[PATH_MAX];
+	char       *dir;
 	JobClass   *job;
 	NihError   *err;
 
@@ -3471,6 +3427,123 @@ test_override (void)
 	unlink (filename);
 	TEST_EQ (rmdir (dirname), 0);
 
+	TEST_FEATURE ("create two watches, two overrides, conf, then delete override files one by one");
+	TEST_ENSURE_CLEAN_ENV ();
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	strcpy (override, dirname);
+	strcat (override, "/peter/foo.override");
+	strcpy (override2, dirname);
+	strcat (override2, "/paul/foo.override");
+	strcpy (filename, dirname);
+	strcat (filename, "/paul/foo.conf");
+
+	const char *sources[] = {"peter", "paul", NULL};
+
+	for (const char **src = sources; *src; src++) {
+		dir = nih_sprintf (NULL, "%s/%s", dirname, *src);
+		TEST_EQ (mkdir (dir, 0755), 0);
+		source = conf_source_new (NULL, dir, CONF_JOB_DIR);
+		TEST_NE_P (source, NULL);
+		ret = conf_source_reload (source);
+		TEST_EQ (ret, 0);
+		nih_free (dir);
+	}
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* create override */
+	f = fopen (override, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"peter\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* create override */
+	f = fopen (override2, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "manual\n");
+	fprintf (f, "author \"paul\"\n");
+	fprintf (f, "env wibble=wobble\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* create conf */
+	f = fopen (filename, "w");
+	TEST_NE_P (f, NULL);
+	fprintf (f, "start on started\n");
+	fprintf (f, "emits hello\n");
+	fprintf (f, "author \"mary\"\n");
+	fclose (f);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up the top-priority override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "peter");
+
+	/* delete override */
+	unlink (override);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf reloaded and updated with the second override */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR ((job->emits)[0], "hello");
+
+	/* should pick up the second override, *NOT* conf */
+	TEST_EQ_P (job->start_on, NULL);
+	TEST_EQ_STR (job->author, "paul");
+	TEST_EQ_STR ((job->env)[0], "wibble=wobble");
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* delete override */
+	unlink (override2);
+
+	TEST_FORCE_WATCH_UPDATE();
+
+	/* ensure conf loaded */
+	file = (ConfFile *)nih_hash_lookup (source->files, filename);
+	TEST_NE_P (file, NULL);
+	job = (JobClass *)nih_hash_lookup (job_classes, "foo");
+	TEST_NE_P (job, NULL);
+	TEST_EQ_P (file->job, job);
+	TEST_EQ_STR (job->author, "mary");
+	TEST_EQ_STR ((job->emits)[0], "hello");
+	TEST_NE_P (job->start_on, NULL);
+	TEST_EQ_P (job->env, NULL);
+
+	unlink (filename);
+
+	for (const char **src = sources; *src; src++) {
+		dir = nih_sprintf (NULL, "%s/%s", dirname, *src);
+		TEST_EQ (rmdir (dir), 0);
+		nih_free (dir);
+	}
+
+	TEST_EQ (rmdir (dirname), 0);
+
+	NIH_LIST_FOREACH_SAFE (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+		nih_free (source);
+	}
 
 	TEST_FEATURE ("create conf, watch, then create invalid override, delete override");
 	TEST_ENSURE_CLEAN_ENV ();
@@ -4708,7 +4781,6 @@ main (int   argc,
 	test_source_reload_conf_dir ();
 	test_source_reload_file ();
 	test_source_reload ();
-	test_toggle_conf_name ();
 	test_override ();
 	test_file_destroy ();
 	test_select_job ();

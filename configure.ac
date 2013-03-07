@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.6.1], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2012 Scott James Remnant, Canonical Ltd.]])
+AC_INIT([upstart], [1.7], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -62,7 +62,7 @@ if test "x$enable_selinux" = "xyes" ; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS([valgrind/valgrind.h])
+AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_PROG_CC_C99
@@ -90,7 +90,7 @@ done
 AC_MSG_CHECKING([whether to include sbindir in PATH])
 eval upstart_sbindir=\"$sbindir\"
 case $upstart_sbindir in
-    /sbin|//sbin|/usr/sbin|/usr/local/sbin)
+    /sbin|NONE/sbin|//sbin|/usr/sbin|/usr/local/sbin)
     	AC_MSG_RESULT([no])
 	;;
     *)
