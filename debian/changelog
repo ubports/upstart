@@ -1,8 +1,14 @@
 upstart (1.7-0ubuntu1) UNRELEASED; urgency=low
 
+  [ Stéphane Graber ]
   * New upstream release
   * Install Xsession hooks and initial set of user jobs. Those will only be
     used if the user explicitly whitelist the session in /etc/upstart-xsessions
+
+  [ James Hunt ]
+  * Remove user_sessions DEP-8 test since User Jobs are no longer
+    supported and replace with a dummy test that just forces the
+    tests to run.
 
  -- Stéphane Graber <stgraber@ubuntu.com>  Thu, 07 Mar 2013 13:57:53 -0500
 
