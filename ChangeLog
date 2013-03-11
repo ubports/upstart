@@ -1,3 +1,12 @@
+2013-03-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Add file bridge and conf file.
+	* extra/upstart-file-bridge.c: Inotify file bridge.
+	* extra/conf/upstart-file-bridge.conf: Conf file for
+	  file bridge.
+	* extra/man/file-event.7: New man page.
+	* extra/man/upstart-file-bridge.8: New man page.
+
 2013-03-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/session.c: session_from_dbus(): Fixed off-by-one
