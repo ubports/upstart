@@ -2,7 +2,8 @@
 
 EXTRA_DIST = \
   initctl2dot.py \
-  init-checkconf.sh
+  init-checkconf.sh \
+  upstart-monitor.py
 
 dist_man_MANS = \
   man/initctl2dot.8 \

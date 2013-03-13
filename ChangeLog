@@ -1,3 +1,10 @@
+2013-03-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/man/upstart-monitor.8: New manpage.
+	* scripts/upstart-monitor.py: New cli+gui tool to monitor
+	  Upstart events.
+	* scripts/Makefile.am: Updated for upstart-monitor.
+
 2013-03-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/session.c: session_from_dbus(): Fixed off-by-one
