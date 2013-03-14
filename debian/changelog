@@ -1,3 +1,10 @@
+upstart (1.7-0ubuntu2) UNRELEASED; urgency=low
+
+  * Set $SESSIONTYPE when emitting the xsession event that specifies the type
+    of session being launched. Currently only gnome-session is supported.
+
+ -- Iain Lane <iain.lane@canonical.com>  Thu, 14 Mar 2013 16:28:35 +0000
+
 upstart (1.7-0ubuntu1) raring; urgency=low
 
   [ Stéphane Graber ]

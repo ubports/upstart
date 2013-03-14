@@ -1,5 +1,11 @@
 # Start the user session
 if [ -n "$UPSTART" ]; then
+    case $BASESTARTUP in
+        gnome-session*)
+            export SESSIONTYPE=gnome-session
+            ;;
+    esac
+
     STARTUP="init --user"
     unset UPSTART
 fi
