@@ -8,6 +8,8 @@
 	  - modify_handler(): Call skip_slashes().
 	  - delete_handler(): Call skip_slashes().
 	  - watched_dir_new(): Special case watching the root directory.
+	* extra/conf/upstart-file-bridge.conf: Change start on condition
+	  to ensure all filesystems are mounted before it starts.
 
 2013-03-11  James Hunt  <james.hunt@ubuntu.com>
 
