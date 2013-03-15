@@ -553,7 +553,7 @@ main (int   argc,
 	}
 
 	if (user) {
-		/* Ensure we are sitting in $HOME so relative FPATH
+		/* Ensure we are sitting in $HOME so relative FILE
 		 * values work as expected.
 		 */
 		if (chdir (home_dir) < 0) {
@@ -744,7 +744,7 @@ job_add_file (Job    *job,
 		name_len = val - *env;
 		val++;
 
-		if (! strncmp (*env, "FPATH", name_len)) {
+		if (! strncmp (*env, "FILE", name_len)) {
 			char     dirpart[PATH_MAX];
 			char     basepart[PATH_MAX];
 			char    *dir;
@@ -789,7 +789,7 @@ job_add_file (Job    *job,
 				strcpy (path, dir);
 				glob_expr = NIH_MUST (nih_strdup (NULL, base));
 			}
-		} else if (! strncmp (*env, "FEVENT", name_len)) {
+		} else if (! strncmp (*env, "EVENT", name_len)) {
 			if (! strcmp (val, "create")) {
 				events = IN_CREATE;
 			} else if (! strcmp (val, "modify")) {
@@ -1359,17 +1359,17 @@ emit_event (const char   *path,
 
 	env = NIH_MUST (nih_str_array_new (NULL));
 
-	var = NIH_MUST (nih_sprintf (NULL, "FPATH=%s", path));
+	var = NIH_MUST (nih_sprintf (NULL, "FILE=%s", path));
 	NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 
-	var = NIH_MUST (nih_sprintf (NULL, "FEVENT=%s",
+	var = NIH_MUST (nih_sprintf (NULL, "EVENT=%s",
 				event_type == IN_CREATE ? "create" :
 				event_type == IN_MODIFY ? "modify" :
 				"delete"));
 	NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 
 	if (match) {
-		var = NIH_MUST (nih_sprintf (NULL, "FMATCH=%s", match));
+		var = NIH_MUST (nih_sprintf (NULL, "MATCH=%s", match));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 	}
 
@@ -1444,7 +1444,7 @@ watched_dir_new (const char         *path,
 		 * path handed to inotify also gets given to the
 		 * create/modify/delete handlers which can then lead to
 		 * multiple consecutive slashes which could result in
-		 * jobs failing to start as they would not expect FMATCH
+		 * jobs failing to start as they would not expect MATCH
 		 * to contain such values.
 		 *
 		 * Note that we do not (cannot) do this if @path is

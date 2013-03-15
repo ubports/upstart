@@ -5,9 +5,9 @@ file \- event signalling that a file has changed
 .\"
 .SH SYNOPSIS
 .B file
-.BI FPATH\fR= PATH
-.BI FEVENT\fR= TYPE
-.IB \fR[ FMATCH\fR= PATH \fR]
+.BI FILE\fR= PATH
+.BI EVENT\fR= TYPE
+.IB \fR[ MATCH\fR= PATH \fR]
 .\"
 .SH DESCRIPTION
 
@@ -23,10 +23,10 @@ or
 stanza is modified.
 
 The
-.BR FPATH " and " FEVENT
+.BR FILE " and " EVENT
 environment variables will be set to the same values as specified by the
 job. Note that if the job did not specify
-.B FEVENT
+.B EVENT
 this will still be set to one of
 .BR create ", "
 .BR modify " or "
@@ -34,16 +34,16 @@ this will still be set to one of
 depending on what type of file event caused the event to be emitted.
 
 The
-.B FEVENT
+.B EVENT
 environment variable will be set to the value of the corresponding
 
 If the job specified a glob pattern in the file part of the
-.B FPATH
+.B FILE
 environment variable, the event will contain the
-.B FMATCH
+.B MATCH
 environment variable which will be set to the full path of the file that
 matched the pattern in
-.BR FPATH "."
+.BR FILE "."
 .\"
 .SH NOTES
 
@@ -52,31 +52,31 @@ When specifying a path that contains spaces, ensure that the path is
 quoted.
 .\"
 .IP \(bu
-.B FPATH
+.B FILE
 values specified by jobs are not canonicalised; they cannot be reliably as
 they may not exist so cannot be fully resolved.
 .\"
 .IP \(bu
 If you wish to match on
-.BR FMATCH ", "
+.BR MATCH ", "
 ensure that
-.B FPATH
+.B FILE
 does not contain multiple consecutive runs of slashes since otherwise
 your job will find it difficult to perform such a match.
 .\"
 .SH EXAMPLES
 .\"
-.IP "start on file FPATH=/run/app.pid FEVENT=created" 0.4i
+.IP "start on file FILE=/run/app.pid EVENT=created" 0.4i
 Event emitted when file is created.
-.IP "start on file FPATH=/run/app.pid"
+.IP "start on file FILE=/run/app.pid"
 Event emitted when file is created, modified or deleted.
-.IP "start on file FPATH=/var/log/"
+.IP "start on file FILE=/var/log/"
 Event emitted when files within a directory are created, modified or
 deleted.
-.IP "start on file FPATH=/var/crash/*.crash FEVENT=created"
+.IP "start on file FILE=/var/crash/*.crash EVENT=created"
 Event emitted when files in a directory matching a glob pattern are
 created.
-.IP "start on file FPATH=""/this/path/contains whitespace.txt"""
+.IP "start on file FILE=""/this/path/contains whitespace.txt"""
 Specify a file that contains a space character.
 .\"
 .SH AUTHOR
