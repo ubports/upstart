@@ -1,3 +1,14 @@
+2013-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/file-event.7: Simplify language.
+	* extra/upstart-file-bridge.c:
+	  - skip_slashes(): New macro to make path matching more reliable.
+	  - file_filter(): Call skip_slashes().
+	  - create_handler(): Call skip_slashes().
+	  - modify_handler(): Call skip_slashes().
+	  - delete_handler(): Call skip_slashes().
+	  - watched_dir_new(): Special case watching the root directory.
+
 2013-03-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/Makefile.am: Add file bridge and conf file.

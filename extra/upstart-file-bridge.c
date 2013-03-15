@@ -188,6 +188,17 @@
 	 (file->original ? file->original : file->path)
 
 /**
+ * skip_slashes:
+ *
+ * @path: pointer to path string.
+ *
+ * Increment @path to skip over multiple leading slashes.
+ **/
+#define skip_slashes(path) \
+	while (*(path) == '/' && (path)+1 && *((path)+1) == '/') \
+		(path)++
+
+/**
  * Job:
  *
  * @entry: list header,
@@ -658,7 +669,6 @@ upstart_job_added (void            *data,
 	}
 
 	nih_message ("Job got added %s", job_path);
-
 }
 
 /**
@@ -874,6 +884,8 @@ file_filter (WatchedDir  *dir,
 	nih_assert (dir);
 	nih_assert (path);
 
+	skip_slashes (path);
+
 	NIH_HASH_FOREACH_SAFE (dir->files, iter) {
 		WatchedFile *file = (WatchedFile *)iter;
 
@@ -927,6 +939,8 @@ create_handler (WatchedDir   *dir,
 	nih_assert (watch);
 	nih_assert (path);
 	nih_assert (statbuf);
+
+	skip_slashes (path);
 
 	/* path should be a file below the WatchedDir */
 	nih_assert (strstr (path, dir->path) == path);
@@ -1049,6 +1063,8 @@ modify_handler (WatchedDir   *dir,
 	/* path should be a file below the WatchedDir */
 	nih_assert (strstr (path, dir->path) == path);
 
+	skip_slashes (path);
+
 	handled = NIH_MUST (nih_hash_string_new (NULL, 0));
 
 	NIH_HASH_FOREACH_SAFE (dir->files, iter) {
@@ -1119,6 +1135,8 @@ delete_handler (WatchedDir  *dir,
 
 	/* path should be a file below the WatchedDir */
 	nih_assert (strstr (path, dir->path) == path);
+
+	skip_slashes (path);
 
 	nih_list_init (&entries);
 	handled = NIH_MUST (nih_hash_string_new (NULL, 0));
@@ -1420,14 +1438,17 @@ watched_dir_new (const char         *path,
 	strcpy (watched_path, path);
 	len = strlen (watched_path);
 
-	if (watched_path[len-1] == '/') {
+	if (len > 1 && watched_path[len-1] == '/') {
 		/* Better to remove a trailing slash before handing to
 		 * inotify since although all works as expected, the
 		 * path handed to inotify also gets given to the
 		 * create/modify/delete handlers which can then lead to
-		 * multiple contiguous slashes which could result in
+		 * multiple consecutive slashes which could result in
 		 * jobs failing to start as they would not expect FMATCH
 		 * to contain such values.
+		 *
+		 * Note that we do not (cannot) do this if @path is
+		 * the root directory.
 		 */
 		watched_path[len-1] = '\0';
 	}
