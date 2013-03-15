@@ -22,8 +22,6 @@
 # TODO:
 #
 # - misc
-#   - license text issue
-#   - UPSTART_LOGO placement
 #   - handle_clear_data() default message should use gettext
 # - gui
 #   - Gtk.STOCK_MEDIA_PLAY toggle
@@ -70,9 +68,12 @@ except ImportError:
 Simple command-line and GUI event monitor for Upstart.
 """
 
-LICENSE_FILE = '/usr/share/common-licenses/GPL-2'
-# FIXME
+# If this file does not exist or is not readable...
+LICENSE_FILE = 'aa/usr/share/common-licenses/GPL-2'
+
+# ... display this text instead.
 LICENSE = """
+http://www.gnu.org/
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2, as
 published by the Free Software Foundation.
@@ -88,9 +89,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 """
 
 #------------------------------
-
-# FIXME
-UPSTART_LOGO = './upstart-logo.svg'
 
 DEFAULT_WIN_SIZE_WIDTH  = 600
 DEFAULT_WIN_SIZE_HEIGHT = 200
@@ -298,15 +296,14 @@ class UpstartEventsGui(Gtk.Window):
         about.set_authors(AUTHORS)
         about.set_website(WEBSITE)
 
-        with open(LICENSE_FILE, 'r') as f:
-            license = f.read()
+        try:
+            with open(LICENSE_FILE, 'r') as f:
+                license = f.read()
+        except IOError:
+                license = LICENSE
 
         about.set_license(license)
-
-        pixbuf = \
-            GdkPixbuf.Pixbuf.new_from_file_at_scale(UPSTART_LOGO,
-            DEFAULT_LOGO_SIZE_WIDTH, DEFAULT_LOGO_SIZE_HEIGHT, True)
-        about.set_logo(pixbuf)
+        about.set_logo(self.icon_pixbuf)
         about.run()
         about.destroy()
 
@@ -513,7 +510,10 @@ class UpstartEventsGui(Gtk.Window):
 
         self.set_default_size(DEFAULT_WIN_SIZE_WIDTH, DEFAULT_WIN_SIZE_HEIGHT)
         self.set_resizable(True)
-        self.set_icon_from_file(UPSTART_LOGO)
+
+        theme = Gtk.IconTheme.get_default()
+        self.icon_pixbuf = theme.load_icon(NAME, 128, Gtk.IconLookupFlags.GENERIC_FALLBACK)
+        self.set_icon(self.icon_pixbuf)
 
         action_group = Gtk.ActionGroup('UpstartMonitorActions')
         action_group.add_actions(main_menu_action_entries)
