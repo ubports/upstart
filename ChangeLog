@@ -1,3 +1,11 @@
+2013-03-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Added scripts/data/Makefile.
+	* scripts/Makefile.am: Added SUBDIRS=data.
+	* scripts/data/Makefile.am: New Makefile.
+	* scripts/data/upstart-monitor.desktop: Desktop file for
+	  upstart-monitor.
+
 2013-03-13  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/man/upstart-monitor.8: New manpage.

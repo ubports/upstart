@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
+SUBDIRS = data
+
 EXTRA_DIST = \
   initctl2dot.py \
   init-checkconf.sh \
