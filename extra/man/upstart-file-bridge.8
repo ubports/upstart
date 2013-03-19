@@ -61,7 +61,7 @@ Enable verbose output.
 .\"
 .SH JOB ENVIRONMENT VARIABLES
 .TP
-.B FPATH
+.B FILE
 Path to file to watch. When run without
 .BR \-\-user ","
 this must be an absolute path. If
@@ -93,35 +93,35 @@ for further details.
 .RE
 .\"
 .TP
-.B FEVENT
+.B EVENT
 Event relating to
-.B FPATH
+.B FILE
 that job is interested in. If this variable is specified the value must
 be set to 
 .BR create ", "
 .BR modify " or "
 .B delete
 depending on what type of file event the job is interested in. If
-.B FPATH
+.B FILE
 is not specified, the bridge will watch for all types and set this
 variable to the appropriate value when emitting the event.
 .\"
 .SH WATCH TYPE BEHAVIOUR
 
 The bridge emits events depending not only on the value of
-.BR FEVENT ", "
+.BR EVENT ", "
 but also on the entity specified by
-.BR FPATH ":"
+.BR FILE ":"
 .\"
 .SS File
 
 An event will be emitted when the named file is created, modified or
-deleted depending on the value of \fBFEVENT\fR. If
-.B FEVENT
+deleted depending on the value of \fBEVENT\fR. If
+.B EVENT
 is not specified, react to creation, modification and deletion.
 
 If the file already exists when the job is registered, and
-.B FEVENT
+.B EVENT
 either specifies
 .I create
 or the variable is not specified, the event will be emitted.
@@ -131,12 +131,12 @@ or the variable is not specified, the event will be emitted.
 An event will be emitted when the named directory is created, modified
 (files within it are created, modified or deleted) or deleted depending
 on the value of
-\fBFEVENT\fR. If
-.B FEVENT
+\fBEVENT\fR. If
+.B EVENT
 is not specified, react to creation, modification and deletion.
 
 If the directory already exists when the job is registered, and
-.B FEVENT
+.B EVENT
 either specifies
 .I create
 or the variable is not specified, the event will be emitted.
@@ -146,12 +146,12 @@ or the variable is not specified, the event will be emitted.
 One event will be emitted per match when the glob wildcard matches any
 files in the directory part is created, modified or deleted, depending
 on the value of
-\fBFEVENT\fR. If
-.B FEVENT
+\fBEVENT\fR. If
+.B EVENT
 is not specified, react to creation, modification and deletion.
 
 If any matches already exist when the job is registered, and
-.B FEVENT
+.B EVENT
 either specifies
 .I create
 or the variable is not specified, events will be emitted.
