@@ -1,5 +1,17 @@
 2013-03-15  James Hunt  <james.hunt@ubuntu.com>
 
+	* extra/upstart-file-bridge.c:
+	  - main(): String safety for home_dir.
+	  - job_add_file():
+	    - Initialise events.
+	    - Use nih_strdup() rather than arrays for paths.
+	    - Removed unecessary error label.
+	  - {create_handler,modify_handler,delete_handler}(): Remove strcpy().
+	  - watched_dir_new(): Use nih_strdup() rather than arrays for path.
+	  - find_first_parent(): Replace strcpy with strncpy().
+
+2013-03-15  James Hunt  <james.hunt@ubuntu.com>
+
 	* extra/man/file-event.7: Simplify language.
 	* extra/upstart-file-bridge.c:
 	  - skip_slashes(): New macro to make path matching more reliable.

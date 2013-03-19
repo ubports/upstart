@@ -451,7 +451,8 @@ main (int   argc,
 
 		nih_assert (pw->pw_dir);
 
-		strcpy (home_dir, (pw->pw_dir));
+		memset (home_dir, '\0', sizeof (home_dir));
+		strncpy (home_dir, pw->pw_dir, sizeof (home_dir)-1);
 	}
 
 	/* Allocate jobs hash table */
@@ -716,19 +717,17 @@ static void
 job_add_file (Job    *job,
 	      char  **file_info)
 {
-	uint32_t         events;
+	uint32_t         events = 0x0;
 	WatchedFile     *file = NULL;
 	nih_local char  *error = NULL;
 	nih_local char  *glob_expr = NULL;
 	nih_local char  *expanded = NULL;
-	char             path[PATH_MAX];
+	nih_local char  *path = NULL;
 
 	nih_assert (job);
 	nih_assert (job->path);
 	nih_assert (file_info);
 	nih_assert (! strcmp (file_info[0], FILE_EVENT));
-
-	memset (path, '\0', sizeof (path));
 
 	for (char **env = file_info + 1; env && *env; env++) {
 		char   *val;
@@ -738,33 +737,33 @@ job_add_file (Job    *job,
 		if (! val) {
 			nih_warn ("%s: Ignored %s event without variable name",
 					job->path, FILE_EVENT);
-			goto error;
+			return;
 		}
 
 		name_len = val - *env;
 		val++;
 
 		if (! strncmp (*env, "FILE", name_len)) {
-			char     dirpart[PATH_MAX];
-			char     basepart[PATH_MAX];
+			nih_local char  *dirpart = NULL;
+			nih_local char  *basepart = NULL;
 			char    *dir;
 			char    *base;
 			size_t   len2;
 
-			strcpy (path, val);
+			path = NIH_MUST (nih_strdup (NULL, val));
 
 			if (user && path[0] != '/') {
 				expanded = expand_path (NULL, path);
 				if (! expanded) {
 					nih_error ("Failed to expand path");
-					goto error;
+					return;
 				}
 			}
 
 			if (! path_valid (path))
-				goto error;
+				return;
 
-			strcpy (dirpart, path);
+			dirpart = NIH_MUST (nih_strdup (NULL, path));
 			dir = dirname (dirpart);
 
 			/* See dirname(3) */
@@ -774,10 +773,10 @@ job_add_file (Job    *job,
 
 			if (strcspn (dir, GLOB_CHARS) < len2) {
 				nih_warn ("%s: %s", job->path, _("Directory globbing not supported"));
-				goto error;
+				return;
 			}
 
-			strcpy (basepart, path);
+			basepart = NIH_MUST (nih_strdup (NULL, path));
 			base = basename (basepart);
 
 			/* See dirname(3) */
@@ -786,7 +785,8 @@ job_add_file (Job    *job,
 			len2 = strlen (base);
 
 			if (strcspn (base, GLOB_CHARS) < len2) {
-				strcpy (path, dir);
+				nih_free (path);
+				path = NIH_MUST (nih_strdup (NULL, dir));
 				glob_expr = NIH_MUST (nih_strdup (NULL, base));
 			}
 		} else if (! strncmp (*env, "EVENT", name_len)) {
@@ -800,8 +800,8 @@ job_add_file (Job    *job,
 		}
 	}
 
-	if (! *path)
-		goto error;
+	if (! path)
+		return;
 
 	if (! events)
 		events = ALL_FILE_EVENTS;
@@ -813,7 +813,7 @@ job_add_file (Job    *job,
 	if (! file) {
 		nih_warn ("%s: %s",
 			_("Failed to add new file"), path);
-		goto error;
+		return;
 	}
 
 	/* If the job cares about the file or directory existing and it
@@ -857,12 +857,6 @@ job_add_file (Job    *job,
 	}
 
 	ensure_watched (job, file);
-
-	return;
-
-error:
-	if (file)
-		nih_free (file);
 }
 
 /**
@@ -966,12 +960,10 @@ create_handler (WatchedDir   *dir,
 				nih_list_add (&entries, &file->entry);
 			}
 		} else if (file->glob) {
-			char full_path[PATH_MAX];
+			nih_local char *full_path = NULL;
 
 			/* reconstruct the full path */
-			strcpy (full_path, file->path);
-			strcat (full_path, "/");
-			strcat (full_path, file->glob);
+			full_path = NIH_MUST (nih_sprintf (NULL, "%s/%s", file->path, file->glob));
 
 			if (! fnmatch (full_path, path, FNM_PATHNAME) && (file->events & IN_CREATE))
 				handle_event (handled, full_path, IN_CREATE, path);
@@ -1082,12 +1074,11 @@ modify_handler (WatchedDir   *dir,
 				handle_event (handled, original_path (file), IN_MODIFY, path);
 			}
 		} else if (file->glob) {
-			char full_path[PATH_MAX];
+			nih_local char *full_path = NULL;
 
 			/* reconstruct the full path */
-			strcpy (full_path, file->path);
-			strcat (full_path, "/");
-			strcat (full_path, file->glob);
+			full_path = NIH_MUST (nih_sprintf (NULL, "%s/%s", file->path, file->glob));
+
 			if (! fnmatch (full_path, path, FNM_PATHNAME) && (file->events & IN_MODIFY))
 				handle_event (handled, full_path, IN_MODIFY, path);
 		} else {
@@ -1157,12 +1148,10 @@ delete_handler (WatchedDir  *dir,
 					handle_event (handled, original_path (file), IN_MODIFY, path);
 			}
 		} else if (file->glob) {
-			char full_path[PATH_MAX];
+			nih_local char *full_path = NULL;
 
 			/* reconstruct the full path */
-			strcpy (full_path, file->path);
-			strcat (full_path, "/");
-			strcat (full_path, file->glob);
+			full_path = NIH_MUST (nih_sprintf (NULL, "%s/%s", file->path, file->glob));
 
 			if (! fnmatch (full_path, path, FNM_PATHNAME) && (file->events & IN_DELETE))
 				handle_event (handled, full_path, IN_DELETE, path);
@@ -1423,9 +1412,9 @@ static WatchedDir *
 watched_dir_new (const char         *path,
 		 const struct stat  *statbuf)
 {
-	char         watched_path[PATH_MAX];
-	size_t       len;
-	WatchedDir  *dir;
+	nih_local char  *watched_path = NULL;
+	WatchedDir      *dir;
+	size_t           len;
 
 	nih_assert (path);
 	nih_assert (statbuf);
@@ -1435,7 +1424,10 @@ watched_dir_new (const char         *path,
 
 	watched_dir_init ();
 
-	strcpy (watched_path, path);
+	watched_path = nih_strdup (NULL, path);
+	if (! watched_path)
+		return NULL;
+
 	len = strlen (watched_path);
 
 	if (len > 1 && watched_path[len-1] == '/') {
@@ -1683,7 +1675,8 @@ find_first_parent (const char *path)
 
 	do {
 		/* save parent for next time through the loop */
-		strcpy (tmp, current);
+		memset (tmp, '\0', sizeof (tmp));
+		strncpy (tmp, current, sizeof (tmp)-1);
 		parent = dirname (tmp);
 
 		/* Ensure dirname returned something sane */
