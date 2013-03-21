@@ -23,6 +23,12 @@ of each event (listed in \fBTable 3\fP), the emitter of the event (see
 generated. Additionally, the \fINote\fP column indexes into \fBTable
 5\fP for further details on a particular event.
 
+\fBTable 6\fP shows job goals and possible state transitions. See the
+.B status
+command in
+.BR initctl (8)
+for further details.
+
 Note that some events listed in
 .B Table 1
 .I may
@@ -70,6 +76,7 @@ Ref@Event@Type@Emit@Time@Note
   @device\-not\-ready@H@M@> (2)@N
   @drm\-device\-added@S@U@> (5)@C
   @failsafe\-boot@S@X@> (7) and local IF@S
+  @file@S@K@> (1)@U
 7@\fBfilesystem\fP@S@M@After last (1)@D
   @graphics\-device\-added@S@U@> (5)@C
   @\fBkeyboard\-request\fP(7)@S@A@> (5)@E
@@ -123,10 +130,13 @@ c | c | c | c | c | c
 c | l | c | c | l | c.
 Ref@Event@Type@Emit@Time@Note
 =
- @\fBsession\-end\fP(7)@M@H@< Session Init end@
-5@\fBstartup\fP(7)@S@I@> Session Init start@J
+ @\fBdesktop\-end\fP(7)@S@J@< (2)@
+ @\fBdesktop\-start\fP(7)@H@J@> (3)@
+ @file@S@K@> (1)@U
+2@\fBsession\-end\fP(7)@M@I@< Session Init end@
+1@\fBstartup\fP(7)@S@I@> Session Init start@J
  @:sys:*@S@E@> \fBupstart\-event\-bridge\fP(8) start@
- @xsession@M@H@> Session Init start@T
+3@xsession@M@H@> (1)@T
 .TE
 .po \n[old_po]
 .in \n[old_in]
@@ -177,7 +187,9 @@ E@\fBupstart\-event\-bridge\fP(8)@
 F@\fBifup\fP(8) or \fBifdown\fP(8)@See \fI/etc/network/\fP.
 G@bootloader or initramfs@
 H@xsession\-init session job@
-I@\fBinit\fP(8)@
+I@\fBinit\fP(8)@Either PID 1 or a Session Init.
+J@job that starts desktop@gnome\-session job for Ubuntu.
+K@\fBupstart\-file\-bridge\fP(8)@
 M@\fBmountall\fP(8)@
 N@network\-interface job@
 S@\fBupstart\-socket\-bridge\fP(8)@
@@ -265,6 +277,7 @@ time. This event will trigger other jobs to forcibly attempt to bring
 the system into a usable state.
 T}
 T@Only emitted for a graphical session.
+U@See \fBfile\-event\fP(7).
 .TE
 .po \n[old_po]
 .in \n[old_in]

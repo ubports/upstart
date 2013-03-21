@@ -1,13 +1,14 @@
 upstart (1.7-0ubuntu2) UNRELEASED; urgency=low
 
-  * debian/manpages/upstart-events.7: Update for Session Init events.
+  * debian/manpages/upstart-events.7: Update for Session Init events
+    and file bridge.
   * debian/rules: Install apport hook.
   * debian/upstart.apport: Addition of apport hook to handle PID 1 and
     Session Init bugs.
   * debian/upstart.dirs: Remove invalid leading slash and add apport
     directory.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 15 Mar 2013 10:16:44 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 21 Mar 2013 14:30:32 +0000
 
 upstart (1.7-0ubuntu1b1) raring; urgency=low
 
