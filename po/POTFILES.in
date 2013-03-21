@@ -14,7 +14,9 @@ init/main.c
 init/parse_conf.c
 init/parse_job.c
 init/process.c
+init/quiesce.c
 init/session.c
+init/state.c
 init/system.c
 
 util/initctl.c
