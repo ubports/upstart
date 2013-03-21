@@ -199,13 +199,6 @@ class UpstartEventsGui(Gtk.Window):
     global bus
     global cmdline_args
 
-    auto_scroll = True
-    need_save = False
-
-    # value of cell containing event details that user has
-    # right-clicked over
-    context_value = None
-
     def add_row(self, event, event_env):
         """
         Add new row to view.
@@ -505,6 +498,13 @@ class UpstartEventsGui(Gtk.Window):
             ('ContextCopy', Gtk.STOCK_COPY, 'Copy', '<control>C',
                 _('Copy'), self.activate_action),
         )
+
+        self.auto_scroll = True
+        self.need_save = False
+
+        # value of cell containing event details that user has
+        # right-clicked over
+        self.context_value = None
 
         self.data_index = 0
 

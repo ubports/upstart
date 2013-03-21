@@ -1,3 +1,9 @@
+2013-03-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* po/POTFILES.in: Added upstart-monitor.py.
+	* scripts/upstart-monitor.py: UpstartEventsGui(): Removed class
+	  attributes and added explicit instance ones in __init__().
+
 2013-03-18  James Hunt  <james.hunt@ubuntu.com>
 
 	* configure.ac: Added scripts/data/Makefile.

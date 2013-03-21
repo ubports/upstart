@@ -25,3 +25,5 @@ util/telinit.c
 
 extra/upstart-udev-bridge.c
 extra/upstart-socket-bridge.c
+
+scripts/upstart-monitor.py
