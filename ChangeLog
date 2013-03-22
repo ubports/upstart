@@ -1,6 +1,8 @@
 2013-03-21  James Hunt  <james.hunt@ubuntu.com>
 
-	* po/POTFILES.in: Added upstart-monitor.py.
+	* po/POTFILES.in:
+	  - Added missing entries for init/quiesce.c and init/state.c.
+	  - Added upstart-monitor.py.
 	* scripts/upstart-monitor.py: UpstartEventsGui(): Removed class
 	  attributes and added explicit instance ones in __init__().
 
@@ -12,12 +14,46 @@
 	* scripts/data/upstart-monitor.desktop: Desktop file for
 	  upstart-monitor.
 
+2013-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - main(): String safety for home_dir.
+	  - job_add_file():
+	    - Initialise events.
+	    - Use nih_strdup() rather than arrays for paths.
+	    - Removed unecessary error label.
+	  - {create_handler,modify_handler,delete_handler}(): Remove strcpy().
+	  - watched_dir_new(): Use nih_strdup() rather than arrays for path.
+	  - find_first_parent(): Replace strcpy with strncpy().
+
+2013-03-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/file-event.7: Simplify language.
+	* extra/upstart-file-bridge.c:
+	  - skip_slashes(): New macro to make path matching more reliable.
+	  - file_filter(): Call skip_slashes().
+	  - create_handler(): Call skip_slashes().
+	  - modify_handler(): Call skip_slashes().
+	  - delete_handler(): Call skip_slashes().
+	  - watched_dir_new(): Special case watching the root directory.
+	* extra/conf/upstart-file-bridge.conf: Change start on condition
+	  to ensure all filesystems are mounted before it starts.
+
 2013-03-13  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/man/upstart-monitor.8: New manpage.
 	* scripts/upstart-monitor.py: New cli+gui tool to monitor
 	  Upstart events.
 	* scripts/Makefile.am: Updated for upstart-monitor.
+
+2013-03-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Add file bridge and conf file.
+	* extra/upstart-file-bridge.c: Inotify file bridge.
+	* extra/conf/upstart-file-bridge.conf: Conf file for
+	  file bridge.
+	* extra/man/file-event.7: New man page.
+	* extra/man/upstart-file-bridge.8: New man page.
 
 2013-03-04  James Hunt  <james.hunt@ubuntu.com>
 
