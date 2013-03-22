@@ -1,7 +1,18 @@
 2013-03-21  James Hunt  <james.hunt@ubuntu.com>
 
-	* po/POTFILES.in: Added missing entries for init/quiesce.c
-	  and init/state.c.
+	* po/POTFILES.in:
+	  - Added missing entries for init/quiesce.c and init/state.c.
+	  - Added upstart-monitor.py.
+	* scripts/upstart-monitor.py: UpstartEventsGui(): Removed class
+	  attributes and added explicit instance ones in __init__().
+
+2013-03-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Added scripts/data/Makefile.
+	* scripts/Makefile.am: Added SUBDIRS=data.
+	* scripts/data/Makefile.am: New Makefile.
+	* scripts/data/upstart-monitor.desktop: Desktop file for
+	  upstart-monitor.
 
 2013-03-15  James Hunt  <james.hunt@ubuntu.com>
 
@@ -27,6 +38,13 @@
 	  - watched_dir_new(): Special case watching the root directory.
 	* extra/conf/upstart-file-bridge.conf: Change start on condition
 	  to ensure all filesystems are mounted before it starts.
+
+2013-03-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/man/upstart-monitor.8: New manpage.
+	* scripts/upstart-monitor.py: New cli+gui tool to monitor
+	  Upstart events.
+	* scripts/Makefile.am: Updated for upstart-monitor.
 
 2013-03-11  James Hunt  <james.hunt@ubuntu.com>
 
