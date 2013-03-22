@@ -1,4 +1,8 @@
-1.8  xxxx-xx-xx
+1.8  2013-03-22 "Scone + Radish = Gherkin?"
+
+	* upstart-file-bridge: New bridge to allow jobs to react to
+	  file, directory and file glob events (create/modify/delete).
+	* upstart-monitor: Simple cli/gui tool that shows event flows.
 
 1.7  2013-03-04 "We've all got one now"
 

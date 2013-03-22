@@ -1,5 +1,9 @@
 2013-03-22  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Release 1.8
+
+2013-03-22  James Hunt  <james.hunt@ubuntu.com>
+
 	* scripts/initctl2dot.py:
 	  - footer(): Add details of session.
 	  - sanitise(): Handle jobs in sub-directories.
