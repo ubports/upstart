@@ -550,10 +550,6 @@ def main():
 
     upstart_session = os.environ.get('UPSTART_SESSION', False)
 
-    use_system = True
-
-    use_system = options.system or not upstart_session
-
     if options.system == None:
         if upstart_session:
             use_system = False
