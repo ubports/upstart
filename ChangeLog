@@ -1,3 +1,15 @@
+2013-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/initctl2dot.py:
+	  - footer(): Add details of session.
+	  - sanitise(): Handle jobs in sub-directories.
+	  - main(): Add --user and --system options and determine correct
+	    session to connect to.
+	* scripts/man/initctl2dot.8:
+	  - Added --user and --system options.
+	  - Escape dashes in options.
+	  - Update date.
+
 2013-03-21  James Hunt  <james.hunt@ubuntu.com>
 
 	* po/POTFILES.in:
