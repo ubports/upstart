@@ -66,6 +66,19 @@ upstart_session = None
 # list of jobs to restict output to
 restrictions_list = []
 
+sanitise_table = str.maketrans({
+    '-': '_',
+    '$': 'dollar_',
+    '[': 'lbracker',
+    ']': 'rbracker',
+    '!': 'bang',
+    ':': 'colon',
+    '*': 'star',
+    '?': 'question',
+    '.': 'dot',
+    '/': 'slash',
+})
+
 default_color_emits = 'green'
 default_color_start_on = 'blue'
 default_color_stop_on = 'red'
@@ -122,14 +135,12 @@ def footer(ofh):
                             script_name=script_name, details=details))
 
 
-# Map dash to underscore since graphviz node names cannot
-# contain dashes. Also remove dollars and colons and replace other
-# punctuation with graphiviz-safe names.
+# Map punctuation to symbols palatable to graphviz
+# (which amongst other things dislikes dashes in node names)
 def sanitise(s):
-    return s.replace('-', '_').replace('$', 'dollar_') \
-            .replace('[', 'lbracket').replace(']', 'rbracket') \
-            .replace('!', 'bang').replace(':', 'colon').replace('*', 'star') \
-            .replace('?', 'question').replace('.', '_').replace('/', '_')
+    global sanitise_table
+
+    return s.translate(sanitize_table)
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
@@ -501,12 +512,14 @@ def main():
                              default_color_job)
 
     parser.add_argument("--user",
-                        dest="user",
-                        action='store_true',
+                        dest="system",
+                        default=None,
+                        action='store_false',
                         help="Connect to Upstart user session (default if running within a user session).")
 
     parser.add_argument("--system",
                         dest="system",
+                        default=None,
                         action='store_true',
                         help="Connect to Upstart system session.")
 
@@ -535,19 +548,19 @@ def main():
     if options.restrictions:
         restrictions_list = options.restrictions.split(",")
 
-    upstart_session = os.environ.get('UPSTART_SESSION')
+    upstart_session = os.environ.get('UPSTART_SESSION', False)
 
     use_system = True
 
-    if options.system == False and options.user == False:
+    use_system = options.system or not upstart_session
+
+    if options.system == None:
         if upstart_session:
             use_system = False
         else:
             use_system = True
-    elif options.system == True:
-        use_system = True
-    elif options.user == True:
-        use_system = False
+    else:
+        use_system = options.system or not upstart_session
 
     if use_system:
         cmd = "initctl --system show-config -e"
