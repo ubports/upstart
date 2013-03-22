@@ -107,7 +107,7 @@ def footer(ofh):
 
     details = ''
 
-    if use_system == True:
+    if use_system:
         details += "\\nfor the system\\n"
     else:
         details += "\\nfor session '%s'\\n" % upstart_session
