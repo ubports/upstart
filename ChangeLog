@@ -3,8 +3,8 @@
 	* scripts/initctl2dot.py:
 	  - footer(): Add details of session.
 	  - sanitise(): Handle jobs in sub-directories.
-	  - main(): Add --user and --system options and determine correct
-	    session to connect to.
+	  - main(): Add --user and --system options and determine
+	    correct session to connect to.
 	* scripts/man/initctl2dot.8:
 	  - Added --user and --system options.
 	  - Escape dashes in options.

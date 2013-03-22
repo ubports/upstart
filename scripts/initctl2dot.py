@@ -140,7 +140,7 @@ def footer(ofh):
 def sanitise(s):
     global sanitise_table
 
-    return s.translate(sanitize_table)
+    return s.translate(sanitise_table)
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
