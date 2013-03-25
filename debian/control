@@ -13,7 +13,7 @@ XS-Testsuite: autopkgtest
 Package: upstart
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, sysv-rc, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
-Suggests: python, graphviz, bash-completion
+Suggests: python, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
@@ -23,3 +23,14 @@ Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
  shutdown and supervising them while the system is running.
+
+Package: upstart-monitor
+Architecture: all
+Section: utils
+Priority: optional
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.7)
+Description: event monitor for upstart
+ This package contains a utility that may be run both as a
+ command-line tool or as a graphical one that displays upstart
+ events as they are emitted. It is useful for observing system
+ changes and for determining appropriate events for new jobs.

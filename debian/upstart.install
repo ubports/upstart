@@ -1,4 +1,9 @@
 debian/conf/*.conf etc/init/
+debian/tmp/etc/init/*.conf etc/init/
+debian/tmp/etc/dbus-1/system.d/Upstart.conf
+debian/tmp/bin/init-checkconf usr/bin/
+debian/tmp/bin/initctl2dot usr/bin/
+debian/tmp/sbin/*
 debian/upstart-job lib/init/
 debian/apparmor-profile-load lib/init/
 debian/migrate-inittab.pl usr/lib/upstart/

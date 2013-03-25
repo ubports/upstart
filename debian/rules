@@ -15,7 +15,7 @@ endif
 export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
 %:
-	dh $@ --with bash-completion --with autoreconf
+	dh $@ --with bash-completion,autoreconf,python3
 
 override_dh_auto_configure:
 	dh_auto_configure -- --exec-prefix= --disable-silent-rules
@@ -38,6 +38,20 @@ override_dh_fixperms:
 
 override_dh_install:
 	dh_install
+	for i in \
+		net-device-added \
+		net-device-removed \
+		graphics-device-added \
+		drm-device-added; do \
+		rm debian/tmp/usr/share/man/man7/$$i.7; \
+	done
 	install -m 644 debian/upstart.apport \
 		debian/upstart/usr/share/apport/package-hooks/upstart.py
 
+# Remove this man page for the upstart package; it will be added to the
+# upstart-monitor package by its .manpages file, but removing it here is
+# simpler than specifying every other section 8 manpage in the upstart
+# packages .manpages file.
+override_dh_installman:
+	dh_installman
+	rm debian/upstart/usr/share/man/man8/upstart-monitor.8*

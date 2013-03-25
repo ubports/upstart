@@ -9,12 +9,28 @@ upstart (1.8-0ubuntu1) UNRELEASED; urgency=low
   * debian/upstart.dirs: Remove invalid leading slash and add apport
     directory.
   * Cherry-pick man page related fixes from upstream.
+  * debian/control: Create a separate upstart-monitor package and make
+    upstart suggest it.
+  * debian/rules:
+    - Add python3.
+    - Handle man pages.
+  * debian/upstart.install: Add in files not now copied by default
+    now we have a separate upstart-monitor package. Note that initctl2dot
+    and init-checkconf are now correctly installed to /usr/bin rather
+    than /bin.
+  * debian/upstart.manpages: Add in files not now copied by default
+    now we have a separate upstart-monitor package.
+  * debian/upstart-monitor.install: New file.
+  * debian/upstart-monitor.manpages: New file.
+  * debian/upstart.links: New file.
+  * debian/user-conf/upstart-file-bridge.conf: Required as start condition
+    different to system job of same name.
 
   [ Iain Lane ]
   * Set $SESSIONTYPE when emitting the xsession event that specifies the type
     of session being launched. Currently only gnome-session is supported.
 
- -- James Hunt <james.hunt@ubuntu.com>  Mon, 25 Mar 2013 13:50:59 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 25 Mar 2013 13:53:22 +0000
 
 upstart (1.7-0ubuntu1b1) raring; urgency=low
 

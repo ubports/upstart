@@ -1,0 +1,3 @@
+bin/upstart-monitor usr/bin/
+usr/share/icons/hicolor/scalable/apps/upstart-monitor.svg
+usr/share/applications/upstart-monitor.desktop
