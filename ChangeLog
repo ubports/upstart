@@ -1,6 +1,7 @@
 2013-03-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: Correct section number.
+	* init/man/init.5: Correct section number.
 
 2013-03-22  James Hunt  <james.hunt@ubuntu.com>
 
