@@ -8,12 +8,13 @@ upstart (1.8-0ubuntu1) UNRELEASED; urgency=low
     Session Init bugs.
   * debian/upstart.dirs: Remove invalid leading slash and add apport
     directory.
+  * Cherry-pick man page related fixes from upstream.
 
   [ Iain Lane ]
   * Set $SESSIONTYPE when emitting the xsession event that specifies the type
     of session being launched. Currently only gnome-session is supported.
 
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 21 Mar 2013 14:30:32 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 25 Mar 2013 13:50:59 +0000
 
 upstart (1.7-0ubuntu1b1) raring; urgency=low
 
