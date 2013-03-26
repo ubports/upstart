@@ -1,4 +1,4 @@
-upstart (1.8-0ubuntu1) UNRELEASED; urgency=low
+upstart (1.8-0ubuntu1) raring; urgency=low
 
   [ James Hunt ]
   * debian/manpages/upstart-events.7: Update for Session Init events
@@ -18,8 +18,6 @@ upstart (1.8-0ubuntu1) UNRELEASED; urgency=low
     now we have a separate upstart-monitor package. Note that initctl2dot
     and init-checkconf are now correctly installed to /usr/bin rather
     than /bin.
-  * debian/upstart.manpages: Add in files not now copied by default
-    now we have a separate upstart-monitor package.
   * debian/upstart-monitor.install: New file.
   * debian/upstart-monitor.manpages: New file.
   * debian/upstart.links: New file.
@@ -30,7 +28,7 @@ upstart (1.8-0ubuntu1) UNRELEASED; urgency=low
   * Set $SESSIONTYPE when emitting the xsession event that specifies the type
     of session being launched. Currently only gnome-session is supported.
 
- -- James Hunt <james.hunt@ubuntu.com>  Tue, 26 Mar 2013 09:14:12 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 26 Mar 2013 17:13:12 +0000
 
 upstart (1.7-0ubuntu1b1) raring; urgency=low
 
