@@ -4,7 +4,8 @@ Priority: required
 Maintainer: James Hunt <james.hunt@ubuntu.com>
 Uploaders: Scott James Remnant <scott@ubuntu.com>
 Standards-Version: 3.8.4
-Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint
+Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3
+X-Python3-Version: 3.3
 XS-Debian-Vcs-Bzr: nosmart+http://bzr.debian.org/bzr/collab-maint/upstart/trunk/
 XS-Debian-Vcs-Browser: http://anonscm.debian.org/loggerhead/collab-maint/upstart/trunk/
 Homepage: http://upstart.ubuntu.com/
@@ -13,7 +14,7 @@ XS-Testsuite: autopkgtest
 Package: upstart
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, sysv-rc, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
-Suggests: python, graphviz, bash-completion, upstart-monitor
+Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
@@ -28,7 +29,8 @@ Package: upstart-monitor
 Architecture: all
 Section: utils
 Priority: optional
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.7)
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.7), python3-dbus
+Recommends: python3-gi
 Description: event monitor for upstart
  This package contains a utility that may be run both as a
  command-line tool or as a graphical one that displays upstart
