@@ -1,3 +1,8 @@
+2013-03-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/upstart-monitor.py: on_button_press_event():
+	  Handle path_info being None (LP: #1161098).
+
 2013-03-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: Correct section number.
