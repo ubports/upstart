@@ -2,6 +2,9 @@
 
 	* scripts/upstart-monitor.py: on_button_press_event():
 	  Handle path_info being None (LP: #1161098).
+	* extra/upstart-event-bridge.c: main():
+	  - Handle daemon pidfile as the upstart-event-bridge does.
+	  - Write to stdout, not syslog.
 
 2013-03-25  James Hunt  <james.hunt@ubuntu.com>
 
