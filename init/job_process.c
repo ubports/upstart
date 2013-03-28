@@ -1150,11 +1150,6 @@ job_process_error_read (int fd)
 				  err, _("unable to chown: %s"),
 				  strerror (err->errnum)));
 		break;
-	case JOB_PROCESS_ERROR_OPENPT_MASTER:
-		err->error.message = NIH_MUST (nih_sprintf (
-				  err, _("unable to open pty master: %s"),
-				  strerror (err->errnum)));
-		break;
 	case JOB_PROCESS_ERROR_UNLOCKPT:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to unlockpt: %s"),

@@ -5,6 +5,8 @@
 	* extra/upstart-event-bridge.c: main():
 	  - Handle daemon pidfile as the upstart-event-bridge does.
 	  - Write to stdout, not syslog.
+	* init/job_process.[ch]: Removed now unused
+	  JOB_PROCESS_ERROR_OPENPT_MASTER.
 
 2013-03-25  James Hunt  <james.hunt@ubuntu.com>
 
