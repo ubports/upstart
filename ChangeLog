@@ -1,3 +1,10 @@
+2013-04-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/file-event.7: Correct EVENT values in examples.
+	* extra/man/upstart-event-bridge.8:
+	  - Corrected bridge name.
+	  - Explain that blocking semantics of system jobs not retained.
+
 2013-03-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/upstart-monitor.py: on_button_press_event():
