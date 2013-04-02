@@ -1,3 +1,14 @@
+2013-04-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c:
+	  - main(): Allow Session Init to accept multiple --confdir values,
+	    which replace all built-in values (behaviour required for testing).
+	  - handle_confdir(): Operate on conf_dirs array rather than single
+	    conf_dir value.
+	  - conf_dir_setter(): Command-line setter function to add configuration
+	    file directories to conf_dirs array.
+	* init/man/init.8: Update on --confdir behaviour.
+
 2013-03-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/upstart-monitor.py: on_button_press_event():
