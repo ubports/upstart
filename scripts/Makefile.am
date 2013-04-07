@@ -5,7 +5,8 @@ SUBDIRS = data
 EXTRA_DIST = \
   initctl2dot.py \
   init-checkconf.sh \
-  upstart-monitor.py
+  upstart-monitor.py \
+  python-upstart.py
 
 dist_man_MANS = \
   man/initctl2dot.8 \
