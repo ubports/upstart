@@ -53,16 +53,21 @@ INSTANCE_INTERFACE_NAME  = 'com.ubuntu.Upstart0_6.Instance'
 OBJECT_PATH              = '/com/ubuntu/Upstart'
 FREEDESKTOP_PROPERTIES   = 'org.freedesktop.DBus.Properties'
 
-# Maximum time to wait for Upstart to detect a new job has been created
+# Maximum number of seconds to wait for Upstart to detect a new job
+# has been created
 JOB_WAIT_SECS = 5
 
-# Number of seconds to wait for session file to appear after startup of
-# Session Init.
+# Maximum number of seconds to wait for session file to appear after
+# startup of Session Init
 SESSION_FILE_WAIT_SECS = 5
 
+# Maximum number of seconds to wait for Upstart to complete a re-exec
+REEXEC_WAIT_SECS = 5
+
+# Maximum number of seconds to wait for Upstart to create a file
 FILE_WAIT_SECS = 5
 
-# Default time to wait for a logfile to be created.
+# Maximum number of seconds to wait for Upstart to create a logfile
 LOGFILE_WAIT_SECS = 5
 
 #---------------------------------------------------------------------
@@ -164,10 +169,32 @@ class Upstart():
         """
         Connect to Upstart.
         """
+
         # Create appropriate D-Bus connection
         self.connection = dbus.connection.Connection(self.socket)
         self.remote_object = self.connection.get_object(object_path=OBJECT_PATH)
         self.proxy = dbus.Interface(self.remote_object, INTERFACE_NAME)
+
+    def polling_connect(self, timeout=REEXEC_WAIT_SECS):
+        """
+        Attempt to connect to Upstart repeatedly for up to @timeout
+        seconds.
+
+        Useful after a re-exec since that operation although fast takes
+        an indeterminate amount of time to complete.
+
+        @timeout: seconds to wait for successful connection.
+        """
+        for i in range(timeout):
+            try:
+                self.connect()
+            except:
+                time.sleep(1)
+            else:
+                return
+
+        raise UpstartException('Failed to reconnect to Upstart after %d seconds' % timeout)
+
 
     def __timeout_cb(self):
         """
@@ -269,6 +296,9 @@ class Upstart():
     def reexec(self):
         """
         Request Upstart re-exec itself.
+
+	Note that after a re-exec, it is necessary to reconnect to
+	Upstart.
         """
         raise NotImplementedError('method must be implemented by subclass')
 
@@ -754,8 +784,11 @@ class SystemInit(Upstart):
         super().destroy()
 
     def reexec(self):
-        os.system('telinit u')
+        if not self.proxy:
+            raise UpstartException('Not yet connected')
 
+        # Use the official system interface
+        os.system('telinit u')
 
 class SessionInit(Upstart):
     """
@@ -926,8 +959,10 @@ class SessionInit(Upstart):
             os.unsetenv(UPSTART_SESSION_ENV)
 
     def reexec(self):
-        self.proxy.Restart()
+        if not self.proxy:
+            raise UpstartException('Not yet connected')
 
+        self.proxy.Restart()
 
 class TestUpstart(unittest.TestCase):
 
@@ -1083,6 +1118,15 @@ class TestUpstart(unittest.TestCase):
         self.assertTrue(result)
         fd = result.group(1)
 
+        # Upstart is now in the process of starting, but we need to
+        # reconnect to it via D-Bus since it cannot yet retain
+        # client connections. However, since the re-exec won't be
+        # instantaneous, try a few times.
+        self.upstart.polling_connect()
+
+        # check that we can still operate on the re-exec'd Upstart
+        self.assertTrue(self.upstart.version())
+
         self.stop_session_init()
 
     def test_session_init_reexec_when_pid1_does(self):
@@ -1123,6 +1167,15 @@ class TestUpstart(unittest.TestCase):
             time.sleep(1)
 
         self.assertTrue(got)
+
+        # Upstart is now in the process of starting, but we need to
+        # reconnect to it via D-Bus since it cannot yet retain
+        # client connections. However, since the re-exec won't be
+        # instantaneous, try a few times.
+        self.upstart.polling_connect()
+
+        # check that we can still operate on the re-exec'd Upstart
+        self.assertTrue(self.upstart.version())
 
         self.stop_session_init()
 

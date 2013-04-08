@@ -1,3 +1,15 @@
+2013-04-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py:
+	  - Upstart::polling_connect(): New method used to connect
+	    after a re-exec.
+	  - SystemInit::reexec(): Check proxy connection before
+	    attempting re-exec.
+	  - TestUpstart:test_session_init_reexec(): Re-connect post
+	    re-exec to prove instance still usable.
+	  - TestUpstart:test_session_init_reexec_when_pid1_does():
+	    Re-connect post re-exec to prove instance still usable.
+
 2013-04-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/Makefile.am: Added python-upstart.py.
