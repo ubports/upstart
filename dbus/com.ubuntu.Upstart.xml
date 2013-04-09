@@ -42,6 +42,32 @@
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
     </method>
 
+    <method name="GetEnv">
+      <arg name="job_details" type="as" direction="in" />
+      <arg name="name" type="s" direction="in" />
+      <arg name="value" type="s" direction="out" />
+    </method>
+
+    <method name="SetEnv">
+      <arg name="job_details" type="as" direction="in" />
+      <arg name="var" type="s" direction="in" />
+      <arg name="replace" type="b" direction="in" />
+    </method>
+
+    <method name="UnsetEnv">
+      <arg name="job_details" type="as" direction="in" />
+      <arg name="name" type="s" direction="in" />
+    </method>
+
+    <method name="ListEnv">
+      <arg name="job_details" type="as" direction="in" />
+      <arg name="env" type="as" direction="out" />
+    </method>
+
+    <method name="ResetEnv">
+      <arg name="job_details" type="as" direction="in" />
+    </method>
+
     <!-- Signals for changes to the job list -->
     <signal name="JobAdded">
       <arg name="job" type="o" />
@@ -49,6 +75,15 @@
     <signal name="JobRemoved">
       <arg name="job" type="o" />
     </signal>
+
+    <!-- Signal for events being emitted -->
+    <signal name="EventEmitted">
+      <arg name="name" type="s" />
+      <arg name="env" type="as" />
+    </signal>
+
+    <!-- Signal emitted after upstart restarted and reconnected to DBUS -->
+    <signal name="Restarted" />
 
     <!-- Event emission -->
     <method name="EmitEvent">
@@ -67,6 +102,8 @@
 
     <method name="NotifyDiskWriteable">
     </method>
+
+    <method name="EndSession"/>
 
     <!-- Basic information about Upstart -->
     <property name="version" type="s" access="read" />

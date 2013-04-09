@@ -52,7 +52,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = upstart-socket-bridge$(EXEEXT) $(am__EXEEXT_1)
+sbin_PROGRAMS = upstart-socket-bridge$(EXEEXT) \
+	upstart-event-bridge$(EXEEXT) $(am__EXEEXT_1)
 @HAVE_UDEV_TRUE@am__append_1 = \
 @HAVE_UDEV_TRUE@	conf/upstart-udev-bridge.conf
 
@@ -95,20 +96,28 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man7dir)" \
 	"$(DESTDIR)$(man8dir)" "$(DESTDIR)$(initdir)"
 PROGRAMS = $(sbin_PROGRAMS)
-am_upstart_socket_bridge_OBJECTS = upstart-socket-bridge.$(OBJEXT)
+am_upstart_event_bridge_OBJECTS = upstart-event-bridge.$(OBJEXT)
 am__objects_1 = com.ubuntu.Upstart.$(OBJEXT)
 am__objects_2 = com.ubuntu.Upstart.Job.$(OBJEXT)
-nodist_upstart_socket_bridge_OBJECTS = $(am__objects_1) \
+nodist_upstart_event_bridge_OBJECTS = $(am__objects_1) \
 	$(am__objects_2)
-upstart_socket_bridge_OBJECTS = $(am_upstart_socket_bridge_OBJECTS) \
-	$(nodist_upstart_socket_bridge_OBJECTS)
+upstart_event_bridge_OBJECTS = $(am_upstart_event_bridge_OBJECTS) \
+	$(nodist_upstart_event_bridge_OBJECTS)
 am__DEPENDENCIES_1 =
-upstart_socket_bridge_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+upstart_event_bridge_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
+am_upstart_socket_bridge_OBJECTS = upstart-socket-bridge.$(OBJEXT)
+nodist_upstart_socket_bridge_OBJECTS = $(am__objects_1) \
+	$(am__objects_2)
+upstart_socket_bridge_OBJECTS = $(am_upstart_socket_bridge_OBJECTS) \
+	$(nodist_upstart_socket_bridge_OBJECTS)
+upstart_socket_bridge_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 am__upstart_udev_bridge_SOURCES_DIST = upstart-udev-bridge.c
 @HAVE_UDEV_TRUE@am_upstart_udev_bridge_OBJECTS =  \
 @HAVE_UDEV_TRUE@	upstart-udev-bridge.$(OBJEXT)
@@ -145,11 +154,14 @@ am__v_CCLD_0 = @echo "  CCLD  " $@;
 AM_V_GEN = $(am__v_GEN_@AM_V@)
 am__v_GEN_ = $(am__v_GEN_@AM_DEFAULT_V@)
 am__v_GEN_0 = @echo "  GEN   " $@;
-SOURCES = $(upstart_socket_bridge_SOURCES) \
+SOURCES = $(upstart_event_bridge_SOURCES) \
+	$(nodist_upstart_event_bridge_SOURCES) \
+	$(upstart_socket_bridge_SOURCES) \
 	$(nodist_upstart_socket_bridge_SOURCES) \
 	$(upstart_udev_bridge_SOURCES) \
 	$(nodist_upstart_udev_bridge_SOURCES)
-DIST_SOURCES = $(upstart_socket_bridge_SOURCES) \
+DIST_SOURCES = $(upstart_event_bridge_SOURCES) \
+	$(upstart_socket_bridge_SOURCES) \
 	$(am__upstart_udev_bridge_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -188,7 +200,7 @@ man8dir = $(mandir)/man8
 NROFF = nroff
 MANS = $(dist_man_MANS)
 am__dist_init_DATA_DIST = conf/upstart-socket-bridge.conf \
-	conf/upstart-udev-bridge.conf
+	conf/upstart-event-bridge.conf conf/upstart-udev-bridge.conf
 DATA = $(dist_init_DATA)
 ETAGS = etags
 CTAGS = ctags
@@ -383,9 +395,10 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 initdir = $(sysconfdir)/init
-dist_init_DATA = conf/upstart-socket-bridge.conf $(am__append_1)
-dist_man_MANS = man/upstart-socket-bridge.8 man/socket-event.7 \
-	$(am__append_2)
+dist_init_DATA = conf/upstart-socket-bridge.conf \
+	conf/upstart-event-bridge.conf $(am__append_1)
+dist_man_MANS = man/upstart-socket-bridge.8 man/upstart-event-bridge.8 \
+	man/socket-event.7 $(am__append_2)
 upstart_socket_bridge_SOURCES = \
 	upstart-socket-bridge.c
 
@@ -394,6 +407,19 @@ nodist_upstart_socket_bridge_SOURCES = \
 	$(com_ubuntu_Upstart_Job_OUTPUTS)
 
 upstart_socket_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS)
+
+upstart_event_bridge_SOURCES = \
+	upstart-event-bridge.c
+
+nodist_upstart_event_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
+
+upstart_event_bridge_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
@@ -521,6 +547,9 @@ clean-sbinPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+upstart-event-bridge$(EXEEXT): $(upstart_event_bridge_OBJECTS) $(upstart_event_bridge_DEPENDENCIES) $(EXTRA_upstart_event_bridge_DEPENDENCIES) 
+	@rm -f upstart-event-bridge$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(upstart_event_bridge_OBJECTS) $(upstart_event_bridge_LDADD) $(LIBS)
 upstart-socket-bridge$(EXEEXT): $(upstart_socket_bridge_OBJECTS) $(upstart_socket_bridge_DEPENDENCIES) $(EXTRA_upstart_socket_bridge_DEPENDENCIES) 
 	@rm -f upstart-socket-bridge$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(upstart_socket_bridge_OBJECTS) $(upstart_socket_bridge_LDADD) $(LIBS)
@@ -536,6 +565,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/com.ubuntu.Upstart.Job.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/com.ubuntu.Upstart.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upstart-event-bridge.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upstart-socket-bridge.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upstart-udev-bridge.Po@am__quote@
 

@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -83,6 +85,13 @@ int default_console = -1;
  **/
 NihHash *job_classes = NULL;
 
+/**
+ * job_environ:
+ *
+ * Array of environment variables that will be set in the jobs
+ * environment.
+ **/
+static char **job_environ = NULL;
 
 /**
  * job_class_init:
@@ -96,6 +105,146 @@ job_class_init (void)
 		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
 }
 
+/**
+ * job_class_environ_init:
+ *
+ * Initialise the job_environ array.
+ **/
+void
+job_class_environment_init (void)
+{
+	char * const default_environ[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
+
+	if (! job_environ) {
+		job_environ = NIH_MUST (nih_str_array_new (NULL));
+		NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
+	}
+}
+
+/**
+ * job_class_environment_reset:
+ *
+ * Reset the environment back to defaults.
+ *
+ * Note: not applied to running job instances.
+ **/
+void
+job_class_environment_reset (void)
+{
+	if (job_environ)
+		nih_free (job_environ);
+
+	job_environ = NULL;
+
+	job_class_environment_init ();
+}
+
+/**
+ * job_class_environment_set:
+ *
+ * @var: environment variable to set in form 'name[=value]',
+ * @replace: TRUE if @name should be overwritten if already set, else
+ *  FALSE.
+ *
+ * Set specified variable in job environment.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_environment_set (const char *var, int replace)
+{
+	nih_assert (var);
+	nih_assert (job_environ);
+
+	if (! environ_add (&job_environ, NULL, NULL, replace, var))
+		return -1;
+
+	/* Update all running jobs */
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (! environ_add (&job->env, job, NULL, replace, var))
+				return -1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_environment_unset:
+ *
+ * @var: name of environment variable to unset.
+ *
+ * Remove specified variable from job environment array.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+job_class_environment_unset (const char *name)
+{
+	nih_assert (name);
+	nih_assert (job_environ);
+
+	if (! environ_remove (&job_environ, NULL, NULL, name))
+		return -1;
+
+	/* Update all running jobs */
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if ( ! environ_remove (&job->env, job, NULL, name))
+				return -1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * job_class_environment_get_all:
+ *
+ * @parent: parent for new environment array.
+ *
+ * Obtain a copy of the entire environment a job will be provided with.
+ *
+ * Returns: Newly-allocated copy of the job environment array,
+ * or NULL on error.
+ **/
+char **
+job_class_environment_get_all (const void *parent)
+{
+	nih_assert (job_environ);
+
+	return nih_str_array_copy (parent, NULL, job_environ);
+}
+
+/**
+ * job_class_environment_get:
+ *
+ * @name: name of variable to query.
+ *
+ * Determine value of variable @name in job environment.
+ *
+ * XXX: The returned value must not be freed.
+ *
+ * Returns: pointer to static storage value of @name, or NULL if @name
+ * does not exist in job environment.
+ **/
+const char *
+job_class_environment_get (const char *name)
+{
+	nih_assert (name);
+	nih_assert (job_environ);
+
+	return environ_get (job_environ, name);
+}
 
 /**
  * job_class_new:
@@ -140,40 +289,17 @@ job_class_new (const void *parent,
 		goto error;
 
 	class->session = session;
-	if (class->session
-	    && class->session->chroot
-	    && class->session->user) {
-		nih_local char *uid = NULL;
 
-		uid = nih_sprintf (NULL, "%d", class->session->user);
-		if (! uid)
-			goto error;
-
-		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-					     session->chroot, uid,
-					     class->name, NULL);
-
-	} else if (class->session
-		   && class->session->chroot) {
+	if (class->session && class->session->chroot) {
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 					     session->chroot,
 					     class->name, NULL);
-
-	} else if (class->session
-		   && class->session->user) {
-		nih_local char *uid = NULL;
-
-		uid = nih_sprintf (NULL, "%d", class->session->user);
-		if (! uid)
-			goto error;
-
-		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
-					     uid, class->name, NULL);
 
 	} else {
 		class->path = nih_dbus_path (class, DBUS_PATH_UPSTART, "jobs",
 					     class->name, NULL);
 	}
+
 	if (! class->path)
 		goto error;
 
@@ -219,7 +345,7 @@ job_class_new (const void *parent,
 	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
 	class->umask = JOB_DEFAULT_UMASK;
-	class->nice = JOB_DEFAULT_NICE;
+	class->nice = JOB_NICE_INVALID;
 	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
 	for (i = 0; i < RLIMIT_NLIMITS; i++)
@@ -509,10 +635,10 @@ job_class_environment (const void *parent,
 		       JobClass   *class,
 		       size_t     *len)
 {
-	char * const   builtin[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
-	char         **env;
+	char  **env;
 
 	nih_assert (class != NULL);
+	nih_assert (job_environ);
 
 	env = nih_str_array_new (parent);
 	if (! env)
@@ -520,10 +646,10 @@ job_class_environment (const void *parent,
 	if (len)
 		*len = 0;
 
-	/* Copy the builtin set of environment variables, usually these just
+	/* Copy the set of environment variables, usually these just
 	 * pick up the values from init's own environment.
 	 */
-	if (! environ_append (&env, parent, len, TRUE, builtin))
+	if (! environ_append (&env, parent, len, TRUE, job_environ))
 		goto error;
 
 	/* Copy the set of environment variables from the job configuration,
@@ -1593,12 +1719,12 @@ job_class_serialise (const JobClass *class)
 	if (! json)
 		return NULL;
 	
-	/* XXX: user and chroot jobs are not currently supported
+	/* XXX: chroot jobs are not currently supported
 	 * due to ConfSources not currently being serialised.
 	 */
 	if (class->session) {
-		nih_info ("WARNING: serialisation of user jobs and "
-			"chroot sessions not currently supported");
+		nih_info ("WARNING: serialisation of chroot "
+				"sessions not currently supported");
 		goto error;
 	}
 
@@ -1826,12 +1952,12 @@ job_class_deserialise (json_object *json)
 
 	session = session_from_index (session_index);
 
-	/* XXX: user and chroot jobs are not currently supported
+	/* XXX: chroot jobs are not currently supported
 	 * due to ConfSources not currently being serialised.
 	 */
 	if (session) {
-		nih_info ("WARNING: deserialisation of user jobs and "
-			"chroot sessions not currently supported");
+		nih_info ("WARNING: deserialisation of chroot "
+				"sessions not currently supported");
 		goto error;
 	}
 
@@ -2216,4 +2342,61 @@ job_class_prepare_reexec (void)
 
 error:
 	nih_warn (_("unable to clear CLOEXEC bit on log fd"));
+}
+
+/**
+ * job_class_find:
+ *
+ * @session: session,
+ * @name: name of JobClass.
+ *
+ * Lookup a JobClass by session and name.
+ *
+ * Returns: JobClass associated with @session, or NULL if not found.
+ */
+JobClass *
+job_class_find (const Session *session,
+		const char *name)
+{
+	JobClass *class = NULL;
+
+	nih_assert (name);
+	nih_assert (job_classes);
+
+	do {
+		class = (JobClass *)nih_hash_search (job_classes,
+				name, class ? &class->entry : NULL);
+	} while (class && class->session != session);
+
+	return class;
+}
+
+/**
+ * job_class_max_kill_timeout:
+ *
+ * Determine maximum kill timeout for all running jobs.
+ *
+ * Returns: Maximum kill timeout (seconds).
+ **/
+time_t
+job_class_max_kill_timeout (void)
+{
+	time_t kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+
+			if (job->class->kill_timeout > kill_timeout) {
+				kill_timeout = job->class->kill_timeout;
+				break;
+			}
+		}
+	}
+
+	return kill_timeout;
 }

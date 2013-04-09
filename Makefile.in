@@ -331,7 +331,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = intl dbus init util extra conf doc contrib po scripts
-EXTRA_DIST = HACKING TESTING.sessions
+EXTRA_DIST = HACKING
 ACLOCAL_AMFLAGS = --install -I m4
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive

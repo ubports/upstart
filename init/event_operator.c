@@ -634,7 +634,7 @@ event_operator_fds (EventOperator  *root,
  * @parent: parent object for blocked structures,
  * @list: list to add events to.
  *
- * Collects events from the portion of the EventOperator tree rooted at @oper
+ * Collects events from the portion of the EventOperator tree rooted at @root
  * that are TRUE, ignoring the rest.
  *
  * Each event is blocked and a Blocked structure will be appended to @list

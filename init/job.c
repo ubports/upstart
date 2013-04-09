@@ -86,11 +86,11 @@ job_trace_state_str_to_enum (const char *state)
 
 static json_object *
 job_serialise_kill_timer (NihTimer *timer)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 static NihTimer *
 job_deserialise_kill_timer (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 /**
  * job_new:
@@ -1701,7 +1701,7 @@ error:
 /**
  * job_serialise_all:
  *
- * Convert existing Session objects to JSON representation.
+ * Convert existing Job objects to JSON representation.
  *
  * Returns: JSON object containing array of Job objects, or NULL on error.
  **/
@@ -2209,5 +2209,45 @@ job_deserialise_kill_timer (json_object *json)
 
 error:
 	nih_free (timer);
+	return NULL;
+}
+
+/**
+ * job_find:
+ *
+ * @session: session of job class,
+ * @job_class: name of job class,
+ * @job_name: name of job instance.
+ *
+ * Lookup job based on parent class name and
+ * job instance name.
+ *
+ * Returns: existing Job on success, or NULL if job class or
+ * job are not found in @session.
+ **/
+Job *
+job_find (const Session  *session,
+	  JobClass       *class,
+	  char           *job_class,
+	  const char     *job_name)
+{
+	Job       *job;
+
+	nih_assert (class || job_class);
+	nih_assert (job_classes);
+
+	if (! class)
+		class = job_class_find (session, job_class);
+
+	if (! class)
+		goto error;
+
+	job = (Job *)nih_hash_lookup (class->instances, job_name);
+	if (! job)
+		goto error;
+
+	return job;
+
+error:
 	return NULL;
 }

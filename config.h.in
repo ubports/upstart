@@ -195,6 +195,9 @@
 /* Define to 1 if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H
 
+/* Define to 1 if you have the <sys/prctl.h> header file. */
+#undef HAVE_SYS_PRCTL_H
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
@@ -213,8 +216,8 @@
 /* Define to 1 if the system has the type `unsigned long long int'. */
 #undef HAVE_UNSIGNED_LONG_LONG_INT
 
-/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
-#undef HAVE_VALGRIND_VALGRIND_H
+/* Define to 1 if you have the <valgrind/valgrind.h,> header file. */
+#undef HAVE_VALGRIND_VALGRIND_H_
 
 /* Define to 1 or 0, depending whether the compiler supports simple visibility
    declarations. */

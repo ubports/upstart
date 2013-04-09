@@ -67,7 +67,7 @@ static EventOperator *parse_on          (JobClass *class,
 					 NihConfigStanza *stanza,
 					 const char *file, size_t len,
 					 size_t *pos, size_t *lineno)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 static int            parse_on_operator (JobClass *class,
 					 NihConfigStanza *stanza,
 					 const char *file, size_t len,

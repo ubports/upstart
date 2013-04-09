@@ -90,7 +90,7 @@ am__EXEEXT_1 = test_initctl$(EXEEXT) test_utmp$(EXEEXT) \
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man7dir)" \
 	"$(DESTDIR)$(man8dir)"
 PROGRAMS = $(sbin_PROGRAMS)
-am_initctl_OBJECTS = initctl.$(OBJEXT)
+am_initctl_OBJECTS = initctl.$(OBJEXT) xdg.$(OBJEXT)
 am__objects_1 = com.ubuntu.Upstart.$(OBJEXT)
 am__objects_2 = com.ubuntu.Upstart.Job.$(OBJEXT)
 am__objects_3 = com.ubuntu.Upstart.Instance.$(OBJEXT)
@@ -120,7 +120,7 @@ telinit_OBJECTS = $(am_telinit_OBJECTS) $(nodist_telinit_OBJECTS)
 telinit_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_test_initctl_OBJECTS = test_initctl-test_initctl.$(OBJEXT) \
-	test_initctl-initctl.$(OBJEXT)
+	test_initctl-initctl.$(OBJEXT) test_initctl-xdg.$(OBJEXT)
 test_initctl_OBJECTS = $(am_test_initctl_OBJECTS)
 test_initctl_DEPENDENCIES = com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
@@ -421,12 +421,13 @@ AM_CFLAGS = \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS)
 
-AM_CPPFLAGS = \
-	-DLOCALEDIR="\"$(localedir)\"" \
-	-DSBINDIR="\"$(sbindir)\"" \
-	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
-	-I$(top_srcdir)/intl
-
+AM_CPPFLAGS = -DLOCALEDIR="\"$(localedir)\"" -DINITCTL_BUILD \
+	-DSBINDIR="\"$(sbindir)\"" -I$(top_builddir) -I$(top_srcdir) \
+	-iquote$(builddir) -iquote$(srcdir) -I$(top_srcdir)/intl \
+	-DUPSTART_BINARY="\"$(UPSTART_BINARY)\"" \
+	-DINITCTL_BINARY="\"$(INITCTL_BINARY)\""
+INITCTL_BINARY = $(abs_builddir)/initctl
+UPSTART_BINARY = $(abs_builddir)/../init/init
 dist_man_MANS = \
 	man/initctl.8 \
 	man/reboot.8 \
@@ -436,7 +437,8 @@ dist_man_MANS = \
 	man/runlevel.7
 
 initctl_SOURCES = \
-	initctl.c initctl.h
+	initctl.c initctl.h \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
@@ -529,7 +531,11 @@ CLEANFILES = \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 EXTRA_DIST = util.supp
-test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_SOURCES = \
+	tests/test_initctl.c \
+	initctl.c \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
+
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
 test_initctl_LDADD = \
 	com.ubuntu.Upstart.o \
@@ -699,11 +705,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/telinit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_initctl-initctl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_initctl-test_initctl.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_initctl-xdg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sysv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_telinit-telinit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_telinit-test_telinit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_utmp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xdg.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -725,6 +733,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+xdg.o: $(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT xdg.o -MD -MP -MF $(DEPDIR)/xdg.Tpo -c -o xdg.o `test -f '$(top_srcdir)/init/xdg.c' || echo '$(srcdir)/'`$(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/xdg.Tpo $(DEPDIR)/xdg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/init/xdg.c' object='xdg.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o xdg.o `test -f '$(top_srcdir)/init/xdg.c' || echo '$(srcdir)/'`$(top_srcdir)/init/xdg.c
+
+xdg.obj: $(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT xdg.obj -MD -MP -MF $(DEPDIR)/xdg.Tpo -c -o xdg.obj `if test -f '$(top_srcdir)/init/xdg.c'; then $(CYGPATH_W) '$(top_srcdir)/init/xdg.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/init/xdg.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/xdg.Tpo $(DEPDIR)/xdg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/init/xdg.c' object='xdg.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o xdg.obj `if test -f '$(top_srcdir)/init/xdg.c'; then $(CYGPATH_W) '$(top_srcdir)/init/xdg.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/init/xdg.c'; fi`
 
 test_initctl-test_initctl.o: tests/test_initctl.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-test_initctl.o -MD -MP -MF $(DEPDIR)/test_initctl-test_initctl.Tpo -c -o test_initctl-test_initctl.o `test -f 'tests/test_initctl.c' || echo '$(srcdir)/'`tests/test_initctl.c
@@ -753,6 +775,20 @@ test_initctl-initctl.obj: initctl.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='initctl.c' object='test_initctl-initctl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-initctl.obj `if test -f 'initctl.c'; then $(CYGPATH_W) 'initctl.c'; else $(CYGPATH_W) '$(srcdir)/initctl.c'; fi`
+
+test_initctl-xdg.o: $(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-xdg.o -MD -MP -MF $(DEPDIR)/test_initctl-xdg.Tpo -c -o test_initctl-xdg.o `test -f '$(top_srcdir)/init/xdg.c' || echo '$(srcdir)/'`$(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_initctl-xdg.Tpo $(DEPDIR)/test_initctl-xdg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/init/xdg.c' object='test_initctl-xdg.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-xdg.o `test -f '$(top_srcdir)/init/xdg.c' || echo '$(srcdir)/'`$(top_srcdir)/init/xdg.c
+
+test_initctl-xdg.obj: $(top_srcdir)/init/xdg.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -MT test_initctl-xdg.obj -MD -MP -MF $(DEPDIR)/test_initctl-xdg.Tpo -c -o test_initctl-xdg.obj `if test -f '$(top_srcdir)/init/xdg.c'; then $(CYGPATH_W) '$(top_srcdir)/init/xdg.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/init/xdg.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_initctl-xdg.Tpo $(DEPDIR)/test_initctl-xdg.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/init/xdg.c' object='test_initctl-xdg.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_initctl_CFLAGS) $(CFLAGS) -c -o test_initctl-xdg.obj `if test -f '$(top_srcdir)/init/xdg.c'; then $(CYGPATH_W) '$(top_srcdir)/init/xdg.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/init/xdg.c'; fi`
 
 test_sysv.o: tests/test_sysv.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_sysv.o -MD -MP -MF $(DEPDIR)/test_sysv.Tpo -c -o test_sysv.o `test -f 'tests/test_sysv.c' || echo '$(srcdir)/'`tests/test_sysv.c

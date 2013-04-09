@@ -31,7 +31,8 @@ dist_man_MANS = \
 	man/keyboard-request.7 \
 	man/power-status-changed.7 \
 	man/upstart.7 \
-	man/inittab.5
+	man/inittab.5 \
+	man/session-end.7
 
 
 sbin_PROGRAMS = init
@@ -56,6 +57,8 @@ init_SOURCES = \
 	parse_conf.c parse_conf.h \
 	conf.c conf.h \
 	control.c control.h \
+	xdg.c xdg.h \
+	quiesce.c quiesce.h \
 	errors.h
 nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
@@ -134,7 +137,6 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.6.json
 
 EXTRA_DIST = init.supp $(TEST_DATA_FILES)
-	
 
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h
@@ -154,6 +156,8 @@ TESTS = \
 	test_parse_job \
 	test_parse_conf \
 	test_conf \
+	test_conf_static \
+	test_xdg \
 	test_control
 
 check_PROGRAMS = $(TESTS)
@@ -174,173 +178,204 @@ test_process_SOURCES = tests/test_process.c $(test_util_SOURCES)
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_job_class_SOURCES = tests/test_job_class.c
 test_job_class_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_job_process_SOURCES = tests/test_job_process.c $(test_util_SOURCES)
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_log_SOURCES = tests/test_log.c $(test_util_SOURCES)
 test_log_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_state_SOURCES = tests/test_state.c $(test_util_SOURCES)
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
-	-lutil
+	-lrt -lutil
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_event_operator_SOURCES = tests/test_event_operator.c
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_blocked_SOURCES = tests/test_blocked.c
 test_blocked_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES)
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
+
+test_conf_static_SOURCES = tests/test_conf_static.c
+test_conf_static_LDADD = \
+	system.o environ.o process.o \
+	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(JSON_LIBS) \
+	-lrt
+
+test_xdg_SOURCES = tests/test_xdg.c
+test_xdg_LDADD = \
+	xdg.o \
+	environ.o \
+	$(NIH_LIBS) \
+	-lrt
 
 test_control_SOURCES = tests/test_control.c
 test_control_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
-	parse_job.o parse_conf.o conf.o control.o \
-	session.o log.o state.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	$(JSON_LIBS)
+	$(JSON_LIBS) \
+	-lrt
 
 
 install-data-local:
