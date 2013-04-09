@@ -1,0 +1,8 @@
+[Desktop Entry]
+Encoding=UTF-8
+Comment=Upstart Event Monitor
+Name=upstart-monitor
+Exec=upstart-monitor
+Icon=upstart-monitor
+Type=Application
+Categories=GNOME;GTK;Utility;

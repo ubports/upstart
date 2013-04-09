@@ -27,10 +27,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.7\n"
+"Project-Id-Version: upstart 1.8\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-03-04 11:44+0000\n"
-"PO-Revision-Date: 2013-03-04 11:44+0000\n"
+"POT-Creation-Date: 2013-03-22 14:18+0000\n"
+"PO-Revision-Date: 2013-03-22 14:18+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -771,7 +771,7 @@ msgstr "Stateful re-exec supported but stateless re-exec requested"
 msgid "Failed to read serialisation data"
 msgstr "Failed to read serialisation data"
 
-#: init/main.c:511
+#: init/main.c:511 init/state.c:1916
 msgid "reverting to stateless re-exec"
 msgstr "reverting to stateless re-exec"
 
@@ -821,6 +821,54 @@ msgstr "invalid console type specified"
 #: init/process.c:80
 msgid "main"
 msgstr "main"
+
+#: init/quiesce.c:102
+msgid "logout"
+msgstr "logout"
+
+#: init/quiesce.c:102
+msgid "shutdown"
+msgstr "shutdown"
+
+#: init/quiesce.c:104
+#, c-format
+msgid "Quiescing due to %s request"
+msgstr "Quiescing due to %s request"
+
+#: init/state.c:405
+msgid "Detected invalid serialisation data"
+msgstr "Detected invalid serialisation data"
+
+#: init/state.c:1581
+msgid "failed to demarshal D-Bus message"
+msgstr "failed to demarshal D-Bus message"
+
+#: init/state.c:1876
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr "Failed to re-execute %s: %s"
+
+#: init/state.c:1915
+msgid "Failed to generate serialisation data"
+msgstr "Failed to generate serialisation data"
+
+#: init/state.c:1923
+msgid "Performing stateful re-exec"
+msgstr "Performing stateful re-exec"
+
+#: init/state.c:1963
+#, c-format
+msgid "Passing state from PID %d to parent"
+msgstr "Passing state from PID %d to parent"
+
+#: init/state.c:1972
+#, c-format
+msgid "Failed to release D-Bus name: %s"
+msgstr "Failed to release D-Bus name: %s"
+
+#: init/state.c:1981
+msgid "Failed to write serialisation data"
+msgstr "Failed to write serialisation data"
 
 #: init/system.c:236
 msgid "Unable to create device"
@@ -1578,3 +1626,91 @@ msgstr "Could not send socket event"
 #: extra/upstart-socket-bridge.c:642
 msgid "Error emitting socket event"
 msgstr "Error emitting socket event"
+
+#: scripts/upstart-monitor.py:64
+msgid "WARNING"
+msgstr "WARNING"
+
+#: scripts/upstart-monitor.py:64
+msgid "GUI modules not available - falling back to CLI"
+msgstr "GUI modules not available - falling back to CLI"
+
+#: scripts/upstart-monitor.py:286
+msgid "Version"
+msgstr "Version"
+
+#: scripts/upstart-monitor.py:333
+msgid "Error saving file"
+msgstr "Error saving file"
+
+#: scripts/upstart-monitor.py:350
+msgid "No events to save"
+msgstr "No events to save"
+
+#: scripts/upstart-monitor.py:358
+msgid "Save File"
+msgstr "Save File"
+
+#: scripts/upstart-monitor.py:484
+msgid "Clear events"
+msgstr "Clear events"
+
+#: scripts/upstart-monitor.py:486
+msgid "Save events to default file"
+msgstr "Save events to default file"
+
+#: scripts/upstart-monitor.py:488
+msgid "Save events to specified file"
+msgstr "Save events to specified file"
+
+#: scripts/upstart-monitor.py:490
+msgid "Exit application"
+msgstr "Exit application"
+
+#: scripts/upstart-monitor.py:494
+msgid "Application details"
+msgstr "Application details"
+
+#: scripts/upstart-monitor.py:499
+msgid "Copy"
+msgstr "Copy"
+
+#: scripts/upstart-monitor.py:556
+msgid "Index"
+msgstr "Index"
+
+#: scripts/upstart-monitor.py:560
+msgid "Time"
+msgstr "Time"
+
+#: scripts/upstart-monitor.py:564
+msgid "Event and environment"
+msgstr "Event and environment"
+
+#: scripts/upstart-monitor.py:589 scripts/upstart-monitor.py:671
+msgid "Connected to"
+msgstr "Connected to"
+
+#: scripts/upstart-monitor.py:620
+msgid "Upstart Event Monitor"
+msgstr "Upstart Event Monitor"
+
+#: scripts/upstart-monitor.py:624
+msgid "run in command-line mode"
+msgstr "run in command-line mode"
+
+#: scripts/upstart-monitor.py:627
+msgid "field separator to use for command-line output"
+msgstr "field separator to use for command-line output"
+
+#: scripts/upstart-monitor.py:631
+msgid "connect to Upstart via specified D-Bus route"
+msgstr "connect to Upstart via specified D-Bus route"
+
+#: scripts/upstart-monitor.py:669
+msgid "console mode"
+msgstr "console mode"
+
+#: scripts/upstart-monitor.py:673
+msgid "Columns: time, event and environment"
+msgstr "Columns: time, event and environment"
