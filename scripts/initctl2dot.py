@@ -57,27 +57,11 @@ from argparse import ArgumentParser
 options = None
 jobs = {}
 events = {}
+cmd = "initctl --system show-config -e"
 script_name = os.path.basename(sys.argv[0])
-
-cmd = None
-use_system = True
-upstart_session = None
 
 # list of jobs to restict output to
 restrictions_list = []
-
-sanitise_table = str.maketrans({
-    '-': '_',
-    '$': 'dollar_',
-    '[': 'lbracker',
-    ']': 'rbracker',
-    '!': 'bang',
-    ':': 'colon',
-    '*': 'star',
-    '?': 'question',
-    '.': 'dot',
-    '/': 'slash',
-})
 
 default_color_emits = 'green'
 default_color_start_on = 'blue'
@@ -102,20 +86,10 @@ def header(ofh):
 
 
 def footer(ofh):
-    global upstart_session
-    global use_system
-
-    details = ''
-
-    if use_system:
-        details += "\\nfor the system\\n"
-    else:
-        details += "\\nfor session '%s'\\n" % upstart_session
-
     if options.restrictions:
-        details += "(subset, "
+        details = "(subset, "
     else:
-        details += "("
+        details = "("
 
     if options.infile:
         details += "from file data)."
@@ -135,12 +109,13 @@ def footer(ofh):
                             script_name=script_name, details=details))
 
 
-# Map punctuation to symbols palatable to graphviz
-# (which amongst other things dislikes dashes in node names)
+# Map dash to underscore since graphviz node names cannot
+# contain dashes. Also remove dollars and colons
 def sanitise(s):
-    global sanitise_table
-
-    return s.translate(sanitise_table)
+    return s.replace('-', '_').replace('$', 'dollar_') \
+            .replace('[', 'lbracket').replace(']', 'rbracket') \
+            .replace('!', 'bang').replace(':', 'colon').replace('*', 'star') \
+            .replace('?', 'question').replace('.', '_')
 
 
 # Convert a dollar in @name to a unique-ish new name, based on @job and
@@ -359,10 +334,6 @@ def show_edges(ofh):
 
 
 def read_data():
-    global cmd
-    global upstart_session
-    global use_system
-
     if options.infile:
         try:
             ifh = open(options.infile, 'r')
@@ -441,9 +412,6 @@ def read_data():
 def main():
     global options
     global restrictions_list
-    global cmd
-    global use_system
-    global upstart_session
 
     description = "Convert initctl(8) output to GraphViz dot(1) format."
     epilog = "See http://www.graphviz.org/doc/info/colors.html " \
@@ -458,8 +426,8 @@ def main():
 
     parser.add_argument("-f", "--infile",
                         dest="infile",
-                        help="File to read output from. If not specified"
-                        ", initctl will be run automatically.")
+                        help="File to read '%s' output from. If not specified"
+                        ", initctl will be run automatically." % cmd)
 
     parser.add_argument("-o", "--outfile",
                         dest="outfile",
@@ -511,18 +479,6 @@ def main():
                         help="Specify color for job boxes (default=%s)." %
                              default_color_job)
 
-    parser.add_argument("--user",
-                        dest="system",
-                        default=None,
-                        action='store_false',
-                        help="Connect to Upstart user session (default if running within a user session).")
-
-    parser.add_argument("--system",
-                        dest="system",
-                        default=None,
-                        action='store_true',
-                        help="Connect to Upstart system session.")
-
     parser.set_defaults(color_emits=default_color_emits,
                         color_start_on=default_color_start_on,
                         color_stop_on=default_color_stop_on,
@@ -547,21 +503,6 @@ def main():
 
     if options.restrictions:
         restrictions_list = options.restrictions.split(",")
-
-    upstart_session = os.environ.get('UPSTART_SESSION', False)
-
-    if options.system == None:
-        if upstart_session:
-            use_system = False
-        else:
-            use_system = True
-    else:
-        use_system = options.system or not upstart_session
-
-    if use_system:
-        cmd = "initctl --system show-config -e"
-    else:
-        cmd = "initctl show-config -e"
 
     read_data()
 

@@ -8047,7 +8047,6 @@ test_handler (void)
 	class->expect = EXPECT_STOP;
 
 	TEST_ALLOC_FAIL {
-		pid_t tmp_pid;
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
 
@@ -8061,10 +8060,7 @@ test_handler (void)
 			exit (0);
 		}
 
-		tmp_pid = waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT);
-		if (tmp_pid < 0)
-			printf("waitid failed: %m");
-		assert0 (tmp_pid);
+		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
 
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;

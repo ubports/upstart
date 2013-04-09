@@ -1,5 +1,0 @@
-# Start the user session
-if [ -n "$UPSTART" ]; then
-    STARTUP="init --user"
-    unset UPSTART
-fi

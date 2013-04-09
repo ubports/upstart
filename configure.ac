@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.8], [upstart-devel@lists.ubuntu.com])
+AC_INIT([upstart], [1.7], [upstart-devel@lists.ubuntu.com])
 NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -52,15 +52,6 @@ PKG_CHECK_MODULES([JSON], [json >= 0.10])
 
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
-AC_ARG_ENABLE(selinux,
-	      AS_HELP_STRING([--enable-selinux], [enable SELinux support]),
-	      [], [enable_selinux=no])
-
-if test "x$enable_selinux" = "xyes" ; then
-	PKG_CHECK_MODULES(SELINUX, [libselinux])
-	AC_DEFINE(HAVE_SELINUX, 1, [Define if we have SELinux])
-fi
-
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
@@ -110,6 +101,6 @@ NIH_LINKER_OPTIMISATIONS
 AC_CONFIG_FILES([ Makefile intl/Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
-		  scripts/Makefile scripts/data/Makefile ])
+		  scripts/Makefile ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
