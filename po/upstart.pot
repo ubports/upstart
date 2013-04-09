@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.7\n"
+"Project-Id-Version: upstart 1.8\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-03-04 11:44+0000\n"
+"POT-Creation-Date: 2013-03-22 14:18+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -746,7 +746,7 @@ msgstr ""
 msgid "Failed to read serialisation data"
 msgstr ""
 
-#: init/main.c:511
+#: init/main.c:511 init/state.c:1916
 msgid "reverting to stateless re-exec"
 msgstr ""
 
@@ -795,6 +795,54 @@ msgstr ""
 
 #: init/process.c:80
 msgid "main"
+msgstr ""
+
+#: init/quiesce.c:102
+msgid "logout"
+msgstr ""
+
+#: init/quiesce.c:102
+msgid "shutdown"
+msgstr ""
+
+#: init/quiesce.c:104
+#, c-format
+msgid "Quiescing due to %s request"
+msgstr ""
+
+#: init/state.c:405
+msgid "Detected invalid serialisation data"
+msgstr ""
+
+#: init/state.c:1581
+msgid "failed to demarshal D-Bus message"
+msgstr ""
+
+#: init/state.c:1876
+#, c-format
+msgid "Failed to re-execute %s: %s"
+msgstr ""
+
+#: init/state.c:1915
+msgid "Failed to generate serialisation data"
+msgstr ""
+
+#: init/state.c:1923
+msgid "Performing stateful re-exec"
+msgstr ""
+
+#: init/state.c:1963
+#, c-format
+msgid "Passing state from PID %d to parent"
+msgstr ""
+
+#: init/state.c:1972
+#, c-format
+msgid "Failed to release D-Bus name: %s"
+msgstr ""
+
+#: init/state.c:1981
+msgid "Failed to write serialisation data"
 msgstr ""
 
 #: init/system.c:236
@@ -1465,4 +1513,92 @@ msgstr ""
 
 #: extra/upstart-socket-bridge.c:642
 msgid "Error emitting socket event"
+msgstr ""
+
+#: scripts/upstart-monitor.py:64
+msgid "WARNING"
+msgstr ""
+
+#: scripts/upstart-monitor.py:64
+msgid "GUI modules not available - falling back to CLI"
+msgstr ""
+
+#: scripts/upstart-monitor.py:286
+msgid "Version"
+msgstr ""
+
+#: scripts/upstart-monitor.py:333
+msgid "Error saving file"
+msgstr ""
+
+#: scripts/upstart-monitor.py:350
+msgid "No events to save"
+msgstr ""
+
+#: scripts/upstart-monitor.py:358
+msgid "Save File"
+msgstr ""
+
+#: scripts/upstart-monitor.py:484
+msgid "Clear events"
+msgstr ""
+
+#: scripts/upstart-monitor.py:486
+msgid "Save events to default file"
+msgstr ""
+
+#: scripts/upstart-monitor.py:488
+msgid "Save events to specified file"
+msgstr ""
+
+#: scripts/upstart-monitor.py:490
+msgid "Exit application"
+msgstr ""
+
+#: scripts/upstart-monitor.py:494
+msgid "Application details"
+msgstr ""
+
+#: scripts/upstart-monitor.py:499
+msgid "Copy"
+msgstr ""
+
+#: scripts/upstart-monitor.py:556
+msgid "Index"
+msgstr ""
+
+#: scripts/upstart-monitor.py:560
+msgid "Time"
+msgstr ""
+
+#: scripts/upstart-monitor.py:564
+msgid "Event and environment"
+msgstr ""
+
+#: scripts/upstart-monitor.py:589 scripts/upstart-monitor.py:671
+msgid "Connected to"
+msgstr ""
+
+#: scripts/upstart-monitor.py:620
+msgid "Upstart Event Monitor"
+msgstr ""
+
+#: scripts/upstart-monitor.py:624
+msgid "run in command-line mode"
+msgstr ""
+
+#: scripts/upstart-monitor.py:627
+msgid "field separator to use for command-line output"
+msgstr ""
+
+#: scripts/upstart-monitor.py:631
+msgid "connect to Upstart via specified D-Bus route"
+msgstr ""
+
+#: scripts/upstart-monitor.py:669
+msgid "console mode"
+msgstr ""
+
+#: scripts/upstart-monitor.py:673
+msgid "Columns: time, event and environment"
 msgstr ""

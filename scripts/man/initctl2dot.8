@@ -1,4 +1,4 @@
-.TH initctl2dot 8 2011-03-07 "Upstart"
+.TH initctl2dot 8 2013-03-22 "Upstart"
 .\"
 .SH NAME
 initctl2dot \- manual page for initctl2dot
@@ -17,56 +17,64 @@ format.
 With no options,
 .BR initctl (8)
 will be invoked automatically and the output written to file
-\fIupstart.dot\fP.
+\fIupstart.dot\fP. If run from within an Upstart user session, unless
+.B \-\-system
+is specified, the data generated will be for the user session.
 .\"
 .SH OPTIONS
 .TP
-.B -h
-Display usage statement.
-.TP
-\fB-f\fP \fIINFILE\fP , \fP--infile\fP=\fIINFILE\fP
+\fB\-f\fP \fIINFILE\fP , \fP\-\-infile\fP=\fIINFILE\fP
 File to read
 .BR initctl (8)
 output from ("initctl show-config -e"). If not specified,
 .BR initctl (8)
 will be run automatically.
 .TP
-\fB-w\fP \fIOUTFILE\fP , \fP--outfile\fP=\fIOUTFILE\fP
-File to write output to.
+.B \-h
+Display usage statement.
 .TP
-\fB-r\fP \fIRESTRICTIONS\fP , \fP--restrict-to-jobs\fP=\fIRESTRICTIONS\fP
+\fB\-r\fP \fIRESTRICTIONS\fP , \fP\-\-restrict-to-jobs\fP=\fIRESTRICTIONS\fP
 Limit display of
 .B start on
 and
 .B stop on
 conditions to comma-separated list of jobs.
 .TP
-\fB--color-emits\fP=\fICOLOR_EMITS\fP
+\fB\-w\fP \fIOUTFILE\fP , \fP\-\-outfile\fP=\fIOUTFILE\fP
+File to write output to.
+.TP
+\fB\-\-color-emits\fP=\fICOLOR_EMITS\fP
 Specify color for 'emits' lines.
 .TP
-\fB--color-start-on\fP=\fICOLOR_START_ON\fP
+\fB\-\-color-start-on\fP=\fICOLOR_START_ON\fP
 Specify color for 'start on' lines.
 .TP
-\fB--color-stop-on\fP=\fICOLOR_STOP_ON\fP
+\fB\-\-color-stop-on\fP=\fICOLOR_STOP_ON\fP
 Specify color for 'stop on' lines.
 .TP
-\fB--color-event\fP=\fICOLOR_EVENT\fP
+\fB\-\-color-event\fP=\fICOLOR_EVENT\fP
 Specify color for event boxes.
 .TP
-\fB--color-text\fP=\fICOLOR_TEXT\fP
+\fB\-\-color-text\fP=\fICOLOR_TEXT\fP
 Specify color for summary text.
 .TP
-\fB--color-bg\fP=\fICOLOR_BG\fP
+\fB\-\-color-bg\fP=\fICOLOR_BG\fP
 Specify background color for diagram.
 .TP
-\fB--color-event-text\fP=\fICOLOR_EVENT_TEXT\fP
+\fB\-\-color-event-text\fP=\fICOLOR_EVENT_TEXT\fP
 Specify color for text in event boxes.
 .TP
-\fB--color-job-text\fP=\fICOLOR_JOB_TEXT\fP
+\fB\-\-color-job-text\fP=\fICOLOR_JOB_TEXT\fP
 Specify color for text in job boxes.
 .TP
-\fB--color-job\fP=\fICOLOR_JOB\fP
+\fB\-\-color-job\fP=\fICOLOR_JOB\fP
 Specify color for job boxes.
+.TP
+\fB\-\-system\fP
+Connect to the Upstart system session.
+.TP
+\fB\-\-user\fP
+Connect to the Upstart user session.
 .\"
 .SH AUTHOR
 Written by James Hunt
