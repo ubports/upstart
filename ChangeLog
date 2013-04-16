@@ -1,3 +1,7 @@
+2013-04-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Update based on review comments.
+
 2013-04-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/python-upstart.py:

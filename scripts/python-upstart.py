@@ -4,7 +4,7 @@
 #
 # - Override files are not currently supported.
 #
-#   Note that you can make use of Upstart.get_test_dir() to determine
+#   Note that you can make use of Upstart.test_dir to determine
 #   where to create the override but be aware that after creating a
 #   '.override' file, you must wait until Upstart has re-parsed the job.
 #
@@ -16,7 +16,6 @@ Upstart test module.
 
 import os
 import sys
-import string
 import logging
 import pwd
 import tempfile
@@ -26,16 +25,17 @@ import shutil
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-import time
 import unittest
+import time
+from datetime import datetime, timedelta
 from gi.repository import GLib
 
 
-VERSION  = '0.1'
-NAME     = 'TestUpstart'
+VERSION = '0.1'
+NAME = 'TestUpstart'
 
-UPSTART     = '/sbin/init'
-INITCTL     = '/sbin/initctl'
+UPSTART = '/sbin/init'
+INITCTL = '/sbin/initctl'
 
 UPSTART_SESSION_ENV = 'UPSTART_SESSION'
 
@@ -43,6 +43,9 @@ INIT_SOCKET = 'unix:abstract=/com/ubuntu/upstart'
 
 SYSTEM_JOB_DIR = '/etc/init'
 SYSTEM_LOG_DIR = '/var/log/upstart'
+
+# used to log session init output
+DEFAULT_LOGFILE = '/tmp/upstart.log'
 
 SESSION_DIR_FMT = '/run/user/%s/upstart/sessions'
 
@@ -71,6 +74,7 @@ FILE_WAIT_SECS = 5
 LOGFILE_WAIT_SECS = 5
 
 #---------------------------------------------------------------------
+
 
 def dbus_encode(str):
     """
@@ -102,11 +106,13 @@ def dbus_encode(str):
     # convert back into a string
     return ''.join(hex)
 
+
 def secs_to_milli(secs):
     """
     Convert @secs seconds to milli-seconds.
     """
     return secs * 1000
+
 
 def wait_for_file(path, timeout=FILE_WAIT_SECS):
     """
@@ -117,11 +123,23 @@ def wait_for_file(path, timeout=FILE_WAIT_SECS):
     Returns: True if file was created within @timeout seconds, else
      False.
     """
-    for i in range(timeout):
+    until = datetime.now() + timedelta(seconds=timeout)
+
+    while datetime.now() < until:
         if os.path.exists(path):
             return True
-        time.sleep(1)
+        time.sleep(0.1)
+
     return False
+
+
+class InotifyHandler(pyinotify.ProcessEvent):
+
+    # We don't actually do anything here since all we care
+    # about is whether we timed-out.
+    def process_IN_CREATE(self, event):
+        pass
+
 
 class UpstartException(Exception):
     """
@@ -130,7 +148,7 @@ class UpstartException(Exception):
     pass
 
 
-class Upstart():
+class Upstart:
     """
     Upstart Class.
 
@@ -172,7 +190,8 @@ class Upstart():
 
         # Create appropriate D-Bus connection
         self.connection = dbus.connection.Connection(self.socket)
-        self.remote_object = self.connection.get_object(object_path=OBJECT_PATH)
+        self.remote_object = self.connection.get_object(
+            object_path=OBJECT_PATH)
         self.proxy = dbus.Interface(self.remote_object, INTERFACE_NAME)
 
     def polling_connect(self, timeout=REEXEC_WAIT_SECS):
@@ -188,34 +207,32 @@ class Upstart():
         for i in range(timeout):
             try:
                 self.connect()
-            except:
+            except dbus.exceptions.DBusException:
                 time.sleep(1)
             else:
                 return
 
-        raise UpstartException('Failed to reconnect to Upstart after %d seconds' % timeout)
+        raise UpstartException(
+            'Failed to reconnect to Upstart after %d seconds' % timeout)
 
-
-    def __timeout_cb(self):
+    def _timeout_cb(self):
         """
         Handle timeout if job not seen in a reasonable amount of time.
         """
         self.mainloop.quit()
 
-    def __idle_create_job_cb(self, *args):
+    def _idle_create_job_cb(self, name, body, *args):
         """
         Handler to create a Job Configuration File as soon as
         the main loop starts.
 
         """
-        name = args[0]
-        body = args[1]
         self.new_job = Job(self, self.test_dir, self.test_dir_name, name, body)
 
         # deregister
         return False
 
-    def __job_added_cb(self, path):
+    def _job_added_cb(self, path):
         """
         Handle the 'JobAdded(Object path)' signal.
         """
@@ -226,8 +243,9 @@ class Upstart():
 
         self.job_seen = True
 
+        assert self.timeout_source, 'Expected timeout source to be defined'
+
         # remove timeout handler
-        assert(self.timeout_source)
         GLib.source_remove(self.timeout_source)
 
         self.mainloop.quit()
@@ -243,17 +261,17 @@ class Upstart():
         self.test_dir = tempfile.mkdtemp(prefix=NAME + '-', dir=self.conf_dir)
         self.test_dir_name = self.test_dir.replace("%s/" % self.conf_dir, '')
 
-    def get_test_dir(self):
-        return self.test_dir
-
     def create_dirs(self):
         """
         Create the directories required to store job configuration files
         and log job output.
         """
         for dir in (self.conf_dir, self.test_dir, self.log_dir):
-            if dir and not os.path.exists(dir):
-                os.makedirs(dir)
+            if dir:
+                try:
+                    os.makedirs(dir)
+                except FileExistsError:
+                    pass
 
     def destroy(self):
         """
@@ -262,10 +280,10 @@ class Upstart():
         for job in self.jobs:
             job.destroy()
 
-        if self.test_dir is not None:
-            os.rmdir(self.test_dir)
+        if self.test_dir:
+            shutil.rmtree(self.test_dir)
 
-    def emit(self, event, env=[], wait=True):
+    def emit(self, event, env=None, wait=True):
         """
         @event: Name of event to emit.
         @env: optional environment for event.
@@ -274,6 +292,8 @@ class Upstart():
 
         Emit event @event with optional environment @env.
         """
+        if env is None:
+            env = []
         self.proxy.EmitEvent(event, dbus.Array(env, 's'), wait)
 
     def version(self, raw=False):
@@ -288,17 +308,17 @@ class Upstart():
         """
         properties = dbus.Interface(self.remote_object, FREEDESKTOP_PROPERTIES)
         version_string = properties.Get(INTERFACE_NAME, 'version')
-        if raw == True:
+        if raw:
             return version_string
 
-        return (version_string.split()[2]).strip(')')
+        return version_string.split()[2].strip(')')
 
     def reexec(self):
         """
         Request Upstart re-exec itself.
 
-	Note that after a re-exec, it is necessary to reconnect to
-	Upstart.
+        Note that after a re-exec, it is necessary to reconnect to
+        Upstart.
         """
         raise NotImplementedError('method must be implemented by subclass')
 
@@ -332,7 +352,7 @@ class Upstart():
             - If Upstart fails to parse the job, the timeout handler gets
               called which causes the main loop to exit. job_seen will not
               be set.
-            - If Upstart does parse the file, the __job_added_cb()
+            - If Upstart does parse the file, the _job_added_cb()
               callback gets called as a result of the 'JobAdded' D-Bus
               signal being emitted. This will set job_seen and request
               the main loop exits.
@@ -347,21 +367,26 @@ class Upstart():
         self.new_job = None
 
         # construct the D-Bus path for the new job
-        job_path = "%s/%s" % (self.test_dir_name, name)
-        self.job_object_path = "%s/%s/%s" % \
-            (OBJECT_PATH, 'jobs', dbus_encode(job_path))
+        job_path = '{}/{}'.format(self.test_dir_name, name)
 
-        self.connection.add_signal_receiver(self.__job_added_cb,
-        dbus_interface=INTERFACE_NAME,
-        path=OBJECT_PATH,
-        signal_name='JobAdded')
+        self.job_object_path = '{}/{}/{}'.format(
+            OBJECT_PATH, 'jobs', dbus_encode(job_path)
+        )
 
-        GLib.idle_add(self.__idle_create_job_cb, name, body)
-        self.timeout_source = GLib.timeout_add(secs_to_milli(JOB_WAIT_SECS),
-            self.__timeout_cb)
+        self.connection.add_signal_receiver(
+            self._job_added_cb,
+            dbus_interface=INTERFACE_NAME,
+            path=OBJECT_PATH,
+            signal_name='JobAdded')
+
+        GLib.idle_add(self._idle_create_job_cb, name, body)
+        self.timeout_source = GLib.timeout_add(
+            secs_to_milli(JOB_WAIT_SECS),
+            self._timeout_cb
+        )
         self.mainloop.run()
 
-        if self.job_seen == False:
+        if not self.job_seen:
             return None
 
         # reset
@@ -373,7 +398,7 @@ class Upstart():
         return self.new_job
 
 
-class Job():
+class Job:
     """
     Representation of an Upstart Job.
 
@@ -419,22 +444,24 @@ class Job():
 
         self.properties = None
 
-        self.conffile = self.job_dir + os.sep + self.name + '.conf'
+        self.conffile = os.path.join(self.job_dir, self.name + '.conf')
 
-        fh = open(self.conffile, 'w')
+        if isinstance(body, str):
+            # Assume body cannot be a bytes object.
+            body = body.splitlines()
 
-        if isinstance(body, list):
+        with open(self.conffile, 'w', encoding='utf-8') as fh:
             for line in body:
-                fh.write("%s\n" % line.rstrip())
-        else:
-            fh.write(body)
+                print(line.strip(), file=fh)
+            print(file=fh)
 
-        fh.write("\n")
-        fh.close()
         self.valid = True
 
-        subdir_object_path = dbus_encode("%s/%s" % (self.subdir_name, self.name))
-        self.object_path = "%s/%s/%s" % (OBJECT_PATH, 'jobs', subdir_object_path)
+        subdir_object_path = dbus_encode(
+            "%s/%s" % (self.subdir_name, self.name)
+        )
+        self.object_path = "%s/%s/%s" % \
+            (OBJECT_PATH, 'jobs', subdir_object_path)
 
         self.remote_object = \
             self.upstart.connection.get_object(BUS_NAME, self.object_path)
@@ -449,12 +476,12 @@ class Job():
                 instance.destroy()
 
             os.remove(self.conffile)
-        except:
+        except FileNotFoundError:
             pass
-        finally:
-            self.valid = False
 
-    def start(self, env=[], wait=True):
+        self.valid = False
+
+    def start(self, env=None, wait=True):
         """
         Start the job. For multi-instance jobs (those that specify the
         'instance' stanza), you will need to use the returned
@@ -463,6 +490,8 @@ class Job():
         Returns: JobInstance.
         """
 
+        if env is None:
+            env = []
         instance_path = self.interface.Start(dbus.Array(env, 's'), wait)
         instance_name = instance_path.replace("%s/" % self.object_path, '')
 
@@ -473,7 +502,7 @@ class Job():
         self.instances.append(instance)
         return instance
 
-    def _get_instance(self, name=None):
+    def _get_instance(self, name):
         """
         Retrieve job instance and its properties.
 
@@ -481,9 +510,12 @@ class Job():
 
         """
 
-        object_path = '%s/%s' % (self.object_path, name)
+        assert name, 'Name must not be None'
 
-        remote_object = self.upstart.connection.get_object(BUS_NAME, object_path)
+        object_path = '{}/{}'.format(self.object_path, name)
+
+        remote_object = \
+            self.upstart.connection.get_object(BUS_NAME, object_path)
 
         return dbus.Interface(remote_object, INSTANCE_INTERFACE_NAME)
 
@@ -516,22 +548,8 @@ class Job():
         """
         Returns a list of instance object paths.
         """
-        return ["%s/%s" % (self.object_path, instance) \
-            for instance in self.instance_names]
-
-    def instances(self, name):
-        """
-        Return list of instances.
-        """
-        instance_list = []
-
-        for instance in self.instance_names:
-            remote_object = \
-            self.job.upstart.connection.get_object(BUS_NAME, self.object_path)
-            instance = dbus.Interface(self.remote_object, INSTANCE_INTERFACE_NAME)
-            instance_list.append(instance)
-
-        return instance_list
+        return ["%s/%s" % (self.object_path, instance)
+                for instance in self.instance_names]
 
     def pids(self, name=None):
         """
@@ -545,7 +563,7 @@ class Job():
         the same name on the individual instance objects.
         """
 
-        name = name or '_'
+        name = ('_' if name is None else name)
 
         if len(self.instance_names) > 1:
             raise UpstartException('Cannot handle multiple instances')
@@ -582,7 +600,7 @@ class Job():
         if name not in self.instance_names:
             return False
 
-        return True if len(self.pids(name)) > 0 else False
+        return len(self.pids(name)) > 0
 
     def logfile_name(self, instance_name):
         """
@@ -596,19 +614,20 @@ class Job():
         """
 
         if instance_name != '_':
-            filename = "%s_%s-%s.log" % \
-                (self.subdir_name, self.name, instance_name)
+            filename = '{}_{}-{}.log'.format(
+                self.subdir_name, self.name, instance_name
+            )
         else:
             # Note the underscore that Upstart auto-maps from the subdirectory
             # slash (see init(5)).
-            filename = "%s_%s.log" % (self.subdir_name, self.name)
+            filename = '{}_{}.log'.format(self.subdir_name, self.name)
 
-        logfile = "%s/%s" % (self.upstart.log_dir, filename)
+        logfile = os.path.join(self.upstart.log_dir, filename)
 
         return logfile
 
 
-class LogFile():
+class LogFile:
     """
     Representation of an Upstart job logfile.
     """
@@ -627,10 +646,9 @@ class LogFile():
         """
         try:
             os.remove(self.path)
-        except FileNotFoundError:
-            pass
-        finally:
             self.valid = False
+        except OSError:
+            pass
 
     def exists(self):
         """
@@ -651,13 +669,10 @@ class LogFile():
 
         """
 
-        assert(self.path)
+        assert self.path, 'Path not set'
 
-        lines = []
-
-        with open(self.path) as fh:
-            lines = fh.readlines()
-        return lines
+        with open(self.path, 'r', encoding='utf-8') as fh:
+            return fh.readlines()
 
     def readlines(self, timeout=LOGFILE_WAIT_SECS):
         """
@@ -692,15 +707,18 @@ class LogFile():
         #
         # Hence, altough polling is gross it has the advantage of
         # simplicity and reliability in this instance.
-        for i in range(self.timeout):
-            if self.exists():
+        until = datetime.now() + timedelta(seconds=self.timeout)
+
+        while datetime.now() < until:
+            try:
                 return self._get_lines()
-            time.sleep(1)
+            except FileNotFoundError:
+                time.sleep(0.1)
 
         return None
 
 
-class JobInstance():
+class JobInstance:
     """
     Representation of a running Upstart Job Instance.
     """
@@ -714,9 +732,13 @@ class JobInstance():
         self.job = job
         self.instance_name = instance_name
         self.object_path = object_path
+
         self.remote_object = \
             self.job.upstart.connection.get_object(BUS_NAME, self.object_path)
-        self.instance = dbus.Interface(self.remote_object, INSTANCE_INTERFACE_NAME)
+
+        self.instance = \
+            dbus.Interface(self.remote_object, INSTANCE_INTERFACE_NAME)
+
         self.properties = dbus.Interface(self.instance, FREEDESKTOP_PROPERTIES)
 
         # all jobs are expected to be created in a subdirectory.
@@ -780,9 +802,6 @@ class SystemInit(Upstart):
         self.set_test_dir()
         self.connect()
 
-    def destroy(self):
-        super().destroy()
-
     def reexec(self):
         if not self.proxy:
             raise UpstartException('Not yet connected')
@@ -790,19 +809,13 @@ class SystemInit(Upstart):
         # Use the official system interface
         os.system('telinit u')
 
+
 class SessionInit(Upstart):
     """
     Create a new Upstart Session or join an existing one.
     """
 
     timeout = SESSION_FILE_WAIT_SECS
-
-    class InotifyHandler(pyinotify.ProcessEvent):
-
-        # We don't actually do anything here since all we care
-        # about is whether we timed-out.
-        def process_IN_CREATE(self, event):
-            pass
 
     def _get_sessions(self):
         """
@@ -817,15 +830,11 @@ class SessionInit(Upstart):
 
         args = [INITCTL, 'list-sessions']
 
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-
-        for byte_line in proc.stdout:
-            line = byte_line.decode('utf-8').splitlines()[0]
+        for line in subprocess.check_output(args,
+                        universal_newlines=True).splitlines():
             pid, socket = line.split()
-
             sessions[pid] = socket
 
-        proc.wait()
         return sessions
 
     def __init__(self, join=False, capture=None, extra=None):
@@ -867,10 +876,10 @@ class SessionInit(Upstart):
             #
             # Multiple conf file directories are supported, but we'll
             # stick with the default.
-            config_home = os.environ.get('XDG_CONFIG_HOME', "%s/%s" \
-                % (os.environ.get('HOME'), '.config'))
-            cache_home = os.environ.get('XDG_CACHE_HOME', "%s/%s" \
-                % (os.environ.get('HOME'), '.cache'))
+            config_home = os.environ.get('XDG_CONFIG_HOME', "%s/%s"
+                                         % (os.environ.get('HOME'), '.config'))
+            cache_home = os.environ.get('XDG_CACHE_HOME', "%s/%s"
+                                        % (os.environ.get('HOME'), '.cache'))
 
             self.conf_dir = "%s/%s" % (config_home, 'upstart')
             self.log_dir = "%s/%s" % (cache_home, 'upstart')
@@ -879,26 +888,29 @@ class SessionInit(Upstart):
 
             pid = os.getpid()
 
-            self.conf_dir = tempfile.mkdtemp(prefix="%s-confdir-%d-" % (NAME, pid))
-            self.log_dir = tempfile.mkdtemp(prefix="%s-logdir-%d-" % (NAME, pid))
+            self.conf_dir = \
+                tempfile.mkdtemp(prefix="%s-confdir-%d-" % (NAME, pid))
 
-            args.append(UPSTART)
-            args.append('--user')
-            args.append('--confdir')
-            args.append(self.conf_dir)
-            args.append('--logdir')
-            args.append(self.log_dir)
+            self.log_dir = \
+                tempfile.mkdtemp(prefix="%s-logdir-%d-" % (NAME, pid))
+
+            args.extend([UPSTART, '--user',
+                           '--confdir', self.conf_dir,
+                           '--logdir', self.log_dir])
 
             if extra:
                 args.extend(extra)
 
-            self.logger.debug('Starting Session Init with arguments: %s' % " ".join(args))
+            self.logger.debug(
+                'Starting Session Init with arguments: %s' % " ".join(args)
+            )
 
             watch_manager = pyinotify.WatchManager()
             mask = pyinotify.IN_CREATE
-            notifier = pyinotify.Notifier(watch_manager, SessionInit.InotifyHandler())
+            notifier = \
+                pyinotify.Notifier(watch_manager, InotifyHandler())
             user = pwd.getpwuid(os.geteuid())[0]
-            watch = watch_manager.add_watch(SESSION_DIR_FMT % user, mask)
+            watch_manager.add_watch(SESSION_DIR_FMT % user, mask)
 
             notifier.process_events()
 
@@ -907,13 +919,15 @@ class SessionInit(Upstart):
             else:
                 self.out = subprocess.DEVNULL
 
-            self.proc = subprocess.Popen(args=args, stdout=self.out, stderr=self.out)
+            self.proc = \
+                subprocess.Popen(args=args, stdout=self.out, stderr=self.out)
 
             self.pid = self.proc.pid
 
             self.logger.debug('Session Init running with pid %d' % self.pid)
 
-            if not notifier.check_events(timeout=(secs_to_milli(self.timeout))):
+            millisecs_timeout = secs_to_milli(self.timeout)
+            if not notifier.check_events(timeout=millisecs_timeout):
                 msg = \
                     "Timed-out waiting for session file after %d seconds" \
                     % self.timeout
@@ -932,7 +946,7 @@ class SessionInit(Upstart):
             # started).
             sessions = self._get_sessions()
 
-            if not str(self.pid) in sessions.keys():
+            if not str(self.pid) in sessions:
                 msg = "Session with pid %d not found" % self.pid
                 raise UpstartException(msg)
 
@@ -951,7 +965,9 @@ class SessionInit(Upstart):
         if self.capture:
             self.out.close()
         if not self.join:
-            self.logger.debug('Stopping Session Init running with pid %d' % self.pid)
+            self.logger.debug(
+                'Stopping Session Init running with pid %d' % self.pid
+            )
             self.proc.terminate()
             self.proc.wait()
             os.rmdir(self.log_dir)
@@ -963,6 +979,7 @@ class SessionInit(Upstart):
             raise UpstartException('Not yet connected')
 
         self.proxy.Restart()
+
 
 class TestUpstart(unittest.TestCase):
 
@@ -987,7 +1004,10 @@ class TestUpstart(unittest.TestCase):
         Start a Session Init.
         """
         self.assertFalse(self.upstart)
-        self.upstart = SessionInit(extra=['--no-startup-event', '--debug'], capture='/tmp/upstart.log')
+
+        extra_args = ['--no-startup-event', '--debug']
+        self.upstart = \
+            SessionInit(extra=extra_args, capture=DEFAULT_LOGFILE)
         self.assertTrue(self.upstart)
 
         # check it's running
@@ -1008,8 +1028,7 @@ class TestUpstart(unittest.TestCase):
         os.kill(pid, 0)
 
         self.upstart.destroy()
-        with self.assertRaises(ProcessLookupError):
-            os.kill(pid, 0)
+        self.assertRaises(ProcessLookupError, os.kill, pid, 0)
 
         self.upstart = None
 
@@ -1018,21 +1037,22 @@ class TestUpstart(unittest.TestCase):
 
         # create the file-bridge job in the correct test location by copying
         # the system-provided session job.
-        lines = []
-        with open(self.FILE_BRIDGE_CONF, 'r') as f:
-            lines.extend(f.readlines())
+        with open(self.FILE_BRIDGE_CONF, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         file_bridge = self.upstart.job_create('upstart-file-bridge', lines)
         self.assertTrue(file_bridge)
         file_bridge.start()
 
         pids = file_bridge.pids()
-        self.assertTrue(len(pids.keys()) == 1)
+
+        self.assertEqual(len(pids.keys()), 1)
+
         for proc, pid in pids.items():
             self.assertEqual(proc, 'main')
-            self.assertTrue(isinstance(pid, int))
+            self.assertIsInstance(pid, int)
             os.kill(pid, 0)
 
-        # create a job that makes use ofthe file event to watch to a
+        # create a job that makes use of the file event to watch to a
         # file in a newly-created directory.
         dir = tempfile.mkdtemp()
         file = dir + os.sep + 'foo'
@@ -1067,21 +1087,19 @@ class TestUpstart(unittest.TestCase):
         self.assertTrue(wait_for_file(create_job_logfile))
 
         # check the output
-        lines = []
-        with open(create_job_logfile, 'r') as f:
-            lines.extend(f.readlines())
+        with open(create_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         self.assertTrue(len(lines) == 1)
         self.assertEqual(msg, lines[0].rstrip())
 
-        os.remove(file)
+        shutil.rmtree(dir)
 
         # wait for the delete job to run and produce output
         self.assertTrue(wait_for_file(delete_job_logfile))
 
         # check the output
-        lines = []
-        with open(delete_job_logfile, 'r') as f:
-            lines.extend(f.readlines())
+        with open(delete_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         self.assertTrue(len(lines) == 1)
         self.assertEqual(msg, lines[0].rstrip())
 
@@ -1106,8 +1124,7 @@ class TestUpstart(unittest.TestCase):
         # Trigger re-exec and catch the D-Bus exception resulting
         # from disconnection from Session Init when it severs client
         # connections.
-        with self.assertRaises(dbus.exceptions.DBusException):
-            self.upstart.reexec()
+        self.assertRaises(dbus.exceptions.DBusException, self.upstart.reexec)
 
         os.kill(self.upstart.pid, 0)
 
@@ -1116,7 +1133,6 @@ class TestUpstart(unittest.TestCase):
         output = subprocess.getoutput(cmd)
         result = re.search('--state-fd\s+(\d+)', output)
         self.assertTrue(result)
-        fd = result.group(1)
 
         # Upstart is now in the process of starting, but we need to
         # reconnect to it via D-Bus since it cannot yet retain
@@ -1139,9 +1155,8 @@ class TestUpstart(unittest.TestCase):
 
         # create the REEXEC_CONF job in the correct test location by copying
         # the system-provided session job.
-        lines = []
-        with open(self.REEXEC_CONF, 'r') as f:
-            lines.extend(f.readlines())
+        with open(self.REEXEC_CONF, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
         reexec_job = self.upstart.job_create('re-exec', lines)
         self.assertTrue(reexec_job)
 
@@ -1157,16 +1172,16 @@ class TestUpstart(unittest.TestCase):
 
         # wait for a reasonable period of time for the stateful re-exec
         # to occur.
-        got = False
-        for i in range(timeout):
+        until = datetime.now() + timedelta(seconds=timeout)
+
+        while datetime.now() < until:
             output = subprocess.getoutput(cmd)
             result = re.search('--state-fd\s+(\d+)', output)
             if result:
-                got = True
                 break
-            time.sleep(1)
-
-        self.assertTrue(got)
+            time.sleep(0.1)
+        else:
+            raise AssertionError('Failed to detect re-exec')
 
         # Upstart is now in the process of starting, but we need to
         # reconnect to it via D-Bus since it cannot yet retain
@@ -1186,19 +1201,17 @@ class TestUpstart(unittest.TestCase):
 
         inst = job.start()
         pids = job.pids()
-        self.assertTrue(len(pids.keys()) == 1)
+        self.assertEqual(len(pids), 1)
+
         for key, value in pids.items():
             self.assertEqual(key, 'main')
             self.assertTrue(isinstance(value, int))
 
         # expected since there is only a single instance of the job
-        self.assertDictEqual(inst.pids(), pids)
+        self.assertEqual(inst.pids(), pids)
 
         inst.stop()
         self.stop_session_init()
-
-    def tearDown(self):
-        pass
 
 
 if __name__ == '__main__':
