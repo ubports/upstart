@@ -136,6 +136,7 @@ Ref@Event@Type@Emit@Time@Note
 2@\fBsession\-end\fP(7)@M@I@< Session Init end@
 1@\fBstartup\fP(7)@S@I@> Session Init start@J
  @:sys:*@S@E@> \fBupstart\-event\-bridge\fP(8) start@
+ @:sys:restarted@S@E@> \fBupstart\-event\-bridge\fP(8) start@V
 3@xsession@M@H@> (1)@T
 .TE
 .po \n[old_po]
@@ -278,6 +279,10 @@ the system into a usable state.
 T}
 T@Only emitted for a graphical session.
 U@See \fBfile\-event\fP(7).
+V@T{
+This is a pseudo-system event emitted directly by the
+.BR upstart\-event\-bridge (8) "" .
+T}
 .TE
 .po \n[old_po]
 .in \n[old_in]
