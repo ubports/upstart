@@ -1,3 +1,17 @@
+2013-04-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Build wrap_inotify library and run test_conf
+	  via test_conf_preload.sh.
+	* init/tests/test_conf.c: Communicate with wrap_inotify library by
+	  setting INOTIFY_DISABLE to reliably disable inotify rather than trying
+	  to exhaust inotify instances (LP: #1157713).
+	* init/tests/test_conf_preload.sh.in: Script to run test_conf within
+	  LD_PRELOAD environment.
+	* init/tests/wrap_inotify.c: Wrapper library that provides the inotify
+	  API and allows test_conf to believe inotify is disabled by
+	  conditionally failing all inotify calls, depending on whether
+	  INOTIFY_DISABLE is set.
+
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/file-event.7: Correct EVENT values in examples.
