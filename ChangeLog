@@ -1,3 +1,10 @@
+2013-04-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c:
+	  - Comments and formatting.
+	  - main(): Default to an appropriate bus.
+	  - signal_filter(): Display signal details when run with --debug.
+
 2013-04-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* Typo and doc changes.
