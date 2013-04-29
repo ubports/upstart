@@ -50,6 +50,9 @@
  * to any value for some stdout debug messages.
  **/
 
+/* to ensure we get RTLD_NEXT */
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -95,62 +98,20 @@ int __wrap_inotify_add_watch (int fd, const char *pathname, uint32_t mask)
 int __wrap_inotify_rm_watch (int fd, int wd)
 	__attribute ((warn_unused_result, no_instrument_function));
 
-static void *get_dlopen_handle (void)
-	__attribute ((warn_unused_result, no_instrument_function));
-
 int (*real_inotify_init_addr) (void);
 int (*real_inotify_add_watch_addr) (int fd, const char *pathname, uint32_t mask);
 int (*real_inotify_rm_watch_addr) (int fd, int wd);
 
-/**
- * get_dlopen_handle:
- *
- * Returns: dlopen handle that can be used to resolve the real inotify
- * calls.
- **/
-static void *
-get_dlopen_handle (void)
-{
-	static void *handle = NULL;
-
-	if (handle)
-		goto out;
-
-	/* This requires some explanation...
-	 *
-	 * Ideally, we'd open libc.so, but that won't work since
-	 * dlopen(3) resolves that to the ld linker script of the same name.
-	 *
-	 * Specifying NULL as the filename makes the test go recursive.
-	 *
-	 * So, we cheat and specify a library we know is required (by
-	 * _this_ library) and which is linked to libc _itself_.
-	 **/
-	handle = dlopen ("libdl.so", RTLD_NOW|RTLD_GLOBAL);
-	assert (handle);
-
-out:
-	/* reset */
-	(void)dlerror ();
-
-	return handle;
-}
-
-
 int
 __wrap_inotify_init (void)
 {
-	void *handle;
-
 	if (disable_inotify ()) {
 		/* simulate reaching inotify instances user limit */
 		errno = EMFILE;
 		return -1;
 	}
 
-	handle = get_dlopen_handle ();
-
-	*(void **)(&real_inotify_init_addr) = dlsym (handle, "inotify_init");
+	*(void **)(&real_inotify_init_addr) = dlsym (RTLD_NEXT, "inotify_init");
 
 	assert (! dlerror ()); 
 	assert (real_inotify_init_addr);
@@ -161,17 +122,13 @@ __wrap_inotify_init (void)
 int
 __wrap_inotify_add_watch (int fd, const char *pathname, uint32_t mask)
 {
-	void *handle;
-
 	if (disable_inotify ()) {
 		/* simulate reaching inotify watches user limit */
 		errno = ENOSPC;
 		return -1;
 	}
 
-	handle = get_dlopen_handle ();
-
-	*(void **)(&real_inotify_add_watch_addr) = dlsym (handle, "inotify_add_watch");
+	*(void **)(&real_inotify_add_watch_addr) = dlsym (RTLD_NEXT, "inotify_add_watch");
 
 	assert (! dlerror ()); 
 	assert (real_inotify_add_watch_addr);
@@ -182,15 +139,11 @@ __wrap_inotify_add_watch (int fd, const char *pathname, uint32_t mask)
 int
 __wrap_inotify_rm_watch (int fd, int wd)
 {
-	void *handle;
-
 	if (disable_inotify ()) {
 		; /* not meaningful, so just pass through */
 	}
 
-	handle = get_dlopen_handle ();
-
-	*(void **)(&real_inotify_rm_watch_addr) = dlsym (handle, "inotify_rm_watch");
+	*(void **)(&real_inotify_rm_watch_addr) = dlsym (RTLD_NEXT, "inotify_rm_watch");
 
 	assert (! dlerror ()); 
 	assert (real_inotify_rm_watch_addr);
