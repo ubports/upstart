@@ -71,7 +71,21 @@ case "$1" in
 		# packaged version numbers is not sufficient since
 		# the package could be upgraded multiple times without a
 		# reboot.
-		telinit u || :
+		runlevel=$(runlevel|awk '{print $2}' || :)
+
+		# Only perform stateful re-exec if running on a system
+		# that has booted "fully" to runlevel 2.
+		#
+		# This works around a potential problem where cloud-init
+		# (which runs in early boot) in dist-upgrading the
+		# system ends up upgrading Upstart, which calls this
+		# maintainer script.
+		if [ "$runlevel" = 2 ]
+		then
+			telinit u || :
+		else
+			touch /var/run/init.upgraded || :
+		fi
 	    else
 		# Before we shutdown or reboot, we need to re-exec so that we
 		# can safely remount the root filesystem; we can't just do that
