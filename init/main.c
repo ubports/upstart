@@ -631,7 +631,7 @@ main (int   argc,
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
 
-		/* Emit the Restarted signal so that any listing Instance Init
+		/* Emit the Restarted signal so that any listening Instance Init
 		 * knows that it needs to restart too.
 		 */
 		control_notify_restarted();

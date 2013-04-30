@@ -1,3 +1,7 @@
+2013-04-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Typo and doc changes.
+
 2013-04-17  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/Makefile.am: Build wrap_inotify library and run test_conf
