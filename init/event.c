@@ -678,6 +678,12 @@ event_deserialise (json_object *json)
 	if (! state_set_json_int_var_from_obj (json, event, failed))
 		goto error;
 
+	/* Preserve the pre-reexec blockers count until JobClasses are
+	 * deserialised and reverse-dependencies resolved.
+	 */
+	if (! state_set_json_int_var_from_obj (json, event, blockers))
+		goto error;
+
 	return event;
 
 error:
