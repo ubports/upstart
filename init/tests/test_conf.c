@@ -4560,6 +4560,9 @@ test_source_reload (void)
 	Job            *job;
 	int             attempts;
 	int             got = 0;
+	int             result[3] = {FALSE, FALSE, FALSE};
+	int             types[3] = {EVENT_MATCH, EVENT_MATCH, EVENT_AND};
+	int             i=0;
 
 	/* Check that we can reload all sources, and that errors are warned
 	 * about and not returned.
@@ -4787,11 +4790,28 @@ test_source_reload (void)
 
 	TEST_LIST_EMPTY (events);
 
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	i = 0;
+
 	event1 = event_new (NULL, "bar", NULL);
 	TEST_NE_P (event1, NULL);
 	TEST_LIST_NOT_EMPTY (events);
 
 	event_poll ();
+
+	result[0] = TRUE;
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	i = 0;
 
 	/* actual reload */
 	conf_reload ();
@@ -4809,6 +4829,45 @@ test_source_reload (void)
 	TEST_NE_P (best, NULL);
 
 	TEST_EQ_P (registered, best);
+
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	result[0] = FALSE;
+	i = 0;
+
+	f = fopen (filename, "w");
+	fprintf (f, "start on baz and bar\n");
+	fprintf (f, "exec true\n");
+	fclose (f);
+
+	/* reload again */
+	conf_reload ();
+	event_poll ();
+
+	TEST_EQ (event1->blockers, 1);
+
+	/* JobClass should have been destroyed and recreated */
+	class1 = job_class_find (NULL, "foo");
+	TEST_NE_P (class1, registered);
+
+	registered = class1;
+
+	best = conf_select_job (registered->name, registered->session);
+	TEST_NE_P (best, NULL);
+
+	TEST_EQ_P (registered, best);
+
+	result[1] = TRUE;
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
 
 	event2 = event_new (NULL, "baz", NULL);
 	TEST_NE_P (event2, NULL);
