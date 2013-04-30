@@ -1,3 +1,13 @@
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise_all(): Really serialise all JobClasses,
+	* init/main.c: Add 'write-state-file' command-line option.
+	  regardless of whether they have associated Jobs.
+	* init/paths.h: Added STATE_FILE_ENV.
+	* init/state.c: state_read_objects(): Write state file if 'write-state-file'
+	  specified or STATE_FILE_ENV set.
+	* init/state.h: Comments.
+
 2013-04-29  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/conf.c:

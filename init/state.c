@@ -67,6 +67,13 @@ char **args_copy = NULL;
  **/
 int restart = FALSE;
 
+/**
+ * write_state_file:
+ *
+ * If TRUE, write STATE_FILE on every re-exec.
+ **/
+int write_state_file = FALSE;
+
 /* Prototypes for static functions */
 static JobClass *
 state_index_to_job_class (int job_class_index)
@@ -232,6 +239,9 @@ state_read_objects (int fd)
 	/* Recreate internal state from JSON */
 	if (state_from_string (buffer->buf) < 0)
 		goto error;
+
+	if (write_state_file || getenv (STATE_FILE_ENV))
+		state_write_file (buffer);
 
 	return 0;
 
