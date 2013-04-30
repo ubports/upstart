@@ -1,3 +1,31 @@
+2013-04-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_reload(): Explanation of how reload works.
+	  - conf_reload_path(): Defer destruction of original ConfFile until
+	    newly-loaded .conf file has a chance to reference any events its
+	    'start on' condition requires (LP: 1124384).
+	  - debug_show_jobs(): Return if no instances.
+	  - debug_show_events(): New function.
+	* init/event.c: Comments.
+	* init/job.c: Comment.
+	* init/job_class.c:
+	  - job_class_get_registered(): New function resulting from refactor of
+	    job_class_consider() and job_class_reconsider().
+	  - job_class_consider():
+	    - Use job_class_get_registered().
+	    - Call job_class_event_block() to avoid premature event destruction.
+	  - job_class_reconsider(): Use job_class_get_registered().
+	  - job_class_event_block(): New function to increase reference count
+	    for events new JobClass specifies in its 'start on' condition that
+	    old JobClass has also referenced (second part of LP: #1124384).
+	* init/tests/test_conf.c:
+	  - test_source_reload(): New tests:
+	    - "ensure reload does not destroy a blocked event used by another job"
+	    - "ensure .conf reload causes waiting job to run when 'start on' matches"
+	* init/tests/test_conf.h: TEST_ENSURE_CLEAN_ENV(): Check
+	  nih_child_watches too.
+
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/file-event.7: Correct EVENT values in examples.

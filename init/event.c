@@ -315,8 +315,8 @@ event_pending_handle_jobs (Event *event)
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
-		 * to be killed, the stop script then the start script to be
-		 * run.  In any other state, it has no special effect.
+		 * to be killed, and then stop script then the start script
+		 * to be run. In any other state, it has no special effect.
 		 *
 		 * (The other way around would be just strange, it'd cause
 		 * a process's start and stop scripts to be run without the

@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010,2011 Canonical Ltd.
+ * Copyright  2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -157,6 +157,10 @@ debug_show_jobs (const NihHash *instances)
 	__attribute__ ((unused));
 void
 debug_show_event               (const Event *event)
+	__attribute__ ((unused));
+
+void
+debug_show_events (void)
 	__attribute__ ((unused));
 
 void

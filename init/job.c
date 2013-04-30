@@ -552,6 +552,7 @@ job_change_state (Job      *job,
 							  job->path));
 				}
 
+				/* Destroy the instance */
 				nih_free (job);
 			}
 
