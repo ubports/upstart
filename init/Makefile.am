@@ -136,8 +136,6 @@ AM_CPPFLAGS += -DTEST_DATA_DIR="\"$(TEST_DATA_DIR)\""
 TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.6.json
 
-EXTRA_DIST = init.supp $(TEST_DATA_FILES)
-
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h
 
@@ -155,14 +153,23 @@ TESTS = \
 	test_blocked \
 	test_parse_job \
 	test_parse_conf \
-	test_conf \
 	test_conf_static \
 	test_xdg \
 	test_control
 
-check_PROGRAMS = $(TESTS)
+EXTRA_DIST = init.supp $(TEST_DATA_FILES) tests/test_conf_preload.sh.in
 
-tests: $(BUILT_SOURCES) $(check_PROGRAMS)
+test_conf_preload.sh: tests/test_conf_preload.sh.in Makefile test_conf
+	sed -e 's|[@]abs_builddir[@]|$(abs_builddir)|g' \
+	    -e 's|[@]inotify_preload_library[@]|$(check_LTLIBRARIES)|g' \
+	    $< > $@
+	chmod +x $@
+
+check_PROGRAMS = $(TESTS) test_conf
+check_SCRIPTS = test_conf_preload.sh
+CLEANFILES += $(check_SCRIPTS)
+
+tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(check_LTLIBRARIES)
 
 test_system_SOURCES = tests/test_system.c
 test_system_LDADD = \
@@ -328,7 +335,12 @@ test_parse_conf_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES)
+check_LTLIBRARIES = tests/libwrap_inotify.la
+tests_libwrap_inotify_la_SOURCES = tests/wrap_inotify.c
+tests_libwrap_inotify_la_LIBADD = -lrt -ldl $(AM_LIBADD)
+tests_libwrap_inotify_la_LDFLAGS = avoid-version -module -shared -export-dynamic -rpath /nowhere -ldl
+
+test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES) $(check_LTLIBRARIES)
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
