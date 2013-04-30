@@ -7,6 +7,9 @@
 	* init/state.c: state_read_objects(): Write state file if 'write-state-file'
 	  specified or STATE_FILE_ENV set.
 	* init/state.h: Comments.
+	* init/tests/test_state.c: test_job_class_serialise(): Ensure that all
+	  JobClasses get serialised, regardless of whether they have any
+	  associated Jobs.
 
 2013-04-29  James Hunt  <james.hunt@ubuntu.com>
 

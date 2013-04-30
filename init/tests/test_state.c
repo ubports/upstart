@@ -1880,11 +1880,22 @@ test_job_class_serialise (void)
 	TEST_TRUE (job_class_consider (class));
 	TEST_HASH_NOT_EMPTY (job_classes);
 
-	/* JobClass with no associated Jobs does not need to be
-	 * serialised.
+	/* BEHAVIOURAL CHANGE:
+	 *
+	 * Previously, a JobClass with no associated Jobs would
+	 * not be serialised (since, as there were no "running" jobs
+	 * associated with it, it was considered unnecessary).
+	 *
+	 * However, we now serialise *all* JobClasses regardless since
+	 * in the case of a stateful re-exec, we need as much state as
+	 * possible, particularly since Events have always been fully
+	 * serialised, and if Event->blockers is non-zero, it is
+	 * necessary to manipulate the 'start on' EventOperator tree for
+	 * non-running jobs post-reexec to correspond to the
+	 * Event->blockers value.
 	 */
 	json = job_class_serialise (class);
-	TEST_EQ_P (json, NULL);
+	TEST_NE_P (json, NULL);
 
 	nih_free (source);
 
