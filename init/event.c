@@ -675,13 +675,13 @@ event_deserialise (json_object *json)
 				"progress", event->progress))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, event, failed))
+	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
 
 	/* Preserve the pre-reexec blockers count until JobClasses are
 	 * deserialised and reverse-dependencies resolved.
 	 */
-	if (! state_set_json_int_var_from_obj (json, event, blockers))
+	if (! state_get_json_int_var_to_obj (json, event, blockers))
 		goto error;
 
 	return event;

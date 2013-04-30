@@ -7,9 +7,10 @@
 	* init/state.c:
 	  - state_read_objects(): Write state file if 'write-state-file'
 	    specified or STATE_FILE_ENV set.
-	  - event_deserialise(): Preserve the pre-reexec blockers
-	    count until JobClasses are deserialised and reverse-dependencies
-	    resolved.
+	  - event_deserialise():
+	    - Preserve the pre-reexec blockers count until JobClasses
+	      are deserialised and reverse-dependencies resolved.
+	    - Fix incorrect calls for failed and blockers Event attributes.
 	* init/state.h: Comments.
 	* init/tests/test_state.c: test_job_class_serialise(): Ensure that all
 	  JobClasses get serialised, regardless of whether they have any
