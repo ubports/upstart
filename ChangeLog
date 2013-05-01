@@ -12,9 +12,13 @@
 	      are deserialised and reverse-dependencies resolved.
 	    - Fix incorrect calls for failed and blockers Event attributes.
 	* init/state.h: Comments.
-	* init/tests/test_state.c: test_job_class_serialise(): Ensure that all
-	  JobClasses get serialised, regardless of whether they have any
-	  associated Jobs.
+	* init/tests/test_state.c:
+	  - test_job_class_serialise(): Ensure that all JobClasses get
+	    serialised, regardless of whether they have any associated
+	    Jobs.
+	  - test_event_serialise(): New "with failed" test.
+	* init/event.c: event_deserialise(): Don't deserialise Event->blockers -
+	  there is no point until we serialise EventOperators.
 
 2013-04-29  James Hunt  <james.hunt@ubuntu.com>
 

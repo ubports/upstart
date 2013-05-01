@@ -678,11 +678,14 @@ event_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
 
-	/* Preserve the pre-reexec blockers count until JobClasses are
-	 * deserialised and reverse-dependencies resolved.
+	/* XXX: Note that we do *NOT* re-instate the blockers count
+	 * (even though it is encoded) because although we now serialise
+	 * *all* JobClasses, we do not yet serialise EventOperators.
+	 * This means we have no way of determining which Job 'start on'
+	 * EventOperator EVENT_MATCH nodes were TRUE prior to the
+	 * serialisation such that we can compare the count of such
+	 * nodes with Event->blockers.
 	 */
-	if (! state_get_json_int_var_to_obj (json, event, blockers))
-		goto error;
 
 	return event;
 
