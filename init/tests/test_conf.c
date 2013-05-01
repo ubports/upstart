@@ -45,7 +45,17 @@
 #include "job_class.h"
 #include "job.h"
 #include "conf.h"
+#include "event.h"
+#include "job_process.h"
+#include "blocked.h"
 #include "test_util.h"
+
+/**
+ * JOB_STOP_SECONDS:
+ *
+ * Number of attempts to make to check that job has stopped.
+ **/
+#define JOB_STOP_ATTEMPTS 10
 
 void
 test_source_new (void)
@@ -4501,9 +4511,22 @@ no_inotify:
 void
 test_source_reload (void)
 {
-	FILE       *f;
-	ConfSource *source1, *source2, *source3;
-	char        dirname[PATH_MAX], filename[PATH_MAX];
+	FILE           *f;
+	ConfSource     *source1, *source2, *source3;
+	char            dirname[PATH_MAX], filename[PATH_MAX], filename2[PATH_MAX];
+	Event          *event1;
+	Event          *event2;
+	NihChildWatch  *watch;
+	JobClass       *class1;
+	JobClass       *class2;
+	JobClass       *registered;
+	JobClass       *best;
+	Job            *job;
+	int             attempts;
+	int             got = 0;
+	int             result[3] = {FALSE, FALSE, FALSE};
+	unsigned int    types[3] = {EVENT_MATCH, EVENT_MATCH, EVENT_AND};
+	int             i=0;
 
 	/* Check that we can reload all sources, and that errors are warned
 	 * about and not returned.
@@ -4571,6 +4594,286 @@ test_source_reload (void)
 	rmdir (dirname);
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
+
+	/************************************************************/
+	/* - Create 2 jobs.
+	 * - Emit an event causing one jobs start on condition to match
+	 *   such that it runs.
+	 * - Ensure that when the job that has runs parent JobClass is destroyed
+	 *   that does not also result in the destruction of the event needed
+	 *   by the other job.
+	 */
+	TEST_FUNCTION ("ensure reload does not destroy a blocked event used by another job");
+
+	conf_init ();
+	event_init ();
+	job_class_environment_init ();
+
+	TEST_ENSURE_CLEAN_ENV ();
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	source1 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/rc-sysinit.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "start on filesystem and static-network-up\n");
+	fprintf (f, "exec true\n");
+	fclose (f);
+
+	strcpy (filename2, dirname);
+	strcat (filename2, "/foo.conf");
+
+	f = fopen (filename2, "w");
+	fprintf (f, "start on filesystem\n");
+	fprintf (f, "exec true\n");
+	fclose (f);
+
+	watch = NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
+				       job_process_handler, NULL));
+
+	/* initial load */
+	conf_reload ();
+
+	class1 = job_class_find (NULL, "rc-sysinit");
+	TEST_NE_P (class1, NULL);
+
+	class2 = job_class_find (NULL, "foo");
+	TEST_NE_P (class2, NULL);
+
+	TEST_LIST_EMPTY (events);
+	event1 = event_new (NULL, "filesystem", NULL);
+	TEST_NE_P (event1, NULL);
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* cause foo to run */
+	event_poll ();
+
+	/* wait for a reasonable time for the job to stop */
+	attempts = 0;
+	got = 0;
+	while (TRUE) {
+		nih_child_poll ();
+		NIH_HASH_FOREACH (class2->instances, iter) {
+			Job *job = (Job *)iter;
+			if (job->goal == JOB_STOP) {
+				got = 1;
+				break;
+			}
+		}
+
+		if (got || attempts == JOB_STOP_ATTEMPTS)
+			break;
+
+		sleep (1);
+		attempts++;
+	}
+
+	TEST_EQ (got, 1);
+
+	TEST_LIST_EMPTY (&event1->blocking);
+
+	job = (Job *)nih_hash_lookup (class2->instances, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_LIST_NOT_EMPTY (events);
+	event_poll ();
+
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* actual reload */
+	conf_reload ();
+	event_poll ();
+
+	/* XXX: this is the point where older versions of upstart
+	 * would fail since the destruction of the 'foo' job would have
+	 * incorrectly destroyed the 'filesystem' event.
+	 */
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* XXX: This will only free the associated *job*
+	 * if it is not running.
+	 */
+	nih_free (source1);
+
+	assert0 (unlink (filename));
+	assert0 (unlink (filename2));
+	assert0 (rmdir (dirname));
+	nih_free (event1);
+	nih_free (watch);
+
+	TEST_ENSURE_CLEAN_ENV ();
+
+	/************************************************************/
+	/* 
+	 * - Create job with 'start on bar and baz' condition.
+	 * - emit bar.
+	 * - reload.
+	 * - emit baz.
+	 * - expect job to run.
+	 */
+	TEST_FUNCTION ("ensure .conf reload causes waiting job to run when 'start on' matches");
+
+	TEST_ENSURE_CLEAN_ENV ();
+
+	TEST_FILENAME (dirname);
+	mkdir (dirname, 0755);
+
+	strcpy (filename, dirname);
+	source1 = conf_source_new (NULL, filename, CONF_JOB_DIR);
+
+	strcpy (filename, dirname);
+	strcat (filename, "/foo.conf");
+
+	f = fopen (filename, "w");
+	fprintf (f, "start on bar and baz\n");
+	fprintf (f, "exec true\n");
+	fclose (f);
+
+	watch = NIH_MUST (nih_child_add_watch (NULL, -1, NIH_CHILD_ALL,
+				       job_process_handler, NULL));
+
+	/* initial load */
+	conf_reload ();
+
+	registered = job_class_find (NULL, "foo");
+	TEST_NE_P (registered, NULL);
+
+	best = conf_select_job (registered->name, registered->session);
+	TEST_NE_P (best, NULL);
+
+	/* give job a chance to run - we don't expect it to though */
+	event_poll ();
+
+	/* there should only be a single JobClass */
+	TEST_EQ_P (registered, best);
+
+	TEST_LIST_EMPTY (events);
+
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	i = 0;
+
+	event1 = event_new (NULL, "bar", NULL);
+	TEST_NE_P (event1, NULL);
+	TEST_LIST_NOT_EMPTY (events);
+
+	event_poll ();
+
+	result[0] = TRUE;
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	i = 0;
+
+	/* actual reload */
+	conf_reload ();
+	event_poll ();
+
+	TEST_EQ (event1->blockers, 1);
+
+	/* JobClass should have been destroyed and recreated */
+	class1 = job_class_find (NULL, "foo");
+	TEST_NE_P (class1, registered);
+
+	registered = class1;
+
+	best = conf_select_job (registered->name, registered->session);
+	TEST_NE_P (best, NULL);
+
+	TEST_EQ_P (registered, best);
+
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+	result[0] = FALSE;
+	i = 0;
+
+	f = fopen (filename, "w");
+	fprintf (f, "start on baz and bar\n");
+	fprintf (f, "exec true\n");
+	fclose (f);
+
+	/* reload again */
+	conf_reload ();
+	event_poll ();
+
+	TEST_EQ (event1->blockers, 1);
+
+	/* JobClass should have been destroyed and recreated */
+	class1 = job_class_find (NULL, "foo");
+	TEST_NE_P (class1, registered);
+
+	registered = class1;
+
+	best = conf_select_job (registered->name, registered->session);
+	TEST_NE_P (best, NULL);
+
+	TEST_EQ_P (registered, best);
+
+	result[1] = TRUE;
+	NIH_TREE_FOREACH_POST (&best->start_on->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+		TEST_EQ(oper->value, result[i]);
+		TEST_EQ(oper->type, types[i]);
+		i++;
+	}
+
+	event2 = event_new (NULL, "baz", NULL);
+	TEST_NE_P (event2, NULL);
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* cause foo to run */
+	event_poll ();
+
+	/* wait for a reasonable time for the job to stop */
+	attempts = 0;
+	got = 0;
+	while (TRUE) {
+		nih_child_poll ();
+
+		NIH_HASH_FOREACH (class1->instances, iter) {
+			Job *job = (Job *)iter;
+			if (job->goal == JOB_STOP) {
+				got = 1;
+				break;
+			}
+		}
+
+		if (got || attempts == JOB_STOP_ATTEMPTS)
+			break;
+
+		sleep (1);
+		attempts++;
+	}
+
+	TEST_EQ (got, 1);
+
+	/* force the events to be freed via event_finished() */
+	event_poll ();
+
+	TEST_LIST_EMPTY (events);
+
+	nih_free (source1);
+	nih_free (watch);
+
+	TEST_ENSURE_CLEAN_ENV ();
+
+	/************************************************************/
 }
 
 

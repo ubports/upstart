@@ -28,6 +28,10 @@
 		TEST_LIST_EMPTY (nih_timers);                        \
 	}                                                            \
                                                                      \
+	if (nih_child_watches) {                                     \
+		TEST_LIST_EMPTY (nih_child_watches);                 \
+	}                                                            \
+                                                                     \
 	if (events) {                                                \
 		TEST_LIST_EMPTY (events);                            \
 	}                                                            \

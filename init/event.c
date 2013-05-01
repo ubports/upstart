@@ -315,8 +315,8 @@ event_pending_handle_jobs (Event *event)
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
-		 * to be killed, the stop script then the start script to be
-		 * run.  In any other state, it has no special effect.
+		 * to be killed, and then stop script then the start script
+		 * to be run. In any other state, it has no special effect.
 		 *
 		 * (The other way around would be just strange, it'd cause
 		 * a process's start and stop scripts to be run without the
@@ -675,8 +675,17 @@ event_deserialise (json_object *json)
 				"progress", event->progress))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, event, failed))
+	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
+
+	/* XXX: Note that we do *NOT* re-instate the blockers count
+	 * (even though it is encoded) because although we now serialise
+	 * *all* JobClasses, we do not yet serialise EventOperators.
+	 * This means we have no way of determining which Job 'start on'
+	 * EventOperator EVENT_MATCH nodes were TRUE prior to the
+	 * serialisation such that we can compare the count of such
+	 * nodes with Event->blockers.
+	 */
 
 	return event;
 

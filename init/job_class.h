@@ -362,6 +362,11 @@ JobClass * job_class_find (const Session *session, const char *name)
 time_t     job_class_max_kill_timeout (void)
 	__attribute__ ((warn_unused_result));
 
+JobClass  *job_class_get_registered (const char *name, Session *session)
+	__attribute__ ((warn_unused_result));
+
+void       job_class_event_block (void *parent, JobClass *old, JobClass *new);
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_CLASS_H */

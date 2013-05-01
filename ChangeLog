@@ -1,3 +1,53 @@
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise_all(): Really serialise all JobClasses,
+	* init/main.c: Add 'write-state-file' command-line option.
+	  regardless of whether they have associated Jobs.
+	* init/paths.h: Added STATE_FILE_ENV.
+	* init/state.c:
+	  - state_read_objects(): Write state file if 'write-state-file'
+	    specified or STATE_FILE_ENV set.
+	  - event_deserialise():
+	    - Preserve the pre-reexec blockers count until JobClasses
+	      are deserialised and reverse-dependencies resolved.
+	    - Fix incorrect calls for failed and blockers Event attributes.
+	* init/state.h: Comments.
+	* init/tests/test_state.c:
+	  - test_job_class_serialise(): Ensure that all JobClasses get
+	    serialised, regardless of whether they have any associated
+	    Jobs.
+	  - test_event_serialise(): New "with failed" test.
+	* init/event.c: event_deserialise(): Don't deserialise Event->blockers -
+	  there is no point until we serialise EventOperators.
+
+2013-04-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_reload(): Explanation of how reload works.
+	  - conf_reload_path(): Defer destruction of original ConfFile until
+	    newly-loaded .conf file has a chance to reference any events its
+	    'start on' condition requires (LP: 1124384).
+	  - debug_show_jobs(): Return if no instances.
+	  - debug_show_events(): New function.
+	* init/event.c: Comments.
+	* init/job.c: Comment.
+	* init/job_class.c:
+	  - job_class_get_registered(): New function resulting from refactor of
+	    job_class_consider() and job_class_reconsider().
+	  - job_class_consider():
+	    - Use job_class_get_registered().
+	    - Call job_class_event_block() to avoid premature event destruction.
+	  - job_class_reconsider(): Use job_class_get_registered().
+	  - job_class_event_block(): New function to increase reference count
+	    for events new JobClass specifies in its 'start on' condition that
+	    old JobClass has also referenced (second part of LP: #1124384).
+	* init/tests/test_conf.c:
+	  - test_source_reload(): New tests:
+	    - "ensure reload does not destroy a blocked event used by another job"
+	    - "ensure .conf reload causes waiting job to run when 'start on' matches"
+	* init/tests/test_conf.h: TEST_ENSURE_CLEAN_ENV(): Check
+	  nih_child_watches too.
+
 2013-04-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* Typo and doc changes.

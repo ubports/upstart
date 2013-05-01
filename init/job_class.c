@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2011 Canonical Ltd.
+ * Copyright  2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -369,6 +369,35 @@ error:
 	return NULL;
 }
 
+/**
+ * job_class_get_registered:
+ *
+ * @name: name of JobClass to search for,
+ * @session: Session of @class.
+ *
+ * Determine the currently registered JobClass with name @name for
+ * session @session.
+ *
+ * Returns: JobClass or NULL if no JobClass with name @name and
+ * session @session is registered.
+ **/
+JobClass *
+job_class_get_registered (const char *name, Session *session)
+{
+	JobClass *registered;
+
+	nih_assert (name);
+
+	job_class_init ();
+
+	registered = (JobClass *)nih_hash_search (job_classes, name, NULL);
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	while (registered && registered->session != session)
+		registered = (JobClass *)nih_hash_search (job_classes, name, &registered->entry);
+
+	return registered;
+}
 
 /**
  * job_class_consider:
@@ -383,7 +412,8 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered = NULL, *best = NULL;
+	JobClass           *registered = NULL;
+	JobClass           *best = NULL;
 
 	nih_assert (class != NULL);
 
@@ -393,16 +423,19 @@ job_class_consider (JobClass *class)
 	nih_assert (best != NULL);
 	nih_assert (best->session == class->session);
 
-	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
-
-	/* If we found an entry, ensure we only consider the appropriate session */
-	while (registered && registered->session != class->session)
-		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	registered = job_class_get_registered (class->name, class->session);
 
 	if (registered != best) {
-		if (registered)
-			if (! job_class_remove (registered, class->session))
+		if (registered) {
+			job_class_event_block (NULL, registered, best);
+
+			if (! job_class_remove (registered, class->session)) {
+				/* Couldn't deregister, so undo */
+				if (best->start_on)
+					event_operator_reset (best->start_on);
 				return FALSE;
+			}
+		}
 
 		job_class_add (best);
 	}
@@ -426,7 +459,8 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered = NULL, *best = NULL;
+	JobClass           *registered = NULL;
+	JobClass           *best = NULL;
 
 	nih_assert (class != NULL);
 
@@ -434,11 +468,7 @@ job_class_reconsider (JobClass *class)
 
 	best = conf_select_job (class->name, class->session);
 
-	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
-
-	/* If we found an entry, ensure we only consider the appropriate session */
-	while (registered && registered->session != class->session)
-		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	registered = job_class_get_registered (class->name, class->session);
 
 	if (registered == class) {
 		if (class != best) {
@@ -454,6 +484,80 @@ job_class_reconsider (JobClass *class)
 	}
 
 	return TRUE;
+}
+
+/**
+ * job_class_event_block:
+ *
+ * @parent: parent object for list,
+ * @old: original JobClass currently registered in job_classes,
+ * @new: new "best" JobClass that is not yet present in job_classes.
+ *
+ * Compare @old and @new start on EventOperator trees looking for
+ * matching events that occur in both (_and_ which implicitly still exist
+ * in the global events list). Events that satisfy these criteria will have
+ * their reference count elevated to allow @new to replace @old in job_classes
+ * without the destruction of @old freeing the events in question.
+ *
+ * Note that the reference count never needs to be decremented back
+ * again since this function effectively passes "ownership" of the event
+ * block from @old to @new, since @old will be replaced by @new but @new
+ * should replicate the EventOperator state of @old.
+ **/
+void
+job_class_event_block (void *parent, JobClass *old, JobClass *new)
+{
+	EventOperator  *old_root;
+	EventOperator  *new_root;
+
+	if (! old || ! new)
+		return;
+
+	old_root = old->start_on;
+	new_root = new->start_on;
+
+	/* If either @old or @new are NULL, or have no start_on
+	 * condition, there is no need to modify any events.
+	 */
+	if (! old_root || ! new_root)
+		return;
+
+	/* The old JobClass has associated instances meaning it 
+	 * will not be possible for job_class_remove() to replace it, so
+	 * we don't need to manipulate any event reference counts.
+	 */
+	NIH_HASH_FOREACH (old->instances, iter)
+		return;
+
+	NIH_TREE_FOREACH_POST (&old_root->node, iter) {
+		EventOperator  *old_oper = (EventOperator *)iter;
+		Event          *event;
+
+		if (old_oper->type != EVENT_MATCH)
+			continue;
+
+		/* Ignore nodes that are not blocking events */
+		if (! old_oper->event)
+			continue;
+
+		/* Since the JobClass is blocking an event,
+		 * that event must be valid.
+		 */
+		event = old_oper->event;
+
+		NIH_TREE_FOREACH_POST (&new_root->node, niter) {
+			EventOperator *new_oper = (EventOperator *)niter;
+
+			if (new_oper->type != EVENT_MATCH)
+				continue;
+
+			/* ignore the return - we just want to ensure
+			 * that any events in @new that match those in
+			 * @old have identical nodes.
+			 */
+			(void)event_operator_handle (new_oper, event, NULL);
+		}
+	}
 }
 
 /**

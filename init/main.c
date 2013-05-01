@@ -126,6 +126,7 @@ extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
 extern int          default_console;
+extern int          write_state_file;
 extern char        *log_dir;
 
 
@@ -172,6 +173,9 @@ static NihOption options[] = {
 
 	{ 0, "user", N_("start in user mode (as used for user sessions)"),
 		NULL, NULL, &user_mode, NULL },
+
+	{ 0, "write-state-file", N_("attempt to write state file on every re-exec"),
+		NULL, NULL, &write_state_file, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },

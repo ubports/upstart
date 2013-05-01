@@ -552,6 +552,7 @@ job_change_state (Job      *job,
 							  job->path));
 				}
 
+				/* Destroy the instance */
 				nih_free (job);
 			}
 
@@ -1708,7 +1709,6 @@ error:
 json_object *
 job_serialise_all (const NihHash *jobs)
 {
-	int          count = 0;
 	json_object *json;
 
 	nih_assert (jobs);
@@ -1721,7 +1721,6 @@ job_serialise_all (const NihHash *jobs)
 		json_object  *json_job;
 		Job *job = (Job *)iter;
 
-		count++;
 		json_job = job_serialise (job);
 
 		if (! json_job)
@@ -1729,12 +1728,6 @@ job_serialise_all (const NihHash *jobs)
 
 		json_object_array_add (json, json_job);
 	}
-
-	/* Raise an error to avoid serialising job classes with
-	 * no associated jobs.
-	 */
-	if (! count)
-		goto error;
 
 	return json;
 

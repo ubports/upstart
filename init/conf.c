@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009,2010,2011,2012,2013 Canonical Ltd.
+ * Copyright  2009,2010,2011,2012,2013 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -49,6 +49,7 @@
 #include "conf.h"
 #include "errors.h"
 #include "paths.h"
+#include "environ.h"
 
 /* Prototypes for static functions */
 static int  conf_source_reload_file    (ConfSource *source)
@@ -447,11 +448,23 @@ conf_file_new (ConfSource *source,
 /**
  * conf_reload:
  *
- * Reloads all configuration sources.
+ * Reloads configuration sources.
  *
  * Watches on new configuration sources are established so that future
  * changes will be automatically detected with inotify.  Then for both
  * new and existing sources, the current state is parsed.
+ *
+ * All ConfFiles are recreated as part of the reload. If the JobClass
+ * associated with a ConfSource has no Job instances, the JobClass is
+ * recreated and added to the job_classes hash.
+ *
+ * However, if a JobClass has running instances at reload time, although
+ * a new ConfSource *and* a new JobClass are created, the new JobClass
+ * (called the "best") will *NOT* be added to the job_classes hash until
+ * the last running instance has finished. At this point, the "registered"
+ * JobClass will be removed from the hash (when job_class_reconsider()
+ * is called by job_change_state()) and replaced by the "best" (newest)
+ * JobClass.
  *
  * Any errors are logged through the usual mechanism, and not returned,
  * since some configuration may have been parsed; and it's possible to
@@ -1039,6 +1052,7 @@ conf_reload_path (ConfSource *source,
 		  const char *override_path)
 {
 	ConfFile       *file = NULL;
+	ConfFile       *orig = NULL;
 	nih_local char *buf = NULL;
 	nih_local char *name = NULL;
 	size_t          len, pos, lineno;
@@ -1051,25 +1065,67 @@ conf_reload_path (ConfSource *source,
 	path_to_load = (override_path ? override_path : path);
 
 	/* If there is no corresponding override file, look up the old
-	 * conf file in memory, and then free it.  In cases of failure,
+	 * conf file in memory, and then free it. In cases of failure,
 	 * we discard it anyway, so there's no particular reason
 	 * to keep it around anymore.
 	 *
-	 * Note: if @override_path has been specified, do not
-	 * free the file if found, since we want to _update_ the
-	 * existing entry.
+	 * Notes:
+	 *
+	 * - If @override_path has been specified, do not free the file
+	 *   if found, since we want to _update_ the existing entry.
+	 * - Freeing a ConfFile does _not_ necessarily free its associated
+	 *   JobClass.
 	 */
-	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! override_path && file)
-		nih_unref (file, source);
+	orig = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! override_path && orig) {
+		/* Found an existing ConfFile. We will free this, but
+		 * just not yet since iff that ConfFiles associated JobClass
+		 * does not have any running instances, freeing the
+		 * ConfFile will cause the original JobClass associated
+		 * with this ConfFile to be destroyed. But if the JobClass
+		 * had referenced any events via it's 'start on' EventOperator tree, 
+		 * the JobClasses destruction could lead to the Events
+		 * being destroyed _before_ the about-to-be-created
+		 * replacement JobClass gets a chance to reference those
+		 * same events (assuming its 'start on' EventOperator tree
+		 * contains nodes specifying the same event names as
+		 * those in the original JobClasses).
+		 *
+		 * As such, we simply remove the ConfFile from its
+		 * parent ConfSources hash, create the new ConfFile and
+		 * JobClass, give the new JobClass a chance to be the
+		 * registered JobClass, and finally allow the original
+		 * ConfFile to be destroyed.
+		 *
+		 * If this is not done, reloading a configuration
+		 * mid-way through the boot sequence could lead to a
+		 * hung system as the new JobClasses will wait forever
+		 * for events to be emitted that have already been
+		 * destroyed.
+		 */
+		nih_list_remove (&orig->entry);
+	}
 
 	/* Read the file into memory for parsing, if this fails we don't
 	 * bother creating a new ConfFile structure for it and bail out
 	 * now.
 	 */
 	buf = nih_file_read (NULL, path_to_load, &len);
-	if (! buf)
+	if (! buf) {
+		if (! override_path && orig) {
+			/* Failed to reload the file from disk in all
+			 * likelihood because the configuration file was
+			 * deleted.
+			 *
+			 * Allow the ConfFile to be cleaned up taking
+			 * its JobClass (and possibly events that
+			 * JobClass was referencing) with it.
+			 */
+			nih_unref (orig, source);
+		}
+
 		return -1;
+	}
 
 	/* Create a new ConfFile structure (if no @override_path specified) */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
@@ -1112,6 +1168,10 @@ conf_reload_path (ConfSource *source,
 		file->job = parse_job (NULL, source->session, file->job,
 				name, buf, len, &pos, &lineno);
 
+		/* Allow the original ConfFile which has now been replaced to be
+		 * destroyed which will also cause the original JobClass to be
+		 * freed.
+		 */
 		if (file->job) {
 			job_class_consider (file->job);
 		} else {
@@ -1122,6 +1182,12 @@ conf_reload_path (ConfSource *source,
 	default:
 		nih_assert_not_reached ();
 	}
+
+	/* Finally, allow the original ConfFile to be destroyed without
+	 * affecting the new JobClass.
+	 */
+	if (! override_path && orig)
+		nih_unref (orig, source);
 
 	/* Deal with any parsing errors that occurred; we don't consider
 	 * these to be hard failures, which means we can warn about them
@@ -1383,7 +1449,8 @@ debug_show_job (const Job *job)
 void
 debug_show_jobs (const NihHash *instances)
 {
-	nih_assert (instances);
+	if (! instances)
+		return;
 
 	nih_debug ("jobs:");
 
@@ -1402,6 +1469,18 @@ debug_show_event (const Event *event)
 			"blockers=%d, blocking=%p",
 			event, event->name, event->progress, event->failed,
 			event->blockers, (void *)&event->blocking);
+}
+
+void
+debug_show_events (void)
+{
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		debug_show_event (event);
+	}
 }
 
 void

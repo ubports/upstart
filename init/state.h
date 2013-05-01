@@ -371,7 +371,7 @@
  *
  * Name of file that is written below the job log directory if the
  * newly re-exec'ed init instance failed to understand the JSON sent to
- * it by the old instance.
+ * it by the old instance (or if requested by STATE_FILE_ENV).
  *
  * This could happen for example if the old instance generated invalid
  * JSON, or JSON in an unexected format.

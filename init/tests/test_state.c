@@ -1482,6 +1482,9 @@ test_blocking (void)
 	new_job = (Job *)nih_hash_lookup (new_class->instances, "");
 	TEST_NE_P (new_job, NULL);
 
+	TEST_EQ (event->blockers, 1);
+	TEST_EQ (new_event->blockers, 1);
+
 	assert0 (job_diff (job, new_job, ALREADY_SEEN_SET, TRUE));
 	assert0 (job_class_diff (class, new_class, ALREADY_SEEN_SET, TRUE));
 
@@ -1512,6 +1515,7 @@ test_event_serialise (void)
 
 	event_init ();
 	session_init ();
+	job_class_init ();
 
 	TEST_GROUP ("Event serialisation and deserialisation");
 
@@ -1694,6 +1698,42 @@ test_event_serialise (void)
 
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (events);
+
+	/*******************************/
+
+	TEST_FEATURE ("with failed");
+
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	event = event_new (NULL, "foo", NULL);
+	TEST_NE_P (event, NULL);
+	TEST_LIST_NOT_EMPTY (events);
+
+	/* Force failed */
+	event->failed = TRUE;
+
+	json = event_serialise (event);
+	TEST_NE_P (json, NULL);
+
+	nih_list_remove (&event->entry);
+
+	new_event = event_deserialise (json);
+	TEST_NE_P (json, NULL);
+
+	assert0 (event_diff (event, new_event, ALREADY_SEEN_SET));
+	TEST_EQ (new_event->failed, TRUE);
+
+	nih_free (event);
+	nih_free (new_event);
+
+	/*******************************/
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
 
 	/*******************************/
 }
@@ -1880,11 +1920,22 @@ test_job_class_serialise (void)
 	TEST_TRUE (job_class_consider (class));
 	TEST_HASH_NOT_EMPTY (job_classes);
 
-	/* JobClass with no associated Jobs does not need to be
-	 * serialised.
+	/* BEHAVIOURAL CHANGE:
+	 *
+	 * Previously, a JobClass with no associated Jobs would
+	 * not be serialised (since, as there were no "running" jobs
+	 * associated with it, it was considered unnecessary).
+	 *
+	 * However, we now serialise *all* JobClasses regardless since
+	 * in the case of a stateful re-exec, we need as much state as
+	 * possible, particularly since Events have always been fully
+	 * serialised, and if Event->blockers is non-zero, it is
+	 * necessary to manipulate the 'start on' EventOperator tree for
+	 * non-running jobs post-reexec to correspond to the
+	 * Event->blockers value.
 	 */
 	json = job_class_serialise (class);
-	TEST_EQ_P (json, NULL);
+	TEST_NE_P (json, NULL);
 
 	nih_free (source);
 
