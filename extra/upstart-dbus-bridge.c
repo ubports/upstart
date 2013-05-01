@@ -588,8 +588,6 @@ upstart_job_added (void            *data,
 		return;
 	}
 
-	nih_debug ("Job got added %s", job_class_path);
-
 	/* Find out whether this job listens for any socket events */
 	for (char ***event = start_on; event && *event && **event; event++)
 		if (! strcmp (**event, DBUS_EVENT)) {
@@ -605,6 +603,8 @@ upstart_job_added (void            *data,
 
 	if (! add)
 		return;
+
+	nih_debug ("Job got added %s for event %s", job_class_path, DBUS_EVENT);
 
 	/* Free any existing record for the job (should never happen,
 	 * but worth being safe).
