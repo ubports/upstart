@@ -30,6 +30,7 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/option.h>
 #include <nih/main.h>
@@ -41,6 +42,7 @@
 
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
+#include "com.ubuntu.Upstart.Job.h"
 
 /**
  * DBUS_EVENT:
@@ -56,6 +58,10 @@ static void              upstart_disconnected (DBusConnection *connection);
 static DBusHandlerResult signal_filter        (DBusConnection *connection,
 					       DBusMessage *message, void *user_data); 
 static void              emit_event_error     (void *data, NihDBusMessage *message);
+static void              upstart_job_added    (void *data, NihDBusMessage *message,
+					       const char *job);
+static void              upstart_job_removed  (void *data, NihDBusMessage *message,
+					       const char *job);
 
 /**
  * daemonise:
@@ -85,6 +91,24 @@ static int user_mode = FALSE;
  * type of D-Bus bus to connect to.
  **/
 DBusBusType dbus_bus = (DBusBusType)-1;
+
+/**
+ * Structure we use for tracking jobs
+ *
+ * @entry: list header, 
+ * @path: D-Bus path of job being tracked.
+ **/
+typedef struct job {
+	NihList entry;
+	char *path;
+} Job;
+
+/**
+ * jobs:
+ *
+ * Jobs that we're monitoring.
+ **/
+static NihHash *jobs = NULL;
 
 /**
  * options:
@@ -119,6 +143,7 @@ main (int   argc,
 	nih_local char     **user_session_path = NULL;
 	char                *path_element = NULL;
 	DBusError            error;
+	char               **job_class_paths;
 
 	nih_main_init (argv[0]);
 
@@ -169,7 +194,7 @@ main (int   argc,
 	if (user_mode) {
 		user_session_addr = getenv ("UPSTART_SESSION");
 		if (! user_session_addr) {
-			nih_fatal (_("UPSTART_SESSION isn't set in environment"));
+			nih_fatal (_("UPSTART_SESSION is not set in environment"));
 			exit (EXIT_FAILURE);
 		}
 	}
@@ -190,6 +215,9 @@ main (int   argc,
 		exit (EXIT_FAILURE);
 	}
 
+	/* Allocate jobs hash table */
+	jobs = NIH_MUST (nih_hash_string_new (NULL, 0));
+
 	upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, connection,
 				NULL, DBUS_PATH_UPSTART,
 				NULL, NULL));
@@ -204,6 +232,49 @@ main (int   argc,
 
 		exit (EXIT_FAILURE);
 	}
+
+	/* Connect signals to be notified when jobs come and go */
+	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobAdded",
+				      (NihDBusSignalHandler)upstart_job_added, NULL)) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not create JobAdded signal connection"),
+			   err->message);
+		nih_free (err);
+
+		exit (EXIT_FAILURE);
+	}
+
+	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobRemoved",
+				      (NihDBusSignalHandler)upstart_job_removed, NULL)) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not create JobRemoved signal connection"),
+			   err->message);
+		nih_free (err);
+
+		exit (EXIT_FAILURE);
+	}
+
+	/* Request a list of all current jobs */
+	if (upstart_get_all_jobs_sync (NULL, upstart, &job_class_paths) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not obtain job list"),
+			   err->message);
+		nih_free (err);
+
+		exit (EXIT_FAILURE);
+	}
+
+	for (char **job_class_path = job_class_paths;
+	     job_class_path && *job_class_path; job_class_path++)
+		upstart_job_added (NULL, NULL, *job_class_path);
+
+	nih_free (job_class_paths);
 
 	/* Become daemon */
 	if (daemonise) {
@@ -330,6 +401,7 @@ signal_filter (DBusConnection  *connection,
 	       DBusMessage     *message,
 	       void            *user_data)
 {
+	int                 emit = FALSE;
 	DBusPendingCall    *pending_call;
 	DBusError           error;
 	nih_local char    **env = NULL;
@@ -342,6 +414,15 @@ signal_filter (DBusConnection  *connection,
 
 	nih_assert (connection);
 	nih_assert (message);
+
+	NIH_HASH_FOREACH (jobs, iter) {
+		emit = TRUE;
+		break;
+	}
+
+	/* No jobs care about DBUS_EVENT, so ignore it */
+	if (! emit)
+		goto out;
 
 	dbus_error_init (&error);
 
@@ -369,6 +450,10 @@ signal_filter (DBusConnection  *connection,
 		nih_local char *var = NULL;
 		var = NIH_MUST (nih_sprintf (NULL, "SIGNAL=%s", signal));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	} else {
+		/* We need something to work with */
+		nih_debug ("Ignoring message with no signal name");
+		goto out;
 	}
 
 	if (interface) {
@@ -422,8 +507,8 @@ out:
 }
 
 static void
-emit_event_error (void *          data,
-		  NihDBusMessage *message)
+emit_event_error (void            *data,
+		  NihDBusMessage  *message)
 {
 	NihError *err;
 
@@ -431,3 +516,113 @@ emit_event_error (void *          data,
 	nih_warn ("%s", err->message);
 	nih_free (err);
 }
+
+static void
+upstart_job_added (void            *data,
+		   NihDBusMessage  *message,
+		   const char      *job_class_path)
+{
+	/* set to TRUE if jobs start/stop conditions specify
+	 * DBUS_EVENT. Used to restrict emission of events
+	 * unnecessarily. Note that event environment matching
+	 * though is handled by Upstart.
+	 */
+	int                       add = FALSE;
+
+	Job                      *job;
+	nih_local NihDBusProxy   *job_class = NULL;
+	nih_local char         ***start_on = NULL;
+	nih_local char         ***stop_on = NULL;
+
+	nih_assert (job_class_path != NULL);
+
+	/* Obtain a proxy to the job */
+	job_class = nih_dbus_proxy_new (NULL, upstart->connection,
+					upstart->name, job_class_path,
+					NULL, NULL);
+	if (! job_class) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("Could not create proxy for job %s: %s",
+			   job_class_path, err->message);
+		nih_free (err);
+
+		return;
+	}
+
+	job_class->auto_start = FALSE;
+
+	/* Obtain the start_on and stop_on properties of the job */
+	if (job_class_get_start_on_sync (NULL, job_class, &start_on) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("Could not obtain job start condition %s: %s",
+			   job_class_path, err->message);
+		nih_free (err);
+
+		return;
+	}
+
+	if (job_class_get_stop_on_sync (NULL, job_class, &stop_on) < 0) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("Could not obtain job stop condition %s: %s",
+			   job_class_path, err->message);
+		nih_free (err);
+
+		return;
+	}
+
+	nih_debug ("Job got added %s", job_class_path);
+
+	/* Find out whether this job listens for any socket events */
+	for (char ***event = start_on; event && *event && **event; event++)
+		if (! strcmp (**event, DBUS_EVENT)) {
+			add = TRUE;
+			break;
+		}
+
+	for (char ***event = stop_on; ! add && event && *event && **event; event++)
+		if (! strcmp (**event, DBUS_EVENT)) {
+			add = TRUE;
+			break;
+		}
+
+	if (! add)
+		return;
+
+	/* Free any existing record for the job (should never happen,
+	 * but worth being safe).
+	 */
+	job = (Job *)nih_hash_lookup (jobs, job_class_path);
+	if (job)
+		nih_free (job);
+
+	/* Create new record for the job */
+	job = NIH_MUST (nih_new (NULL, Job));
+	job->path = NIH_MUST (nih_strdup (job, job_class_path));
+
+	nih_list_init (&job->entry);
+	nih_alloc_set_destructor (job, nih_list_destroy);
+	nih_hash_add (jobs, &job->entry);
+}
+
+static void
+upstart_job_removed (void            *data,
+		     NihDBusMessage  *message,
+		     const char      *job_path)
+{
+	Job *job;
+
+	nih_assert (job_path != NULL);
+
+	job = (Job *)nih_hash_lookup (jobs, job_path);
+	if (job) {
+		nih_debug ("Job went away %s", job_path);
+		nih_free (job);
+	}
+}
+

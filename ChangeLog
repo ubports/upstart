@@ -1,3 +1,12 @@
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Add man pages and conf file.
+	* extra/upstart-dbus-bridge.c: Only emit events if any jobs care
+	  about them.
+	* extra/conf/upstart-dbus-bridge.conf: New configuration file.
+	* extra/man/dbus-event.7: New man page.
+	* extra/man/upstart-dbus-bridge.8: New man page.
+
 2013-04-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-dbus-bridge.c:

@@ -1,0 +1,78 @@
+.TH upstart\-dbus\-bridge 8 2013-04-25 upstart
+.\"
+.SH NAME
+upstart\-dbus\-bridge \- Bridge between Upstart and D-Bus
+.\"
+.SH SYNOPSIS
+.B upstart\-dbus\-bridge
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart\-dbus\-bridge
+receives information about D-Bus signals
+and creates
+.BR init (8)
+events for them.
+
+With no options, monitors signals on the D-Bus system bus and emits
+Upstart events via a D-Bus system bus connection to Upstart.
+
+When run with \fB\-\-user\fP, monitors signals on the users D-Bus session bus
+and emits Upstart events via the private D-Bus connection to the users Session Init.
+
+See \fBdbus\-daemon\fP(1) and for further details.
+
+.\"
+.SH OPTIONS
+.\"
+.TP
+.B \-\-daemon
+Detach and run in the background.
+.\"
+.TP
+.B \-\-debug
+Enable debugging output.
+.\"
+.TP
+.B \-\-help
+Show brief usage summary.
+.\"
+.TP
+.B \-\-session
+Monitor signals on the D-Bus session bus.
+.\"
+.TP
+.B \-\-system
+Monitor signals on the D-Bus system bus.
+.\"
+.TP
+.B \-\-user
+User-session mode: connect to Upstart via the user session rather than
+over the D\-Bus system bus.
+.\"
+.TP
+.B \-\-verbose
+Enable verbose output.
+.\"
+.SH RESTRICTIONS
+D-Bus signals emitted by Upstart itself are ignored.
+
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@canonical.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2013 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR dbus\-daemon (1)
+.BR dbus\-event (7)
+.BR init (5)
+.BR init (8)
