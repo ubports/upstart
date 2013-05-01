@@ -15,7 +15,9 @@ and creates
 events for them.
 
 With no options, monitors signals on the D-Bus system bus and emits
-Upstart events via a D-Bus system bus connection to Upstart.
+an Upstart event called
+.I dbus
+via a D-Bus system bus connection to Upstart.
 
 When run with \fB\-\-user\fP, monitors signals on the users D-Bus session bus
 and emits Upstart events via the private D-Bus connection to the users Session Init.
@@ -25,6 +27,10 @@ See \fBdbus\-daemon\fP(1) and for further details.
 .\"
 .SH OPTIONS
 .\"
+.TP
+.B \-\-always
+Always emit events on receipt of D-Bus signal regardless of whether jobs
+care about them.
 .TP
 .B \-\-daemon
 Detach and run in the background.

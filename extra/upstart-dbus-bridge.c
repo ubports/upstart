@@ -111,11 +111,21 @@ typedef struct job {
 static NihHash *jobs = NULL;
 
 /**
+ * always:
+ *
+ * If TRUE, always emit Upstart events, regardless of whether
+ * existing jobs care about DBUS_EVENT.
+ */
+static int always = FALSE;
+
+/**
  * options:
  *
  * Command-line options accepted by this program.
  **/
 static NihOption options[] = {
+	{ 0, "always", N_("Always emit an event on receipt of D-Bus signal"),
+	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
 	{ 0, "user", N_("Connect to user session"),
@@ -415,14 +425,16 @@ signal_filter (DBusConnection  *connection,
 	nih_assert (connection);
 	nih_assert (message);
 
-	NIH_HASH_FOREACH (jobs, iter) {
-		emit = TRUE;
-		break;
-	}
+	if (! always) {
+		NIH_HASH_FOREACH (jobs, iter) {
+			emit = TRUE;
+			break;
+		}
 
-	/* No jobs care about DBUS_EVENT, so ignore it */
-	if (! emit)
-		goto out;
+		/* No jobs care about DBUS_EVENT, so ignore it */
+		if (! emit)
+			goto out;
+	}
 
 	dbus_error_init (&error);
 
