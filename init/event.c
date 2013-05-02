@@ -638,7 +638,7 @@ event_deserialise (json_object *json)
 	json_object        *json_env;
 	Event              *event = NULL;
 	nih_local char     *name = NULL;
-        char              **env = NULL;
+        nih_local char    **env = NULL;
 	int                 session_index = -1;
 
 	nih_assert (json);
@@ -678,14 +678,8 @@ event_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
 
-	/* XXX: Note that we do *NOT* re-instate the blockers count
-	 * (even though it is encoded) because although we now serialise
-	 * *all* JobClasses, we do not yet serialise EventOperators.
-	 * This means we have no way of determining which Job 'start on'
-	 * EventOperator EVENT_MATCH nodes were TRUE prior to the
-	 * serialisation such that we can compare the count of such
-	 * nodes with Event->blockers.
-	 */
+	if (! state_get_json_int_var_to_obj (json, event, blockers))
+		goto error;
 
 	return event;
 

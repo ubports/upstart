@@ -47,6 +47,7 @@
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
+json_object *json_conf_sources = NULL;
 
 extern char *log_dir;
 
@@ -337,8 +338,8 @@ state_write_objects (int fd, const char *state_data, size_t len)
 int
 state_to_string (char **json_string, size_t *len)
 {
-	json_object        *json;
-	const char         *value;
+	json_object  *json;
+	const char   *value;
 
 	nih_assert (json_string);
 	nih_assert (len);
@@ -366,6 +367,13 @@ state_to_string (char **json_string, size_t *len)
 		goto error;
 
 	json_object_object_add (json, "job_classes", json_classes);
+
+	json_conf_sources = conf_source_serialise_all ();
+
+	if (! json_conf_sources)
+		goto error;
+
+	json_object_object_add (json, "conf_sources", json_conf_sources);
 
 	/* Note that the returned value is managed by json-c! */
 	value = json_object_to_json_string (json);
@@ -424,6 +432,9 @@ state_from_string (const char *state)
 		goto out;
 
 	if (event_deserialise_all (json) < 0)
+		goto out;
+
+	if (conf_source_deserialise_all (json) < 0)
 		goto out;
 
 	if (job_class_deserialise_all (json) < 0)
@@ -1128,7 +1139,6 @@ state_get_json_type (const char *short_type)
 	return json_type_null;
 }
 
-
 /**
  * state_deserialise_resolve_deps:
  *
@@ -1187,12 +1197,6 @@ state_deserialise_resolve_deps (json_object *json)
 		class = state_index_to_job_class (i);
 		if (! class)
 			goto error;
-
-		/* XXX: user and chroot jobs are not currently supported
-		 * due to ConfSources not currently being serialised.
-		 */
-		if (class->session)
-			continue;
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;

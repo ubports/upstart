@@ -104,6 +104,7 @@ static char * conf_get_best_override   (const char *name,
  **/
 NihList *conf_sources = NULL;
 
+extern json_object *json_conf_sources;
 
 /**
  * is_conf_file_std:
@@ -1319,7 +1320,561 @@ conf_select_job (const char *name, const Session *session)
 	return NULL;
 }
 
+/**
+ * conf_source_serialise:
+ * @source: ConfSource to serialise.
+ *
+ * Convert @source into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised ConfSource object, or NULL on error.
+ **/
+json_object *
+conf_source_serialise (const ConfSource *source)
+{
+	json_object      *json;
+	json_object      *json_files;
+	int               session_index;
+
+	nih_assert (source);
+	nih_assert (conf_sources);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	json_files = json_object_new_array ();
+	if (! json_files)
+		goto error;
+
+	session_index = session_get_index (source->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, source, path))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				conf_source_type_enum_to_str,
+				"type", source->type))
+		goto error;
+
+	/* 'watch' does not need to be serialised - it gets recreated
+	 * when conf_source_new() is called on deserialisation.
+	 */
+
+	if (! state_set_json_int_var_from_obj (json, source, flag))
+		goto error;
+
+	/* Add array of ConfFile names to represent the files hash */
+	NIH_HASH_FOREACH (source->files, file_iter) {
+		ConfFile *file = (ConfFile *)file_iter;
+		json_object *json_conf_file;
+
+		json_conf_file = conf_file_serialise (file);
+		if (! json_conf_file)
+			goto error;
+
+		json_object_array_add (json_files, json_conf_file);
+	}
+
+	json_object_object_add (json, "conf_files", json_files);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * conf_source_serialise_all:
+ *
+ * Convert existing ConfSource objects to JSON representation.
+ *
+ * Returns: JSON object containing array of ConfSource objects,
+ * or NULL on error.
+ **/
+json_object *
+conf_source_serialise_all (void)
+{
+	json_object *json;
+
+	conf_init ();
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		json_object  *json_source;
+		ConfSource   *source = (ConfSource *)iter;
+
+		json_source = conf_source_serialise (source);
+
+		if (! json_source)
+			continue;
+
+		json_object_array_add (json, json_source);
+	}
+
+	return json;
+}
+
+/**
+ * conf_source_deserialise:
+ * @parent: parent,
+ * @json: JSON-serialised ConfSource object to deserialise.
+ *
+ * Create ConfSource from provided JSON and add to the
+ * conf sources list.
+ *
+ * Returns: ConfSource object, or NULL on error.
+ **/
+ConfSource *
+conf_source_deserialise (void *parent, json_object *json)
+{
+	ConfSource      *source = NULL;
+	ConfSourceType   type = -1;
+	Session         *session;
+	int              session_index = -1;
+	nih_local char  *path = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (! state_get_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (session_index < 0)
+		goto error;
+
+	session = session_from_index (session_index);
+
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				conf_source_type_str_to_enum,
+				"type", type))
+		goto error;
+
+	source = conf_source_new (parent, path, type);
+	if (! source)
+		goto error;
+
+	source->session = session;
+
+	if (! state_get_json_int_var_to_obj (json, source, flag))
+		goto error;
+
+	if (conf_file_deserialise_all (source, json) < 0)
+		goto error;
+
+	return source;
+
+error:
+	if (source)
+		nih_free (source);
+
+	return NULL;
+}
+
+/**
+ * conf_source_deserialise_all:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of ConfSources back into ConfSource objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+conf_source_deserialise_all (json_object *json)
+{
+	ConfSource *source = NULL;
+
+	nih_assert (json);
+
+	conf_init ();
+
+	json_conf_sources = json_object_object_get (json, "conf_sources");
+
+	if (! json_conf_sources)
+			goto error;
+
+	if (! state_check_json_type (json_conf_sources, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_conf_sources); i++) {
+		json_object  *json_source;
+
+		json_source = json_object_array_get_idx (json_conf_sources, i);
+		if (! json_source)
+			goto error;
+
+		if (! state_check_json_type (json_source, object))
+			goto error;
+
+		source = conf_source_deserialise (NULL, json_source);
+
+		if (! source)
+			continue;
+	}
+
+	return 0;
+
+error:
+	if (source)
+		nih_free (source);
+
+	return -1;
+}
+
+/**
+ * conf_source_type_enum_to_str:
+ *
+ * @type: ConfSourceType.
+ *
+ * Convert ConfSourceType to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+conf_source_type_enum_to_str (ConfSourceType type)
+{
+	state_enum_to_str (CONF_FILE, type);
+	state_enum_to_str (CONF_DIR, type);
+	state_enum_to_str (CONF_JOB_DIR, type);
+
+	return NULL;
+}
+
+/**
+ * conf_source_type_str_to_enum:
+ *
+ * @type: string ConfSourceType value.
+ *
+ * Convert @expect back into an enum value.
+ *
+ * Returns: ConfSourceType representing @type, or -1 if not known.
+ **/
+ConfSourceType
+conf_source_type_str_to_enum (const char *type)
+{
+	nih_assert (type);
+
+	state_str_to_enum (CONF_FILE, type);
+	state_str_to_enum (CONF_DIR, type);
+	state_str_to_enum (CONF_JOB_DIR, type);
+
+	return -1;
+}
+
+/**
+ * conf_file_serialise:
+ * @file: ConfFile to serialise.
+ *
+ * Convert @file into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised ConfFile object, or NULL on error.
+ **/
+json_object *
+conf_file_serialise (const ConfFile *file)
+{
+	json_object  *json;
+	json_object  *json_job_class;
+	JobClass     *registered;
+	int           session_index;
+	ssize_t       conf_source_index;
+
+	nih_assert (file);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_string_var_from_obj (json, file, path))
+		goto error;
+
+	conf_source_index = conf_source_get_index (file->source);
+	if (conf_source_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "conf_source", conf_source_index))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, file, flag))
+		goto error;
+
+	/*
+	 * Ignore the "best" JobClass associated with this ConfFile
+	 * (file->job) since it won't be serialised.
+	 *
+	 * Instead look up the currently registered JobClass and
+	 * reference that. This ensures that best == registered for the
+	 * re-exec. This may change though immediately after re-exec
+	 * when conf_reload() gets called.
+	 *
+	 * See job_class_serialise_all() for further details.
+	 */
+	registered = job_class_get_registered (file->job->name,
+			file->job->session);
+
+	if (! registered)
+		goto error;
+
+	/* Create a reference to the registered job class in the JSON by
+	 * encoding the name and session index. We do this rather than
+	 * simply encoding an index number for the JobClass since
+	 * job_classes is a hash and it is safer should a re-exec
+	 * result from an upgrade to NIH, say, where its hashing
+	 * algorithm changed meaning the index may be unreliable once
+	 * the job_classes hash was created post-re-exec.
+	 */
+	json_job_class = json_object_new_object ();
+	if (! json_job_class)
+		goto error;
+
+	if (! state_set_json_string_var (json_job_class,
+				"name",
+				registered->name))
+		goto error;
+
+	session_index = session_get_index (registered->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json_job_class,
+				"session",
+				session_index))
+		goto error;
+
+	json_object_object_add (json, "job_class", json_job_class);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * conf_file_deserialise:
+ * @source: ConfSource,
+ * @json: JSON-serialised ConfFile object to deserialise.
+ *
+ * Create ConfFile from provided JSON and add to the
+ * conf sources list.
+ *
+ * Returns: ConfFile object, or NULL on error.
+ **/
+ConfFile *
+conf_file_deserialise (ConfSource *source, json_object *json)
+{
+	ConfFile        *file = NULL;
+	nih_local char  *path = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+		goto error;
+
+	file = conf_file_new (source, path);
+	if (! file)
+		goto error;
+
+	/* Note that the associated JobClass is not handled at this
+	 * stage: it can't be the JobClasses haven't been deserialised
+	 * yet. As such, the ConfFile->JobClass link is dealt with by
+	 * job_class_deserialise_all().
+	 */
+	file->job = NULL;
+
+	if (! state_get_json_int_var_to_obj (json, file, flag))
+		goto error;
+
+	return file;
+
+error:
+	if (file)
+		nih_free (file);
+
+	return NULL;
+}
+
+/**
+ * conf_file_deserialise_all:
+ *
+ * @source: ConfSource,
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of ConfFiles back into ConfFile objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+conf_file_deserialise_all (ConfSource *source, json_object *json)
+{
+	json_object  *json_conf_files;
+	ConfFile     *file = NULL;
+
+	nih_assert (source);
+	nih_assert (json);
+
+	conf_init ();
+
+	json_conf_files = json_object_object_get (json, "conf_files");
+
+	if (! json_conf_files)
+			goto error;
+
+	if (! state_check_json_type (json_conf_files, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_conf_files); i++) {
+		json_object  *json_file;
+
+		json_file = json_object_array_get_idx (json_conf_files, i);
+		if (! json_file)
+			goto error;
+
+		if (! state_check_json_type (json_file, object))
+			goto error;
+
+		file = conf_file_deserialise (source, json_file);
+
+		if (! file)
+			goto error;
+	}
+
+	return 0;
+
+error:
+	if (file)
+		nih_free (file);
+
+	return -1;
+}
+
+/**
+ * conf_source_get_index:
+ *
+ * @source: ConfSource to search for.
+ *
+ * Returns: index of @source in the conf sources list,
+ * or -1 if not found.
+ **/
+ssize_t
+conf_source_get_index (const ConfSource *source)
+{
+	ssize_t i = 0;
+
+	nih_assert (source);
+
+	conf_init ();
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *s = (ConfSource *)iter;
+
+		if (! strcmp (source->path, s->path)
+				&& source->session == s->session)
+			return i;
+		i++;
+	}
+
+	return -1;
+}
+
+/**
+ * conf_file_find:
+ *
+ * @name: name of ConfFile (without dirname and extension),
+ * @session: session ConfFile belongs to.
+ *
+ * Find the ConfFile with name @name in session @session.
+ *
+ * Returns: ConfFile or NULL if not found.
+ **/
+ConfFile *
+conf_file_find (const char *name, const Session *session)
+{
+	nih_local char  *basename = NULL;
+
+	nih_assert (name);
+
+	conf_init ();
+
+	/* There can only be one ConfFile per session with the same
+	 * basename.
+	 */
+	basename = NIH_MUST (nih_sprintf (NULL, "/%s%s",
+				name, CONF_EXT_STD));
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->session != session)
+			continue;
+
+		NIH_HASH_FOREACH (source->files, file_iter) {
+			ConfFile *file = (ConfFile *)file_iter;
+			char     *match;
+			char     *slash;
+
+			match = strstr (file->path, basename);
+			slash = strrchr (file->path, '/');
+
+			if (match && match == slash)
+				return file;
+		}
+	}
+
+	return NULL;
+}
+
 #ifdef DEBUG
+
+void
+debug_show_event_operator (EventOperator *oper)
+{
+	nih_local char *env = NULL;
+
+	nih_assert (oper);
+
+	if (oper->env) env = state_collapse_env ((const char **)oper->env);
+
+	nih_debug ("EventOperator %p: type='%s', value=%d, name='%s', event='%s', env='%s'",
+			oper,
+			oper->type == EVENT_MATCH ? "EVENT_MATCH"
+			: oper->type == EVENT_AND ? "EVENT_AND"
+			: "EVENT_OR",
+			oper->value,
+			oper->name,
+			oper->event ? oper->event->name : "",
+			env ? env : "");
+}
+
+void
+debug_show_event_operators (EventOperator *root)
+{
+	nih_assert (root);
+
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		debug_show_event_operator (oper);
+	}
+}
 
 size_t
 debug_count_list_entries (const NihList *list)

@@ -586,34 +586,6 @@ job_class_add (JobClass *class)
 }
 
 /**
- * job_class_add_safe:
- * @class: new class to select.
- *
- * Adds @class to the hash table iff no existing entry of the
- * same name exists for the same session.
- **/
-void
-job_class_add_safe (JobClass *class)
-{
-	JobClass *existing = NULL;
-
-	nih_assert (class);
-	nih_assert (class->name);
-
-	control_init ();
-
-	/* Ensure no existing class exists for the same session */
-	do {
-		existing = (JobClass *)nih_hash_search (job_classes,
-				class->name, existing ? &existing->entry : NULL);
-	} while (existing && existing->session != class->session);
-
-	nih_assert (! existing);
-
-	job_class_add (class);
-}
-
-/**
  * job_class_remove:
  * @class: class to remove,
  * @session: Session of @class.
@@ -1388,6 +1360,8 @@ job_class_get (const char *name, Session *session)
 
 	nih_assert (name);
 
+	job_class_init ();
+
 	do {
 		class = (JobClass *)nih_hash_search (job_classes, name, prev);
 		if (! class)
@@ -1812,8 +1786,8 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_normalexit;
 	json_object      *json_limits;
 	json_object      *json_jobs;
-	nih_local char   *start_on = NULL;
-	nih_local char   *stop_on = NULL;
+	json_object      *json_start_on;
+	json_object      *json_stop_on;
 	int               session_index;
 
 	nih_assert (class);
@@ -1823,15 +1797,6 @@ job_class_serialise (const JobClass *class)
 	if (! json)
 		return NULL;
 	
-	/* XXX: chroot jobs are not currently supported
-	 * due to ConfSources not currently being serialised.
-	 */
-	if (class->session) {
-		nih_info ("WARNING: serialisation of chroot "
-				"sessions not currently supported");
-		goto error;
-	}
-
 	session_index = session_get_index (class->session);
 	if (session_index < 0)
 		goto error;
@@ -1876,21 +1841,19 @@ job_class_serialise (const JobClass *class)
 	json_object_object_add (json, "export", json_export);
 
 	if (class->start_on) {
-		start_on = event_operator_collapse (class->start_on);
-		if (! start_on)
+		json_start_on = event_operator_serialise_all (class->start_on);
+		if (! json_start_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "start_on", start_on))
-			goto error;
+		json_object_object_add (json, "start_on", json_start_on);
 	}
 
 	if (class->stop_on) {
-		stop_on = event_operator_collapse (class->stop_on);
-		if (! stop_on)
+		json_stop_on = event_operator_serialise_all (class->stop_on);
+		if (! json_stop_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "stop_on", stop_on))
-			goto error;
+		json_object_object_add (json, "stop_on", json_stop_on);
 	}
 
 	json_emits = class->emits
@@ -1987,7 +1950,20 @@ error:
 /**
  * job_class_serialise_all:
  *
- * Convert existing JobClass objects to JSON representation.
+ * Convert existing JobClass objects in job classes hash to JSON
+ * representation.
+ *
+ * NOTE: despite its name, this function does not _necessarily_
+ * serialise all JobClasses - there may be "best" (ie newer) JobClasses
+ * associated with ConfFiles that have not yet replaced the existing
+ * entries in the job classes hash if the JobClass has running instances.
+ *
+ * However, this is academic since although such data is not serialised,
+ * after the re-exec conf_reload() is called to recreate these "best"
+ * JobClasses. This also has the nice side-effect of ensuring that
+ * should jobs get created in the window when Upstart is statefully
+ * re-exec'ing, it will always see the newest versions of on-disk files
+ * (which is what the user expects).
  *
  * Returns: JSON object containing array of JobClass objects,
  * or NULL on error.
@@ -2009,17 +1985,17 @@ job_class_serialise_all (void)
 
 		json_class = job_class_serialise (class);
 
-		/* No object returned means the class doesn't need to be
-		 * serialised.  Even if this is a real failure, it's always
-		 * better to serialise as much of the state as possible.
-		 */
 		if (! json_class)
-			continue;
+			goto error;
 
 		json_object_array_add (json, json_class);
 	}
 
 	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
 }
 
 /**
@@ -2036,6 +2012,7 @@ job_class_deserialise (json_object *json)
 {
 	json_object    *json_normalexit;
 	JobClass       *class = NULL;
+	ConfFile       *file = NULL;
 	Session        *session;
 	int             session_index = -1;
 	int             ret;
@@ -2056,19 +2033,16 @@ job_class_deserialise (json_object *json)
 
 	session = session_from_index (session_index);
 
-	/* XXX: chroot jobs are not currently supported
-	 * due to ConfSources not currently being serialised.
-	 */
-	if (session) {
-		nih_info ("WARNING: deserialisation of chroot "
-				"sessions not currently supported");
-		goto error;
-	}
-
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
-	class = job_class_new (NULL, name, session);
+	/* Lookup the ConfFile associated with this class */
+	file = conf_file_find (name, session);
+	if (! file)
+		goto error;
+
+	/* Create the class and associate it with the ConfFile */
+	class = file->job = job_class_new (NULL, name, session);
 	if (! class)
 		goto error;
 
@@ -2103,53 +2077,25 @@ job_class_deserialise (json_object *json)
 
 	/* start and stop conditions are optional */
 	if (json_object_object_get (json, "start_on")) {
-		nih_local char *start_on = NULL;
+		json_object *json_start_on;
 
-		if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
+		if (! state_get_json_var_full (json, "start_on", array, json_start_on))
 			goto error;
 
-		if (*start_on) {
-			class->start_on = parse_on_simple (class, "start", start_on);
-			if (! class->start_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("'start on' parse error"),
-						err->message);
-
-				nih_free (err);
-
-				goto error;
-			}
-		}
+		class->start_on = event_operator_deserialise_all (class, json_start_on);
+		if (! class->start_on)
+			goto error;
 	}
 
 	if (json_object_object_get (json, "stop_on")) {
-		nih_local char *stop_on = NULL;
+		json_object *json_stop_on;
 
-		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+		if (! state_get_json_var_full (json, "start_on", array, json_stop_on))
 			goto error;
 
-		if (*stop_on) {
-			class->stop_on = parse_on_simple (class, "stop", stop_on);
-			if (! class->stop_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("'stop on' parse error"),
-						err->message);
-
-				nih_free (err);
-
-				goto error;
-			}
-		}
+		class->stop_on = event_operator_deserialise_all (class, json_stop_on);
+		if (! class->stop_on)
+			goto error;
 	}
 
 	if (! state_get_json_str_array_to_obj (json, class, emits))
@@ -2228,12 +2174,8 @@ job_class_deserialise (json_object *json)
 	if (process_deserialise_all (json, class->process, class->process) < 0)
 		goto error;
 
-	/* Force class to be known.
-	 *
-	 * We cannot use job_class_*consider() since the
-	 * JobClasses have no associated ConfFile.
-	 */
-	job_class_add_safe (class);
+	/* Add the class to the job_classes hash */
+	job_class_consider (class);
 
 	/* Any jobs must be added after the class is registered
 	 * (since you cannot add a job to a partially-created
@@ -2288,12 +2230,8 @@ job_class_deserialise_all (json_object *json)
 			goto error;
 
 		class = job_class_deserialise (json_class);
-
-		/* For parity with the serialisation code, don't treat
-		 * errors as fatal for the entire deserialisation.
-		 */
 		if (! class)
-			continue;
+			goto error;
 	}
 
 	return 0;
@@ -2503,4 +2441,30 @@ job_class_max_kill_timeout (void)
 	}
 
 	return kill_timeout;
+}
+
+/**
+ * job_class_get_index:
+ * @class: JobClass to search for.
+ *
+ * Returns: index of @class in the job classes hash,
+ * or -1 if not found.
+ **/
+ssize_t
+job_class_get_index (const JobClass *class)
+{
+	ssize_t i = 0;
+
+	nih_assert (class);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *c = (JobClass *)iter;
+
+		if (! strcmp (c->name, class->name)
+				&& c->session == class->session)
+			return i;
+		i++;
+	}
+
+	return -1;
 }

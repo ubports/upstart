@@ -1,3 +1,61 @@
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - New serialisation and support functions:
+	    - conf_source_serialise()
+	    - conf_source_serialise_all()
+	    - conf_source_deserialise()
+	    - conf_source_deserialise_all()
+	    - conf_source_type_enum_to_str()
+	    - conf_source_type_str_to_enum()
+	    - conf_file_serialise()
+	    - conf_file_deserialise()
+	    - conf_file_deserialise_all()
+	    - conf_source_get_index()
+	    - conf_file_find()
+	    - debug_show_event_operator()
+	    - debug_show_event_operators()
+	* init/event_operator.c:
+	  - event_deserialise():
+	    - Fix leaked env array.
+	    - Deserialise blockers count now EventOperators are also serialised.
+	  - event_operator_type_enum_to_str()
+	  - event_operator_type_str_to_enum()
+	  - event_operator_serialise()
+	  - event_operator_serialise_all()
+	  - event_operator_deserialise()
+	  - event_operator_deserialise_all() # FIXME: remove debug
+	* init/job_class.c:
+	  - job_class_add_safe(): Remove as no longer required.
+	  - job_class_get(): Must call job_class_init().
+	  - job_class_serialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Serialise start/stop on fully (as EventOperators) rather than just the original
+	      string condition.
+	  - job_class_deserialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Associate the JobClass with its ConfFile.
+	  - job_class_serialise_all():
+	    - Comments.
+	    - Failure to serialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_deserialise():
+	    - Deserialise start/stop on conditions as EventOperators rather than as a
+	      string condition.
+	    - Since ConfFiles are now serialised, call job_class_consider()
+	      rather than job_class_add_safe().
+	  - job_class_deserialise_all():
+	    - Failure to deserialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_get_index(): New function.
+	* init/state.c:
+	  - state_to_string(): Serialise ConfSources and ConfFiles.
+	  - state_from_string(): Deserialise ConfSources and ConfFiles.
+	  - state_deserialise_resolve_deps(): Allow chroot sessions to be
+	    handled now we serialise ConfSources and ConfFiles.
+
 2013-04-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job.c: job_serialise_all(): Really serialise all JobClasses,

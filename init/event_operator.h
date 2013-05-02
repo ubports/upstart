@@ -111,6 +111,30 @@ void           event_operator_reset       (EventOperator *root);
 char *event_operator_collapse (EventOperator *condition)
 	__attribute__ ((warn_unused_result));
 
+const char *
+event_operator_type_enum_to_str (EventOperatorType type)
+	__attribute__ ((warn_unused_result));
+
+EventOperatorType
+event_operator_type_str_to_enum (const char *type)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+event_operator_serialise (const EventOperator *oper)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+event_operator_serialise_all (EventOperator *root)
+	__attribute__ ((warn_unused_result));
+
+EventOperator *
+event_operator_deserialise (void *parent, json_object *json)
+	__attribute__ ((warn_unused_result));
+
+EventOperator *
+event_operator_deserialise_all (void *parent, json_object *json)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_EVENT_OPERATOR_H */
