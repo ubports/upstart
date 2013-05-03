@@ -678,8 +678,17 @@ event_deserialise (json_object *json)
 	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
 
-	if (! state_get_json_int_var_to_obj (json, event, blockers))
-		goto error;
+	if (state_get_version () < 3) {
+		/* We cannot set the blockers count since as
+		 * EventOperators were not serialised, its not possible
+		 * to manually reconstruct the state of the
+		 * EventOperators post-re-exec.
+		 */
+	} else {
+		/* EventOperator is serialised so we can set blockers */
+		if (! state_get_json_int_var_to_obj (json, event, blockers))
+			goto error;
+	}
 
 	return event;
 

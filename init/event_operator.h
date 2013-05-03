@@ -108,9 +108,6 @@ void           event_operator_events      (EventOperator *root,
 
 void           event_operator_reset       (EventOperator *root);
 
-char *event_operator_collapse (EventOperator *condition)
-	__attribute__ ((warn_unused_result));
-
 const char *
 event_operator_type_enum_to_str (EventOperatorType type)
 	__attribute__ ((warn_unused_result));
@@ -136,5 +133,12 @@ event_operator_deserialise_all (void *parent, json_object *json)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
+
+#ifdef DEBUG
+
+char *event_operator_collapse (EventOperator *condition)
+	__attribute__ ((warn_unused_result));
+
+#endif /* DEBUG */
 
 #endif /* INIT_EVENT_OPERATOR_H */

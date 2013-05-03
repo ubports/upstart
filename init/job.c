@@ -1581,12 +1581,13 @@ job_serialise (const Job *job)
 		goto error;
 
 	if (job->stop_on) {
-		stop_on = event_operator_collapse (job->stop_on);
-		if (! stop_on)
+		json_object *json_stop_on;
+
+		json_stop_on = event_operator_serialise_all (job->stop_on);
+		if (! json_stop_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "stop_on", stop_on))
-			goto error;
+		json_object_object_add (json, "stop_on", json_stop_on);
 	}
 
 	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
@@ -1796,37 +1797,51 @@ job_deserialise (JobClass *parent, json_object *json)
 		goto error;
 
 	if (json_object_object_get (json, "stop_on")) {
-		nih_local char *stop_on = NULL;
+		if (state_check_json_type (json, array)) {
+			json_object *json_stop_on;
 
-		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
-			goto error;
-
-		if (*stop_on) {
-			nih_local JobClass *tmp = NULL;
-
-			tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
-
-			tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
-			if (! tmp->stop_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("instance 'stop on' parse error"),
-						err->message);
-
-				nih_free (err);
-
+			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
 				goto error;
-			}
 
-			nih_free (job->stop_on);
-			job->stop_on = event_operator_copy (job, tmp->stop_on);
+			job->stop_on = event_operator_deserialise_all (job, json_stop_on);
 			if (! job->stop_on)
 				goto error;
+		} else {
+			nih_local char *stop_on = NULL;
+
+			/* old format (string) */
+
+			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+				goto error;
+
+			if (*stop_on) {
+				nih_local JobClass *tmp = NULL;
+
+				tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
+
+				tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
+				if (! tmp->stop_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("instance 'stop on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
+
+				nih_free (job->stop_on);
+				job->stop_on = event_operator_copy (job, tmp->stop_on);
+				if (! job->stop_on)
+					goto error;
+			}
 		}
+
 	}
 
 	/* fds and num_fds handled by caller */

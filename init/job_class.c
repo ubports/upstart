@@ -2077,25 +2077,81 @@ job_class_deserialise (json_object *json)
 
 	/* start and stop conditions are optional */
 	if (json_object_object_get (json, "start_on")) {
-		json_object *json_start_on;
 
-		if (! state_get_json_var_full (json, "start_on", array, json_start_on))
-			goto error;
+		if (state_check_json_type (json, array)) {
+			json_object *json_start_on;
 
-		class->start_on = event_operator_deserialise_all (class, json_start_on);
-		if (! class->start_on)
-			goto error;
+			if (! state_get_json_var_full (json, "start_on", array, json_start_on))
+				goto error;
+
+			class->start_on = event_operator_deserialise_all (class, json_start_on);
+			if (! class->start_on)
+				goto error;
+		} else {
+			nih_local char *start_on = NULL;
+
+			/* old format (string) */
+
+			if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
+				goto error;
+
+			if (*start_on) {
+				class->start_on = parse_on_simple (class, "start", start_on);
+				if (! class->start_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("'start on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
+			}
+		}
 	}
 
 	if (json_object_object_get (json, "stop_on")) {
-		json_object *json_stop_on;
 
-		if (! state_get_json_var_full (json, "start_on", array, json_stop_on))
-			goto error;
+		if (state_check_json_type (json, array)) {
+			json_object *json_stop_on;
 
-		class->stop_on = event_operator_deserialise_all (class, json_stop_on);
-		if (! class->stop_on)
-			goto error;
+			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
+				goto error;
+
+			class->stop_on = event_operator_deserialise_all (class, json_stop_on);
+			if (! class->stop_on)
+				goto error;
+		} else {
+			nih_local char *stop_on = NULL;
+
+			/* old format (string) */
+
+			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+				goto error;
+
+			if (*stop_on) {
+				class->stop_on = parse_on_simple (class, "stop", stop_on);
+				if (! class->stop_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("'stop on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
+			}
+		}
 	}
 
 	if (! state_get_json_str_array_to_obj (json, class, emits))

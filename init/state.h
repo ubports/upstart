@@ -4,7 +4,7 @@
  *
  * - XXX: Deferred work:
  *   - handling of Upstart-in-initramfs - for this to work, it would be
- *     necessary to serialise ConfSources along with the following:
+ *     necessary to serialise ConfSources (done) along with the following:
  *
  *     (1) inode number of source->path
  *     (2) inode number of '/'
@@ -26,12 +26,6 @@
  *
  *     Note too that (2)+(3) are the only reliable method for Upstart to
  *     detect that is *has* changed filesystem context.
- *
- *   - Since ConfSources are NOT serialised, it is currently not possible
- *     to support chroot jobs (because the only ConfSource
- *     objects created are those at startup (for '/etc/init/'): any
- *     pre-existing ConfSources with non-NULL Session objects will
- *     be ignored).
  *
  *   - parent/child timeout handling: we won't support down-grading initially.
  *
@@ -377,6 +371,23 @@
  * JSON, or JSON in an unexected format.
  **/
 #define STATE_FILE "upstart.state"
+
+/**
+ * STATE_VERSION:
+ *
+ * Highest numbered serialisation format supported.
+ *
+ * MUST be incremented for any format change.
+ *
+ * Version History:
+ *
+ * 1: Original format.
+ * 2: FIXME:
+ * 3: Encode JobClass->{start_on,stop_on} and Job->stop_on
+ *    as actual EventOperators rather than just a bracketed string
+ *    representation of the original conditions from the .conf files.
+ **/
+#define STATE_VERSION 3
 
 /**
  * state_get_timeout:
@@ -1224,6 +1235,9 @@ json_object *state_rlimit_serialise (const struct rlimit *rlimit)
 	__attribute__ ((warn_unused_result));
 
 struct rlimit *state_rlimit_deserialise (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int state_get_version (void)
 	__attribute__ ((warn_unused_result));
 
 extern char **args_copy;

@@ -1,5 +1,18 @@
 2013-05-02  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/event.c: event_deserialise(): Only set blockers if EventOperators
+	  are serialised.
+	* init/event_operator.c: event_operator_collapse(): Now only needed for
+	  DEBUG.
+	* init/job.c:
+	  - job_deserialise(): Support old string format for 'stop_on'
+	    EventOperator as well as new array format.
+	* init/job_class.c:
+	* init/state.c: Create a meta-header containing a serialisation version
+	  number.
+
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/conf.c:
 	  - New serialisation and support functions:
 	    - conf_source_serialise()

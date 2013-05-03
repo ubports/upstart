@@ -75,12 +75,28 @@ int restart = FALSE;
  **/
 int write_state_file = FALSE;
 
+/**
+ * serialisation_version:
+ *
+ * Set to a positive integer (representing the serialisation format
+ * verison) as the start of the deserialisation process to allow further
+ * deserialisation to be modified based on its value.
+ **/
+int serialisation_version = 0;
+
 /* Prototypes for static functions */
 static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
 
 static void state_write_file (NihIoBuffer *buffer);
+
+static json_object *state_create_header (void)
+	__attribute__ ((warn_unused_result));
+
+static int
+state_read_header (json_object *json)
+	__attribute__ ((warn_unused_result));
 
 /**
  * state_read:
@@ -339,6 +355,7 @@ int
 state_to_string (char **json_string, size_t *len)
 {
 	json_object  *json;
+	json_object  *json_header;
 	const char   *value;
 
 	nih_assert (json_string);
@@ -348,6 +365,12 @@ state_to_string (char **json_string, size_t *len)
 
 	if (! json)
 		return -1;
+
+	json_header = state_create_header ();
+	if (! json_header)
+		goto error;
+
+	json_object_object_add (json, "header", json_header);
 
 	json_sessions = session_serialise_all ();
 	if (! json_sessions)
@@ -424,6 +447,9 @@ state_from_string (const char *state)
 				json_tokener_error_desc (error));
 		return ret;
 	}
+
+	if (state_read_header (json) < 0)
+		goto out;
 
 	if (! state_check_json_type (json, object))
 		goto out;
@@ -2062,4 +2088,60 @@ clean_args (char ***argsp)
 			i--;
 		}
 	}
+}
+
+/**
+ * state_create_header:
+ *
+ * Returns: JSON object containing meta-data header, or NULL on error.
+ **/
+static json_object *
+state_create_header (void)
+{
+	json_object *json;
+
+	json = json_object_new_object ();
+
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_int_var (json, "version", STATE_VERSION))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * state_read_header:
+ *
+ * @json: JSON,
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+static int
+state_read_header (json_object *json)
+{
+	nih_assert (json);
+
+	if (! state_get_json_int_var (json, "version", serialisation_version))
+		goto error;
+
+	return 0;
+
+error:
+	return -1;
+
+}
+
+/**
+ * FIXME
+ **/
+int
+state_get_version (void)
+{
+	return serialisation_version;
 }
