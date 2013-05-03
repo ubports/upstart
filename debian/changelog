@@ -5,6 +5,8 @@ upstart (1.8-0ubuntu2) UNRELEASED; urgency=low
 
   [ Stéphane Graber ]
   * Turn on user sessions by default for the 'ubuntu' xsession.
+  * Manually add scripts/man/upstart-monitor.8 as it was missing from the
+    upstream 1.8 tarball.
 
  -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 03 May 2013 09:37:07 -0700
 
