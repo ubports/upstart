@@ -81,8 +81,12 @@ int write_state_file = FALSE;
  * Set to a positive integer (representing the serialisation format
  * verison) as the start of the deserialisation process to allow further
  * deserialisation to be modified based on its value.
+ *
+ * The value -1 denotes that the serialisation version cannot be determined
+ * (generally caused by old-style JSON state data being read that does not encode
+ * the serialisation version).
  **/
-int serialisation_version = 0;
+int serialisation_version = -1;
 
 /* Prototypes for static functions */
 static JobClass *
@@ -448,11 +452,15 @@ state_from_string (const char *state)
 		return ret;
 	}
 
-	if (state_read_header (json) < 0)
-		goto out;
-
 	if (! state_check_json_type (json, object))
 		goto out;
+
+	/* We cannot error in this scenario as the JSON state data being
+	 * read may be an old-style format that does not encode a
+	 * header.
+	 */
+	if (state_read_header (json) < 0)
+		nih_warn ("%s", _("No header present in state data"));
 
 	if (session_deserialise_all (json) < 0)
 		goto out;
@@ -460,8 +468,11 @@ state_from_string (const char *state)
 	if (event_deserialise_all (json) < 0)
 		goto out;
 
+	/* Again, we cannot error here since older JSON state data did
+	 * not encode ConfSource or ConfFile objects.
+	 */
 	if (conf_source_deserialise_all (json) < 0)
-		goto out;
+		nih_warn ("%s", _("No ConfSources present in state data"));
 
 	if (job_class_deserialise_all (json) < 0)
 		goto out;
@@ -1181,8 +1192,9 @@ state_deserialise_resolve_deps (json_object *json)
 {
 	nih_assert (json);
 
-	/* XXX: Events, JobClasses, Jobs and DBusConnections must have
-	 * previously been deserialised before invoking this function.
+	/* XXX: Sessions, Events, JobClasses, Jobs and DBusConnections
+	 * must have previously been deserialised before invoking
+	 * this function.
 	 */
 	nih_assert (json_sessions);
 	nih_assert (json_events);
@@ -1566,7 +1578,12 @@ state_deserialise_blocked (void *parent, json_object *json,
 
 			blocked = NIH_MUST (blocked_new (parent, BLOCKED_EVENT, event));
 			nih_list_add (list, &blocked->entry);
-			event_block (blocked->event);
+			
+			/* Event must already exist and should have
+			 * blockers associated for it to have a blocked
+			 * object pointing at it.
+			 */
+			nih_assert (blocked->event->blockers);
 		}
 		break;
 
@@ -1695,14 +1712,8 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 		if (! json_blocked)
 			goto error;
 
-
-		/* Don't error in this scenario to allow for possibility
-		 * that version of Upstart that performed the
-		 * serialisation did not correctly handle user and
-		 * chroot jobs.
-		 */
 		if (! state_deserialise_blocked (parent, json_blocked, list))
-			;
+			goto error;
 	}
 
 	return 0;

@@ -221,8 +221,8 @@ int         job_deserialise_all (JobClass *parent, json_object *json)
 
 Job *       job_find            (const Session *session,
 				 JobClass       *class,
-				 char  *job_class,
-				 const char *job_name)
+				 const char     *job_class,
+				 const char     *job_name)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

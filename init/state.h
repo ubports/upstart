@@ -377,15 +377,23 @@
  *
  * Highest numbered serialisation format supported.
  *
- * MUST be incremented for any format change.
+ * NOTES:
+ *
+ * 1) MUST be incremented for any format change.
+ * 2) Even when STATE_VERSION is incremented, Upstart MUST be
+ *    able to parse ALL previous state serialisation format versions.
+ * 3) Every new STATE_VERSION MUST be accompanied by atleast one upgrade
+ *    test to prove (2).
  *
  * Version History:
  *
- * 1: Original format.
- * 2: FIXME:
- * 3: Encode JobClass->{start_on,stop_on} and Job->stop_on
- *    as actual EventOperators rather than just a bracketed string
- *    representation of the original conditions from the .conf files.
+ * 1: Original format (Blocked objects do not encode a
+ *    session index).
+ * 2: Encoded a session index in Blocked objects.
+ * 3: Changed JobClass->{start_on,stop_on} and Job->stop_on
+ *    to encode an actual EventOperator rather than just a bracketed
+ *    string representation of the original conditions from the
+ *    ".conf" files.
  **/
 #define STATE_VERSION 3
 

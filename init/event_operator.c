@@ -59,7 +59,7 @@
  * array of environment variables in KEY=VALUE form.  @env will be referenced
  * by the new event.  After calling this function, you should never use
  * nih_free() to free @env and instead use nih_unref() or nih_discard() if
- * you longer need to use it.
+ * you no longer need to use it.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned operator.  When all parents
@@ -782,8 +782,7 @@ event_operator_collapse (EventOperator *condition)
 							env ? env : ""));
 				nih_list_add_after (stack, &expr->entry);
 				break;
-			}
-			else {
+			} else {
 				/* We build the expression from visiting the logical
 				 * operators (and their children) only.
 				 */
@@ -934,11 +933,15 @@ event_operator_serialise (const EventOperator *oper)
 	if (! state_set_json_int_var_from_obj (json, oper, value))
 		goto error;
 
-	if (! state_set_json_string_var_from_obj (json, oper, name))
-		goto error;
+	if (oper->name) {
+		if (! state_set_json_string_var_from_obj (json, oper, name))
+			goto error;
+	}
 
-	if (! state_set_json_str_array_from_obj (json, oper, env))
-		goto error;
+	if (oper->env) {
+		if (! state_set_json_str_array_from_obj (json, oper, env))
+			goto error;
+	}
 
 	if (oper->event) {
 		event_index = event_to_index (oper->event);
@@ -1034,7 +1037,13 @@ event_operator_deserialise (void *parent, json_object *json)
 		if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
-		if (! state_deserialise_env_array (NULL, json_env, &env))
+		/* XXX: note that we have to treat the environment array
+		 * as a plain string array (rather than an environ
+		 * array) at this point since the values are not
+		 * expanded (do not necessarily contain '='), and hence
+		 * would be discarded by the environ-handling routines.
+		 */
+		if (! state_deserialise_str_array (NULL, json_env, &env))
 			goto error;
 	}
 

@@ -1507,6 +1507,8 @@ conf_source_deserialise_all (json_object *json)
 
 	conf_init ();
 
+	nih_assert (NIH_LIST_EMPTY (conf_sources));
+
 	json_conf_sources = json_object_object_get (json, "conf_sources");
 
 	if (! json_conf_sources)

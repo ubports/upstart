@@ -2,6 +2,7 @@
 #define TEST_UTIL_H
 
 #include <string.h>
+#include "event_operator.h"
 
 /* TEST_ENSURE_CLEAN_ENV:
  *
@@ -303,6 +304,13 @@
 	(sizeof (array) / sizeof (array[0]))
 
 /* Prototypes */
-extern int string_check (const char *a, const char *b);
+int string_check (const char *a, const char *b)
+	__attribute__ ((warn_unused_result));
+
+int event_operator_diff (EventOperator *a, EventOperator *b)
+	__attribute__ ((warn_unused_result));
+
+Session * session_from_chroot (const char *chroot)
+	__attribute__ ((warn_unused_result));
 
 #endif /* TEST_UTIL_H */

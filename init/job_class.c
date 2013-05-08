@@ -382,19 +382,19 @@ error:
  * session @session is registered.
  **/
 JobClass *
-job_class_get_registered (const char *name, Session *session)
+job_class_get_registered (const char *name, const Session *session)
 {
-	JobClass *registered;
+	JobClass *registered = NULL;
 
 	nih_assert (name);
 
 	job_class_init ();
 
-	registered = (JobClass *)nih_hash_search (job_classes, name, NULL);
-
 	/* If we found an entry, ensure we only consider the appropriate session */
-	while (registered && registered->session != session)
-		registered = (JobClass *)nih_hash_search (job_classes, name, &registered->entry);
+	do {
+		registered = (JobClass *)nih_hash_search (job_classes,
+				name, registered ? &registered->entry : NULL);
+	} while (registered && registered->session != session);
 
 	return registered;
 }
@@ -584,6 +584,31 @@ job_class_add (JobClass *class)
 		job_class_register (class, conn, TRUE);
 	}
 }
+
+/**
+ * job_class_add_safe:
+ * @class: new class to select.
+ *
+ * Adds @class to the hash table iff no existing entry of the
+ * same name exists for the same session.
+ **/
+void
+job_class_add_safe (JobClass *class)
+{
+	JobClass *registered = NULL;
+
+	nih_assert (class);
+	nih_assert (class->name);
+
+	control_init ();
+
+	registered = job_class_get_registered (class->name, class->session);
+
+	nih_assert (! registered);
+
+	job_class_add (class);
+}
+
 
 /**
  * job_class_remove:
@@ -2036,15 +2061,19 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
-	/* Lookup the ConfFile associated with this class */
-	file = conf_file_find (name, session);
-	if (! file)
-		goto error;
-
 	/* Create the class and associate it with the ConfFile */
-	class = file->job = job_class_new (NULL, name, session);
+	class = job_class_new (NULL, name, session);
 	if (! class)
 		goto error;
+
+	/* Lookup the ConfFile associated with this class.
+	 *
+	 * Don't error of this fails since previous serialisation data
+	 * formats did not encode ConfSources and ConfFiles.
+	 */
+	file = conf_file_find (name, session);
+	if (file)
+		file->job = class;
 
 	/* job_class_new() sets path */
 	if (! state_get_json_string_var_strict (json, "path", NULL, path))
@@ -2079,10 +2108,10 @@ job_class_deserialise (json_object *json)
 	if (json_object_object_get (json, "start_on")) {
 		json_object *json_start_on;
 
-		if (! state_get_json_var_full (json, "start_on", array, json_start_on))
-			goto error;
-
 		if (state_check_json_type (json_start_on, array)) {
+
+			if (! state_get_json_var_full (json, "start_on", array, json_start_on))
+			goto error;
 
 			class->start_on = event_operator_deserialise_all (class, json_start_on);
 			if (! class->start_on)
@@ -2118,10 +2147,10 @@ job_class_deserialise (json_object *json)
 	if (json_object_object_get (json, "stop_on")) {
 		json_object *json_stop_on;
 
-		if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-			goto error;
-
 		if (state_check_json_type (json_stop_on, array)) {
+
+			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
+				goto error;
 
 			class->stop_on = event_operator_deserialise_all (class, json_stop_on);
 			if (! class->stop_on)
@@ -2230,8 +2259,17 @@ job_class_deserialise (json_object *json)
 	if (process_deserialise_all (json, class->process, class->process) < 0)
 		goto error;
 
-	/* Add the class to the job_classes hash */
-	job_class_consider (class);
+	if (file) {
+		/* Add the class to the job_classes hash if ConfFiles were
+		 * available in the serialisation data.
+		 */
+		job_class_consider (class);
+	} else {
+		/* No ConfSources and ConfFiles were available in the
+		 * serialisation data, so special-case the insertion.
+		 */
+		job_class_add_safe (class);
+	}
 
 	/* Any jobs must be added after the class is registered
 	 * (since you cannot add a job to a partially-created
@@ -2440,33 +2478,6 @@ job_class_prepare_reexec (void)
 
 error:
 	nih_warn (_("unable to clear CLOEXEC bit on log fd"));
-}
-
-/**
- * job_class_find:
- *
- * @session: session,
- * @name: name of JobClass.
- *
- * Lookup a JobClass by session and name.
- *
- * Returns: JobClass associated with @session, or NULL if not found.
- */
-JobClass *
-job_class_find (const Session *session,
-		const char *name)
-{
-	JobClass *class = NULL;
-
-	nih_assert (name);
-	nih_assert (job_classes);
-
-	do {
-		class = (JobClass *)nih_hash_search (job_classes,
-				name, class ? &class->entry : NULL);
-	} while (class && class->session != session);
-
-	return class;
 }
 
 /**

@@ -1,5 +1,72 @@
 2013-05-08  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/Makefile.am: Link test_util to test_event_operator.
+	* init/conf.c: conf_source_deserialise_all(): Assert conf_sources is
+	  empty.
+	* init/control.h: control_get_job(): Use job_class_get_registered()
+	  rather than redundant job_class_find().
+	* init/event_operator.c:
+	  - Typos and formatting.
+	  - event_operator_serialise(): Conditionally encode name and env.
+	  - event_operator_deserialise(): Treat env as a string array, not an
+	    environ array to ensure values are not discarded unless they contain '='.
+	* init/job.c:
+	  - job_deserialise(): Check JSON type for 'stop on' prior to attempting value extraction.
+	  - job_find():
+	    - Make job_class const.
+	    - Use job_class_get_registered() rather than job_class_find().
+	* init/job_class.c:
+	  - job_class_get_registered(): Rework.
+	  - job_class_add_safe(): Re-add since required to support old
+	    serialisation formats that do not encode ConfSource and ConfFile
+	    objects.
+	  - job_class_deserialise():
+	    - Take care to only associate ConfFile with JobClass if JSON encodes
+	      ConfFile objects.
+	    - Check JSON type for 'start/stop on' prior to attempting value extraction.
+	  - job_class_find(): Remove (redundant due to job_class_get_registered()).
+	* init/state.c:
+	  - Set serialisation_version to an invalid value to detect if it was
+	    never set (to handle old serialisation formats).
+	  - state_from_string():
+	    - Make failure to read header and ConfSources warnings only, to support old
+	      serialisation formats that do not encode this information.
+	  - state_deserialise_blocked(): Fix bug where event blocker was being
+	    incremented twice. Now, just assert it is set.
+	  - state_deserialise_blocking(): Failure to deserialise a Blocked object 
+	    is no longer ignored since sessions are supported.
+	* init/state.h: STATE_VERSION history and notes.
+	* init/tests/test_conf.c: Replace calls to job_class_find() with
+	  job_class_get_registered().
+	* init/tests/test_event_operator.c:
+	  - test_operator_serialisation(): Check both the original string
+	    serialisation format and the new full EventOperator serialisation.
+	    type.
+	* init/tests/test_job.c:
+	  - test_deserialise_ptrace():
+	    - Comments and more checks.
+	    - Create ConfSource, ConfFile and JobClass manually.
+	    - Call job_class_consider() as we now have a backing ConfFile.
+	    - Wait for childs child.
+	* init/tests/test_state.c:
+	  - Simplify TestDataFile.
+	  - Ensure files passed to conf_file_new() provide expected suffix.
+	  - job_class_diff(): Add event_operator_diff() call.
+	  - conf_source_diff(): New function.
+	  - conf_file_diff(): New function.
+	  - test_blocking():
+	    - Extra checks.
+	    - Expect ConfFiles to be recreated on re-exec.
+	  - test_upgrade(): Check environment is clean before running the next test.
+	  - test_upstart1_8_upgrade(): New Upstart-1.8 serialisation format test.
+	  - conf_source_from_path(): New utility function.
+	* init/tests/test_util.c:
+	  - event_operator_diff(): New function.
+	  - session_from_chroot(): New function.
+	* init/tests/data/upstart-1.8.json: New test file.
+
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/conf.c:
 	  - conf_source_serialise_all(): Make failures fatal.
 	* init/event_operator.c: event_operator_collapse(): Unhide but mark as
@@ -55,7 +122,7 @@
 	  - event_operator_serialise()
 	  - event_operator_serialise_all()
 	  - event_operator_deserialise()
-	  - event_operator_deserialise_all() # FIXME: remove debug
+	  - event_operator_deserialise_all()
 	* init/job_class.c:
 	  - job_class_add_safe(): Remove as no longer required.
 	  - job_class_get(): Must call job_class_init().
@@ -63,7 +130,7 @@
 	    - Remove error case if chroot session specified now that ConfSources
 	      are serialised.
 	    - Serialise start/stop on fully (as EventOperators) rather than just the original
-	      string condition.
+	      string condition (LP: #1103881).
 	  - job_class_deserialise():
 	    - Remove error case if chroot session specified now that ConfSources
 	      are serialised.

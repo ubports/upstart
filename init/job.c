@@ -1798,10 +1798,10 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (json_object_object_get (json, "stop_on")) {
 		json_object *json_stop_on;
 
-		if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-			goto error;
-
 		if (state_check_json_type (json, array)) {
+			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
+				goto error;
+
 			job->stop_on = event_operator_deserialise_all (job, json_stop_on);
 			if (! job->stop_on)
 				goto error;
@@ -2234,7 +2234,7 @@ error:
 Job *
 job_find (const Session  *session,
 	  JobClass       *class,
-	  char           *job_class,
+	  const char     *job_class,
 	  const char     *job_name)
 {
 	Job       *job;
@@ -2243,7 +2243,7 @@ job_find (const Session  *session,
 	nih_assert (job_classes);
 
 	if (! class)
-		class = job_class_find (session, job_class);
+		class = job_class_get_registered (job_class, session);
 
 	if (! class)
 		goto error;

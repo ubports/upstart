@@ -279,7 +279,7 @@ test_event_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_event_operator_SOURCES = tests/test_event_operator.c
+test_event_operator_SOURCES = tests/test_event_operator.c $(test_util_SOURCES)
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \

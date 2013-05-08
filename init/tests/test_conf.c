@@ -4639,10 +4639,10 @@ test_source_reload (void)
 	/* initial load */
 	conf_reload ();
 
-	class1 = job_class_find (NULL, "rc-sysinit");
+	class1 = job_class_get_registered ("rc-sysinit", NULL);
 	TEST_NE_P (class1, NULL);
 
-	class2 = job_class_find (NULL, "foo");
+	class2 = job_class_get_registered ("foo", NULL);
 	TEST_NE_P (class2, NULL);
 
 	TEST_LIST_EMPTY (events);
@@ -4740,7 +4740,7 @@ test_source_reload (void)
 	/* initial load */
 	conf_reload ();
 
-	registered = job_class_find (NULL, "foo");
+	registered = job_class_get_registered ("foo", NULL);
 	TEST_NE_P (registered, NULL);
 
 	best = conf_select_job (registered->name, registered->session);
@@ -4784,7 +4784,7 @@ test_source_reload (void)
 	TEST_EQ (event1->blockers, 1);
 
 	/* JobClass should have been destroyed and recreated */
-	class1 = job_class_find (NULL, "foo");
+	class1 = job_class_get_registered ("foo", NULL);
 	TEST_NE_P (class1, registered);
 
 	registered = class1;
@@ -4815,7 +4815,7 @@ test_source_reload (void)
 	TEST_EQ (event1->blockers, 1);
 
 	/* JobClass should have been destroyed and recreated */
-	class1 = job_class_find (NULL, "foo");
+	class1 = job_class_get_registered ("foo", NULL);
 	TEST_NE_P (class1, registered);
 
 	registered = class1;
