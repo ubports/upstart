@@ -2077,12 +2077,12 @@ job_class_deserialise (json_object *json)
 
 	/* start and stop conditions are optional */
 	if (json_object_object_get (json, "start_on")) {
+		json_object *json_start_on;
 
-		if (state_check_json_type (json, array)) {
-			json_object *json_start_on;
+		if (! state_get_json_var_full (json, "start_on", array, json_start_on))
+			goto error;
 
-			if (! state_get_json_var_full (json, "start_on", array, json_start_on))
-				goto error;
+		if (state_check_json_type (json_start_on, array)) {
 
 			class->start_on = event_operator_deserialise_all (class, json_start_on);
 			if (! class->start_on)
@@ -2116,12 +2116,12 @@ job_class_deserialise (json_object *json)
 	}
 
 	if (json_object_object_get (json, "stop_on")) {
+		json_object *json_stop_on;
 
-		if (state_check_json_type (json, array)) {
-			json_object *json_stop_on;
+		if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
+			goto error;
 
-			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-				goto error;
+		if (state_check_json_type (json_stop_on, array)) {
 
 			class->stop_on = event_operator_deserialise_all (class, json_stop_on);
 			if (! class->stop_on)

@@ -714,7 +714,6 @@ event_operator_reset (EventOperator *root)
 	}
 }
 
-#ifdef DEBUG
 /**
  * event_operator_collapse:
  *
@@ -865,7 +864,6 @@ event_operator_collapse (EventOperator *condition)
 
 	return NIH_MUST (nih_strdup (NULL, latest->str));
 }
-#endif /* DEBUG */
 
 /**
  * event_operator_type_enum_to_str:

@@ -1416,12 +1416,16 @@ conf_source_serialise_all (void)
 		json_source = conf_source_serialise (source);
 
 		if (! json_source)
-			continue;
+			goto error;
 
 		json_object_array_add (json, json_source);
 	}
 
 	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
 }
 
 /**

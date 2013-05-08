@@ -2093,7 +2093,8 @@ clean_args (char ***argsp)
 /**
  * state_create_header:
  *
- * Returns: JSON object containing meta-data header, or NULL on error.
+ * Returns: JSON object containing meta-data header,
+ * or NULL on error.
  **/
 static json_object *
 state_create_header (void)
@@ -2125,9 +2126,14 @@ error:
 static int
 state_read_header (json_object *json)
 {
+	json_object *json_header;
+
 	nih_assert (json);
 
-	if (! state_get_json_int_var (json, "version", serialisation_version))
+	if (! json_object_object_get_ex (json, "header", &json_header))
+		goto error;
+
+	if (! state_get_json_int_var (json_header, "version", serialisation_version))
 		goto error;
 
 	return 0;
@@ -2138,7 +2144,12 @@ error:
 }
 
 /**
- * FIXME
+ * state_get_version:
+ *
+ * Determine version of serialisation data that has been read.
+ *
+ * Only valid to call if state_from_string() has been (or is being)
+ * called.
  **/
 int
 state_get_version (void)

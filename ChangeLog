@@ -1,3 +1,21 @@
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_source_serialise_all(): Make failures fatal.
+	* init/event_operator.c: event_operator_collapse(): Unhide but mark as
+	  unused (it's still used by the tests).
+	* init/job.c:
+	  - job_serialise(): Remove unused variable.
+	  - job_deserialise(): Check the type of the start/stop on condition in
+	    the json, not the json passed to the function.
+	* init/job_class.c: job_class_deserialise(): Check the type of the
+	  start/stop on condition in the json, not the json passed to the
+	  function.
+	* init/state.c:
+	  - Comments.
+	  - state_read_header(): Extract header from JSON before checking for
+	    serialisation version.
+
 2013-05-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/event.c: event_deserialise(): Only set blockers if EventOperators

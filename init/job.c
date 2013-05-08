@@ -1547,7 +1547,6 @@ job_serialise (const Job *job)
 	json_object      *json_pid;
 	json_object      *json_fds;
 	json_object      *json_logs;
-	nih_local char   *stop_on = NULL;
 
 	nih_assert (job);
 
@@ -1797,12 +1796,12 @@ job_deserialise (JobClass *parent, json_object *json)
 		goto error;
 
 	if (json_object_object_get (json, "stop_on")) {
+		json_object *json_stop_on;
+
+		if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
+			goto error;
+
 		if (state_check_json_type (json, array)) {
-			json_object *json_stop_on;
-
-			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-				goto error;
-
 			job->stop_on = event_operator_deserialise_all (job, json_stop_on);
 			if (! job->stop_on)
 				goto error;
@@ -1841,7 +1840,6 @@ job_deserialise (JobClass *parent, json_object *json)
 					goto error;
 			}
 		}
-
 	}
 
 	/* fds and num_fds handled by caller */
