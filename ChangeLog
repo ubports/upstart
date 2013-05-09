@@ -90,6 +90,11 @@
 	  - state_read_header(): Extract header from JSON before checking for
 	    serialisation version.
 
+2013-05-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/man/shutdown.8: Specify default action is to bring system
+	  down to single-user mode (LP: #1065851).
+
 2013-05-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/event.c: event_deserialise(): Only set blockers if EventOperators
