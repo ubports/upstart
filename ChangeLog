@@ -1,3 +1,10 @@
+2013-05-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise(): Corrected logic for handling 'stop on'
+	  condition.
+	* init/job_class.c: job_class_deserialise(): Only check type after JSON
+	  queried (thanks Coverity).
+
 2013-05-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/Makefile.am: Link test_util to test_event_operator.

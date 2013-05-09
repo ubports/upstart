@@ -2043,6 +2043,8 @@ job_class_deserialise (json_object *json)
 	int             ret;
 	nih_local char *name = NULL;
 	nih_local char *path = NULL;
+	json_object    *json_start_on = NULL;
+	json_object    *json_stop_on = NULL;
 
 	nih_assert (json);
 	nih_assert (job_classes);
@@ -2105,13 +2107,9 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	/* start and stop conditions are optional */
-	if (json_object_object_get (json, "start_on")) {
-		json_object *json_start_on;
+	if (json_object_object_get_ex (json, "start_on", &json_start_on)) {
 
 		if (state_check_json_type (json_start_on, array)) {
-
-			if (! state_get_json_var_full (json, "start_on", array, json_start_on))
-			goto error;
 
 			class->start_on = event_operator_deserialise_all (class, json_start_on);
 			if (! class->start_on)
@@ -2119,8 +2117,13 @@ job_class_deserialise (json_object *json)
 		} else {
 			nih_local char *start_on = NULL;
 
-			/* old format (string) */
-
+			/* Old format (string).
+			 *
+			 * Note that we re-search for the JSON key here
+			 * (json, rather than json_start_on) to allow
+			 * the use of the convenience macro. This is
+			 * of course slower, but its a legacy scenario.
+			 */
 			if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
 				goto error;
 
@@ -2144,13 +2147,9 @@ job_class_deserialise (json_object *json)
 		}
 	}
 
-	if (json_object_object_get (json, "stop_on")) {
-		json_object *json_stop_on;
+	if (json_object_object_get_ex (json, "stop_on", &json_stop_on)) {
 
 		if (state_check_json_type (json_stop_on, array)) {
-
-			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-				goto error;
 
 			class->stop_on = event_operator_deserialise_all (class, json_stop_on);
 			if (! class->stop_on)
@@ -2158,7 +2157,7 @@ job_class_deserialise (json_object *json)
 		} else {
 			nih_local char *stop_on = NULL;
 
-			/* old format (string) */
+			/* Old format (string) - re-search as above */
 
 			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
 				goto error;

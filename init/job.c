@@ -1756,6 +1756,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	json_object    *json_fds;
 	json_object    *json_pid;
 	json_object    *json_logs;
+	json_object    *json_stop_on = NULL;
 	size_t          len;
 	int             ret;
 
@@ -1795,12 +1796,9 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (! state_get_json_env_array_to_obj (json, job, stop_env))
 		goto error;
 
-	if (json_object_object_get (json, "stop_on")) {
-		json_object *json_stop_on;
+	if (json_object_object_get_ex (json, "stop_on", &json_stop_on)) {
 
-		if (state_check_json_type (json, array)) {
-			if (! state_get_json_var_full (json, "stop_on", array, json_stop_on))
-				goto error;
+		if (state_check_json_type (json_stop_on, array)) {
 
 			job->stop_on = event_operator_deserialise_all (job, json_stop_on);
 			if (! job->stop_on)
@@ -1808,7 +1806,13 @@ job_deserialise (JobClass *parent, json_object *json)
 		} else {
 			nih_local char *stop_on = NULL;
 
-			/* old format (string) */
+			/* Old format (string)
+			 *
+			 * Note that we re-search for the JSON key here
+			 * (json, rather than json_stop_on) to allow
+			 * the use of the convenience macro. This is
+			 * of course slower, but its a legacy scenario.
+			 */
 
 			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
 				goto error;
