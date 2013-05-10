@@ -1,3 +1,24 @@
+2013-05-10  James Hunt  <james.hunt@ubuntu.com>
+
+	Revert to not supporting deserialisation of JobClasses with associated
+	user/chroot sessions to avoid behavioural change for now.
+	
+	* init/job_class.c: 
+	  - job_class_deserialise(): Revert to failing if associated session is
+	    non-NULL.
+	  - job_class_deserialise_all(): Revert to ignoring failure to
+	    deserialise a JobClass iff it has a non-NULL associated session.
+	* init/state.c: 
+	  - state_to_string(): Provide some diagnostics if serialisation fails.
+	  - state_from_string(): Provide some diagnostics if deserialisation fails.
+	  - state_deserialise_resolve_deps(): Ignore failure to lookup JobClass
+	    iff it has an associated user/chroot session.
+	  - state_deserialise_blocking(): Revert to ignoring failure to
+	    deserialise a Blocked object that is associated with a Job whose
+	    JobClass has a non-NULL session.
+	* init/tests/test_state.c: test_blocking(): Revert test to assert that
+	  blocked job with non-NULL session is ignored.
+
 2013-05-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job.c: job_serialise(): Corrected logic for handling 'stop on'

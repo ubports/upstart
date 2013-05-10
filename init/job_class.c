@@ -2060,6 +2060,13 @@ job_class_deserialise (json_object *json)
 
 	session = session_from_index (session_index);
 
+	/* XXX: chroot and old user session jobs not currently supported */
+	if (session) {
+		nih_info ("WARNING: deserialisation of user/chroot "
+				"sessions not currently supported");
+		goto error;
+	}
+
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
@@ -2070,7 +2077,7 @@ job_class_deserialise (json_object *json)
 
 	/* Lookup the ConfFile associated with this class.
 	 *
-	 * Don't error of this fails since previous serialisation data
+	 * Don't error if this fails since previous serialisation data
 	 * formats did not encode ConfSources and ConfFiles.
 	 */
 	file = conf_file_find (name, session);
@@ -2313,7 +2320,7 @@ job_class_deserialise_all (json_object *json)
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		json_object         *json_class;
+		json_object  *json_class;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
@@ -2323,8 +2330,24 @@ job_class_deserialise_all (json_object *json)
 			goto error;
 
 		class = job_class_deserialise (json_class);
-		if (! class)
-			goto error;
+
+		/* Either memory is low or -- more likely -- a JobClass
+		 * with a session was encountered, so keep going.
+		 */
+		if (! class) {
+			int session_index = -1;
+
+			if (state_get_json_int_var (json_class, "session", session_index)
+					&& session_index > 0) {
+				/* Although ConfSources are now serialised, ignore
+				 * JobClasses with associated user/chroot sessions to avoid
+				 * behavioural changes for the time being.
+				 */
+				continue;
+			} else {
+				goto error;
+			}
+		}
 	}
 
 	return 0;

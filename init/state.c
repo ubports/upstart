@@ -371,34 +371,44 @@ state_to_string (char **json_string, size_t *len)
 		return -1;
 
 	json_header = state_create_header ();
-	if (! json_header)
+	if (! json_header) {
+		nih_error ("%s header", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "header", json_header);
 
 	json_sessions = session_serialise_all ();
-	if (! json_sessions)
+	if (! json_sessions) {
+		nih_error ("%s Sessions", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "sessions", json_sessions);
 
 	json_events = event_serialise_all ();
-	if (! json_events)
+	if (! json_events) {
+		nih_error ("%s Events", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "events", json_events);
 
 	json_classes = job_class_serialise_all ();
 
-	if (! json_classes)
+	if (! json_classes) {
+		nih_error ("%s JobClasses", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "job_classes", json_classes);
 
 	json_conf_sources = conf_source_serialise_all ();
 
-	if (! json_conf_sources)
+	if (! json_conf_sources) {
+		nih_error ("%s ConfSources", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "conf_sources", json_conf_sources);
 
@@ -462,11 +472,15 @@ state_from_string (const char *state)
 	if (state_read_header (json) < 0)
 		nih_warn ("%s", _("No header present in state data"));
 
-	if (session_deserialise_all (json) < 0)
+	if (session_deserialise_all (json) < 0) {
+		nih_error ("%s Sessions", _("Failed to deserialise"));
 		goto out;
+	}
 
-	if (event_deserialise_all (json) < 0)
+	if (event_deserialise_all (json) < 0) {
+		nih_error ("%s Events", _("Failed to deserialise"));
 		goto out;
+	}
 
 	/* Again, we cannot error here since older JSON state data did
 	 * not encode ConfSource or ConfFile objects.
@@ -474,11 +488,15 @@ state_from_string (const char *state)
 	if (conf_source_deserialise_all (json) < 0)
 		nih_warn ("%s", _("No ConfSources present in state data"));
 
-	if (job_class_deserialise_all (json) < 0)
+	if (job_class_deserialise_all (json) < 0) {
+		nih_error ("%s JobClasses", _("Failed to deserialise"));
 		goto out;
+	}
 
-	if (state_deserialise_resolve_deps (json) < 0)
+	if (state_deserialise_resolve_deps (json) < 0) {
+		nih_error (_("Failed to resolve deserialisation dependencies"));
 		goto out;
+	}
 
 	ret = 0;
 
@@ -1233,8 +1251,21 @@ state_deserialise_resolve_deps (json_object *json)
 
 		/* lookup class associated with JSON class index */
 		class = state_index_to_job_class (i);
-		if (! class)
-			goto error;
+		if (! class) {
+			int session_index = -1;
+
+			if (state_get_json_int_var (json_class, "session", session_index)
+					&& session_index > 0) {
+
+				/* Although ConfSources are now serialised, ignore
+				 * JobClasses with associated user/chroot sessions to avoid
+				 * behavioural changes for the time being.
+				 */
+				continue;
+			} else {
+				goto error;
+			}
+		}
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
@@ -1712,8 +1743,13 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 		if (! json_blocked)
 			goto error;
 
+		/* Don't error in this scenario to allow for possibility
+		 * that version of Upstart that performed the
+		 * serialisation did not correctly handle user and
+		 * chroot jobs.
+		 */
 		if (! state_deserialise_blocked (parent, json_blocked, list))
-			goto error;
+			;
 	}
 
 	return 0;

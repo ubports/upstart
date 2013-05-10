@@ -1155,6 +1155,7 @@ test_blocking (void)
 	ConfSource              *source = NULL;
 	ConfSource              *new_source = NULL;
 	ConfFile                *file;
+	ConfFile                *new_file;
 	JobClass                *class;
 	JobClass                *new_class;
 	Job                     *job;
@@ -1387,13 +1388,9 @@ test_blocking (void)
 	TEST_HASH_EMPTY (job_classes);
 
 	/*******************************/
-	TEST_FEATURE ("ensure BLOCKED_JOB with non-NULL session is handled");
+	TEST_FEATURE ("ensure BLOCKED_JOB with non-NULL session is ignored");
 
 	TEST_LIST_EMPTY (sessions);
-	TEST_LIST_EMPTY (events);
-	TEST_LIST_EMPTY (conf_sources);
-	TEST_HASH_EMPTY (job_classes);
-
 	session = session_new (NULL, "/my/session");
 	TEST_NE_P (session, NULL);
 	session->conf_path = NIH_MUST (nih_strdup (session, "/lives/here"));
@@ -1402,6 +1399,7 @@ test_blocking (void)
 	/* We simulate a user job being blocked by a system event, hence
 	 * the session is not associated with the event.
 	 */
+	TEST_LIST_EMPTY (events);
 	event = event_new (NULL, "Christmas", NULL);
 	TEST_NE_P (event, NULL);
 	TEST_LIST_EMPTY (&event->blocking);
@@ -1463,16 +1461,28 @@ test_blocking (void)
 	TEST_NE_P (new_session, NULL);
 	assert0 (session_diff (session, new_session));
 
-	TEST_HASH_NOT_EMPTY (job_classes);
-	new_class = job_class_get_registered ("bar", new_session);
-	TEST_NE_P (new_class, NULL);
+	/* We don't expect any job_classes since the serialised one
+	 * related to a user session.
+	 */
+	TEST_HASH_EMPTY (job_classes);
 
 	new_source = conf_source_from_path ("/tmp/foo", CONF_JOB_DIR, new_session);
 	TEST_NE_P (new_source, NULL);
 
-	assert0 (conf_source_diff (source, new_source, ALREADY_SEEN_SET));
+	new_file = (ConfFile *)nih_hash_lookup (new_source->files, "/tmp/foo/bar.conf");
+	TEST_NE_P (new_file, NULL);
 
-	assert0 (job_class_diff (class, new_class, ALREADY_SEEN_SET, TRUE));
+	/* We don't expect the original JobClass to have been
+	 * deserialised since it has a non-NULL session.
+	 */
+	TEST_EQ_P (new_file->job, NULL);
+
+	/* Disassociate the old JobClass from its ConfFile to allow a
+	 * diff.
+	 */
+	file->job = NULL;
+
+	assert0 (conf_source_diff (source, new_source, ALREADY_SEEN_SET));
 
 	new_session = (Session *)nih_list_remove (sessions->next);
 
@@ -1480,7 +1490,7 @@ test_blocking (void)
 	nih_free (new_session);
 	nih_free (source);
 	nih_free (new_source);
-	nih_free (new_class);
+	nih_free (class);
 
 	event = (Event *)nih_list_remove (events->next);
 	nih_free (event);
