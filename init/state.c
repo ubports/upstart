@@ -1981,7 +1981,7 @@ perform_reexec (void)
 void
 stateful_reexec (void)
 {
-	int             fds[2] = { -1 };
+	int             fds[2] = { -1, -1 };
 	pid_t           pid;
 	sigset_t        mask, oldmask;
 	nih_local char *state_data = NULL;

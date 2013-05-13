@@ -1,3 +1,8 @@
+2013-05-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/state.c: stateful_reexec(): Specify all values for array
+	  initialiser.
+
 2013-05-10  James Hunt  <james.hunt@ubuntu.com>
 
 	Revert to not supporting deserialisation of JobClasses with associated
