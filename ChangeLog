@@ -1,3 +1,28 @@
+2013-05-15  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/apparmor.[ch]: AppArmor profile helper.
+	* init/Makefile.am: Added AppArmor profile helper.
+	* init/errors.h: Added SECURITY_ERROR.
+	* init/job.c:
+	  - Added new JOB_SECURITY state and PROCESS_SECURITY process.
+	  - Fix job_deserialise() for new PROCESS_SECURITY process.
+	* init/job.h: Added new JOB_SECURITY state.
+	* init/job_class.[ch]: Added apparmor_switch to hold the new
+	  "apparmor switch" stanza.
+	* init/job_process.c:
+	  - Switch to new AppArmor profile.
+	  - Handle PROCESS_SECURITY process.
+	* init/job_process.h: Added JOB_PROCESS_ERROR_SECURITY.
+	* init/man/init.5: Document new AppArmor stanzas.
+	* init/parse_job.c: Parse new "apparmor" stanzas.
+	* init/process.[ch]: Add PROCESS_SECURITY.
+	* init/tests/test_job.c: Add new tests, and adjust existing ones.
+	* init/tests/test_job_class.c: Added apparmor_switch.
+	* init/tests/test_parse_job.c: Test new AppArmor stanza parsing.
+	* init/tests/test_process.c: Added PROCESS_SECURITY tests.
+	* init/tests/test_state.c: Test apparmor_switch and
+	  PROCESS_SECURITY.
+
 2013-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/shutdown.8: Specify default action is to bring system
