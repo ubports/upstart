@@ -615,6 +615,8 @@ job_class_diff (const JobClass *a, const JobClass *b,
 	if (obj_string_check (a, b, usage))
 		goto fail;
 
+	if (obj_string_check (a, b, apparmor_switch))
+		goto fail;
 
 	return 0;
 
@@ -1012,6 +1014,12 @@ test_process_serialise (void)
 	foo->process[PROCESS_MAIN]->script = 1;
 	foo->process[PROCESS_MAIN]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_MAIN],
 				"echo hello !£$%^&*()_+-={}:@~;'#<>?,./"));
+
+	foo->process[PROCESS_SECURITY] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_SECURITY], NULL);
+	foo->process[PROCESS_SECURITY]->script = 0;
+	foo->process[PROCESS_SECURITY]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_SECURITY],
+			"/bin/true"));
 
 	foo->process[PROCESS_PRE_START] = process_new (foo->process);
 	TEST_NE_P (foo->process[PROCESS_PRE_START], NULL);

@@ -68,6 +68,13 @@ test_name (void)
 	TEST_EQ_STR (name, "main");
 
 
+	/* Check that PROCESS_SECURITY returns the right string. */
+	TEST_FEATURE ("with security process");
+	name = process_name (PROCESS_SECURITY);
+
+	TEST_EQ_STR (name, "security");
+
+
 	/* Check that PROCESS_PRE_START returns the right string. */
 	TEST_FEATURE ("with pre-start process");
 	name = process_name (PROCESS_PRE_START);
@@ -115,6 +122,13 @@ test_from_name (void)
 	process = process_from_name ("main");
 
 	TEST_EQ (process, PROCESS_MAIN);
+
+
+	/* Check that PROCESS_SECURITY is returned for the string. */
+	TEST_FEATURE ("with security process");
+	process = process_from_name ("security");
+
+	TEST_EQ (process, PROCESS_SECURITY);
 
 
 	/* Check that PROCESS_PRE_START is returned for the string. */

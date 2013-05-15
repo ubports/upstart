@@ -56,6 +56,7 @@
 #include "control.h"
 #include "parse_job.h"
 #include "state.h"
+#include "apparmor.h"
 
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
@@ -91,6 +92,8 @@ job_serialise_kill_timer (NihTimer *timer)
 static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
+
+extern int           user_mode;
 
 /**
  * job_new:
@@ -397,9 +400,26 @@ job_change_state (Job      *job,
 			job->blocker = job_emit_event (job);
 
 			break;
-		case JOB_PRE_START:
+		case JOB_SECURITY:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
+
+			if (job->class->process[PROCESS_SECURITY]
+			    && apparmor_available()
+			    && user_mode == FALSE) {
+				if (job_process_run (job, PROCESS_SECURITY) < 0) {
+					job_failed (job, PROCESS_SECURITY, -1);
+					job_change_goal (job, JOB_STOP);
+					state = job_next_state (job);
+				}
+			} else {
+				state = job_next_state (job);
+			}
+
+			break;
+		case JOB_PRE_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SECURITY);
 
 			if (job->class->process[PROCESS_PRE_START]) {
 				if (job_process_run (job, PROCESS_PRE_START) < 0) {
@@ -480,6 +500,7 @@ job_change_state (Job      *job,
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
 				    || (old_state == JOB_PRE_START)
+				    || (old_state == JOB_SECURITY)
 				    || (old_state == JOB_SPAWNED)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
@@ -594,6 +615,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_STARTING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SECURITY;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SECURITY:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -1072,6 +1102,8 @@ job_state_name (JobState state)
 		return N_("waiting");
 	case JOB_STARTING:
 		return N_("starting");
+	case JOB_SECURITY:
+		return N_("security");
 	case JOB_PRE_START:
 		return N_("pre-start");
 	case JOB_SPAWNED:
@@ -1110,6 +1142,8 @@ job_state_from_name (const char *state)
 		return JOB_WAITING;
 	} else if (! strcmp (state, "starting")) {
 		return JOB_STARTING;
+	} else if (! strcmp (state, "security")) {
+		return JOB_SECURITY;
 	} else if (! strcmp (state, "pre-start")) {
 		return JOB_PRE_START;
 	} else if (! strcmp (state, "spawned")) {
@@ -1926,8 +1960,21 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (ret < 0)
 		goto error;
 
-	if (len != PROCESS_LAST)
+	/* If we are missing one, we're probably importing from a
+	 * previous version that didn't include PROCESS_SECURITY.
+	 * Simply add the missing one.
+	 */
+	if (len == PROCESS_LAST - 1) {
+		job->pid = nih_realloc (job->pid, job, sizeof (pid_t) * PROCESS_LAST);
+
+		if (! job->pid)
+			goto error;
+
+		job->pid[PROCESS_LAST - 1] = 0;
+
+	} else if (len != PROCESS_LAST) {
 		goto error;
+	}
 
 	if (! state_get_json_int_var_to_obj (json, job, trace_forks))
 			goto error;
@@ -1949,13 +1996,23 @@ job_deserialise (JobClass *parent, json_object *json)
 		json_object  *json_log;
 
 		json_log = json_object_array_get_idx (json_logs, process);
-		if (! json_log)
-			goto error;
 
-		/* NULL if there was no log configured, or we failed to
-		 * deserialise it; either way, this should be non-fatal.
-		 */
-		job->log[process] = log_deserialise (job->log, json_log);
+		if (json_log) {
+			/* NULL if there was no log configured, or we failed to
+			 * deserialise it; either way, this should be non-fatal.
+			 */
+			job->log[process] = log_deserialise (job->log, json_log);
+		} else {
+			/* If we are missing one, we're probably importing from a
+			 * previous version that didn't include PROCESS_SECURITY.
+			 * Simply ignore the missing one.
+			 */
+			if (process == PROCESS_LAST - 1) {
+				job->log[process] = NULL;
+			} else {
+				goto error;
+			}
+		}
 	}
 
 	return job;
@@ -2066,6 +2123,7 @@ job_state_enum_to_str (JobState state)
 {
 	state_enum_to_str (JOB_WAITING, state);
 	state_enum_to_str (JOB_STARTING, state);
+	state_enum_to_str (JOB_SECURITY, state);
 	state_enum_to_str (JOB_PRE_START, state);
 	state_enum_to_str (JOB_SPAWNED, state);
 	state_enum_to_str (JOB_POST_START, state);
@@ -2092,6 +2150,7 @@ job_state_str_to_enum (const char *state)
 {
 	state_str_to_enum (JOB_WAITING, state);
 	state_str_to_enum (JOB_STARTING, state);
+	state_str_to_enum (JOB_SECURITY, state);
 	state_str_to_enum (JOB_PRE_START, state);
 	state_str_to_enum (JOB_SPAWNED, state);
 	state_str_to_enum (JOB_POST_START, state);
