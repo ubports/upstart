@@ -1,3 +1,7 @@
+2013-05-17  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/process.c: Fix deserialising with PROCESS_SECURITY.
+
 2013-05-15  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/apparmor.[ch]: AppArmor profile helper.
