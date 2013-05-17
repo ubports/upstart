@@ -1,6 +1,9 @@
 2013-05-17  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/process.c: Fix deserialising with PROCESS_SECURITY.
+	* init/tests/data/upstart-pre-security.json: Added new file to
+	  test importing serialisation data without security elements.
+	* init/tests/test_state.c: Added new data format test.
 
 2013-05-15  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
