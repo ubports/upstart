@@ -1,3 +1,9 @@
+2013-05-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Added libupstart library, built from auto-generated
+	  D-Bus bindings. To avoid ABI breakage, build calls
+	  abi-compliance-checker(1), if available.
+
 2013-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/shutdown.8: Specify default action is to bring system

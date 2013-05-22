@@ -31,6 +31,7 @@ PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
+AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
 # Reasons for requiring this library version:
 #
@@ -50,7 +51,9 @@ PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 #
 PKG_CHECK_MODULES([JSON], [json >= 0.10])
 
-AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+AC_CHECK_PROGS([ABI_COMPLIANCE_CHECKER],[abi-compliance-checker])
+AC_SUBST([ABI_COMPLIANCE_CHECKER])
+AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
@@ -101,6 +104,7 @@ NIH_LINKER_OPTIMISATIONS
 AC_CONFIG_FILES([ Makefile intl/Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
-		  scripts/Makefile scripts/data/Makefile ])
+		  scripts/Makefile scripts/data/Makefile
+		  lib/Makefile lib/libupstart.pc ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

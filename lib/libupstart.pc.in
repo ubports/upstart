@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libupstart
+Description: Upstart Utility Library
+Version: @VERSION@
+Libs: -L${libdir} -lupstart
+Cflags: -I${includedir}

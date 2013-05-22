@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.8\n"
+"Project-Id-Version: upstart 1.9\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-03-22 14:18+0000\n"
+"POT-Creation-Date: 2013-05-22 09:53+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -117,56 +117,56 @@ msgstr ""
 msgid "Restarting"
 msgstr ""
 
-#: init/control.c:1206 init/control.c:1311 init/control.c:1565
+#: init/control.c:1208 init/control.c:1313 init/control.c:1567
 msgid "Not permissible to modify PID 1 job environment"
 msgstr ""
 
-#: init/control.c:1213 init/control.c:1299 init/control.c:1572
+#: init/control.c:1215 init/control.c:1301 init/control.c:1574
 msgid "You do not have permission to modify job environment"
 msgstr ""
 
-#: init/control.c:1220 init/control.c:1318 init/control.c:1408
-#: init/control.c:1504 init/control.c:1579
+#: init/control.c:1222 init/control.c:1320 init/control.c:1410
+#: init/control.c:1506 init/control.c:1581
 msgid "Job may not be empty string"
 msgstr ""
 
-#: init/control.c:1231
+#: init/control.c:1233
 msgid "Ignoring set env request from chroot session"
 msgstr ""
 
-#: init/control.c:1329
+#: init/control.c:1331
 msgid "Ignoring unset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1355 init/control.c:1452
+#: init/control.c:1357 init/control.c:1454
 msgid "No such variable"
 msgstr ""
 
-#: init/control.c:1394 init/control.c:1490
+#: init/control.c:1396 init/control.c:1492
 msgid "You do not have permission to query job environment"
 msgstr ""
 
-#: init/control.c:1419
+#: init/control.c:1421
 msgid "Ignoring get env request from chroot session"
 msgstr ""
 
-#: init/control.c:1590
+#: init/control.c:1592
 msgid "Ignoring reset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1723
+#: init/control.c:1725
 msgid "unable to create session file"
 msgstr ""
 
-#: init/control.c:1730
+#: init/control.c:1732
 msgid "unable to write session file"
 msgstr ""
 
-#: init/control.c:1779
+#: init/control.c:1781
 msgid "You do not have permission to end session"
 msgstr ""
 
-#: init/control.c:1787
+#: init/control.c:1789
 msgid "Ignoring session end request from chroot session"
 msgstr ""
 
@@ -494,139 +494,134 @@ msgstr ""
 
 #: init/job_process.c:1155
 #, c-format
-msgid "unable to open pty master: %s"
+msgid "unable to unlockpt: %s"
 msgstr ""
 
 #: init/job_process.c:1160
 #, c-format
-msgid "unable to unlockpt: %s"
+msgid "unable to granpt: %s"
 msgstr ""
 
 #: init/job_process.c:1165
 #, c-format
-msgid "unable to granpt: %s"
+msgid "unable to get ptsname: %s"
 msgstr ""
 
 #: init/job_process.c:1170
 #, c-format
-msgid "unable to get ptsname: %s"
+msgid "unable to open pty slave: %s"
 msgstr ""
 
 #: init/job_process.c:1175
 #, c-format
-msgid "unable to open pty slave: %s"
+msgid "unable to modify signal handler: %s"
 msgstr ""
 
 #: init/job_process.c:1180
 #, c-format
-msgid "unable to modify signal handler: %s"
+msgid "unable to allocate memory: %s"
 msgstr ""
 
 #: init/job_process.c:1185
 #, c-format
-msgid "unable to allocate memory: %s"
-msgstr ""
-
-#: init/job_process.c:1190
-#, c-format
 msgid "unable to initgroups: %s"
 msgstr ""
 
-#: init/job_process.c:1221 init/job_process.c:1354
+#: init/job_process.c:1216 init/job_process.c:1349
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1230 init/job_process.c:1363
+#: init/job_process.c:1225 init/job_process.c:1358
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1424
+#: init/job_process.c:1419
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1429
+#: init/job_process.c:1424
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1444
+#: init/job_process.c:1439
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1448
+#: init/job_process.c:1443
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1462
+#: init/job_process.c:1457
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1466
+#: init/job_process.c:1461
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1480
+#: init/job_process.c:1475
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1484
+#: init/job_process.c:1479
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1619
+#: init/job_process.c:1614
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1625
+#: init/job_process.c:1620
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1725
+#: init/job_process.c:1720
 msgid "Failed to add log to unflushed queue"
 msgstr ""
 
-#: init/job_process.c:1891
+#: init/job_process.c:1886
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1904 init/job_process.c:2099
+#: init/job_process.c:1899 init/job_process.c:2094
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1944 init/job_process.c:2035 init/job_process.c:2090
+#: init/job_process.c:1939 init/job_process.c:2030 init/job_process.c:2085
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1984
+#: init/job_process.c:1979
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2019
+#: init/job_process.c:2014
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2026
+#: init/job_process.c:2021
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:2085
+#: init/job_process.c:2080
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
@@ -1539,66 +1534,66 @@ msgstr ""
 msgid "Save File"
 msgstr ""
 
-#: scripts/upstart-monitor.py:484
+#: scripts/upstart-monitor.py:486
 msgid "Clear events"
 msgstr ""
 
-#: scripts/upstart-monitor.py:486
+#: scripts/upstart-monitor.py:488
 msgid "Save events to default file"
 msgstr ""
 
-#: scripts/upstart-monitor.py:488
+#: scripts/upstart-monitor.py:490
 msgid "Save events to specified file"
 msgstr ""
 
-#: scripts/upstart-monitor.py:490
+#: scripts/upstart-monitor.py:492
 msgid "Exit application"
 msgstr ""
 
-#: scripts/upstart-monitor.py:494
+#: scripts/upstart-monitor.py:496
 msgid "Application details"
 msgstr ""
 
-#: scripts/upstart-monitor.py:499
+#: scripts/upstart-monitor.py:501
 msgid "Copy"
 msgstr ""
 
-#: scripts/upstart-monitor.py:556
+#: scripts/upstart-monitor.py:558
 msgid "Index"
 msgstr ""
 
-#: scripts/upstart-monitor.py:560
+#: scripts/upstart-monitor.py:562
 msgid "Time"
 msgstr ""
 
-#: scripts/upstart-monitor.py:564
+#: scripts/upstart-monitor.py:566
 msgid "Event and environment"
 msgstr ""
 
-#: scripts/upstart-monitor.py:589 scripts/upstart-monitor.py:671
+#: scripts/upstart-monitor.py:591 scripts/upstart-monitor.py:673
 msgid "Connected to"
 msgstr ""
 
-#: scripts/upstart-monitor.py:620
+#: scripts/upstart-monitor.py:622
 msgid "Upstart Event Monitor"
 msgstr ""
 
-#: scripts/upstart-monitor.py:624
+#: scripts/upstart-monitor.py:626
 msgid "run in command-line mode"
 msgstr ""
 
-#: scripts/upstart-monitor.py:627
+#: scripts/upstart-monitor.py:629
 msgid "field separator to use for command-line output"
 msgstr ""
 
-#: scripts/upstart-monitor.py:631
+#: scripts/upstart-monitor.py:633
 msgid "connect to Upstart via specified D-Bus route"
 msgstr ""
 
-#: scripts/upstart-monitor.py:669
+#: scripts/upstart-monitor.py:671
 msgid "console mode"
 msgstr ""
 
-#: scripts/upstart-monitor.py:673
+#: scripts/upstart-monitor.py:675
 msgid "Columns: time, event and environment"
 msgstr ""
