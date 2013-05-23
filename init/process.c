@@ -291,13 +291,6 @@ process_deserialise_all (json_object *json, const void *parent,
 
 	}
 
-	/* If we are missing one, we're probably importing from a
-	 * previous version that didn't include PROCESS_SECURITY.
-	 * Simply add the missing one.
-	 */
-	if (json_object_array_length (json_processes) == PROCESS_LAST - 1)
-		processes[PROCESS_SECURITY] = NIH_MUST (process_new (parent));
-
 	return 0;
 
 error:

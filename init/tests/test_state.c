@@ -3157,19 +3157,19 @@ test_upstart_pre_security_upgrade (const char *conf_file, const char *path)
 		TEST_EQ_P (class->apparmor_switch, NULL);
 		TEST_HASH_NOT_EMPTY (class->instances);
 
+		TEST_EQ_P (class->process[PROCESS_SECURITY], NULL);
+
 		TEST_FALSE (class->process[PROCESS_MAIN]->script);
 		TEST_FALSE (class->process[PROCESS_PRE_START]->script);
 		TEST_FALSE (class->process[PROCESS_POST_START]->script);
 		TEST_FALSE (class->process[PROCESS_PRE_STOP]->script);
 		TEST_FALSE (class->process[PROCESS_POST_STOP]->script);
-		TEST_FALSE (class->process[PROCESS_SECURITY]->script);
 
 		TEST_EQ_STR (class->process[PROCESS_MAIN]->command, "a");
 		TEST_EQ_STR (class->process[PROCESS_PRE_START]->command, "b");
 		TEST_EQ_STR (class->process[PROCESS_POST_START]->command, "c");
 		TEST_EQ_STR (class->process[PROCESS_PRE_STOP]->command, "d");
 		TEST_EQ_STR (class->process[PROCESS_POST_STOP]->command, "e");
-		TEST_EQ_P (class->process[PROCESS_SECURITY]->command, NULL);
 
 		NIH_HASH_FOREACH (class->instances, iter2) {
 			Job            *job = (Job *)iter2;
