@@ -1,3 +1,10 @@
+2013-05-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Fix library LDFLAGS.
+	  - Added test program.
+	* lib/tests/test_libupstart.c: Basic library test.
+
 2013-05-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* Added libupstart library, built from auto-generated

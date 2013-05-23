@@ -36,8 +36,8 @@ libupstart_la_LIBADD =
 
 libupstart_la_LDFLAGS = \
 	-version-info $(LIBUPSTART_VERSION) \
-	-no-undefined \
-	-Wl,--version-script=$(srcdir)/libupstart.ver
+	-Wl,--version-script=$(srcdir)/libupstart.ver \
+	$(LIBS) $(NIH_LIBS) $(NIH_DBUS_LIBS) $(DBUS_LIBS) -lrt
 
 # latest ABI
 abi_official = $(srcdir)/abi_dumps/libupstart/libupstart_$(LIBUPSTART_VERSION_DOTTED).abi.tar.gz
@@ -70,7 +70,17 @@ run_abi_checker.sh: run_abi_checker.sh.in libupstart.la $(abi_build_XML)
 	    $< > $@
 	chmod +x $@
 
+TESTS = test_libupstart
+check_PROGRAMS = $(TESTS)
 check_SCRIPTS = run_abi_checker.sh
+
+test_libupstart_SOURCES = tests/test_libupstart.c $(lib_LTLIBRARIES)
+test_libupstart_LDADD = \
+	$(lib_LTLIBRARIES) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	-lrt
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \
@@ -131,6 +141,8 @@ CLEANFILES = \
 	$(pkgconfig_DATA)
 
 CLEANFILES += $(check_SCRIPTS)
+
+tests: $(check_PROGRAMS)
 
 clean-local:
 	rm -f *.gcno *.gcda
