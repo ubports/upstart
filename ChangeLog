@@ -1,3 +1,8 @@
+2013-05-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Add --disable-abi-check option to allow ABI
+	  check to be skipped.
+
 2013-05-23  James Hunt  <james.hunt@ubuntu.com>
 
 	* lib/Makefile.am:

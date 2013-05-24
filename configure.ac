@@ -51,8 +51,16 @@ AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 #
 PKG_CHECK_MODULES([JSON], [json >= 0.10])
 
-AC_CHECK_PROGS([ABI_COMPLIANCE_CHECKER],[abi-compliance-checker])
-AC_SUBST([ABI_COMPLIANCE_CHECKER])
+AC_ARG_ENABLE([abi-check],
+	AS_HELP_STRING([--disable-abi-check],
+		[Disable libupstart ABI check performed if abi-compliance-checker available]),
+		[abi_check=no], [abi_check=yes])
+
+if test x$abi_check = xyes; then
+	AC_CHECK_PROGS([ABI_COMPLIANCE_CHECKER],[abi-compliance-checker])
+	AC_SUBST([ABI_COMPLIANCE_CHECKER])
+fi
+
 AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
 
 # Checks for header files.
