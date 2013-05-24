@@ -37,26 +37,19 @@
 
 /**
  * apparmor_switch:
- * @job: job switching apparmor profile
+ * @profile: AppArmor profile to switch to
  *
- * This function switches to an apparmor profile using the class details in
- * @job
+ * This function switches to a new AppArmor profile on exec
  *
  * Returns: zero on success, -1 on error
  **/
 int
-apparmor_switch (Job *job)
+apparmor_switch (char *profile)
 {
 	nih_local char *filename = NULL;
 	FILE           *f;
-	JobClass       *class;
 
-	nih_assert (job != NULL);
-	nih_assert (job->class != NULL);
-
-	class = job->class;
-
-	nih_assert (class->apparmor_switch != NULL);
+	nih_assert (profile != NULL);
 
 	/* Silently fail if AppArmor isn't enabled. */
 	if (! apparmor_available())
@@ -72,7 +65,7 @@ apparmor_switch (Job *job)
 	if (! f)
 		return -1;
 
-	fprintf (f, "exec %s\n", class->apparmor_switch);
+	fprintf (f, "exec %s\n", profile);
 
 	if (fclose (f))
 		return -1;

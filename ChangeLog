@@ -1,5 +1,12 @@
 2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
+	* init/job_process.c: Allow environment variables in apparmor
+	  switch stanzas.
+	* init/apparmor.[ch]: Use a profile name instead of a Job so we
+	  can use environment variables.
+
+2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
 	* init/tests/test_state.c: An unused process is actually supposed
           to be NULL. Fix test.
 	* init/process.c: Adjust to leave unused process as NULL.

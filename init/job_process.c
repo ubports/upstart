@@ -706,7 +706,19 @@ job_process_spawn (Job          *job,
 	   process, so we don't confine the pre- and post- processes.
 	 */
 	if ((class->apparmor_switch) && (process == PROCESS_MAIN)) {
-		if (apparmor_switch (job) < 0) {
+		nih_local char *profile = NULL;
+
+		/* Use the environment to expand the AppArmor profile name
+		 */
+		profile = NIH_SHOULD (environ_expand (NULL,
+						      class->apparmor_switch,
+						      environ));
+
+		if (! profile) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SECURITY, 0);
+		}
+
+		if (apparmor_switch (profile) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SECURITY, 0);
 		}

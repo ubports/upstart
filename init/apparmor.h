@@ -41,7 +41,7 @@
 
 NIH_BEGIN_EXTERN
 
-int    apparmor_switch (Job *job)
+int    apparmor_switch (char *profile)
 	__attribute__ ((warn_unused_result));
 
 int    apparmor_available (void)
