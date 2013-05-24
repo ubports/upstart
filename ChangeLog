@@ -1,3 +1,11 @@
+2013-05-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_clear_unflushed(): Expand assertion to handle scenario
+	    where the NihIo is still valid but empty (since the data now
+	    exists on the unflushed list).
+	  - log_read_watch(): Handle EINTR.
+
 2013-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/shutdown.8: Specify default action is to bring system
