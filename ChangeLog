@@ -1,4 +1,11 @@
-2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/job.c: Don't check for user mode when trying to load an
+	  AppArmor profile. User mode is supported as root, and upstart
+	  can be run as a user without being in user mode.
+	* init/man/init.5: Adjust man page.
+
+2013-05-24  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/job_process.c: Allow environment variables in apparmor
 	  switch stanzas.

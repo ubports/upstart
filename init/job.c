@@ -93,8 +93,6 @@ static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
 
-extern int           user_mode;
-
 /**
  * job_new:
  * @class: class of job,
@@ -405,8 +403,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_STARTING);
 
 			if (job->class->process[PROCESS_SECURITY]
-			    && apparmor_available()
-			    && user_mode == FALSE) {
+			    && apparmor_available()) {
 				if (job_process_run (job, PROCESS_SECURITY) < 0) {
 					job_failed (job, PROCESS_SECURITY, -1);
 					job_change_goal (job, JOB_STOP);
