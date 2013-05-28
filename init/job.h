@@ -66,6 +66,7 @@ typedef enum job_goal {
 typedef enum job_state {
 	JOB_WAITING,
 	JOB_STARTING,
+	JOB_SECURITY,
 	JOB_PRE_START,
 	JOB_SPAWNED,
 	JOB_POST_START,

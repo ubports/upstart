@@ -86,6 +86,8 @@ process_name (ProcessType process)
 		return N_("pre-stop");
 	case PROCESS_POST_STOP:
 		return N_("post-stop");
+	case PROCESS_SECURITY:
+		return N_("security");
 	default:
 		return NULL;
 	}
@@ -114,6 +116,8 @@ process_from_name (const char *process)
 		return PROCESS_PRE_STOP;
 	} else if (! strcmp (process, "post-stop")) {
 		return PROCESS_POST_STOP;
+	} else if (! strcmp (process, "security")) {
+		return PROCESS_SECURITY;
 	} else {
 		return -1;
 	}
@@ -311,6 +315,7 @@ process_type_enum_to_str (ProcessType type)
 	state_enum_to_str (PROCESS_POST_START, type);
 	state_enum_to_str (PROCESS_PRE_STOP, type);
 	state_enum_to_str (PROCESS_POST_STOP, type);
+	state_enum_to_str (PROCESS_SECURITY, type);
 
 	return NULL;
 }
@@ -335,6 +340,7 @@ process_type_str_to_enum (const char *type)
 	state_str_to_enum (PROCESS_POST_START, type);
 	state_str_to_enum (PROCESS_PRE_STOP, type);
 	state_str_to_enum (PROCESS_POST_STOP, type);
+	state_str_to_enum (PROCESS_SECURITY, type);
 
 	return -1;
 }
