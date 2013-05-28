@@ -5,6 +5,14 @@
 	  can be run as a user without being in user mode.
 	* init/man/init.5: Adjust man page.
 
+2013-05-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_clear_unflushed(): Expand assertion to handle scenario
+	    where the NihIo is still valid but empty (since the data now
+	    exists on the unflushed list).
+	  - log_read_watch(): Handle EINTR.
+
 2013-05-24  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/job_process.c: Allow environment variables in apparmor
