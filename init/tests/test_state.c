@@ -148,6 +148,7 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 
 void test_upstart1_6_upgrade (const char *path);
 void test_upstart1_8_upgrade (const char *path);
+void test_upstart_pre_security_upgrade (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -185,6 +186,7 @@ typedef struct test_data_file {
 TestDataFile test_data_files[] = {
 	{ "upstart-1.6.json", test_upstart1_6_upgrade },
 	{ "upstart-1.8.json", test_upstart1_8_upgrade },
+	{ "upstart-pre-security.json", test_upstart_pre_security_upgrade },
 
 	{ NULL, NULL }
 };
@@ -629,6 +631,8 @@ job_class_diff (const JobClass *a, const JobClass *b,
 	if (obj_string_check (a, b, usage))
 		goto fail;
 
+	if (obj_string_check (a, b, apparmor_switch))
+		goto fail;
 
 	return 0;
 
@@ -1120,6 +1124,12 @@ test_process_serialise (void)
 	foo->process[PROCESS_MAIN]->script = 1;
 	foo->process[PROCESS_MAIN]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_MAIN],
 				"echo hello !£$%^&*()_+-={}:@~;'#<>?,./"));
+
+	foo->process[PROCESS_SECURITY] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_SECURITY], NULL);
+	foo->process[PROCESS_SECURITY]->script = 0;
+	foo->process[PROCESS_SECURITY]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_SECURITY],
+			"/bin/true"));
 
 	foo->process[PROCESS_PRE_START] = process_new (foo->process);
 	TEST_NE_P (foo->process[PROCESS_PRE_START], NULL);
@@ -1927,6 +1937,12 @@ test_log_serialise (void)
 	struct stat      statbuf;
 	mode_t           old_perms;
 	int              status;
+
+	conf_init ();
+	log_unflushed_init ();
+
+	TEST_TRUE (NIH_LIST_EMPTY (conf_sources));
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
 
 	TEST_GROUP ("Log serialisation and deserialisation");
 
@@ -3350,6 +3366,129 @@ test_upstart1_8_upgrade (const char *path)
 	event_init ();
 	conf_init ();
 	job_class_init ();
+}
+
+/**
+ * test_upstart_pre_security_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test for Upstart pre-security serialisation data format that doesn't
+ * contain apparmor_switch element, and PROCESS_SECURITY.
+ *
+ **/
+void
+test_upstart_pre_security_upgrade (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	Event           *event;
+	ConfSource      *source;
+	ConfFile        *file;
+	nih_local char  *conf_file_path = NULL;
+	struct stat      statbuf;
+	size_t           len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	TEST_LIST_EMPTY (conf_sources);
+
+	/* Create the ConfSource and ConfFile objects to simulate
+	 * Upstart reading /etc/init on startup. Required since we
+	 * don't currently serialise these objects.
+	 */
+	source = conf_source_new (NULL, "/tmp/security", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	conf_file_path = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				"/tmp/security", "security"));
+
+	file = conf_file_new (source, conf_file_path);
+	TEST_NE_P (file, NULL);
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	event = (Event *)nih_list_remove (events->next);
+	TEST_NE_P (event, NULL);
+	TEST_EQ_STR (event->name, "Christmas");
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		TEST_EQ_STR (class->name, "security");
+		TEST_EQ_STR (class->path, "/com/ubuntu/Upstart/jobs/security");
+		TEST_EQ_P (class->apparmor_switch, NULL);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		TEST_EQ_P (class->process[PROCESS_SECURITY], NULL);
+
+		TEST_FALSE (class->process[PROCESS_MAIN]->script);
+		TEST_FALSE (class->process[PROCESS_PRE_START]->script);
+		TEST_FALSE (class->process[PROCESS_POST_START]->script);
+		TEST_FALSE (class->process[PROCESS_PRE_STOP]->script);
+		TEST_FALSE (class->process[PROCESS_POST_STOP]->script);
+
+		TEST_EQ_STR (class->process[PROCESS_MAIN]->command, "a");
+		TEST_EQ_STR (class->process[PROCESS_PRE_START]->command, "b");
+		TEST_EQ_STR (class->process[PROCESS_POST_START]->command, "c");
+		TEST_EQ_STR (class->process[PROCESS_PRE_STOP]->command, "d");
+		TEST_EQ_STR (class->process[PROCESS_POST_STOP]->command, "e");
+
+		NIH_HASH_FOREACH (class->instances, iter2) {
+			Job            *job = (Job *)iter2;
+			nih_local char *instance_path = NULL;
+
+			/* instance name */
+			TEST_EQ_STR (job->name, "");
+
+			instance_path = NIH_MUST (nih_sprintf (NULL, "%s/_", class->path));
+			TEST_EQ_STR (job->path, instance_path);
+
+			TEST_EQ (job->pid[PROCESS_MAIN], 10);
+			TEST_EQ (job->pid[PROCESS_PRE_START], 11);
+			TEST_EQ (job->pid[PROCESS_POST_START], 12);
+			TEST_EQ (job->pid[PROCESS_PRE_STOP], 13);
+			TEST_EQ (job->pid[PROCESS_POST_STOP], 14);
+			TEST_EQ (job->pid[PROCESS_SECURITY], 0);
+
+			TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
+			TEST_EQ_P (job->log[PROCESS_PRE_START], NULL);
+			TEST_EQ_P (job->log[PROCESS_POST_START], NULL);
+			TEST_EQ_P (job->log[PROCESS_PRE_STOP], NULL);
+			TEST_EQ_P (job->log[PROCESS_POST_STOP], NULL);
+			TEST_EQ_P (job->log[PROCESS_SECURITY], NULL);
+
+		}
+	}
+
+	nih_free (event);
+	nih_free (conf_sources);
+	conf_sources = NULL;
+	nih_free (job_classes);
+	job_classes = NULL;
 }
 
 int
