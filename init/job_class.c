@@ -362,6 +362,8 @@ job_class_new (const void *parent,
 
 	class->usage = NULL;
 
+	class->apparmor_switch = NULL;
+
 	return class;
 
 error:
@@ -1873,6 +1875,9 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, usage))
 		goto error;
 
+	if (! state_set_json_string_var_from_obj (json, class, apparmor_switch))
+		goto error;
+
 	return json;
 
 error:
@@ -2108,6 +2113,14 @@ job_class_deserialise (json_object *json)
 
 	if (! state_get_json_string_var_to_obj (json, class, usage))
 		goto error;
+
+	/* If we are missing this, we're probably importing from a
+	 * previous version that didn't include PROCESS_SECURITY.
+	 */
+	if (json_object_object_get (json, "apparmor_switch")) {
+		if (! state_get_json_string_var_to_obj (json, class, apparmor_switch))
+			goto error;
+	}
 
 	json_normalexit = json_object_object_get (json, "normalexit");
 	if (! json_normalexit)

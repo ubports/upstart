@@ -1,3 +1,63 @@
+2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/job.c: Don't check for user mode when trying to load an
+	  AppArmor profile. User mode is supported as root, and upstart
+	  can be run as a user without being in user mode.
+	* init/man/init.5: Adjust man page.
+
+2013-05-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_clear_unflushed(): Expand assertion to handle scenario
+	    where the NihIo is still valid but empty (since the data now
+	    exists on the unflushed list).
+	  - log_read_watch(): Handle EINTR.
+
+2013-05-24  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/job_process.c: Allow environment variables in apparmor
+	  switch stanzas.
+	* init/apparmor.[ch]: Use a profile name instead of a Job so we
+	  can use environment variables.
+
+2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/tests/test_state.c: An unused process is actually supposed
+          to be NULL. Fix test.
+	* init/process.c: Adjust to leave unused process as NULL.
+
+2013-05-17  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/process.c: Fix deserialising with PROCESS_SECURITY.
+	* init/tests/data/upstart-pre-security.json: Added new file to
+	  test importing serialisation data without security elements.
+	* init/tests/test_state.c: Added new data format test.
+
+2013-05-15  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/apparmor.[ch]: AppArmor profile helper.
+	* init/Makefile.am: Added AppArmor profile helper.
+	* init/errors.h: Added SECURITY_ERROR.
+	* init/job.c:
+	  - Added new JOB_SECURITY state and PROCESS_SECURITY process.
+	  - Fix job_deserialise() for new PROCESS_SECURITY process.
+	* init/job.h: Added new JOB_SECURITY state.
+	* init/job_class.[ch]: Added apparmor_switch to hold the new
+	  "apparmor switch" stanza.
+	* init/job_process.c:
+	  - Switch to new AppArmor profile.
+	  - Handle PROCESS_SECURITY process.
+	* init/job_process.h: Added JOB_PROCESS_ERROR_SECURITY.
+	* init/man/init.5: Document new AppArmor stanzas.
+	* init/parse_job.c: Parse new "apparmor" stanzas.
+	* init/process.[ch]: Add PROCESS_SECURITY.
+	* init/tests/test_job.c: Add new tests, and adjust existing ones.
+	* init/tests/test_job_class.c: Added apparmor_switch.
+	* init/tests/test_parse_job.c: Test new AppArmor stanza parsing.
+	* init/tests/test_process.c: Added PROCESS_SECURITY tests.
+	* init/tests/test_state.c: Test apparmor_switch and
+	  PROCESS_SECURITY.
+
 2013-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/shutdown.8: Specify default action is to bring system
