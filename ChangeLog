@@ -1,3 +1,12 @@
+2013-05-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Use plain-text ABI dump, rather than .tar.gz version to allow
+	    changes to be easily diff'ed.
+	  - Pass path to official ABI to script to avoid script determining it.
+	* lib/run_abi_checker.sh.in: Use provided official ABI path.
+	* Renamed lib/abi_dumps/ to lib/abi/.
+
 2013-05-24  James Hunt  <james.hunt@ubuntu.com>
 
 	* configure.ac: Add --disable-abi-check option to allow ABI

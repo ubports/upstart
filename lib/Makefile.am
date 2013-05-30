@@ -40,7 +40,7 @@ libupstart_la_LDFLAGS = \
 	$(LIBS) $(NIH_LIBS) $(NIH_DBUS_LIBS) $(DBUS_LIBS) -lrt
 
 # latest ABI
-abi_official = $(srcdir)/abi_dumps/libupstart/libupstart_$(LIBUPSTART_VERSION_DOTTED).abi.tar.gz
+abi_official = $(srcdir)/abi/libupstart/libupstart_$(LIBUPSTART_VERSION_DOTTED).abi
 
 # disposable ABI descriptor for the currently-built library
 abi_build_XML = libupstart-abi.xml
@@ -66,6 +66,7 @@ run_abi_checker.sh: run_abi_checker.sh.in libupstart.la $(abi_build_XML)
 	    -e 's|[@]libupstart[@]|$(lib_LTLIBRARIES)|g' \
 	    -e 's|[@]libupstart_version[@]|$(LIBUPSTART_VERSION)|g' \
 	    -e 's|[@]abi_build_XML[@]|$(abi_build_XML)|g' \
+	    -e 's|[@]abi_official[@]|$(abi_official)|g' \
 	    -e 's|[@]abi_compliance_checker[@]|$(ABI_COMPLIANCE_CHECKER)|g' \
 	    $< > $@
 	chmod +x $@

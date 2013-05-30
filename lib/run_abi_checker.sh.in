@@ -34,13 +34,12 @@ acc_descriptor="@abi_build_XML@"
 libupstart_libtool="@libupstart@"
 lib_prefix="${libupstart_libtool%.la}"
 libupstart_lt_version="@libupstart_version@"
+old_abi="@abi_official@"
 
 # convert libtool(1) version to dotted form
 dotted_version=$(echo "$libupstart_lt_version"|tr ':' '.')
 
 libupstart_path="$build_dir/$libupstart_libtool"
-
-old_abi="$source_dir/abi_dumps/${lib_prefix}/${lib_prefix}_${dotted_version}.abi.tar.gz"
 
 echo "Checking ABI for $lib_prefix"
 echo
