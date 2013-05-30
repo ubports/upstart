@@ -16,8 +16,8 @@ AM_CPPFLAGS = \
 	-DCONFDIR="\"$(initconfdir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
-	-I$(top_srcdir)/intl
-
+	-I$(top_srcdir)/intl \
+	-I$(top_srcdir)/test -iquote$(top_srcdir)/test
 
 dist_man_MANS = \
 	man/init.8 \
@@ -138,9 +138,6 @@ TEST_DATA_FILES = \
 
 EXTRA_DIST = init.supp $(TEST_DATA_FILES)
 
-test_util_SOURCES = \
-	tests/test_util.c tests/test_util.h
-
 TESTS = \
 	test_system \
 	test_environ \
@@ -174,7 +171,7 @@ test_environ_LDADD = \
 	environ.o \
 	$(NIH_LIBS)
 
-test_process_SOURCES = tests/test_process.c $(test_util_SOURCES)
+test_process_SOURCES = tests/test_process.c
 test_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -182,6 +179,7 @@ test_process_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -202,7 +200,7 @@ test_job_class_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_job_process_SOURCES = tests/test_job_process.c $(test_util_SOURCES)
+test_job_process_SOURCES = tests/test_job_process.c
 test_job_process_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -210,6 +208,7 @@ test_job_process_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -230,7 +229,7 @@ test_job_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_log_SOURCES = tests/test_log.c $(test_util_SOURCES)
+test_log_SOURCES = tests/test_log.c
 test_log_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -238,13 +237,14 @@ test_log_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt -lutil
 
-test_state_SOURCES = tests/test_state.c $(test_util_SOURCES)
+test_state_SOURCES = tests/test_state.c
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -252,6 +252,7 @@ test_state_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -328,7 +329,7 @@ test_parse_conf_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_conf_SOURCES = tests/test_conf.c $(test_util_SOURCES)
+test_conf_SOURCES = tests/test_conf.c
 test_conf_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -336,6 +337,7 @@ test_conf_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \

@@ -1,3 +1,17 @@
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* Makefile.am: Added 'test'.
+	* configure.ac: Added 'test/Makefile'.
+	* init/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* init/state.c: Added missing config.h include.
+	* util/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* util/tests/test_initctl.c: Moved common utility code to
+	  test/test_util.c and replaced INITCTL_BINARY by get_initctl_binary().
+	* test/test_util.[ch]: New location for init/tests/test_util.[ch] to
+	  allow all tests access to common functionality.
+
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c:
