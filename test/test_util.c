@@ -28,6 +28,7 @@
 #include <nih/file.h>
 #include <nih/string.h>
 #include <nih/signal.h>
+#include <nih/logging.h>
 #include <nih-dbus/test_dbus.h>
 
 #include <dbus/dbus.h>
@@ -580,4 +581,48 @@ string_check (const char *a, const char *b)
 		return 1;
 
 	return 0;
+}
+
+/**
+ * strcmp_compar:
+ *
+ * @a: first string,
+ * @b: second string.
+ *
+ * String comparison function suitable for passing to qsort(3).
+ * See the qsort(3) man page for further details.
+ **/
+int
+strcmp_compar (const void *a, const void *b)
+{
+	return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
+/**
+ * get_session_file:
+ *
+ * @xdg_runtime_dir: Directory to treat as XDG_RUNTIME_DIR,
+ * @pid: pid of running Session Init instance.
+ *
+ * Determine full path to a Session Inits session file.
+ *
+ * Note: No check on the existence of the session file is performed.
+ *
+ * Returns: Newly-allocated string representing full path to Session
+ *          Inits session file.
+ **/
+char *
+get_session_file (const char *xdg_runtime_dir, pid_t pid)
+{
+	char *session_file;
+	
+	nih_assert (xdg_runtime_dir);
+	nih_assert (pid);
+
+	session_file = nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+			xdg_runtime_dir, (int)pid);
+
+	nih_assert (session_file);
+
+	return session_file;
 }

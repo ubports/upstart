@@ -2,6 +2,10 @@
 #define TEST_UTIL_H
 
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include <nih-dbus/test_dbus.h>
 
 #define BUFFER_SIZE 1024
 
@@ -711,4 +715,11 @@ const char * get_upstart_binary (void)
 
 const char * get_initctl_binary (void)
 	__attribute__ ((warn_unused_result));
+
+int strcmp_compar (const void *a, const void *b)
+	__attribute__ ((warn_unused_result));
+
+char *get_session_file (const char *xdg_runtime_dir, pid_t pid)
+	__attribute__ ((warn_unused_result));
+
 #endif /* TEST_UTIL_H */

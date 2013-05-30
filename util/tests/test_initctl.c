@@ -10869,12 +10869,6 @@ test_status_action (void)
 	dbus_shutdown ();
 }
 
-int
-strcmp_compar (const void *a, const void *b)
-{
-	return strcmp(*(char * const *)a, *(char * const *)b);
-}
-
 void
 test_list (void)
 {
@@ -11225,8 +11219,7 @@ test_list_sessions (void)
 
 	start_upstart_common (&upstart_pid, TRUE, NULL, NULL, NULL);
 
-	session_file = nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
-			dirname, (int)upstart_pid);
+	session_file = get_session_file (dirname, upstart_pid);
 
 	/* session file should now have been created by Upstart */
 	TEST_EQ (stat (session_file, &statbuf), 0);

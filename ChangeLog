@@ -1,5 +1,16 @@
 2013-04-30  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/Makefile.am: Added test_main.
+	* init/tests/test_main.c: New test.
+	* init/tests/test_job_process.c: strcmp_compar() moved to test_util.c.
+	* util/tests/test_initctl.c: strcmp_compar() removed.
+	* init/xdg.c: Disable loading of jobs from SYSTEM_USERCONFDIR if
+	  "UPSTART_NO_SYSTEM_USERCONFDIR" envvar set (required for testing).
+	* test/test_util.c: Added strcmp_compar() and get_session_file().
+	* util/tests/test_initctl.c: Use get_session_file().
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
 	* Makefile.am: Added 'test'.
 	* configure.ac: Added 'test/Makefile'.
 	* init/Makefile.am: Depend on test_util archive rather than source

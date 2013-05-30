@@ -155,7 +155,8 @@ TESTS = \
 	test_conf \
 	test_conf_static \
 	test_xdg \
-	test_control
+	test_control \
+	test_main
 
 check_PROGRAMS = $(TESTS)
 
@@ -379,6 +380,20 @@ test_control_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
+test_main_SOURCES = tests/test_main.c
+test_main_LDADD = \
+	system.o environ.o process.o \
+	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util.a \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(JSON_LIBS) \
+	-lrt
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)
