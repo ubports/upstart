@@ -62,6 +62,9 @@
 #include <json.h>
 
 extern json_object *json_classes;
+extern int user_mode;
+extern int no_inherit_env;
+extern char **environ;
 
 /* Prototypes for static functions */
 static void  job_class_add (JobClass *class);
@@ -115,10 +118,14 @@ job_class_environment_init (void)
 {
 	char * const default_environ[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
 
-	if (! job_environ) {
-		job_environ = NIH_MUST (nih_str_array_new (NULL));
-		NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
-	}
+	if (job_environ)
+		return;
+
+	job_environ = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
+
+	if (user_mode && ! no_inherit_env)
+		NIH_MUST(environ_append (&job_environ, NULL, 0, TRUE, environ));
 }
 
 /**

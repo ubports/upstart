@@ -283,9 +283,6 @@ job_process_run (Job         *job,
 	envc = 0;
 	env = NIH_MUST (nih_str_array_new (NULL));
 
-	if (user_mode && ! no_inherit_env)
-		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, environ));
-
 	if (job->env)
 		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, job->env));
 
