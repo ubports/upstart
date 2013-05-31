@@ -1025,11 +1025,12 @@ only evaluated once and state information is then discarded. This can
 lead to jobs with complex \fBstart on\fP or \fPstop on\fP conditions
 not behaving as expected \fIwhen restarted\fP. For example, if a job
 encodes the following condition:
-.ti +4
 .sp 1
+.RS
 .nf
 start on A and (B or C)
 .fi
+.RE
 .P
 When \(aqA\(aq and \(aqB\(aq become true, the condition is satisfied so
 the job will be run. However, if the job ends and subsequently \(aqA\(aq
