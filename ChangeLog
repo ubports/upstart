@@ -9,6 +9,7 @@
 	* util/tests/test_initctl.c: Updates for new behaviour (where
 	  'list-env' will now contain the entire environment of the init
 	  process, not just those variables explicitly set via set-env).
+	* util/man/initctl.8: Update on behaviour.
 
 2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
