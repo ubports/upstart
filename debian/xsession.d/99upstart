@@ -1,8 +1,11 @@
 # Start the user session
 if [ -n "$UPSTART" ]; then
-    case "$BASESTARTUP" in
+    case "$BASESESSION" in
         gnome-session*)
             export SESSIONTYPE=gnome-session
+            ;;
+        lxsession*)
+            export SESSIONTYPE=lxsession
             ;;
     esac
 
