@@ -1,9 +1,9 @@
-upstart (1.8-0ubuntu3) UNRELEASED; urgency=low
+upstart (1.8-0ubuntu3) saucy; urgency=low
 
   * Update the Xsession.d scripts to be a bit more generic and work with
     lxsession as well as gnome-session.
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 31 May 2013 17:12:45 -0400
+ -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 31 May 2013 17:13:15 -0400
 
 upstart (1.8-0ubuntu2) saucy; urgency=low
 
