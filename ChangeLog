@@ -1,3 +1,12 @@
+2013-06-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_deserialise(): Revert to checking JSON for
+	  blockers to avoid reliance on JSON serialisation data format version.
+	* init/event_operator.h: Fix misplacement of NIH_END_EXTERN.
+	* init/state.c: Remove serialisation version code since the autoconf
+	  approach of detecting the format of the JSON is safer.
+	* init/state.h: Remove STATE_VERSION.
+
 2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/job.c: Don't check for user mode when trying to load an

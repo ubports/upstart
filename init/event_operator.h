@@ -132,9 +132,10 @@ EventOperator *
 event_operator_deserialise_all (void *parent, json_object *json)
 	__attribute__ ((warn_unused_result));
 
-NIH_END_EXTERN
 
 char *event_operator_collapse (EventOperator *condition)
 	__attribute__ ((warn_unused_result, unused));
+
+NIH_END_EXTERN
 
 #endif /* INIT_EVENT_OPERATOR_H */

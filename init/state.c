@@ -75,32 +75,12 @@ int restart = FALSE;
  **/
 int write_state_file = FALSE;
 
-/**
- * serialisation_version:
- *
- * Set to a positive integer (representing the serialisation format
- * verison) as the start of the deserialisation process to allow further
- * deserialisation to be modified based on its value.
- *
- * The value -1 denotes that the serialisation version cannot be determined
- * (generally caused by old-style JSON state data being read that does not encode
- * the serialisation version).
- **/
-int serialisation_version = -1;
-
 /* Prototypes for static functions */
 static JobClass *
 state_index_to_job_class (int job_class_index)
 	__attribute__ ((warn_unused_result));
 
 static void state_write_file (NihIoBuffer *buffer);
-
-static json_object *state_create_header (void)
-	__attribute__ ((warn_unused_result));
-
-static int
-state_read_header (json_object *json)
-	__attribute__ ((warn_unused_result));
 
 /**
  * state_read:
@@ -359,7 +339,6 @@ int
 state_to_string (char **json_string, size_t *len)
 {
 	json_object  *json;
-	json_object  *json_header;
 	const char   *value;
 
 	nih_assert (json_string);
@@ -369,14 +348,6 @@ state_to_string (char **json_string, size_t *len)
 
 	if (! json)
 		return -1;
-
-	json_header = state_create_header ();
-	if (! json_header) {
-		nih_error ("%s header", _("Failed to serialise"));
-		goto error;
-	}
-
-	json_object_object_add (json, "header", json_header);
 
 	json_sessions = session_serialise_all ();
 	if (! json_sessions) {
@@ -464,13 +435,6 @@ state_from_string (const char *state)
 
 	if (! state_check_json_type (json, object))
 		goto out;
-
-	/* We cannot error in this scenario as the JSON state data being
-	 * read may be an old-style format that does not encode a
-	 * header.
-	 */
-	if (state_read_header (json) < 0)
-		nih_warn ("%s", _("No header present in state data"));
 
 	if (session_deserialise_all (json) < 0) {
 		nih_error ("%s Sessions", _("Failed to deserialise"));
@@ -2135,71 +2099,4 @@ clean_args (char ***argsp)
 			i--;
 		}
 	}
-}
-
-/**
- * state_create_header:
- *
- * Returns: JSON object containing meta-data header,
- * or NULL on error.
- **/
-static json_object *
-state_create_header (void)
-{
-	json_object *json;
-
-	json = json_object_new_object ();
-
-	if (! json)
-		return NULL;
-
-	if (! state_set_json_int_var (json, "version", STATE_VERSION))
-		goto error;
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
-}
-
-/**
- * state_read_header:
- *
- * @json: JSON,
- *
- * Returns: 0 on success, -1 on error.
- **/
-static int
-state_read_header (json_object *json)
-{
-	json_object *json_header;
-
-	nih_assert (json);
-
-	if (! json_object_object_get_ex (json, "header", &json_header))
-		goto error;
-
-	if (! state_get_json_int_var (json_header, "version", serialisation_version))
-		goto error;
-
-	return 0;
-
-error:
-	return -1;
-
-}
-
-/**
- * state_get_version:
- *
- * Determine version of serialisation data that has been read.
- *
- * Only valid to call if state_from_string() has been (or is being)
- * called.
- **/
-int
-state_get_version (void)
-{
-	return serialisation_version;
 }
