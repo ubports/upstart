@@ -33,6 +33,11 @@
 	  approach of detecting the format of the JSON is safer.
 	* init/state.h: Remove STATE_VERSION.
 
+2013-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	[ Eric S. Raymond <esr@thyrsus.com> ]
+	* init/man/init.5: Fix unliftable markup (LP: #1185108).
+
 2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/job.c: Don't check for user mode when trying to load an
