@@ -1,3 +1,20 @@
+2013-06-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-1.8+apparmor.json: New test data file.
+	* init/tests/data/upstart-1.8+full_serialisation-apparmor.json:
+	  New test data file.
+	* init/tests/test_state.c:
+	  - test_upgrade(): Re-initialise lists and hashes as a convenience to
+	    the tests.
+	  - test_upstart_with_apparmor_upgrade(): New test to ensure Upstart can
+	    parse the current 1.8 format JSON with the addition of the AppArmor
+	    serialisation (but crucially *without* the full serialisation data
+	    (EventOperator, etc).
+	  - test_upstart_full_serialise_without_apparmor_upgrade(): New test to
+	    ensure Upstart can parse the current 1.8 format JSON with the
+	    addition of the full serialisation data (EventOperator, etc),
+	    but _without_ the AppArmor serialisation.
+
 2013-06-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/event.c: event_deserialise(): Revert to checking JSON for
