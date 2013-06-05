@@ -20,6 +20,9 @@
 	    ensure Upstart can parse the current 1.8 format JSON with the
 	    addition of the full serialisation data (EventOperator, etc),
 	    and the AppArmor serialisation.
+	* init/state.c: state_from_string(): Check if ConfSources
+	  exist in the serialisation data to allow distinction between
+	  ConfSources not present and failing to deserialise them.
 
 2013-06-04  James Hunt  <james.hunt@ubuntu.com>
 

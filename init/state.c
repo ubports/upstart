@@ -449,8 +449,14 @@ state_from_string (const char *state)
 	/* Again, we cannot error here since older JSON state data did
 	 * not encode ConfSource or ConfFile objects.
 	 */
-	if (conf_source_deserialise_all (json) < 0)
-		nih_warn ("%s", _("No ConfSources present in state data"));
+	if (json_object_object_get (json, "conf_sources")) {
+		if (conf_source_deserialise_all (json) < 0) {
+			nih_error ("%s ConfSources", _("Failed to deserialise"));
+			goto out;
+		}
+	} else {
+			nih_warn ("%s", _("No ConfSources present in state data"));
+	}
 
 	if (job_class_deserialise_all (json) < 0) {
 		nih_error ("%s JobClasses", _("Failed to deserialise"));
