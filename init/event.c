@@ -315,8 +315,8 @@ event_pending_handle_jobs (Event *event)
 
 		/* We stop first so that if an event is listed both as a
 		 * stop and start event, it causes an active running process
-		 * to be killed, the stop script then the start script to be
-		 * run.  In any other state, it has no special effect.
+		 * to be killed, and then stop script then the start script
+		 * to be run. In any other state, it has no special effect.
 		 *
 		 * (The other way around would be just strange, it'd cause
 		 * a process's start and stop scripts to be run without the
@@ -638,7 +638,7 @@ event_deserialise (json_object *json)
 	json_object        *json_env;
 	Event              *event = NULL;
 	nih_local char     *name = NULL;
-        char              **env = NULL;
+        nih_local char    **env = NULL;
 	int                 session_index = -1;
 
 	nih_assert (json);
@@ -675,8 +675,18 @@ event_deserialise (json_object *json)
 				"progress", event->progress))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, event, failed))
+	if (! state_get_json_int_var_to_obj (json, event, failed))
 		goto error;
+
+	/* We can only set the blockers count in the scenario that
+	 * EventOperators are serialised (since without this, it is not
+	 * possible to manually reconstruct the state of the
+	 * EventOperators post-re-exec.
+	 */
+	if (json_object_object_get (json, "blockers")) {
+		if (! state_get_json_int_var_to_obj (json, event, blockers))
+			goto error;
+	}
 
 	return event;
 

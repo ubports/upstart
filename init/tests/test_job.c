@@ -7232,42 +7232,62 @@ test_get_processes (void)
 	}
 }
 
-
 void
 test_deserialise_ptrace (void)
 {
-	JobClass *class = NULL;
-	Job      *job = NULL;
-	pid_t     parent_pid, pid;
-	siginfo_t info;
-	char     *child_wait_fd_str;
+	ConfSource  *source = NULL;
+	ConfFile    *file = NULL;
+	JobClass    *class = NULL;
+	Job         *job = NULL;
+	pid_t        parent_pid, pid;
+	siginfo_t    info;
+	char        *child_wait_fd_str;
 
 	TEST_FUNCTION_FEATURE ("job_deserialise", "ptrace handling");
 	nih_error_init ();
 	job_class_init ();
 
 	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
 
 	TEST_CHILD_WAIT (parent_pid, child_wait_fd) {
-		class = job_class_new (NULL, "test", NULL);
+		/* Manually construct a job and all required associated
+		 * objects.
+		 */
+
+		/* First, create ConfSource, ConfFile and JobClass */
+		source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+		TEST_NE_P (source, NULL);
+		file = conf_file_new (source, "/tmp/test.conf");
+		class = file->job = job_class_new (NULL, "test", NULL);
 		TEST_NE_P (class, NULL);
 		class->console = CONSOLE_OUTPUT;
 		class->expect = EXPECT_FORK;
 		class->chdir = NIH_MUST (nih_strdup (class, "."));
 		class->process[PROCESS_MAIN] = process_new (class);
 		TEST_NE_P (class->process[PROCESS_MAIN], NULL);
-		job_class_add_safe (class);
+		job_class_consider (class);
 
+		/* Fork a process then immediately stop it */
 		TEST_CHILD (pid) {
+			pid_t pid2;
 			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
 			raise (SIGSTOP);
-			fork ();
+			pid2 = fork ();
+			if (pid2)
+				waitpid (pid2, NULL, 0);
 			exit (0);
 		}
 
+		/* Wait for child to be stopped */
 		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		/* Set up a fork+exec trace on the child in the parent.
+		 */
 		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
 				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+
+		/* Allow the child to continue */
 		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
 
 		job = job_new (class, "");
@@ -7289,7 +7309,6 @@ test_deserialise_ptrace (void)
 					     child_wait_fd_str));
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL,
 					     "--deserialise-ptrace"));
-
 		stateful_reexec ();
 
 		/* Continue in deserialise_ptrace_next */
@@ -7334,6 +7353,8 @@ deserialise_ptrace_next (void)
 	TEST_EQ (job->trace_forks, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+	/* wait for grand-child */
 	nih_child_poll ();
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
