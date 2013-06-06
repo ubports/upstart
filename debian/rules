@@ -20,6 +20,9 @@ export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 override_dh_auto_configure:
 	dh_auto_configure -- --exec-prefix= --disable-silent-rules
 
+override_dh_auto_build:
+	dh_auto_build --parallel
+
 override_dh_auto_test:
 ifeq (0,$(shell id -u))
 	# WARNING: RUNNING TESTS AS ROOT IS KNOWN TO FAIL

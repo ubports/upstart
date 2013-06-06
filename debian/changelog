@@ -1,5 +1,6 @@
 upstart (1.8-0ubuntu4) UNRELEASED; urgency=low
 
+  [ James Hunt ]
   * Cherry pick lp:~jamesodhunt/upstart/serialise-remaining-objects (LP:#1124384):
     - Preserve event blockers during configuration reload.
     - Serialise & deserialise blocking events during stateful
@@ -7,6 +8,12 @@ upstart (1.8-0ubuntu4) UNRELEASED; urgency=low
   * debian/manpages/upstart-events.7: Added ':sys:restarted'.
   * debian/upstart.postinst: Don't re-exec if runlevel is not 2
     yet (to allow cloud-init to dist-upgrade upstart safeily in early boot).
+
+  [ Dmitrijs Ledkovs ]
+  * Upload to saucy.
+  * Use "serial-tests" harness during build, instead of the automake's
+    1.13 default "parallel-tests" harness.
+  * Enable parallel build by default.
 
  -- James Hunt <james.hunt@ubuntu.com>  Tue, 30 Apr 2013 22:52:37 +0100
 
