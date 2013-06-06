@@ -1,4 +1,4 @@
-upstart (1.8-0ubuntu4) UNRELEASED; urgency=low
+upstart (1.8-0ubuntu4) saucy; urgency=low
 
   [ James Hunt ]
   * Cherry pick lp:~jamesodhunt/upstart/serialise-remaining-objects (LP:#1124384):
@@ -15,7 +15,7 @@ upstart (1.8-0ubuntu4) UNRELEASED; urgency=low
     1.13 default "parallel-tests" harness.
   * Enable parallel build by default.
 
- -- James Hunt <james.hunt@ubuntu.com>  Tue, 30 Apr 2013 22:52:37 +0100
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Thu, 06 Jun 2013 16:15:09 +0100
 
 upstart (1.8-0ubuntu3) saucy; urgency=low
 
