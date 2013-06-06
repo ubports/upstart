@@ -1,3 +1,11 @@
+upstart (1.8-0ubuntu4) UNRELEASED; urgency=low
+
+  * debian/manpages/upstart-events.7: Added ':sys:restarted'.
+  * debian/upstart.postinst: Don't re-exec if runlevel is not 2
+    yet (to allow cloud-init to dist-upgrade upstart safeily in early boot).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 30 Apr 2013 22:52:37 +0100
+
 upstart (1.8-0ubuntu3) saucy; urgency=low
 
   * Update the Xsession.d scripts to be a bit more generic and work with
