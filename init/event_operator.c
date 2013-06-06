@@ -59,7 +59,7 @@
  * array of environment variables in KEY=VALUE form.  @env will be referenced
  * by the new event.  After calling this function, you should never use
  * nih_free() to free @env and instead use nih_unref() or nih_discard() if
- * you longer need to use it.
+ * you no longer need to use it.
  *
  * If @parent is not NULL, it should be a pointer to another object which
  * will be used as a parent for the returned operator.  When all parents
@@ -782,8 +782,7 @@ event_operator_collapse (EventOperator *condition)
 							env ? env : ""));
 				nih_list_add_after (stack, &expr->entry);
 				break;
-			}
-			else {
+			} else {
 				/* We build the expression from visiting the logical
 				 * operators (and their children) only.
 				 */
@@ -863,4 +862,313 @@ event_operator_collapse (EventOperator *condition)
 	nih_assert (NIH_LIST_EMPTY (stack));
 
 	return NIH_MUST (nih_strdup (NULL, latest->str));
+}
+
+/**
+ * event_operator_type_enum_to_str:
+ *
+ * @type: EventOperatorType.
+ *
+ * Convert EventOperatorType to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+event_operator_type_enum_to_str (EventOperatorType type)
+{
+	state_enum_to_str (EVENT_OR, type);
+	state_enum_to_str (EVENT_AND, type);
+	state_enum_to_str (EVENT_MATCH, type);
+
+	return NULL;
+}
+
+/**
+ * event_operator_type_str_to_enum:
+ *
+ * @type: string EventOperatorType value.
+ *
+ * Convert @expect back into an enum value.
+ *
+ * Returns: EventOperatorType representing @type, or -1 if not known.
+ **/
+EventOperatorType
+event_operator_type_str_to_enum (const char *type)
+{
+	nih_assert (type);
+
+	state_str_to_enum (EVENT_OR, type);
+	state_str_to_enum (EVENT_AND, type);
+	state_str_to_enum (EVENT_MATCH, type);
+
+	return -1;
+}
+
+/**
+ * event_operator_serialise:
+ * @oper: EventOperator to serialise.
+ *
+ * Convert @oper into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised EventOperator object, or NULL on error.
+ **/
+json_object *
+event_operator_serialise (const EventOperator *oper)
+{
+	json_object  *json;
+	int           event_index;
+
+	nih_assert (oper);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_enum_var (json,
+				event_operator_type_enum_to_str,
+				"type", oper->type))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, oper, value))
+		goto error;
+
+	if (oper->name) {
+		if (! state_set_json_string_var_from_obj (json, oper, name))
+			goto error;
+	}
+
+	if (oper->env) {
+		if (! state_set_json_str_array_from_obj (json, oper, env))
+			goto error;
+	}
+
+	if (oper->event) {
+		event_index = event_to_index (oper->event);
+		if (event_index < 0)
+			goto error;
+
+		if (! state_set_json_int_var (json, "event", event_index))
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+
+}
+
+/**
+ * event_operator_serialise_all:
+ *
+ * @root: operator tree to serialise,
+ *
+ * Convert EventOperator tree to JSON representation.
+ *
+ * Returns: JSON object containing array of EventOperator nodes in post-order,
+ * or NULL on error.
+ */
+json_object *
+event_operator_serialise_all (EventOperator *root)
+{
+	json_object *json;
+	json_object *json_node;
+
+	nih_assert (root);
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		json_node = event_operator_serialise (oper);
+		if (! json_node)
+			goto error;
+
+		if (json_object_array_add (json, json_node) < 0)
+			goto error;
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * event_operator_deserialise:
+ * @parent: parent,
+ * @json: JSON-serialised EventOperator object to deserialise.
+ *
+ * Create EventOperator from provided JSON.
+ *
+ * Returns: EventOperator object, or NULL on error.
+ **/
+EventOperator *
+event_operator_deserialise (void *parent, json_object *json)
+{
+	EventOperator      *oper = NULL;
+	EventOperatorType   type = -1;
+	nih_local char     *name = NULL;
+	nih_local char    **env = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (json_object_object_get (json, "name")) {
+		if (! state_get_json_string_var_strict (json, "name", NULL, name))
+			goto error;
+	}
+
+	if (! state_get_json_enum_var (json,
+				event_operator_type_str_to_enum,
+				"type", type))
+		goto error;
+
+	if (json_object_object_get (json, "env")) {
+		json_object  *json_env;
+		if (! state_get_json_var_full (json, "env", array, json_env))
+			goto error;
+
+		/* XXX: note that we have to treat the environment array
+		 * as a plain string array (rather than an environ
+		 * array) at this point since the values are not
+		 * expanded (do not necessarily contain '='), and hence
+		 * would be discarded by the environ-handling routines.
+		 */
+		if (! state_deserialise_str_array (NULL, json_env, &env))
+			goto error;
+	}
+
+	oper = event_operator_new (parent, type, name, env);
+	if (! oper)
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, oper, value))
+		goto error;
+
+	if (json_object_object_get (json, "event")) {
+		int event_index;
+
+		if (! state_get_json_int_var (json, "event", event_index))
+			goto error;
+
+		oper->event = event_from_index (event_index);
+		if (! oper->event)
+			goto error;
+	}
+
+	return oper;
+
+error:
+	if (oper)
+		nih_free (oper);
+
+	return NULL;
+}
+
+/**
+ * event_operator_deserialise_all:
+ *
+ * @parent: parent,
+ * @json: root of JSON-serialised state.
+ *
+ * Convert EventOperator tree to JSON representation.
+ *
+ * Returns: EventOperator tree root node on success, or NULL on error.
+ */
+EventOperator *
+event_operator_deserialise_all (void *parent, json_object *json)
+{
+	EventOperator      *oper = NULL;
+	EventOperator      *left_oper = NULL;
+	EventOperator      *right_oper = NULL;
+	nih_local NihList  *stack = NULL;
+	NihListEntry       *item;
+
+	nih_assert (json);
+
+	stack = NIH_MUST (nih_list_new (NULL));
+
+	if (! state_check_json_type (json, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json); i++) {
+		json_object        *json_event_operator;
+		nih_local NihList  *left = NULL;
+		nih_local NihList  *right = NULL;
+
+		json_event_operator = json_object_array_get_idx (json, i);
+		if (! json_event_operator)
+			goto error;
+
+		if (! state_check_json_type (json_event_operator, object))
+			goto error;
+
+		oper = event_operator_deserialise (parent, json_event_operator);
+		if (! oper)
+			goto error;
+
+		item = nih_list_entry_new (stack);
+		if (! item)
+			goto error;
+
+		switch (oper->type) {
+		case EVENT_AND:
+		case EVENT_OR:
+			left = NIH_MUST (nih_list_new (NULL));
+			right = NIH_MUST (nih_list_new (NULL));
+
+			/* pop the top two stack elements */
+			nih_assert (! NIH_LIST_EMPTY (stack));
+			right = nih_list_add (right, stack->next);
+
+			nih_assert (! NIH_LIST_EMPTY (stack));
+			left = nih_list_add (left, stack->next);
+
+			left_oper = (EventOperator *)((NihListEntry *)left)->data;
+			right_oper = (EventOperator *)((NihListEntry *)right)->data;
+
+			nih_assert (left_oper);
+			nih_assert (right_oper);
+
+			/* Attach them as children of the new operator */
+			nih_tree_add (&oper->node, &left_oper->node, NIH_TREE_LEFT);
+			nih_tree_add (&oper->node, &right_oper->node, NIH_TREE_RIGHT);
+
+			/* FALL THROUGH:
+			 *
+			 * This will re-add the operator to the stack.
+			 */
+
+		case EVENT_MATCH:
+			item->data = oper;
+			nih_list_add_after (stack, &item->entry);
+			break;
+		default:
+			nih_assert_not_reached ();
+		}
+	}
+
+	nih_assert (! NIH_LIST_EMPTY (stack));
+
+	oper = ((NihListEntry *)stack->next)->data;
+
+	nih_list_remove (stack->next);
+	nih_assert (NIH_LIST_EMPTY (stack));
+
+	return oper;
+
+error:
+	if (oper)
+		nih_free (oper);
+
+	return NULL;
 }

@@ -359,10 +359,16 @@ JobClass * job_class_get (const char *name, Session *session)
 
 void job_class_prepare_reexec (void);
 
-JobClass * job_class_find (const Session *session, const char *name)
+time_t     job_class_max_kill_timeout (void)
 	__attribute__ ((warn_unused_result));
 
-time_t     job_class_max_kill_timeout (void)
+JobClass  *job_class_get_registered (const char *name, const Session *session)
+	__attribute__ ((warn_unused_result));
+
+void       job_class_event_block (void *parent, JobClass *old, JobClass *new);
+
+ssize_t
+job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

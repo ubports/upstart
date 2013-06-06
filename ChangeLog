@@ -1,3 +1,38 @@
+2013-06-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-1.8+apparmor.json: New test data file.
+	* init/tests/data/upstart-1.8+full_serialisation-apparmor.json:
+	  New test data file.
+	* init/tests/data/upstart-1.8+full_serialisation+apparmor.json:
+	  New test data file.
+	* init/tests/test_state.c:
+	  - test_upgrade(): Re-initialise lists and hashes as a convenience to
+	    the tests.
+	  - test_upstart_with_apparmor_upgrade(): New test to ensure Upstart can
+	    parse the current 1.8 format JSON with the addition of the AppArmor
+	    serialisation (but crucially *without* the full serialisation data
+	    (EventOperator, etc).
+	  - test_upstart_full_serialise_without_apparmor_upgrade(): New test to
+	    ensure Upstart can parse the current 1.8 format JSON with the
+	    addition of the full serialisation data (EventOperator, etc),
+	    but _without_ the AppArmor serialisation.
+	  - test_upstart_full_serialise_with_apparmor_upgrade(): New test to
+	    ensure Upstart can parse the current 1.8 format JSON with the
+	    addition of the full serialisation data (EventOperator, etc),
+	    and the AppArmor serialisation.
+	* init/state.c: state_from_string(): Check if ConfSources
+	  exist in the serialisation data to allow distinction between
+	  ConfSources not present and failing to deserialise them.
+
+2013-06-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_deserialise(): Revert to checking JSON for
+	  blockers to avoid reliance on JSON serialisation data format version.
+	* init/event_operator.h: Fix misplacement of NIH_END_EXTERN.
+	* init/state.c: Remove serialisation version code since the autoconf
+	  approach of detecting the format of the JSON is safer.
+	* init/state.h: Remove STATE_VERSION.
+
 2013-05-31  James Hunt  <james.hunt@ubuntu.com>
 
 	[ Eric S. Raymond <esr@thyrsus.com> ]
@@ -63,10 +98,249 @@
 	* init/tests/test_state.c: Test apparmor_switch and
 	  PROCESS_SECURITY.
 
+2013-05-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/state.c: stateful_reexec(): Specify all values for array
+	  initialiser.
+
+2013-05-10  James Hunt  <james.hunt@ubuntu.com>
+
+	Revert to not supporting deserialisation of JobClasses with associated
+	user/chroot sessions to avoid behavioural change for now.
+	
+	* init/job_class.c: 
+	  - job_class_deserialise(): Revert to failing if associated session is
+	    non-NULL.
+	  - job_class_deserialise_all(): Revert to ignoring failure to
+	    deserialise a JobClass iff it has a non-NULL associated session.
+	* init/state.c: 
+	  - state_to_string(): Provide some diagnostics if serialisation fails.
+	  - state_from_string(): Provide some diagnostics if deserialisation fails.
+	  - state_deserialise_resolve_deps(): Ignore failure to lookup JobClass
+	    iff it has an associated user/chroot session.
+	  - state_deserialise_blocking(): Revert to ignoring failure to
+	    deserialise a Blocked object that is associated with a Job whose
+	    JobClass has a non-NULL session.
+	* init/tests/test_state.c: test_blocking(): Revert test to assert that
+	  blocked job with non-NULL session is ignored.
+
+2013-05-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise(): Corrected logic for handling 'stop on'
+	  condition.
+	* init/job_class.c: job_class_deserialise(): Only check type after JSON
+	  queried (thanks Coverity).
+
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Link test_util to test_event_operator.
+	* init/conf.c: conf_source_deserialise_all(): Assert conf_sources is
+	  empty.
+	* init/control.h: control_get_job(): Use job_class_get_registered()
+	  rather than redundant job_class_find().
+	* init/event_operator.c:
+	  - Typos and formatting.
+	  - event_operator_serialise(): Conditionally encode name and env.
+	  - event_operator_deserialise(): Treat env as a string array, not an
+	    environ array to ensure values are not discarded unless they contain '='.
+	* init/job.c:
+	  - job_deserialise(): Check JSON type for 'stop on' prior to attempting value extraction.
+	  - job_find():
+	    - Make job_class const.
+	    - Use job_class_get_registered() rather than job_class_find().
+	* init/job_class.c:
+	  - job_class_get_registered(): Rework.
+	  - job_class_add_safe(): Re-add since required to support old
+	    serialisation formats that do not encode ConfSource and ConfFile
+	    objects.
+	  - job_class_deserialise():
+	    - Take care to only associate ConfFile with JobClass if JSON encodes
+	      ConfFile objects.
+	    - Check JSON type for 'start/stop on' prior to attempting value extraction.
+	  - job_class_find(): Remove (redundant due to job_class_get_registered()).
+	* init/state.c:
+	  - Set serialisation_version to an invalid value to detect if it was
+	    never set (to handle old serialisation formats).
+	  - state_from_string():
+	    - Make failure to read header and ConfSources warnings only, to support old
+	      serialisation formats that do not encode this information.
+	  - state_deserialise_blocked(): Fix bug where event blocker was being
+	    incremented twice. Now, just assert it is set.
+	  - state_deserialise_blocking(): Failure to deserialise a Blocked object 
+	    is no longer ignored since sessions are supported.
+	* init/state.h: STATE_VERSION history and notes.
+	* init/tests/test_conf.c: Replace calls to job_class_find() with
+	  job_class_get_registered().
+	* init/tests/test_event_operator.c:
+	  - test_operator_serialisation(): Check both the original string
+	    serialisation format and the new full EventOperator serialisation.
+	    type.
+	* init/tests/test_job.c:
+	  - test_deserialise_ptrace():
+	    - Comments and more checks.
+	    - Create ConfSource, ConfFile and JobClass manually.
+	    - Call job_class_consider() as we now have a backing ConfFile.
+	    - Wait for childs child.
+	* init/tests/test_state.c:
+	  - Simplify TestDataFile.
+	  - Ensure files passed to conf_file_new() provide expected suffix.
+	  - job_class_diff(): Add event_operator_diff() call.
+	  - conf_source_diff(): New function.
+	  - conf_file_diff(): New function.
+	  - test_blocking():
+	    - Extra checks.
+	    - Expect ConfFiles to be recreated on re-exec.
+	  - test_upgrade(): Check environment is clean before running the next test.
+	  - test_upstart1_8_upgrade(): New Upstart-1.8 serialisation format test.
+	  - conf_source_from_path(): New utility function.
+	* init/tests/test_util.c:
+	  - event_operator_diff(): New function.
+	  - session_from_chroot(): New function.
+	* init/tests/data/upstart-1.8.json: New test file.
+
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_source_serialise_all(): Make failures fatal.
+	* init/event_operator.c: event_operator_collapse(): Unhide but mark as
+	  unused (it's still used by the tests).
+	* init/job.c:
+	  - job_serialise(): Remove unused variable.
+	  - job_deserialise(): Check the type of the start/stop on condition in
+	    the json, not the json passed to the function.
+	* init/job_class.c: job_class_deserialise(): Check the type of the
+	  start/stop on condition in the json, not the json passed to the
+	  function.
+	* init/state.c:
+	  - Comments.
+	  - state_read_header(): Extract header from JSON before checking for
+	    serialisation version.
+
 2013-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/man/shutdown.8: Specify default action is to bring system
 	  down to single-user mode (LP: #1065851).
+
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_deserialise(): Only set blockers if EventOperators
+	  are serialised.
+	* init/event_operator.c: event_operator_collapse(): Now only needed for
+	  DEBUG.
+	* init/job.c:
+	  - job_deserialise(): Support old string format for 'stop_on'
+	    EventOperator as well as new array format.
+	* init/job_class.c:
+	* init/state.c: Create a meta-header containing a serialisation version
+	  number.
+
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - New serialisation and support functions:
+	    - conf_source_serialise()
+	    - conf_source_serialise_all()
+	    - conf_source_deserialise()
+	    - conf_source_deserialise_all()
+	    - conf_source_type_enum_to_str()
+	    - conf_source_type_str_to_enum()
+	    - conf_file_serialise()
+	    - conf_file_deserialise()
+	    - conf_file_deserialise_all()
+	    - conf_source_get_index()
+	    - conf_file_find()
+	    - debug_show_event_operator()
+	    - debug_show_event_operators()
+	* init/event_operator.c:
+	  - event_deserialise():
+	    - Fix leaked env array.
+	    - Deserialise blockers count now EventOperators are also serialised.
+	  - event_operator_type_enum_to_str()
+	  - event_operator_type_str_to_enum()
+	  - event_operator_serialise()
+	  - event_operator_serialise_all()
+	  - event_operator_deserialise()
+	  - event_operator_deserialise_all()
+	* init/job_class.c:
+	  - job_class_add_safe(): Remove as no longer required.
+	  - job_class_get(): Must call job_class_init().
+	  - job_class_serialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Serialise start/stop on fully (as EventOperators) rather than just the original
+	      string condition (LP: #1103881).
+	  - job_class_deserialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Associate the JobClass with its ConfFile.
+	  - job_class_serialise_all():
+	    - Comments.
+	    - Failure to serialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_deserialise():
+	    - Deserialise start/stop on conditions as EventOperators rather than as a
+	      string condition.
+	    - Since ConfFiles are now serialised, call job_class_consider()
+	      rather than job_class_add_safe().
+	  - job_class_deserialise_all():
+	    - Failure to deserialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_get_index(): New function.
+	* init/state.c:
+	  - state_to_string(): Serialise ConfSources and ConfFiles.
+	  - state_from_string(): Deserialise ConfSources and ConfFiles.
+	  - state_deserialise_resolve_deps(): Allow chroot sessions to be
+	    handled now we serialise ConfSources and ConfFiles.
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise_all(): Really serialise all JobClasses,
+	* init/main.c: Add 'write-state-file' command-line option.
+	  regardless of whether they have associated Jobs.
+	* init/paths.h: Added STATE_FILE_ENV.
+	* init/state.c:
+	  - state_read_objects(): Write state file if 'write-state-file'
+	    specified or STATE_FILE_ENV set.
+	  - event_deserialise():
+	    - Preserve the pre-reexec blockers count until JobClasses
+	      are deserialised and reverse-dependencies resolved.
+	    - Fix incorrect calls for failed and blockers Event attributes.
+	* init/state.h: Comments.
+	* init/tests/test_state.c:
+	  - test_job_class_serialise(): Ensure that all JobClasses get
+	    serialised, regardless of whether they have any associated
+	    Jobs.
+	  - test_event_serialise(): New "with failed" test.
+	* init/event.c: event_deserialise(): Don't deserialise Event->blockers -
+	  there is no point until we serialise EventOperators.
+
+2013-04-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_reload(): Explanation of how reload works.
+	  - conf_reload_path(): Defer destruction of original ConfFile until
+	    newly-loaded .conf file has a chance to reference any events its
+	    'start on' condition requires (LP: 1124384).
+	  - debug_show_jobs(): Return if no instances.
+	  - debug_show_events(): New function.
+	* init/event.c: Comments.
+	* init/job.c: Comment.
+	* init/job_class.c:
+	  - job_class_get_registered(): New function resulting from refactor of
+	    job_class_consider() and job_class_reconsider().
+	  - job_class_consider():
+	    - Use job_class_get_registered().
+	    - Call job_class_event_block() to avoid premature event destruction.
+	  - job_class_reconsider(): Use job_class_get_registered().
+	  - job_class_event_block(): New function to increase reference count
+	    for events new JobClass specifies in its 'start on' condition that
+	    old JobClass has also referenced (second part of LP: #1124384).
+	* init/tests/test_conf.c:
+	  - test_source_reload(): New tests:
+	    - "ensure reload does not destroy a blocked event used by another job"
+	    - "ensure .conf reload causes waiting job to run when 'start on' matches"
+	* init/tests/test_conf.h: TEST_ENSURE_CLEAN_ENV(): Check
+	  nih_child_watches too.
 
 2013-04-22  James Hunt  <james.hunt@ubuntu.com>
 
