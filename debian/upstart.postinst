@@ -73,18 +73,27 @@ case "$1" in
 		# reboot.
 		runlevel=$(runlevel|awk '{print $2}' || :)
 
-		# Only perform stateful re-exec if running on a system
-		# that has booted "fully" to runlevel 2.
+		# Only perform stateful re-exec with upstart that has
+		# full serialisation or if running on a system that
+		# has booted "fully" to runlevel 2 or higher.
 		#
-		# This works around a potential problem where cloud-init
-		# (which runs in early boot) in dist-upgrading the
-		# system ends up upgrading Upstart, which calls this
-		# maintainer script.
-		if [ "$runlevel" = 2 ]
+		# This works around a potential problem where
+		# cloud-init (which runs in early boot) in
+		# dist-upgrading the system ends up upgrading Upstart,
+		# which calls this maintainer script.
+
+		if dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.9 || [ "$UPSTART_VERSION_RUNNING" = 1.8-ubuntu-full-serialization ]
 		then
-			telinit u || :
+		    telinit u || :
 		else
-			touch /var/run/init.upgraded || :
+		    case $runlevel in
+			[2345])
+			    telinit u || :
+			    ;;
+			*)
+			    touch /var/run/init.upgraded || :
+			    ;;
+		    esac
 		fi
 	    else
 		# Before we shutdown or reboot, we need to re-exec so that we
