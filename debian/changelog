@@ -1,4 +1,4 @@
-upstart (1.8-0ubuntu5) UNRELEASED; urgency=low
+upstart (1.8-0ubuntu5) saucy; urgency=low
 
   * Change upstart's version string, such that postinst can detect whether
     the running upstart instance has full serialization fixes.
@@ -6,7 +6,7 @@ upstart (1.8-0ubuntu5) UNRELEASED; urgency=low
     or better and then perform lossless stateful re-execution. Other wise
     check for runlevels 2-5 and perform partial stateful re-execution.
 
- -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Tue, 11 Jun 2013 10:48:19 +0100
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Tue, 11 Jun 2013 10:51:53 +0100
 
 upstart (1.8-0ubuntu4) saucy; urgency=low
 
