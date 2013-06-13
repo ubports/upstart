@@ -85,6 +85,11 @@ case "$1" in
 		if dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.9 || [ "$UPSTART_VERSION_RUNNING" = 1.8-ubuntu-full-serialization ]
 		then
 		    telinit u || :
+		elif [ "$UPSTART_JOB" = "cloud-config" ]
+		then
+		    touch /var/run/init.upgraded || :
+		    [ -x /usr/share/update-notifier/notify-reboot-required ] && \
+			/usr/share/update-notifier/notify-reboot-required || true
 		else
 		    case $runlevel in
 			[2345])
@@ -92,6 +97,8 @@ case "$1" in
 			    ;;
 			*)
 			    touch /var/run/init.upgraded || :
+			    [ -x /usr/share/update-notifier/notify-reboot-required ] && \
+				/usr/share/update-notifier/notify-reboot-required || true			    
 			    ;;
 		    esac
 		fi

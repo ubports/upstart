@@ -1,3 +1,12 @@
+upstart (1.8-0ubuntu6) UNRELEASED; urgency=low
+
+  * debian/upstart.postinst:
+    - When only partial stateful re-exec is available, and upgrade is run by
+      cloud-config simply leave init upgraded.
+    - When partial stateful re-exec is not performed also leave reboot required marker.
+
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Thu, 13 Jun 2013 13:47:43 +0100
+
 upstart (1.8-0ubuntu5) saucy; urgency=low
 
   * Change upstart's version string, such that postinst can detect whether
