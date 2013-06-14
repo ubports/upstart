@@ -1,3 +1,15 @@
+upstart (1.8-0ubuntu7) UNRELEASED; urgency=low
+
+  * Simplify postinst re-exec logic by removing runlevel checks. Now the
+    logic is:
+    - re-exec if lossless stateful re-exec is available
+    - perform partial stateful re-exec, unless running under upstart
+    - re-exec if upgrading from pre dbus capable upstart
+    - do nothing if running from chroot
+    - otherwise hint that init is upgraded
+
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Fri, 14 Jun 2013 17:58:26 +0100
+
 upstart (1.8-0ubuntu6) saucy; urgency=low
 
   * debian/upstart.postinst:

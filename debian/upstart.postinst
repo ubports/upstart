@@ -60,9 +60,9 @@ case "$1" in
 		# but it's simple enough to perform the check here and save
 		# Upstart the effort.
 		:
-	    elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.6.1; then
+	    elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.9 || [ "$UPSTART_VERSION_RUNNING" = 1.8-ubuntu-full-serialization ]; then
 		# We are not running inside a chroot and the running version
-		# of Upstart supports stateful re-exec, so we can
+		# of Upstart supports lossless stateful re-exec, so we can
 		# restart immediately.
 		#
 		# XXX: Note that the check on the running version must
@@ -71,37 +71,21 @@ case "$1" in
 		# packaged version numbers is not sufficient since
 		# the package could be upgraded multiple times without a
 		# reboot.
-		runlevel=$(runlevel|awk '{print $2}' || :)
+		telinit u || :
+	    elif [ "$UPSTART_JOB" = "cloud-config" ]; then
+		# If upgraded by cloud-init, do not perform partial
+		# stateful re-exec, as cloud-init instance will fail
+		# to initialise.
+		touch /var/run/init.upgraded || :
+		[ -x /usr/share/update-notifier/notify-reboot-required ] && \
+		    /usr/share/update-notifier/notify-reboot-required || true
 
-		# Only perform stateful re-exec with upstart that has
-		# full serialisation or if running on a system that
-		# has booted "fully" to runlevel 2 or higher.
-		#
-		# This works around a potential problem where
-		# cloud-init (which runs in early boot) in
-		# dist-upgrading the system ends up upgrading Upstart,
-		# which calls this maintainer script.
-
-		if dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.9 || [ "$UPSTART_VERSION_RUNNING" = 1.8-ubuntu-full-serialization ]
-		then
-		    telinit u || :
-		elif [ "$UPSTART_JOB" = "cloud-config" ]
-		then
-		    touch /var/run/init.upgraded || :
-		    [ -x /usr/share/update-notifier/notify-reboot-required ] && \
-			/usr/share/update-notifier/notify-reboot-required || true
-		else
-		    case $runlevel in
-			[2345])
-			    telinit u || :
-			    ;;
-			*)
-			    touch /var/run/init.upgraded || :
-			    [ -x /usr/share/update-notifier/notify-reboot-required ] && \
-				/usr/share/update-notifier/notify-reboot-required || true			    
-			    ;;
-		    esac
-		fi
+	    elif dpkg --compare-version "$UPSTART_VERSION_RUNNING" ge 1.6.1; then
+		# Otherwise, perform partial stateful re-exec and
+		# request a reboot.
+		telinit u || :
+		[ -x /usr/share/update-notifier/notify-reboot-required ] && \
+		    /usr/share/update-notifier/notify-reboot-required || true			    
 	    else
 		# Before we shutdown or reboot, we need to re-exec so that we
 		# can safely remount the root filesystem; we can't just do that
