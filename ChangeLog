@@ -33,7 +33,28 @@
 	  approach of detecting the format of the JSON is safer.
 	* init/state.h: Remove STATE_VERSION.
 
+2013-06-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - test_no_inherit_job_env(): New function to test --no-inherit-env.
+	  - test_job_env():
+	    - Move code that sets HOME+PATH if not set from
+	      test_default_job_env() so that test_no_inherit_job_env() can make
+	      use of it.
+	    - Session file cleanup tweaks to work with test_no_inherit_job_env().
+
 2013-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_environment_init(): Copy inits environment
+	  to the default job class environment for user mode where appropriate.
+	  (LP: #1159895).
+	* init/job_process.c: job_process_run(): Don't copy inits environment
+	  into the job instances environment table as those values are now
+	  already in the table.
+	* util/tests/test_initctl.c: Updates for new behaviour (where
+	  'list-env' will now contain the entire environment of the init
+	  process, not just those variables explicitly set via set-env).
+	* util/man/initctl.8: Update on behaviour.
 
 	[ Eric S. Raymond <esr@thyrsus.com> ]
 	* init/man/init.5: Fix unliftable markup (LP: #1185108).

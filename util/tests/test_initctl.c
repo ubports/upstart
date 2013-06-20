@@ -16436,21 +16436,6 @@ test_default_job_env (const char *confdir, const char *logdir,
 	assert (upstart_pid);
 	assert (dbus_pid);
 
-	/*******************************************************************/
-	/* Ensure basic variables are set in the current environment */
-
-	if (! getenv ("TERM")) {
-		fprintf (stderr, "WARNING: setting TERM to '%s' as not set\n",
-				TEST_INITCTL_DEFAULT_TERM);
-		assert0 (setenv ("TERM", TEST_INITCTL_DEFAULT_TERM, 1));
-	}
-
-	if (! getenv ("PATH")) {
-		fprintf (stderr, "WARNING: setting PATH to '%s' as not set\n",
-				TEST_INITCTL_DEFAULT_PATH);
-		assert0 (setenv ("PATH", TEST_INITCTL_DEFAULT_PATH, 1));
-	}
-
 	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -16463,9 +16448,9 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	TEST_EQ (line_count, 2);
-	TEST_STR_MATCH (output[0], "PATH=*");
-	TEST_STR_MATCH (output[1], "TERM=*");
+	TEST_GE (line_count, 2);
+	TEST_STR_ARRAY_CONTAINS (output, "PATH=*");
+	TEST_STR_ARRAY_CONTAINS (output, "TERM=*");
 	nih_free (output);
 
 	/*******************************************************************/
@@ -16475,9 +16460,9 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 
-	TEST_EQ (line_count, 2);
-	TEST_STR_MATCH (output[0], "PATH=*");
-	TEST_STR_MATCH (output[1], "TERM=*");
+	TEST_GE (line_count, 2);
+	TEST_STR_ARRAY_CONTAINS (output, "PATH=*");
+	TEST_STR_ARRAY_CONTAINS (output, "TERM=*");
 	nih_free (output);
 
 	/*******************************************************************/
@@ -16542,16 +16527,14 @@ test_default_job_env (const char *confdir, const char *logdir,
 
 	fi = fopen (logfile, "r");
 	TEST_NE_P (fi, NULL);
-	TEST_FILE_MATCH (fi, "PATH=*");
-	TEST_FILE_MATCH (fi, "TERM=*");
+	TEST_FILE_CONTAINS (fi, "PATH=*");
+	TEST_FILE_CONTAINS (fi, "TERM=*");
 
 	/* asterisk required to match '\r\n' */
-	TEST_FILE_MATCH (fi, "UPSTART_JOB=foo*");
-	TEST_FILE_MATCH (fi, "UPSTART_INSTANCE=*");
-	TEST_FILE_MATCH (fi, "UPSTART_SESSION=*");
-	TEST_FILE_END (fi);
+	TEST_FILE_CONTAINS (fi, "UPSTART_JOB=foo*");
+	TEST_FILE_CONTAINS (fi, "UPSTART_INSTANCE=*");
+	TEST_FILE_CONTAINS (fi, "UPSTART_SESSION=*");
 	fclose (fi);
-
 
 	DELETE_FILE (confdir, "foo.conf");
 	TEST_EQ (unlink (logfile), 0);
@@ -16729,6 +16712,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	cmd = nih_sprintf (NULL, "%s reset-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
 	nih_free (output);
 
 	/* Ensure nothing changed */
@@ -16746,7 +16730,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
 			name);
@@ -16767,6 +16751,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("set-env in 'name=' form");
@@ -16777,6 +16762,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
 	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
@@ -16802,6 +16788,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("set-env in 'name' form");
@@ -16837,6 +16824,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("set-env for already set variable");
@@ -16849,7 +16837,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	/* check it */
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
@@ -16866,7 +16854,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	/* check it again */
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
@@ -16889,6 +16877,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("set-env --retain");
@@ -16901,7 +16890,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	/* check it */
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
@@ -16917,7 +16906,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			get_initctl (), name, "HELLO");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	/* check that value did *NOT* change */
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
@@ -16939,6 +16928,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("set-env with space within value and trailing tab");
@@ -16950,7 +16940,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			name, value);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
 			name);
@@ -16971,6 +16961,7 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
 
 	/*******************************************************************/
 	TEST_FEATURE ("list-env output order");
@@ -16981,19 +16972,19 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			"zygote", "cell");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", get_initctl (),
 			"median", "middle");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", get_initctl (),
 			"aardvark", "mammal");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s list-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -17037,13 +17028,13 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			"aardvark", "mammal");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", get_initctl (),
 			"zygote", "cell");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s list-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -17067,25 +17058,26 @@ test_modified_job_env (const char *confdir, const char *logdir,
 			"aardvark", "mammal");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", get_initctl (),
 			"FOO", "BAR");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	cmd = nih_sprintf (NULL, "%s set-env %s='%s' 2>&1", get_initctl (),
 			"_________", "_________");
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
-	nih_free (output);
+	TEST_EQ (line_count, 0);
 
 	CREATE_FILE (confdir, "modified-env.conf", "exec env");
 
 	cmd = nih_sprintf (NULL, "%s start modified-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
 	nih_free (output);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
@@ -17211,6 +17203,7 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (cmd, NULL);
 
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
 	nih_free (output);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
@@ -17254,6 +17247,7 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
 	nih_free (output);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
@@ -17333,6 +17327,73 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	/*******************************************************************/
 }
 
+void
+test_no_inherit_job_env (const char *runtimedir, const char *confdir, const char *logdir)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	size_t           lines;
+	pid_t            upstart_pid = 0;
+	char            *extra[] = { "--no-inherit-env", NULL };
+	nih_local char  *logfile = NULL;
+	nih_local char  *session_file = NULL;
+	FILE            *fi;
+
+	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, extra);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure list-env in '--user --no-inherit-env' environment gives expected output");
+
+	cmd = nih_sprintf (NULL, "%s list-env 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* environment should comprise the default environment only */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "PATH=*");
+	TEST_STR_MATCH (output[1], "TERM=*");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure '--user --no-inherit-env' provides expected job environment");
+
+	CREATE_FILE (confdir, "foo.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	fi = fopen (logfile, "r");
+	TEST_NE_P (fi, NULL);
+	TEST_FILE_CONTAINS (fi, "PATH=*");
+	TEST_FILE_CONTAINS (fi, "TERM=*");
+
+	/* asterisk required to match '\r\n' */
+	TEST_FILE_CONTAINS (fi, "UPSTART_JOB=foo*");
+	TEST_FILE_CONTAINS (fi, "UPSTART_INSTANCE=*");
+	TEST_FILE_CONTAINS (fi, "UPSTART_SESSION=*");
+	fclose (fi);
+
+	DELETE_FILE (confdir, "foo.conf");
+	TEST_EQ (unlink (logfile), 0);
+
+	/*******************************************************************/
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				runtimedir, (int)upstart_pid));
+
+	STOP_UPSTART (upstart_pid);
+
+	unlink (session_file);
+}
+
 /*
  * Test all the commands which affect the job environment table together
  * as they are so closely related.
@@ -17376,6 +17437,21 @@ test_job_env (void)
 
 	TEST_EQ (setenv ("XDG_RUNTIME_DIR", runtimedir, 1), 0);
 
+	/*******************************************************************/
+	/* Ensure basic variables are set in the current environment */
+
+	if (! getenv ("TERM")) {
+		fprintf (stderr, "WARNING: setting TERM to '%s' as not set\n",
+				TEST_INITCTL_DEFAULT_TERM);
+		assert0 (setenv ("TERM", TEST_INITCTL_DEFAULT_TERM, 1));
+	}
+
+	if (! getenv ("PATH")) {
+		fprintf (stderr, "WARNING: setting PATH to '%s' as not set\n",
+				TEST_INITCTL_DEFAULT_PATH);
+		assert0 (setenv ("PATH", TEST_INITCTL_DEFAULT_PATH, 1));
+	}
+
 	TEST_DBUS (dbus_pid);
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -17410,14 +17486,21 @@ test_job_env (void)
 	/*******************************************************************/
 
 	STOP_UPSTART (upstart_pid);
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				runtimedir, (int)upstart_pid));
+	unlink (session_file);
+
+	/*******************************************************************/
+
+	test_no_inherit_job_env (runtimedir, confdir, logdir);
+
+	/*******************************************************************/
+
 	TEST_DBUS_END (dbus_pid);
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
 	assert0 (unsetenv ("UPSTART_SESSION"));
 
-	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
-				runtimedir, (int)upstart_pid));
-	unlink (session_file);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", runtimedir));
         TEST_EQ (rmdir (session_file), 0);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", runtimedir));
