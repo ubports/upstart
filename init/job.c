@@ -570,6 +570,7 @@ job_change_state (Job      *job,
 							  job->path));
 				}
 
+				/* Destroy the instance */
 				nih_free (job);
 			}
 
@@ -1577,7 +1578,6 @@ job_serialise (const Job *job)
 	json_object      *json_pid;
 	json_object      *json_fds;
 	json_object      *json_logs;
-	nih_local char   *stop_on = NULL;
 
 	nih_assert (job);
 
@@ -1611,12 +1611,13 @@ job_serialise (const Job *job)
 		goto error;
 
 	if (job->stop_on) {
-		stop_on = event_operator_collapse (job->stop_on);
-		if (! stop_on)
+		json_object *json_stop_on;
+
+		json_stop_on = event_operator_serialise_all (job->stop_on);
+		if (! json_stop_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "stop_on", stop_on))
-			goto error;
+		json_object_object_add (json, "stop_on", json_stop_on);
 	}
 
 	json_fds = state_serialise_int_array (int, job->fds, job->num_fds);
@@ -1739,7 +1740,6 @@ error:
 json_object *
 job_serialise_all (const NihHash *jobs)
 {
-	int          count = 0;
 	json_object *json;
 
 	nih_assert (jobs);
@@ -1752,7 +1752,6 @@ job_serialise_all (const NihHash *jobs)
 		json_object  *json_job;
 		Job *job = (Job *)iter;
 
-		count++;
 		json_job = job_serialise (job);
 
 		if (! json_job)
@@ -1760,12 +1759,6 @@ job_serialise_all (const NihHash *jobs)
 
 		json_object_array_add (json, json_job);
 	}
-
-	/* Raise an error to avoid serialising job classes with
-	 * no associated jobs.
-	 */
-	if (! count)
-		goto error;
 
 	return json;
 
@@ -1794,6 +1787,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	json_object    *json_fds;
 	json_object    *json_pid;
 	json_object    *json_logs;
+	json_object    *json_stop_on = NULL;
 	size_t          len;
 	int             ret;
 
@@ -1833,37 +1827,53 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (! state_get_json_env_array_to_obj (json, job, stop_env))
 		goto error;
 
-	if (json_object_object_get (json, "stop_on")) {
-		nih_local char *stop_on = NULL;
+	if (json_object_object_get_ex (json, "stop_on", &json_stop_on)) {
 
-		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
-			goto error;
+		if (state_check_json_type (json_stop_on, array)) {
 
-		if (*stop_on) {
-			nih_local JobClass *tmp = NULL;
-
-			tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
-
-			tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
-			if (! tmp->stop_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("instance 'stop on' parse error"),
-						err->message);
-
-				nih_free (err);
-
-				goto error;
-			}
-
-			nih_free (job->stop_on);
-			job->stop_on = event_operator_copy (job, tmp->stop_on);
+			job->stop_on = event_operator_deserialise_all (job, json_stop_on);
 			if (! job->stop_on)
 				goto error;
+		} else {
+			nih_local char *stop_on = NULL;
+
+			/* Old format (string)
+			 *
+			 * Note that we re-search for the JSON key here
+			 * (json, rather than json_stop_on) to allow
+			 * the use of the convenience macro. This is
+			 * of course slower, but its a legacy scenario.
+			 */
+
+			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+				goto error;
+
+			if (*stop_on) {
+				nih_local JobClass *tmp = NULL;
+
+				tmp = NIH_MUST (job_class_new (NULL, "tmp", NULL));
+
+				tmp->stop_on = parse_on_simple (tmp, "stop", stop_on);
+				if (! tmp->stop_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("instance 'stop on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
+
+				nih_free (job->stop_on);
+				job->stop_on = event_operator_copy (job, tmp->stop_on);
+				if (! job->stop_on)
+					goto error;
+			}
 		}
 	}
 
@@ -2284,7 +2294,7 @@ error:
 Job *
 job_find (const Session  *session,
 	  JobClass       *class,
-	  char           *job_class,
+	  const char     *job_class,
 	  const char     *job_name)
 {
 	Job       *job;
@@ -2293,7 +2303,7 @@ job_find (const Session  *session,
 	nih_assert (job_classes);
 
 	if (! class)
-		class = job_class_find (session, job_class);
+		class = job_class_get_registered (job_class, session);
 
 	if (! class)
 		goto error;

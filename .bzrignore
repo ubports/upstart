@@ -62,3 +62,8 @@ util/test_*
 extra/com.ubuntu.Upstart.[ch]
 extra/com.ubuntu.Upstart.Job.[ch]
 extra/*-bridge
+test-suite.log
+test-driver
+init/tests/.dirstamp
+init/tests/libwrap_inotify.la
+scripts/data/upstart-monitor.svg

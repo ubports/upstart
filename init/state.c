@@ -47,6 +47,7 @@
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
+json_object *json_conf_sources = NULL;
 
 extern char *log_dir;
 
@@ -66,6 +67,13 @@ char **args_copy = NULL;
  * process.
  **/
 int restart = FALSE;
+
+/**
+ * write_state_file:
+ *
+ * If TRUE, write STATE_FILE on every re-exec.
+ **/
+int write_state_file = FALSE;
 
 /* Prototypes for static functions */
 static JobClass *
@@ -233,6 +241,9 @@ state_read_objects (int fd)
 	if (state_from_string (buffer->buf) < 0)
 		goto error;
 
+	if (write_state_file || getenv (STATE_FILE_ENV))
+		state_write_file (buffer);
+
 	return 0;
 
 error:
@@ -327,8 +338,8 @@ state_write_objects (int fd, const char *state_data, size_t len)
 int
 state_to_string (char **json_string, size_t *len)
 {
-	json_object        *json;
-	const char         *value;
+	json_object  *json;
+	const char   *value;
 
 	nih_assert (json_string);
 	nih_assert (len);
@@ -339,23 +350,38 @@ state_to_string (char **json_string, size_t *len)
 		return -1;
 
 	json_sessions = session_serialise_all ();
-	if (! json_sessions)
+	if (! json_sessions) {
+		nih_error ("%s Sessions", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "sessions", json_sessions);
 
 	json_events = event_serialise_all ();
-	if (! json_events)
+	if (! json_events) {
+		nih_error ("%s Events", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "events", json_events);
 
 	json_classes = job_class_serialise_all ();
 
-	if (! json_classes)
+	if (! json_classes) {
+		nih_error ("%s JobClasses", _("Failed to serialise"));
 		goto error;
+	}
 
 	json_object_object_add (json, "job_classes", json_classes);
+
+	json_conf_sources = conf_source_serialise_all ();
+
+	if (! json_conf_sources) {
+		nih_error ("%s ConfSources", _("Failed to serialise"));
+		goto error;
+	}
+
+	json_object_object_add (json, "conf_sources", json_conf_sources);
 
 	/* Note that the returned value is managed by json-c! */
 	value = json_object_to_json_string (json);
@@ -410,17 +436,37 @@ state_from_string (const char *state)
 	if (! state_check_json_type (json, object))
 		goto out;
 
-	if (session_deserialise_all (json) < 0)
+	if (session_deserialise_all (json) < 0) {
+		nih_error ("%s Sessions", _("Failed to deserialise"));
 		goto out;
+	}
 
-	if (event_deserialise_all (json) < 0)
+	if (event_deserialise_all (json) < 0) {
+		nih_error ("%s Events", _("Failed to deserialise"));
 		goto out;
+	}
 
-	if (job_class_deserialise_all (json) < 0)
-		goto out;
+	/* Again, we cannot error here since older JSON state data did
+	 * not encode ConfSource or ConfFile objects.
+	 */
+	if (json_object_object_get (json, "conf_sources")) {
+		if (conf_source_deserialise_all (json) < 0) {
+			nih_error ("%s ConfSources", _("Failed to deserialise"));
+			goto out;
+		}
+	} else {
+			nih_warn ("%s", _("No ConfSources present in state data"));
+	}
 
-	if (state_deserialise_resolve_deps (json) < 0)
+	if (job_class_deserialise_all (json) < 0) {
+		nih_error ("%s JobClasses", _("Failed to deserialise"));
 		goto out;
+	}
+
+	if (state_deserialise_resolve_deps (json) < 0) {
+		nih_error (_("Failed to resolve deserialisation dependencies"));
+		goto out;
+	}
 
 	ret = 0;
 
@@ -1118,7 +1164,6 @@ state_get_json_type (const char *short_type)
 	return json_type_null;
 }
 
-
 /**
  * state_deserialise_resolve_deps:
  *
@@ -1135,8 +1180,9 @@ state_deserialise_resolve_deps (json_object *json)
 {
 	nih_assert (json);
 
-	/* XXX: Events, JobClasses, Jobs and DBusConnections must have
-	 * previously been deserialised before invoking this function.
+	/* XXX: Sessions, Events, JobClasses, Jobs and DBusConnections
+	 * must have previously been deserialised before invoking
+	 * this function.
 	 */
 	nih_assert (json_sessions);
 	nih_assert (json_events);
@@ -1175,14 +1221,21 @@ state_deserialise_resolve_deps (json_object *json)
 
 		/* lookup class associated with JSON class index */
 		class = state_index_to_job_class (i);
-		if (! class)
-			goto error;
+		if (! class) {
+			int session_index = -1;
 
-		/* XXX: user and chroot jobs are not currently supported
-		 * due to ConfSources not currently being serialised.
-		 */
-		if (class->session)
-			continue;
+			if (state_get_json_int_var (json_class, "session", session_index)
+					&& session_index > 0) {
+
+				/* Although ConfSources are now serialised, ignore
+				 * JobClasses with associated user/chroot sessions to avoid
+				 * behavioural changes for the time being.
+				 */
+				continue;
+			} else {
+				goto error;
+			}
+		}
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
@@ -1526,7 +1579,12 @@ state_deserialise_blocked (void *parent, json_object *json,
 
 			blocked = NIH_MUST (blocked_new (parent, BLOCKED_EVENT, event));
 			nih_list_add (list, &blocked->entry);
-			event_block (blocked->event);
+			
+			/* Event must already exist and should have
+			 * blockers associated for it to have a blocked
+			 * object pointing at it.
+			 */
+			nih_assert (blocked->event->blockers);
 		}
 		break;
 
@@ -1654,7 +1712,6 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 		json_blocked = json_object_array_get_idx (json_blocking, i);
 		if (! json_blocked)
 			goto error;
-
 
 		/* Don't error in this scenario to allow for possibility
 		 * that version of Upstart that performed the
@@ -1894,7 +1951,7 @@ perform_reexec (void)
 void
 stateful_reexec (void)
 {
-	int             fds[2] = { -1 };
+	int             fds[2] = { -1, -1 };
 	pid_t           pid;
 	sigset_t        mask, oldmask;
 	nih_local char *state_data = NULL;

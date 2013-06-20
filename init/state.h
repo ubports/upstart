@@ -4,7 +4,7 @@
  *
  * - XXX: Deferred work:
  *   - handling of Upstart-in-initramfs - for this to work, it would be
- *     necessary to serialise ConfSources along with the following:
+ *     necessary to serialise ConfSources (done) along with the following:
  *
  *     (1) inode number of source->path
  *     (2) inode number of '/'
@@ -26,12 +26,6 @@
  *
  *     Note too that (2)+(3) are the only reliable method for Upstart to
  *     detect that is *has* changed filesystem context.
- *
- *   - Since ConfSources are NOT serialised, it is currently not possible
- *     to support chroot jobs (because the only ConfSource
- *     objects created are those at startup (for '/etc/init/'): any
- *     pre-existing ConfSources with non-NULL Session objects will
- *     be ignored).
  *
  *   - parent/child timeout handling: we won't support down-grading initially.
  *
@@ -371,7 +365,7 @@
  *
  * Name of file that is written below the job log directory if the
  * newly re-exec'ed init instance failed to understand the JSON sent to
- * it by the old instance.
+ * it by the old instance (or if requested by STATE_FILE_ENV).
  *
  * This could happen for example if the old instance generated invalid
  * JSON, or JSON in an unexected format.
@@ -1224,6 +1218,9 @@ json_object *state_rlimit_serialise (const struct rlimit *rlimit)
 	__attribute__ ((warn_unused_result));
 
 struct rlimit *state_rlimit_deserialise (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int state_get_version (void)
 	__attribute__ ((warn_unused_result));
 
 extern char **args_copy;
