@@ -1,3 +1,8 @@
+2013-06-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_show_slow_jobs(): Don't free static string
+	  (LP: #1190526).
+
 2013-06-05  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/data/upstart-1.8+apparmor.json: New test data file.
