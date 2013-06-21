@@ -223,7 +223,7 @@ quiesce_show_slow_jobs (void)
 
 			name = job_name (job);
 
-			nih_message ("job %s failed to stop", name);
+			nih_warn ("job %s failed to stop", name);
 		}
 	}
 }
