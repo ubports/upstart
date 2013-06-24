@@ -135,7 +135,12 @@ TEST_DATA_DIR = $(srcdir)/tests/data
 AM_CPPFLAGS += -DTEST_DATA_DIR="\"$(TEST_DATA_DIR)\""
 
 TEST_DATA_FILES = \
-	$(TEST_DATA_DIR)/upstart-1.6.json
+	$(TEST_DATA_DIR)/upstart-1.6.json \
+	$(TEST_DATA_DIR)/upstart-1.8.json \
+	$(TEST_DATA_DIR)/upstart-pre-security.json \
+	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation-apparmor.json \
+	$(TEST_DATA_DIR)/upstart-1.8+apparmor.json \
+	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation+apparmor.json
 
 test_util_SOURCES = \
 	tests/test_util.c tests/test_util.h

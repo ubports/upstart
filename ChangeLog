@@ -1,3 +1,7 @@
+2013-06-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Added missing json file to TEST_DATA_FILES.
+
 2013-06-21  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/quiesce.c: quiesce_show_slow_jobs(): Change message log level
