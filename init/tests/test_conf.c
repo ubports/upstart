@@ -49,6 +49,7 @@
 #include "job_process.h"
 #include "blocked.h"
 #include "test_util.h"
+#include "test_util_common.h"
 
 /**
  * JOB_STOP_SECONDS:

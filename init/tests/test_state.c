@@ -48,6 +48,7 @@
 #include "log.h"
 #include "blocked.h"
 #include "control.h"
+#include "test_util_common.h"
 #include "test_util.h"
 
 #ifndef TEST_DATA_DIR

@@ -329,6 +329,31 @@
 
 2013-04-30  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/Makefile.am: Added test_main.
+	* init/tests/test_main.c: New test.
+	* init/tests/test_job_process.c: strcmp_compar() moved to test_util.c.
+	* util/tests/test_initctl.c: strcmp_compar() removed.
+	* init/xdg.c: Disable loading of jobs from SYSTEM_USERCONFDIR if
+	  "UPSTART_NO_SYSTEM_USERCONFDIR" envvar set (required for testing).
+	* test/test_util.c: Added strcmp_compar() and get_session_file().
+	* util/tests/test_initctl.c: Use get_session_file().
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* Makefile.am: Added 'test'.
+	* configure.ac: Added 'test/Makefile'.
+	* init/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* init/state.c: Added missing config.h include.
+	* util/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* util/tests/test_initctl.c: Moved common utility code to
+	  test/test_util.c and replaced INITCTL_BINARY by get_initctl_binary().
+	* test/test_util.[ch]: New location for init/tests/test_util.[ch] to
+	  allow all tests access to common functionality.
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/job.c: job_serialise_all(): Really serialise all JobClasses,
 	* init/main.c: Add 'write-state-file' command-line option.
 	  regardless of whether they have associated Jobs.
@@ -397,6 +422,14 @@
 
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/main.c:
+	  - main(): Allow Session Init to accept multiple --confdir values,
+	    which replace all built-in values (behaviour required for testing).
+	  - handle_confdir(): Operate on conf_dirs array rather than single
+	    conf_dir value.
+	  - conf_dir_setter(): Command-line setter function to add configuration
+	    file directories to conf_dirs array.
+	* init/man/init.8: Update on --confdir behaviour.
 	* extra/man/file-event.7: Correct EVENT values in examples.
 	* extra/man/upstart-event-bridge.8:
 	  - Corrected bridge name.
