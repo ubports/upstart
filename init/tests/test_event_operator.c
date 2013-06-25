@@ -30,6 +30,7 @@
 #include "blocked.h"
 #include "parse_job.h"
 #include "conf.h"
+#include "test_util_common.h"
 #include "test_util.h"
 
 void
