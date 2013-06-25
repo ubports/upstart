@@ -143,11 +143,6 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation+apparmor.json
 
 
-test_util_SOURCES = \
-	tests/test_util.c tests/test_util.h
-test_util_LDADD = \
-	$(top_builddir)/test/libtest_util_common.a
-
 TESTS = \
 	test_system \
 	test_environ \
@@ -264,7 +259,7 @@ test_log_LDADD = \
 	$(JSON_LIBS) \
 	-lrt -lutil
 
-test_state_SOURCES = tests/test_state.c $(test_util_SOURCES)
+test_state_SOURCES = tests/test_state.c tests/test_util.c tests/test_util.h
 test_state_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -293,7 +288,7 @@ test_event_LDADD = \
 	$(JSON_LIBS) \
 	-lrt
 
-test_event_operator_SOURCES = tests/test_event_operator.c $(test_util_SOURCES)
+test_event_operator_SOURCES = tests/test_event_operator.c tests/test_util.c tests/test_util.h
 test_event_operator_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
@@ -301,6 +296,7 @@ test_event_operator_LDADD = \
 	session.o log.o state.o xdg.o apparmor.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -409,7 +405,7 @@ test_main_LDADD = \
 	system.o environ.o process.o \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
-	session.o log.o state.o xdg.o \
+	session.o log.o state.o xdg.o apparmor.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
