@@ -45,7 +45,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "conf.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 void
 test_source_new (void)

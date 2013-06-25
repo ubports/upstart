@@ -34,7 +34,7 @@
 #include "job.h"
 #include "xdg.h"
 
-#include "test_util.h"
+#include "test_util_common.h"
 
 
 void

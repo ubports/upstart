@@ -1,3 +1,9 @@
+2013-06-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util.[ch]: Renamed to test_util_common.[ch] and
+	  updated all references to allow existing init-specific (and
+	  hence not common) init/test_util.[ch] to remain.
+
 2013-04-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/Makefile.am: Added test_main.

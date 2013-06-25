@@ -53,7 +53,7 @@
 
 #include "com.ubuntu.Upstart.h"
 
-#include "test_util.h"
+#include "test_util_common.h"
 
 extern int use_dbus;
 extern int user_mode;

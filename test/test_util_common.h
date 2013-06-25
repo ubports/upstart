@@ -1,5 +1,5 @@
-#ifndef TEST_UTIL_H
-#define TEST_UTIL_H
+#ifndef TEST_UTIL_COMMON_H
+#define TEST_UTIL_COMMON_H
 
 #include <string.h>
 #include <sys/types.h>
@@ -722,4 +722,4 @@ int strcmp_compar (const void *a, const void *b)
 char *get_session_file (const char *xdg_runtime_dir, pid_t pid)
 	__attribute__ ((warn_unused_result));
 
-#endif /* TEST_UTIL_H */
+#endif /* TEST_UTIL_COMMON_H */

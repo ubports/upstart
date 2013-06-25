@@ -17,5 +17,5 @@ AM_CPPFLAGS = \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
 	-I$(top_srcdir)/intl
 
-check_LIBRARIES = libtest_util.a
-libtest_util_a_SOURCES = test_util.c test_util.h
+check_LIBRARIES = libtest_util_common.a
+libtest_util_common_a_SOURCES = test_util_common.c test_util_common.h

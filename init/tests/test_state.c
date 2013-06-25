@@ -47,7 +47,7 @@
 #include "log.h"
 #include "blocked.h"
 #include "control.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 #ifndef TEST_DATA_DIR
 #error ERROR: TEST_DATA_DIR not defined

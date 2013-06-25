@@ -180,7 +180,7 @@ test_process_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -209,7 +209,7 @@ test_job_process_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -238,7 +238,7 @@ test_log_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -253,7 +253,7 @@ test_state_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -338,7 +338,7 @@ test_conf_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
@@ -388,7 +388,7 @@ test_main_LDADD = \
 	session.o log.o state.o xdg.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util.a \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \

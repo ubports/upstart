@@ -60,7 +60,7 @@
 #include "blocked.h"
 #include "conf.h"
 #include "errors.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
 #define TEST_SHELL                "/bin/sh"

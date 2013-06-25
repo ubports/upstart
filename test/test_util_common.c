@@ -1,9 +1,8 @@
 /* upstart
  *
- * test_util.c - test utilities
- * associated serialisation and deserialisation routines.
+ * test_util_common.c - common test utilities
  *
- * Copyright © 2012 Canonical Ltd.
+ * Copyright © 2012-2013 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -48,7 +47,7 @@
 
 #include "dbus/upstart.h"
 
-#include "test_util.h"
+#include "test_util_common.h"
 
 #ifndef UPSTART_BINARY
 #error unable to find init binary as UPSTART_BINARY not defined
