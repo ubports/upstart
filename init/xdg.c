@@ -319,8 +319,10 @@ get_user_upstart_dirs (void)
 	dirs = NULL;
 
 	/* System's read-only location */
-	if (! nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR))
-		goto error;
+	if (! getenv ("UPSTART_NO_SYSTEM_USERCONFDIR")) {
+		if (! nih_str_array_add (&all_dirs, NULL, NULL, SYSTEM_USERCONFDIR))
+			goto error;
+	}
 
 	return all_dirs;
 	

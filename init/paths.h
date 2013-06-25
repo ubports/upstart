@@ -97,6 +97,15 @@
 #endif
 
 /**
+ * STATE_FILE_ENV:
+ *
+ * If set, write STATE_FILE on any re-exec.
+ **/
+#ifndef STATE_FILE_ENV
+#define STATE_FILE_ENV "UPSTART_WRITE_STATEFILE"
+#endif
+
+/**
  * INIT_XDG_SUBDIR:
  *
  * This is the name of the sub folder we will use when constructing

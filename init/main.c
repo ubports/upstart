@@ -88,6 +88,7 @@ static void usr1_handler    (void *data, NihSignal *signal);
 static void handle_confdir      (void);
 static void handle_logdir       (void);
 static int  console_type_setter (NihOption *option, const char *arg);
+static int  conf_dir_setter     (NihOption *option, const char *arg);
 
 
 /**
@@ -99,12 +100,11 @@ static int  console_type_setter (NihOption *option, const char *arg);
 static int state_fd = -1;
 
 /**
- * conf_dir:
+ * conf_dirs:
  *
- * Full path to job configuration file directory.
- *
+ * Array of full paths to job configuration file directories.
  **/
-static char *conf_dir = NULL;
+static char **conf_dirs = NULL;
 
 /**
  * initial_event:
@@ -126,6 +126,7 @@ extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
 extern int          default_console;
+extern int          write_state_file;
 extern char        *log_dir;
 
 
@@ -136,7 +137,7 @@ extern char        *log_dir;
  **/
 static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
-		NULL, "DIR", &conf_dir, NULL },
+		NULL, "DIR", NULL, conf_dir_setter },
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
@@ -173,6 +174,9 @@ static NihOption options[] = {
 	{ 0, "user", N_("start in user mode (as used for user sessions)"),
 		NULL, NULL, &user_mode, NULL },
 
+	{ 0, "write-state-file", N_("attempt to write state file on every re-exec"),
+		NULL, NULL, &write_state_file, NULL },
+
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
 
@@ -185,8 +189,9 @@ main (int   argc,
       char *argv[])
 {
 	char **args = NULL;
-	char **dirs = NULL;
 	int    ret;
+
+	conf_dirs = NIH_MUST (nih_str_array_new (NULL));
 
 	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
 
@@ -532,18 +537,37 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	if (! user_mode)
+	if (! user_mode) {
+		char   *conf_dir;
+		int     len = 0;
+
+		nih_assert (conf_dirs[0]);
+
+		/* Count entries */
+		for (char **d = conf_dirs; d && *d; d++, len++)
+			;
+
+		nih_assert (len);
+
+		/* Use last value specified */
+		conf_dir = conf_dirs[len-1];
+
 		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 
-	if (conf_dir)
+		nih_debug ("Using configuration directory %s", conf_dir);
 		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+	} else {
+		nih_local char **dirs = NULL;
 
-	if (user_mode) {
 		dirs = NIH_MUST (get_user_upstart_dirs ());
-		for (char **d = dirs; d && *d; d++)
+
+		for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
+			nih_debug ("Using configuration directory %s", *d);
 			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
-		nih_free (dirs);
+		}
 	}
+
+	nih_free (conf_dirs);
 
 	job_class_environment_init ();
 
@@ -922,31 +946,26 @@ usr1_handler (void      *data,
 /**
  * handle_confdir:
  *
- * Determine where system configuration files should be loaded from.
+ * Determine where system configuration files should be loaded from
+ * if not specified on the command-line.
  **/
 static void
 handle_confdir (void)
 {
-	char *dir;
+	char  *dir;
+
+	nih_assert (conf_dirs);
 
 	/* user has already specified directory on command-line */
-	if (conf_dir)
-		goto out;
+	if (conf_dirs[0])
+		return;
 
 	if (user_mode)
 		return;
 
-	conf_dir = CONFDIR;
-
 	dir = getenv (CONFDIR_ENV);
-	if (! dir)
-		return;
 
-	conf_dir = dir;
-
-out:
-	nih_debug ("Using alternate configuration directory %s",
-			conf_dir);
+	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, dir ? dir : CONFDIR));
 }
 
 /**
@@ -1000,4 +1019,21 @@ console_type_setter (NihOption *option, const char *arg)
 	 }
 
 	 return 0;
+}
+
+/**  
+ * NihOption setter function to handle selection of configuration file
+ * directories.
+ *
+ * Returns: 0 on success, -1 on invalid console type.
+ **/
+static int
+conf_dir_setter (NihOption *option, const char *arg)
+{
+	nih_assert (conf_dirs);
+	nih_assert (option);
+
+	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, arg));
+
+	return 0;
 }

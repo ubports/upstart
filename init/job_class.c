@@ -2,7 +2,7 @@
  *
  * job_class.c - job class definition handling
  *
- * Copyright © 2011 Canonical Ltd.
+ * Copyright  2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,6 +62,9 @@
 #include <json.h>
 
 extern json_object *json_classes;
+extern int user_mode;
+extern int no_inherit_env;
+extern char **environ;
 
 /* Prototypes for static functions */
 static void  job_class_add (JobClass *class);
@@ -115,10 +118,14 @@ job_class_environment_init (void)
 {
 	char * const default_environ[] = { JOB_DEFAULT_ENVIRONMENT, NULL };
 
-	if (! job_environ) {
-		job_environ = NIH_MUST (nih_str_array_new (NULL));
-		NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
-	}
+	if (job_environ)
+		return;
+
+	job_environ = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (environ_append (&job_environ, NULL, 0, TRUE, default_environ));
+
+	if (user_mode && ! no_inherit_env)
+		NIH_MUST(environ_append (&job_environ, NULL, 0, TRUE, environ));
 }
 
 /**
@@ -362,6 +369,8 @@ job_class_new (const void *parent,
 
 	class->usage = NULL;
 
+	class->apparmor_switch = NULL;
+
 	return class;
 
 error:
@@ -369,6 +378,35 @@ error:
 	return NULL;
 }
 
+/**
+ * job_class_get_registered:
+ *
+ * @name: name of JobClass to search for,
+ * @session: Session of @class.
+ *
+ * Determine the currently registered JobClass with name @name for
+ * session @session.
+ *
+ * Returns: JobClass or NULL if no JobClass with name @name and
+ * session @session is registered.
+ **/
+JobClass *
+job_class_get_registered (const char *name, const Session *session)
+{
+	JobClass *registered = NULL;
+
+	nih_assert (name);
+
+	job_class_init ();
+
+	/* If we found an entry, ensure we only consider the appropriate session */
+	do {
+		registered = (JobClass *)nih_hash_search (job_classes,
+				name, registered ? &registered->entry : NULL);
+	} while (registered && registered->session != session);
+
+	return registered;
+}
 
 /**
  * job_class_consider:
@@ -383,7 +421,8 @@ error:
 int
 job_class_consider (JobClass *class)
 {
-	JobClass *registered = NULL, *best = NULL;
+	JobClass           *registered = NULL;
+	JobClass           *best = NULL;
 
 	nih_assert (class != NULL);
 
@@ -393,16 +432,19 @@ job_class_consider (JobClass *class)
 	nih_assert (best != NULL);
 	nih_assert (best->session == class->session);
 
-	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
-
-	/* If we found an entry, ensure we only consider the appropriate session */
-	while (registered && registered->session != class->session)
-		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	registered = job_class_get_registered (class->name, class->session);
 
 	if (registered != best) {
-		if (registered)
-			if (! job_class_remove (registered, class->session))
+		if (registered) {
+			job_class_event_block (NULL, registered, best);
+
+			if (! job_class_remove (registered, class->session)) {
+				/* Couldn't deregister, so undo */
+				if (best->start_on)
+					event_operator_reset (best->start_on);
 				return FALSE;
+			}
+		}
 
 		job_class_add (best);
 	}
@@ -426,7 +468,8 @@ job_class_consider (JobClass *class)
 int
 job_class_reconsider (JobClass *class)
 {
-	JobClass *registered = NULL, *best = NULL;
+	JobClass           *registered = NULL;
+	JobClass           *best = NULL;
 
 	nih_assert (class != NULL);
 
@@ -434,11 +477,7 @@ job_class_reconsider (JobClass *class)
 
 	best = conf_select_job (class->name, class->session);
 
-	registered = (JobClass *)nih_hash_search (job_classes, class->name, NULL);
-
-	/* If we found an entry, ensure we only consider the appropriate session */
-	while (registered && registered->session != class->session)
-		registered = (JobClass *)nih_hash_search (job_classes, class->name, &registered->entry);
+	registered = job_class_get_registered (class->name, class->session);
 
 	if (registered == class) {
 		if (class != best) {
@@ -454,6 +493,80 @@ job_class_reconsider (JobClass *class)
 	}
 
 	return TRUE;
+}
+
+/**
+ * job_class_event_block:
+ *
+ * @parent: parent object for list,
+ * @old: original JobClass currently registered in job_classes,
+ * @new: new "best" JobClass that is not yet present in job_classes.
+ *
+ * Compare @old and @new start on EventOperator trees looking for
+ * matching events that occur in both (_and_ which implicitly still exist
+ * in the global events list). Events that satisfy these criteria will have
+ * their reference count elevated to allow @new to replace @old in job_classes
+ * without the destruction of @old freeing the events in question.
+ *
+ * Note that the reference count never needs to be decremented back
+ * again since this function effectively passes "ownership" of the event
+ * block from @old to @new, since @old will be replaced by @new but @new
+ * should replicate the EventOperator state of @old.
+ **/
+void
+job_class_event_block (void *parent, JobClass *old, JobClass *new)
+{
+	EventOperator  *old_root;
+	EventOperator  *new_root;
+
+	if (! old || ! new)
+		return;
+
+	old_root = old->start_on;
+	new_root = new->start_on;
+
+	/* If either @old or @new are NULL, or have no start_on
+	 * condition, there is no need to modify any events.
+	 */
+	if (! old_root || ! new_root)
+		return;
+
+	/* The old JobClass has associated instances meaning it 
+	 * will not be possible for job_class_remove() to replace it, so
+	 * we don't need to manipulate any event reference counts.
+	 */
+	NIH_HASH_FOREACH (old->instances, iter)
+		return;
+
+	NIH_TREE_FOREACH_POST (&old_root->node, iter) {
+		EventOperator  *old_oper = (EventOperator *)iter;
+		Event          *event;
+
+		if (old_oper->type != EVENT_MATCH)
+			continue;
+
+		/* Ignore nodes that are not blocking events */
+		if (! old_oper->event)
+			continue;
+
+		/* Since the JobClass is blocking an event,
+		 * that event must be valid.
+		 */
+		event = old_oper->event;
+
+		NIH_TREE_FOREACH_POST (&new_root->node, niter) {
+			EventOperator *new_oper = (EventOperator *)niter;
+
+			if (new_oper->type != EVENT_MATCH)
+				continue;
+
+			/* ignore the return - we just want to ensure
+			 * that any events in @new that match those in
+			 * @old have identical nodes.
+			 */
+			(void)event_operator_handle (new_oper, event, NULL);
+		}
+	}
 }
 
 /**
@@ -491,23 +604,20 @@ job_class_add (JobClass *class)
 void
 job_class_add_safe (JobClass *class)
 {
-	JobClass *existing = NULL;
+	JobClass *registered = NULL;
 
 	nih_assert (class);
 	nih_assert (class->name);
 
 	control_init ();
 
-	/* Ensure no existing class exists for the same session */
-	do {
-		existing = (JobClass *)nih_hash_search (job_classes,
-				class->name, existing ? &existing->entry : NULL);
-	} while (existing && existing->session != class->session);
+	registered = job_class_get_registered (class->name, class->session);
 
-	nih_assert (! existing);
+	nih_assert (! registered);
 
 	job_class_add (class);
 }
+
 
 /**
  * job_class_remove:
@@ -1284,6 +1394,8 @@ job_class_get (const char *name, Session *session)
 
 	nih_assert (name);
 
+	job_class_init ();
+
 	do {
 		class = (JobClass *)nih_hash_search (job_classes, name, prev);
 		if (! class)
@@ -1708,8 +1820,8 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_normalexit;
 	json_object      *json_limits;
 	json_object      *json_jobs;
-	nih_local char   *start_on = NULL;
-	nih_local char   *stop_on = NULL;
+	json_object      *json_start_on;
+	json_object      *json_stop_on;
 	int               session_index;
 
 	nih_assert (class);
@@ -1719,15 +1831,6 @@ job_class_serialise (const JobClass *class)
 	if (! json)
 		return NULL;
 	
-	/* XXX: chroot jobs are not currently supported
-	 * due to ConfSources not currently being serialised.
-	 */
-	if (class->session) {
-		nih_info ("WARNING: serialisation of chroot "
-				"sessions not currently supported");
-		goto error;
-	}
-
 	session_index = session_get_index (class->session);
 	if (session_index < 0)
 		goto error;
@@ -1772,21 +1875,19 @@ job_class_serialise (const JobClass *class)
 	json_object_object_add (json, "export", json_export);
 
 	if (class->start_on) {
-		start_on = event_operator_collapse (class->start_on);
-		if (! start_on)
+		json_start_on = event_operator_serialise_all (class->start_on);
+		if (! json_start_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "start_on", start_on))
-			goto error;
+		json_object_object_add (json, "start_on", json_start_on);
 	}
 
 	if (class->stop_on) {
-		stop_on = event_operator_collapse (class->stop_on);
-		if (! stop_on)
+		json_stop_on = event_operator_serialise_all (class->stop_on);
+		if (! json_stop_on)
 			goto error;
 
-		if (! state_set_json_string_var (json, "stop_on", stop_on))
-			goto error;
+		json_object_object_add (json, "stop_on", json_stop_on);
 	}
 
 	json_emits = class->emits
@@ -1873,6 +1974,9 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, usage))
 		goto error;
 
+	if (! state_set_json_string_var_from_obj (json, class, apparmor_switch))
+		goto error;
+
 	return json;
 
 error:
@@ -1883,7 +1987,20 @@ error:
 /**
  * job_class_serialise_all:
  *
- * Convert existing JobClass objects to JSON representation.
+ * Convert existing JobClass objects in job classes hash to JSON
+ * representation.
+ *
+ * NOTE: despite its name, this function does not _necessarily_
+ * serialise all JobClasses - there may be "best" (ie newer) JobClasses
+ * associated with ConfFiles that have not yet replaced the existing
+ * entries in the job classes hash if the JobClass has running instances.
+ *
+ * However, this is academic since although such data is not serialised,
+ * after the re-exec conf_reload() is called to recreate these "best"
+ * JobClasses. This also has the nice side-effect of ensuring that
+ * should jobs get created in the window when Upstart is statefully
+ * re-exec'ing, it will always see the newest versions of on-disk files
+ * (which is what the user expects).
  *
  * Returns: JSON object containing array of JobClass objects,
  * or NULL on error.
@@ -1905,17 +2022,17 @@ job_class_serialise_all (void)
 
 		json_class = job_class_serialise (class);
 
-		/* No object returned means the class doesn't need to be
-		 * serialised.  Even if this is a real failure, it's always
-		 * better to serialise as much of the state as possible.
-		 */
 		if (! json_class)
-			continue;
+			goto error;
 
 		json_object_array_add (json, json_class);
 	}
 
 	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
 }
 
 /**
@@ -1932,11 +2049,14 @@ job_class_deserialise (json_object *json)
 {
 	json_object    *json_normalexit;
 	JobClass       *class = NULL;
+	ConfFile       *file = NULL;
 	Session        *session;
 	int             session_index = -1;
 	int             ret;
 	nih_local char *name = NULL;
 	nih_local char *path = NULL;
+	json_object    *json_start_on = NULL;
+	json_object    *json_stop_on = NULL;
 
 	nih_assert (json);
 	nih_assert (job_classes);
@@ -1952,11 +2072,9 @@ job_class_deserialise (json_object *json)
 
 	session = session_from_index (session_index);
 
-	/* XXX: chroot jobs are not currently supported
-	 * due to ConfSources not currently being serialised.
-	 */
+	/* XXX: chroot and old user session jobs not currently supported */
 	if (session) {
-		nih_info ("WARNING: deserialisation of chroot "
+		nih_info ("WARNING: deserialisation of user/chroot "
 				"sessions not currently supported");
 		goto error;
 	}
@@ -1964,9 +2082,19 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
+	/* Create the class and associate it with the ConfFile */
 	class = job_class_new (NULL, name, session);
 	if (! class)
 		goto error;
+
+	/* Lookup the ConfFile associated with this class.
+	 *
+	 * Don't error if this fails since previous serialisation data
+	 * formats did not encode ConfSources and ConfFiles.
+	 */
+	file = conf_file_find (name, session);
+	if (file)
+		file->job = class;
 
 	/* job_class_new() sets path */
 	if (! state_get_json_string_var_strict (json, "path", NULL, path))
@@ -1998,52 +2126,77 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	/* start and stop conditions are optional */
-	if (json_object_object_get (json, "start_on")) {
-		nih_local char *start_on = NULL;
+	if (json_object_object_get_ex (json, "start_on", &json_start_on)) {
 
-		if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
-			goto error;
+		if (state_check_json_type (json_start_on, array)) {
 
-		if (*start_on) {
-			class->start_on = parse_on_simple (class, "start", start_on);
-			if (! class->start_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("'start on' parse error"),
-						err->message);
-
-				nih_free (err);
-
+			class->start_on = event_operator_deserialise_all (class, json_start_on);
+			if (! class->start_on)
 				goto error;
+		} else {
+			nih_local char *start_on = NULL;
+
+			/* Old format (string).
+			 *
+			 * Note that we re-search for the JSON key here
+			 * (json, rather than json_start_on) to allow
+			 * the use of the convenience macro. This is
+			 * of course slower, but its a legacy scenario.
+			 */
+			if (! state_get_json_string_var_strict (json, "start_on", NULL, start_on))
+				goto error;
+
+			if (*start_on) {
+				class->start_on = parse_on_simple (class, "start", start_on);
+				if (! class->start_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("'start on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
 			}
 		}
 	}
 
-	if (json_object_object_get (json, "stop_on")) {
-		nih_local char *stop_on = NULL;
+	if (json_object_object_get_ex (json, "stop_on", &json_stop_on)) {
 
-		if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
-			goto error;
+		if (state_check_json_type (json_stop_on, array)) {
 
-		if (*stop_on) {
-			class->stop_on = parse_on_simple (class, "stop", stop_on);
-			if (! class->stop_on) {
-				NihError *err;
-
-				err = nih_error_get ();
-
-				nih_error ("%s %s: %s",
-						_("BUG"),
-						_("'stop on' parse error"),
-						err->message);
-
-				nih_free (err);
-
+			class->stop_on = event_operator_deserialise_all (class, json_stop_on);
+			if (! class->stop_on)
 				goto error;
+		} else {
+			nih_local char *stop_on = NULL;
+
+			/* Old format (string) - re-search as above */
+
+			if (! state_get_json_string_var_strict (json, "stop_on", NULL, stop_on))
+				goto error;
+
+			if (*stop_on) {
+				class->stop_on = parse_on_simple (class, "stop", stop_on);
+				if (! class->stop_on) {
+					NihError *err;
+
+					err = nih_error_get ();
+
+					nih_error ("%s %s: %s",
+							_("BUG"),
+							_("'stop on' parse error"),
+							err->message);
+
+					nih_free (err);
+
+					goto error;
+				}
 			}
 		}
 	}
@@ -2109,6 +2262,14 @@ job_class_deserialise (json_object *json)
 	if (! state_get_json_string_var_to_obj (json, class, usage))
 		goto error;
 
+	/* If we are missing this, we're probably importing from a
+	 * previous version that didn't include PROCESS_SECURITY.
+	 */
+	if (json_object_object_get (json, "apparmor_switch")) {
+		if (! state_get_json_string_var_to_obj (json, class, apparmor_switch))
+			goto error;
+	}
+
 	json_normalexit = json_object_object_get (json, "normalexit");
 	if (! json_normalexit)
 		goto error;
@@ -2124,12 +2285,17 @@ job_class_deserialise (json_object *json)
 	if (process_deserialise_all (json, class->process, class->process) < 0)
 		goto error;
 
-	/* Force class to be known.
-	 *
-	 * We cannot use job_class_*consider() since the
-	 * JobClasses have no associated ConfFile.
-	 */
-	job_class_add_safe (class);
+	if (file) {
+		/* Add the class to the job_classes hash if ConfFiles were
+		 * available in the serialisation data.
+		 */
+		job_class_consider (class);
+	} else {
+		/* No ConfSources and ConfFiles were available in the
+		 * serialisation data, so special-case the insertion.
+		 */
+		job_class_add_safe (class);
+	}
 
 	/* Any jobs must be added after the class is registered
 	 * (since you cannot add a job to a partially-created
@@ -2174,7 +2340,7 @@ job_class_deserialise_all (json_object *json)
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		json_object         *json_class;
+		json_object  *json_class;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
@@ -2185,11 +2351,23 @@ job_class_deserialise_all (json_object *json)
 
 		class = job_class_deserialise (json_class);
 
-		/* For parity with the serialisation code, don't treat
-		 * errors as fatal for the entire deserialisation.
+		/* Either memory is low or -- more likely -- a JobClass
+		 * with a session was encountered, so keep going.
 		 */
-		if (! class)
-			continue;
+		if (! class) {
+			int session_index = -1;
+
+			if (state_get_json_int_var (json_class, "session", session_index)
+					&& session_index > 0) {
+				/* Although ConfSources are now serialised, ignore
+				 * JobClasses with associated user/chroot sessions to avoid
+				 * behavioural changes for the time being.
+				 */
+				continue;
+			} else {
+				goto error;
+			}
+		}
 	}
 
 	return 0;
@@ -2345,33 +2523,6 @@ error:
 }
 
 /**
- * job_class_find:
- *
- * @session: session,
- * @name: name of JobClass.
- *
- * Lookup a JobClass by session and name.
- *
- * Returns: JobClass associated with @session, or NULL if not found.
- */
-JobClass *
-job_class_find (const Session *session,
-		const char *name)
-{
-	JobClass *class = NULL;
-
-	nih_assert (name);
-	nih_assert (job_classes);
-
-	do {
-		class = (JobClass *)nih_hash_search (job_classes,
-				name, class ? &class->entry : NULL);
-	} while (class && class->session != session);
-
-	return class;
-}
-
-/**
  * job_class_max_kill_timeout:
  *
  * Determine maximum kill timeout for all running jobs.
@@ -2399,4 +2550,30 @@ job_class_max_kill_timeout (void)
 	}
 
 	return kill_timeout;
+}
+
+/**
+ * job_class_get_index:
+ * @class: JobClass to search for.
+ *
+ * Returns: index of @class in the job classes hash,
+ * or -1 if not found.
+ **/
+ssize_t
+job_class_get_index (const JobClass *class)
+{
+	ssize_t i = 0;
+
+	nih_assert (class);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *c = (JobClass *)iter;
+
+		if (! strcmp (c->name, class->name)
+				&& c->session == class->session)
+			return i;
+		i++;
+	}
+
+	return -1;
 }
