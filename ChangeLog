@@ -73,20 +73,21 @@
 	[ Eric S. Raymond <esr@thyrsus.com> ]
 	* init/man/init.5: Fix unliftable markup (LP: #1185108).
 
+2013-05-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Use plain-text ABI dump, rather than .tar.gz version to allow
+	    changes to be easily diff'ed.
+	  - Pass path to official ABI to script to avoid script determining it.
+	* lib/run_abi_checker.sh.in: Use provided official ABI path.
+	* Renamed lib/abi_dumps/ to lib/abi/.
+
 2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/job.c: Don't check for user mode when trying to load an
 	  AppArmor profile. User mode is supported as root, and upstart
 	  can be run as a user without being in user mode.
 	* init/man/init.5: Adjust man page.
-
-2013-05-24  James Hunt  <james.hunt@ubuntu.com>
-
-	* init/log.c:
-	  - log_clear_unflushed(): Expand assertion to handle scenario
-	    where the NihIo is still valid but empty (since the data now
-	    exists on the unflushed list).
-	  - log_read_watch(): Handle EINTR.
 
 2013-05-24  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
@@ -95,11 +96,32 @@
 	* init/apparmor.[ch]: Use a profile name instead of a Job so we
 	  can use environment variables.
 
+	[ James Hunt <james.hunt@ubuntu.com> ]
+	* init/log.c:
+	  - log_clear_unflushed(): Expand assertion to handle scenario
+	    where the NihIo is still valid but empty (since the data now
+	    exists on the unflushed list).
+	  - log_read_watch(): Handle EINTR.
+	* configure.ac: Add --disable-abi-check option to allow ABI
+	  check to be skipped.
+
 2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
 	* init/tests/test_state.c: An unused process is actually supposed
           to be NULL. Fix test.
 	* init/process.c: Adjust to leave unused process as NULL.
+
+	[ James Hunt <james.hunt@ubuntu.com> ]
+	* lib/Makefile.am:
+	  - Fix library LDFLAGS.
+	  - Added test program.
+	* lib/tests/test_libupstart.c: Basic library test.
+
+2013-05-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Added libupstart library, built from auto-generated
+	  D-Bus bindings. To avoid ABI breakage, build calls
+	  abi-compliance-checker(1), if available.
 
 2013-05-17  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
 
