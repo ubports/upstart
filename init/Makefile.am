@@ -174,7 +174,7 @@ check_PROGRAMS = $(TESTS) test_conf
 check_SCRIPTS = test_conf_preload.sh
 CLEANFILES += $(check_SCRIPTS)
 
-tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(check_LTLIBRARIES)
+tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(check_LTLIBRARIES) $(top_builddir)/util/initctl $(top_builddir)/test/libtest_util_common.a
 
 test_system_SOURCES = tests/test_system.c
 test_system_LDADD = \
@@ -423,3 +423,9 @@ clean-local:
 
 maintainer-clean-local:
 	rm -f *.gcov
+
+FORCE:
+
+$(top_builddir)/util/initctl $(top_builddir)/test/libtest_util_common.a: FORCE
+	(cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) )
+	(cd $(top_builddir)/test && $(MAKE) $(AM_MAKEFLAGS) libtest_util_common.a)
