@@ -813,12 +813,6 @@ log_clear_unflushed (void)
 			 * exists.
 			 */
 			nih_assert (log->unflushed->len);
-
-			/* Either the NihIo has been destroyed, or all
-			 * its data has been moved to the unflushed
-			 * buffer.
-			 */
-			nih_assert (! log->io || ! log->io->recv_buf->len);
 		} else {
 			/* Parent job itself has ended, but job spawned one or
 			 * more processes that are still running and
