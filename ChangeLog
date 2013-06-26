@@ -10,6 +10,9 @@
 	  - Comments and formatting.
 	  - main(): Default to an appropriate bus.
 	  - signal_filter(): Display signal details when run with --debug.
+	* init/log.c: log_clear_unflushed(): Remove log->io assertions as the
+	  state cannot be reliably determined when remote_closed is set
+	  (LP: #1188642).
 
 2013-06-24  James Hunt  <james.hunt@ubuntu.com>
 
