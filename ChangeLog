@@ -6,6 +6,8 @@
 	  - test_libupstart():
 	    - Start a private D-Bus server and Session Init to handle possibility
 	      of building on systems not using Upstart as PID 1.
+	    - Ensure XDG_RUNTIME_DIR is available, required for
+	      'initctl list-sessions'.
 	  - main(): Disable tests if required environment not available (as done
 	    for test_initctl).
 	* test/test_util_common.c:

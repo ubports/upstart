@@ -97,10 +97,28 @@ test_libupstart (void)
 	int                      ret;
 	pid_t                    upstart_pid;
 	pid_t                    dbus_pid;
+	char                     xdg_runtime_dir[PATH_MAX];
+	nih_local char          *orig_xdg_runtime_dir = NULL;
+	nih_local char          *session_file = NULL;
+	nih_local char          *path = NULL;
 
 	TEST_GROUP ("libupstart");
 
 	TEST_FEATURE ("version");
+
+        TEST_FILENAME (xdg_runtime_dir);
+        TEST_EQ (mkdir (xdg_runtime_dir, 0755), 0);
+
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring this variable (assuming the tests all pass...).
+	 */
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (orig_xdg_runtime_dir)
+		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+
+	assert0 (setenv ("XDG_RUNTIME_DIR", xdg_runtime_dir, 1));
+
+	/*******************************************************************/
 
 	/* Create a private Session Init instance to connect to */
 	TEST_DBUS (dbus_pid);
@@ -121,6 +139,26 @@ test_libupstart (void)
 
 	STOP_UPSTART (upstart_pid);
 	TEST_DBUS_END (dbus_pid);
+
+	/*******************************************************************/
+
+	if (orig_xdg_runtime_dir) {
+		/* restore */
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+	} else {
+		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	}
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+	unlink (session_file);
+
+	/* Remove the directory tree the Session Init created */
+	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", xdg_runtime_dir));
+        assert0 (rmdir (path));
+	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart", xdg_runtime_dir));
+        assert0 (rmdir (path));
+
+        assert0 (rmdir (xdg_runtime_dir));
 }
 
 int
