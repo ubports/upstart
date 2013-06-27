@@ -16,7 +16,8 @@ AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
-	-I$(top_srcdir)/intl
+	-I$(top_srcdir)/intl \
+	-I$(top_srcdir)/test -iquote $(top_srcdir)/test
 
 lib_LTLIBRARIES = libupstart.la
 
@@ -81,6 +82,7 @@ test_libupstart_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
+	$(top_builddir)/test/libtest_util_common.a \
 	-lrt
 
 com_ubuntu_Upstart_OUTPUTS = \

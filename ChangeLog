@@ -1,3 +1,23 @@
+2013-06-27  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am: Added dependency on libtest_util_common.
+	* lib/tests/test_libupstart.c: 
+	  - Use test_util_common.
+	  - test_libupstart():
+	    - Start a private D-Bus server and Session Init to handle possibility
+	      of building on systems not using Upstart as PID 1.
+	  - main(): Disable tests if required environment not available (as done
+	    for test_initctl).
+	* test/test_util_common.c:
+	  - wait_for_upstart(): Pass pid of session init to pass to
+	    set_upstart_session().
+	  - set_upstart_session(): Now accepts a session init pid to allow
+	    filtering of sessions and remove limitations of this function.
+	* test/test_util_common.h:
+	  - REEXEC_UPSTART(): Updated for changed wait_for_upstart() parameter.
+	* util/tests/test_initctl.c:
+	  - Moved in_chroot() and dbus_configured() to test_util_common.c.
+
 2013-06-26  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/Makefile.am: Add man pages and conf file.

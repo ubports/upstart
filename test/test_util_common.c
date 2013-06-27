@@ -63,15 +63,15 @@ static void selfpipe_setup (void);
 /**
  * wait_for_upstart:
  *
- * @user: TRUE if waiting for a Session Init (which uses a private bus
- * rather than the session bus), else FALSE.
+ * @session_init_pid: pid of Session Init (which uses a private bus
+ * rather than the session bus), else 0.
  *
  * Wait for Upstart to appear on D-Bus denoting its completion of
  * initialisation. Wait time is somewhat arbitrary (but more
  * than adequate!).
  **/
 void
-wait_for_upstart (int user)
+wait_for_upstart (int session_init_pid)
 {
 	nih_local NihDBusProxy *upstart = NULL;
 	DBusConnection         *connection;
@@ -82,8 +82,8 @@ wait_for_upstart (int user)
 	/* XXX: arbitrary value */
 	int                     attempts = 10;
 
-	if (user) {
-		TEST_TRUE (set_upstart_session ());
+	if (session_init_pid) {
+		TEST_TRUE (set_upstart_session (session_init_pid));
 		address = getenv ("UPSTART_SESSION");
 	} else {
 		address = getenv ("DBUS_SESSION_BUS_ADDRESS");
@@ -127,19 +127,16 @@ int test_user_mode = FALSE;
 /**
  * set_upstart_session:
  *
+ * @session_init_pid: pid of Session Init.
+ *
  * Attempt to "enter" an Upstart session by setting UPSTART_SESSION to
- * the value of the currently running session.
- *
- * It is only legitimate to call this function if you have previously
- * started a Session Init process.
- *
- * Limitations: Assumes that at most 1 session is running.
+ * the value of the session running under pid @session_init_pid.
  *
  * Returns: TRUE if it was possible to enter the currently running
  * Upstart session, else FALSE.
  **/
 int
-set_upstart_session (void)
+set_upstart_session (pid_t session_init_pid)
 {
 	char                     *value;
 	nih_local char           *cmd = NULL;
@@ -147,9 +144,12 @@ set_upstart_session (void)
 	size_t                    lines = 0;
 	int                       got = FALSE;
 	int                       i;
+	pid_t                     pid;
 
 	/* XXX: arbitrary value */
 	int                       loops = 5;
+
+	nih_assert (session_init_pid);
 
 	/* list-sessions relies on this */
 	if (! getenv ("XDG_RUNTIME_DIR"))
@@ -162,34 +162,47 @@ set_upstart_session (void)
 	 * within a reasonable period of time.
 	 */
 	for (i = 0; i < loops; i++) {
-		sleep (1);
+        sleep (1);
 
 		RUN_COMMAND (NULL, cmd, &output, &lines);
-		if (lines != 1)
-			continue;
 
-		/* No pid in output */
-		if (! isdigit(output[0][0]))
-			continue;
+        if (lines < 1)
+            continue;
 
-		/* look for separator between pid and value of
-		 * UPSTART_SESSION.
-		 */
-		value = strstr (output[0], " ");
-		if (! value)
-			continue;
+        /* Look for the specific session */
+        for (size_t line = 0; line < lines; lines++) {
 
-		/* jump over space */
-		value  += 1;
-		if (! value)
-			continue;
+            /* No pid in output */
+            if (! isdigit(output[line][0]))
+                continue;
 
-		/* No socket address */
-		if (strstr (value, "unix:abstract") == value) {
-			got = TRUE;
-			break;
-		}
+            pid = (pid_t)atoi(output[line]);
+            nih_assert (pid > 0);
+
+            if (pid != session_init_pid)
+                continue;
+
+            /* look for separator between pid and value of
+             * UPSTART_SESSION.
+             */
+            value = strstr (output[0], " ");
+            if (! value)
+                continue;
+
+            /* jump over space */
+            value  += 1;
+            if (! value)
+                continue;
+
+            /* No socket address */
+            if (strstr (value, "unix:abstract") == value) {
+                got = TRUE;
+                goto out;
+            }
+        }
 	}
+
+out:
 
 	if (got != TRUE)
 		return FALSE;
@@ -398,7 +411,7 @@ _start_upstart (pid_t *pid, int user, char * const *args)
 	}
 
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
-	wait_for_upstart (user);
+	wait_for_upstart (user ? *pid : 0);
 }
 
 /**
@@ -625,3 +638,50 @@ get_session_file (const char *xdg_runtime_dir, pid_t pid)
 
 	return session_file;
 }
+
+/**
+ * in_chroot:
+ *
+ * Determine if running inside a chroot environment.
+ *
+ * Failures are fatal.
+ *
+ * Returns TRUE if within a chroot, else FALSE.
+ **/
+int
+in_chroot (void)
+{
+	struct stat st;
+	int i;
+	char dir[] = "/";
+
+	i = stat(dir, &st);
+	    
+	if ( i != 0 ) { 
+		fprintf (stderr, "ERROR: cannot stat '%s'\n", dir);
+		exit (EXIT_FAILURE);
+	}
+
+	if ( st.st_ino == 2 )
+		return FALSE;
+
+	return TRUE;
+}
+
+/**
+ * dbus_configured
+ *
+ * Determine if D-Bus has been configured (with dbus-uuidgen).
+ *
+ * Returns TRUE if D-Bus appears to have been configured,
+ * else FALSE.
+ **/
+int
+dbus_configured (void)
+{
+	struct stat st;
+	char path[] = "/var/lib/dbus/machine-id";
+
+	return !stat (path, &st);
+}
+

@@ -10928,7 +10928,7 @@ test_list (void)
 	TEST_EQ (lines, 3);
 	nih_free (output);
 
-	REEXEC_UPSTART (upstart_pid);
+	REEXEC_UPSTART (upstart_pid, FALSE);
 
 	/* Ensure we can still list jobs after a re-exec */
 	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
@@ -11069,7 +11069,7 @@ test_reexec (void)
 	TEST_FILE_END (file);
 	fclose (file);
 
-	REEXEC_UPSTART (upstart_pid);
+	REEXEC_UPSTART (upstart_pid, FALSE);
 	
 	/* Create flag file to allow job to proceed */
 	{
@@ -16634,53 +16634,6 @@ test_job_env (void)
 
         TEST_EQ (rmdir (confdir), 0);
         TEST_EQ (rmdir (logdir), 0);
-}
-
-
-/**
- * in_chroot:
- *
- * Determine if running inside a chroot environment.
- *
- * Failures are fatal.
- *
- * Returns TRUE if within a chroot, else FALSE.
- **/
-int
-in_chroot (void)
-{
-	struct stat st;
-	int i;
-	char dir[] = "/";
-
-	i = stat(dir, &st);
-	    
-	if ( i != 0 ) { 
-		fprintf (stderr, "ERROR: cannot stat '%s'\n", dir);
-		exit (EXIT_FAILURE);
-	}
-
-	if ( st.st_ino == 2 )
-		return FALSE;
-
-	return TRUE;
-}
-
-/**
- * dbus_configured
- *
- * Determine if D-Bus has been configured (with dbus-uuidgen).
- *
- * Returns TRUE if D-Bus appears to have been configured,
- * else FALSE.
- **/
-int
-dbus_configured (void)
-{
-	struct stat st;
-	char path[] = "/var/lib/dbus/machine-id";
-
-	return !stat (path, &st);
 }
 
 int

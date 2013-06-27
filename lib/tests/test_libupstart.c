@@ -35,6 +35,7 @@
 #include "dbus/upstart.h"
 
 #include "upstart.h"
+#include "test_util_common.h"
 
 /**
  * upstart_open:
@@ -94,14 +95,19 @@ test_libupstart (void)
 	nih_local NihDBusProxy  *upstart = NULL;
 	nih_local char          *version = NULL;
 	int                      ret;
+	pid_t                    upstart_pid;
+	pid_t                    dbus_pid;
 
 	TEST_GROUP ("libupstart");
 
 	TEST_FEATURE ("version");
 
+	/* Create a private Session Init instance to connect to */
+	TEST_DBUS (dbus_pid);
+	START_UPSTART (upstart_pid, TRUE);
+
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
-
 
 	/* Basic test (that does not change the state of the system
 	 * running this test) to see if we can query version of running
@@ -112,13 +118,23 @@ test_libupstart (void)
 
 	nih_message ("Running instance version: '%s'", version);
 	assert0 (fnmatch ("init (upstart*)", version, 0x0));
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
 }
 
 int
 main (int   argc,
       char *argv[])
 {
-	test_libupstart ();
+	if (in_chroot () && ! dbus_configured ()) {
+		fprintf(stderr, "\n\n"
+			"WARNING: not running %s tests as within "
+			"chroot environment without D-Bus"
+			"\n\n", __FILE__);
+	} else {
+		test_libupstart ();
+	}
 
 	return 0;
 }

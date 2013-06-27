@@ -383,13 +383,14 @@
 /**
  * REEXEC_UPSTART:
  *
- * @pid: pid of upstart.
+ * @pid: pid of upstart,
+ * @user: TRUE if @pid refers to a Session Init, else FALSE.
  *
  * Force upstart to perform a re-exec.
  **/
-#define REEXEC_UPSTART(pid)                                          \
+#define REEXEC_UPSTART(pid, user)                                    \
 	KILL_UPSTART (pid, SIGTERM, FALSE);                          \
-	wait_for_upstart (FALSE)
+	wait_for_upstart (user ? pid : FALSE)
 
 /**
  * RUN_COMMAND:
@@ -686,10 +687,10 @@
 extern int test_user_mode;
 
 /* Prototypes */
-int set_upstart_session (void)
+int set_upstart_session (pid_t session_init_pid)
 	__attribute__ ((warn_unused_result));
 
-void wait_for_upstart (int user);
+void wait_for_upstart (int session_init_pid);
 
 pid_t timed_waitpid (pid_t pid, time_t timeout)
 	__attribute__ ((warn_unused_result));
@@ -720,6 +721,12 @@ int strcmp_compar (const void *a, const void *b)
 	__attribute__ ((warn_unused_result));
 
 char *get_session_file (const char *xdg_runtime_dir, pid_t pid)
+	__attribute__ ((warn_unused_result));
+
+int in_chroot (void)
+	__attribute__ ((warn_unused_result));
+
+int dbus_configured (void)
 	__attribute__ ((warn_unused_result));
 
 #endif /* TEST_UTIL_COMMON_H */
