@@ -147,6 +147,7 @@ TESTS = \
 	test_system \
 	test_environ \
 	test_process \
+	test_conf_preload.sh \
 	test_job_class \
 	test_job_process \
 	test_job \
