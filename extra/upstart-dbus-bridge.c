@@ -44,13 +44,6 @@
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
-/**
- * DBUS_EVENT:
- *
- * Name of event this program handles.
- **/
-#define DBUS_EVENT "dbus"
-
 /* Prototypes for static functions */
 static int               dbus_bus_setter      (NihOption *option, const char *arg);
 static void              dbus_disconnected    (DBusConnection *connection);
@@ -91,6 +84,13 @@ static int user_mode = FALSE;
  * type of D-Bus bus to connect to.
  **/
 DBusBusType dbus_bus = (DBusBusType)-1;
+
+/**
+ * dbus_event:
+ *
+ * type of event to emit.
+ **/
+static char * dbus_event = "dbus";
 
 /**
  * Structure we use for tracking jobs
@@ -501,7 +501,7 @@ signal_filter (DBusConnection  *connection,
 		   path ? path : "");
 
 	pending_call = upstart_emit_event (upstart,
-			DBUS_EVENT, env, FALSE,
+			dbus_event, env, FALSE,
 			NULL, emit_event_error, NULL,
 			NIH_DBUS_TIMEOUT_NEVER);
 
@@ -590,13 +590,13 @@ upstart_job_added (void            *data,
 
 	/* Find out whether this job listens for any DBUS events */
 	for (char ***event = start_on; event && *event && **event; event++)
-		if (! strcmp (**event, DBUS_EVENT)) {
+		if (! strcmp (**event, dbus_event)) {
 			add = TRUE;
 			break;
 		}
 
 	for (char ***event = stop_on; ! add && event && *event && **event; event++)
-		if (! strcmp (**event, DBUS_EVENT)) {
+		if (! strcmp (**event, dbus_event)) {
 			add = TRUE;
 			break;
 		}
@@ -604,7 +604,7 @@ upstart_job_added (void            *data,
 	if (! add)
 		return;
 
-	nih_debug ("Job got added %s for event %s", job_class_path, DBUS_EVENT);
+	nih_debug ("Job got added %s for event %s", job_class_path, dbus_event);
 
 	/* Free any existing record for the job (should never happen,
 	 * but worth being safe).
