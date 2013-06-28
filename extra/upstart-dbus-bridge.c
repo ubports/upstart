@@ -128,6 +128,8 @@ static NihOption options[] = {
 	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
+	{ 0, "event", N_("Event to emit to Upstart Jobs"),
+	  NULL, NULL, &dbus_event, NULL },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
