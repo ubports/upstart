@@ -171,7 +171,26 @@ test_conf_preload.sh: tests/test_conf_preload.sh.in Makefile test_conf
 	    $< > $@
 	chmod +x $@
 
-check_PROGRAMS = $(TESTS) test_conf
+check_PROGRAMS = \
+	test_system \
+	test_environ \
+	test_process \
+	test_conf \
+	test_job_class \
+	test_job_process \
+	test_job \
+	test_log \
+	test_state \
+	test_event \
+	test_event_operator \
+	test_blocked \
+	test_parse_job \
+	test_parse_conf \
+	test_conf_static \
+	test_xdg \
+	test_control \
+	test_main
+
 check_SCRIPTS = test_conf_preload.sh
 CLEANFILES += $(check_SCRIPTS)
 
