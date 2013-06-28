@@ -1,3 +1,9 @@
+2013-06-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am:
+	  - Avoid defining test list twice.
+	  - Append $(EXEEXT) where appropriate to appease automake.
+
 2013-06-27  James Hunt  <james.hunt@ubuntu.com>
 
 	* lib/Makefile.am: Added dependency on libtest_util_common.

@@ -142,12 +142,10 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.8+apparmor.json \
 	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation+apparmor.json
 
-
-TESTS = \
+upstart_test_programs = \
 	test_system \
 	test_environ \
 	test_process \
-	test_conf_preload.sh \
 	test_job_class \
 	test_job_process \
 	test_job \
@@ -163,35 +161,21 @@ TESTS = \
 	test_control \
 	test_main
 
+TESTS = \
+	$(upstart_test_programs) \
+	test_conf_preload.sh$(EXEEXT)
+
 EXTRA_DIST = init.supp $(TEST_DATA_FILES) tests/test_conf_preload.sh.in
 
-test_conf_preload.sh: tests/test_conf_preload.sh.in Makefile test_conf
+test_conf_preload.sh$(EXEEXT): tests/test_conf_preload.sh.in Makefile test_conf
 	sed -e 's|[@]abs_builddir[@]|$(abs_builddir)|g' \
 	    -e 's|[@]inotify_preload_library[@]|$(check_LTLIBRARIES)|g' \
 	    $< > $@
 	chmod +x $@
 
-check_PROGRAMS = \
-	test_system \
-	test_environ \
-	test_process \
-	test_conf \
-	test_job_class \
-	test_job_process \
-	test_job \
-	test_log \
-	test_state \
-	test_event \
-	test_event_operator \
-	test_blocked \
-	test_parse_job \
-	test_parse_conf \
-	test_conf_static \
-	test_xdg \
-	test_control \
-	test_main
+check_PROGRAMS = $(upstart_test_programs) test_conf
 
-check_SCRIPTS = test_conf_preload.sh
+check_SCRIPTS = test_conf_preload.sh$(EXEEXT)
 CLEANFILES += $(check_SCRIPTS)
 
 tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(check_LTLIBRARIES) $(top_builddir)/util/initctl $(top_builddir)/test/libtest_util_common.a
