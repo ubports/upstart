@@ -58,13 +58,6 @@
  **/
 #define JOB_STOP_ATTEMPTS 10
 
-/**
- * JOB_STOP_SECONDS:
- *
- * Number of attempts to make to check that job has stopped.
- **/
-#define JOB_STOP_ATTEMPTS 10
-
 void
 test_source_new (void)
 {
