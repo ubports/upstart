@@ -1,5 +1,9 @@
 2013-06-28  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Release 1.9
+
+2013-06-28  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/Makefile.am:
 	  - Avoid defining test list twice.
 	  - Append $(EXEEXT) where appropriate to appease automake.
