@@ -49,6 +49,14 @@
 #include "job_process.h"
 #include "blocked.h"
 #include "test_util.h"
+#include "test_util_common.h"
+
+/**
+ * JOB_STOP_SECONDS:
+ *
+ * Number of attempts to make to check that job has stopped.
+ **/
+#define JOB_STOP_ATTEMPTS 10
 
 /**
  * JOB_STOP_SECONDS:
@@ -136,7 +144,7 @@ test_source_reload_job_dir (void)
 	JobClass   *job, *old_job;
 	Job        *instance;
 	FILE       *f;
-	int         ret, fd[4096], i = 0, nfds;
+	int         ret, fd, nfds;
 	char        dirname[PATH_MAX];
 	char        tmpname[PATH_MAX], filename[PATH_MAX];
 	fd_set      readfds, writefds, exceptfds;
@@ -181,11 +189,11 @@ test_source_reload_job_dir (void)
 	fclose (f);
 
 	/* Make sure that we have inotify before performing some tests... */
-	if ((fd[0] = inotify_init ()) < 0) {
+	if ((fd = inotify_init ()) < 0) {
 		printf ("SKIP: inotify not available\n");
 		goto no_inotify;
 	}
-	close (fd[0]);
+	close (fd);
 
 
 	/* Check that we can load a job directory source for the first time.
@@ -1093,15 +1101,10 @@ test_source_reload_job_dir (void)
 	unlink (filename);
 	rmdir (dirname);
 
-
-	/* Consume all available inotify instances so that the following
-	 * tests run without inotify.
-	 */
-	for (i = 0; i < 4096; i++)
-		if ((fd[i] = inotify_init ()) < 0)
-			break;
 no_inotify:
 
+	/* Disable inotify for the following tests */
+	assert0 (putenv ("INOTIFY_DISABLE=1"));
 
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
@@ -1624,13 +1627,8 @@ no_inotify:
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 
-	/* Release consumed instances */
-	for (i = 0; i < 4096; i++) {
-		if (fd[i] < 0)
-			break;
-
-		close (fd[i]);
-	}
+	/* Re-enable inotify */
+	assert0 (unsetenv ("INOTIFY_DISABLE"));
 }
 
 
@@ -1640,7 +1638,7 @@ test_source_reload_conf_dir (void)
 	ConfSource *source;
 	ConfFile   *file, *old_file;
 	FILE       *f;
-	int         ret, fd[4096], i = 0, nfds;
+	int         ret, fd, nfds;
 	char        dirname[PATH_MAX];
 	char        filename[PATH_MAX];
 	fd_set      readfds, writefds, exceptfds;
@@ -1681,11 +1679,11 @@ test_source_reload_conf_dir (void)
 	fclose (f);
 
 	/* Make sure that we have inotify before performing some tests... */
-	if ((fd[0] = inotify_init ()) < 0) {
+	if ((fd = inotify_init ()) < 0) {
 		printf ("SKIP: inotify not available\n");
 		goto no_inotify;
 	}
-	close (fd[0]);
+	close (fd);
 
 
 	/* Check that we can load a conf directory source for the first time.
@@ -2057,15 +2055,10 @@ test_source_reload_conf_dir (void)
 
 	nih_free (source);
 
-
-	/* Consume all available inotify instances so that the following
-	 * tests run without inotify.
-	 */
-	for (i = 0; i < 4096; i++)
-		if ((fd[i] = inotify_init ()) < 0)
-			break;
 no_inotify:
 
+	/* Disable inotify for the following tests */
+	assert0 (putenv ("INOTIFY_DISABLE=1"));
 
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
@@ -2419,13 +2412,8 @@ no_inotify:
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 
-	/* Release consumed instances */
-	for (i = 0; i < 4096; i++) {
-		if (fd[i] < 0)
-			break;
-
-		close (fd[i]);
-	}
+	/* Re-enable inotify */
+	assert0 (unsetenv ("INOTIFY_DISABLE"));
 }
 
 void
@@ -2434,7 +2422,7 @@ test_override (void)
 	ConfSource *source;
 	ConfFile   *file;
 	FILE       *f;
-	int         ret, fd[4096], i = 0;
+	int         ret, fd;
 	char        dirname[PATH_MAX];
 	char        filename[PATH_MAX], override[PATH_MAX], override2[PATH_MAX];
 	char       *dir;
@@ -2448,11 +2436,11 @@ test_override (void)
 	TEST_GROUP ("override files");
 
 	/* Make sure that we have inotify before performing some tests... */
-	if ((fd[0] = inotify_init ()) < 0) {
+	if ((fd = inotify_init ()) < 0) {
 		printf ("SKIP: inotify not available\n");
 		goto no_inotify;
 	}
-	close (fd[0]);
+	close (fd);
 
 
 	/* Explicit test of behaviour prior to introduction of override files.
@@ -3675,14 +3663,11 @@ test_override (void)
 	unlink (override);
 	TEST_EQ (rmdir (dirname), 0);
 
-	/* Consume all available inotify instances so that the following
-	 * tests run without inotify.
-	 */
-	for (i = 0; i < 4096; i++)
-		if ((fd[i] = inotify_init ()) < 0)
-			break;
-
 no_inotify:
+
+	/* Disable inotify for the following tests */
+	assert0 (putenv ("INOTIFY_DISABLE=1"));
+
 	/* If you don't have inotify, any override file must exist
 	 * before the system boots.
 	 */ 
@@ -3739,13 +3724,8 @@ no_inotify:
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 
-	/* Release consumed instances */
-	for (i = 0; i < 4096; i++) {
-		if (fd[i] < 0)
-			break;
-
-		close (fd[i]);
-	}
+	/* Re-enable inotify */
+	assert0 (unsetenv ("INOTIFY_DISABLE"));
 }
 
 void
@@ -3754,7 +3734,7 @@ test_source_reload_file (void)
 	ConfSource *source;
 	ConfFile   *file, *old_file;
 	FILE       *f;
-	int         ret, fd[4096], i = 0, nfds;
+	int         ret, fd, nfds;
 	char        dirname[PATH_MAX];
 	char        tmpname[PATH_MAX], filename[PATH_MAX];
 	fd_set      readfds, writefds, exceptfds;
@@ -3783,11 +3763,11 @@ test_source_reload_file (void)
 	fclose (f);
 
 	/* Make sure that we have inotify before performing some tests... */
-	if ((fd[0] = inotify_init ()) < 0) {
+	if ((fd = inotify_init ()) < 0) {
 		printf ("SKIP: inotify not available\n");
 		goto no_inotify;
 	}
-	close (fd[0]);
+	close (fd);
 
 
 	/* Check that we can load a file source for the first time.  An
@@ -4299,14 +4279,11 @@ test_source_reload_file (void)
 	TEST_HASH_EMPTY (source->files);
 
 	nih_free (source);
-	/* Consume all available inotify instances so that the following
-	 * tests run without inotify.
-	 */
-	for (i = 0; i < 4096; i++)
-		if ((fd[i] = inotify_init ()) < 0)
-			break;
+
 no_inotify:
 
+	/* Disable inotify for the following tests */
+	assert0 (putenv ("INOTIFY_DISABLE=1"));
 
 	TEST_FILENAME (dirname);
 	mkdir (dirname, 0755);
@@ -4534,13 +4511,8 @@ no_inotify:
 
 	nih_log_set_priority (NIH_LOG_MESSAGE);
 
-	/* Release consumed instances */
-	for (i = 0; i < 4096; i++) {
-		if (fd[i] < 0)
-			break;
-
-		close (fd[i]);
-	}
+	/* Re-enable inotify */
+	assert0 (unsetenv ("INOTIFY_DISABLE"));
 }
 
 

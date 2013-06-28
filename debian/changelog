@@ -1,9 +1,13 @@
-upstart (1.8-0ubuntu8) UNRELEASED; urgency=low
+upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
 
+  [ Dmitrijs Ledkovs ]
   * Use dh_auto_build to run the testsuite, as dh_auto_test stopped
     finding autotools test suite.
 
- -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Thu, 27 Jun 2013 17:50:28 +0100
+  [ James Hunt ]
+  * New upstream release.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 28 Jun 2013 16:36:55 +0100
 
 upstart (1.8-0ubuntu7) saucy; urgency=low
 

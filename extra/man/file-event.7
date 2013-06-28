@@ -62,14 +62,14 @@ your job will find it difficult to perform such a match.
 .\"
 .SH EXAMPLES
 .\"
-.IP "start on file FILE=/run/app.pid EVENT=created" 0.4i
+.IP "start on file FILE=/run/app.pid EVENT=create" 0.4i
 Event emitted when file is created.
 .IP "start on file FILE=/run/app.pid"
 Event emitted when file is created, modified or deleted.
 .IP "start on file FILE=/var/log/"
 Event emitted when files within a directory are created, modified or
 deleted.
-.IP "start on file FILE=/var/crash/*.crash EVENT=created"
+.IP "start on file FILE=/var/crash/*.crash EVENT=create"
 Event emitted when files that match a glob pattern are created in the
 indicated directory.
 .IP "start on file FILE=""/this/path/contains whitespace.txt"""

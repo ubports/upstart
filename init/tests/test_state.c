@@ -48,6 +48,7 @@
 #include "log.h"
 #include "blocked.h"
 #include "control.h"
+#include "test_util_common.h"
 #include "test_util.h"
 
 #ifndef TEST_DATA_DIR
@@ -148,7 +149,10 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 
 void test_upstart1_6_upgrade (const char *path);
 void test_upstart1_8_upgrade (const char *path);
+void test_upstart_pre_security_upgrade (const char *path);
+void test_upstart_with_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
+void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -186,7 +190,10 @@ typedef struct test_data_file {
 TestDataFile test_data_files[] = {
 	{ "upstart-1.6.json", test_upstart1_6_upgrade },
 	{ "upstart-1.8.json", test_upstart1_8_upgrade },
+	{ "upstart-pre-security.json", test_upstart_pre_security_upgrade },
+	{ "upstart-1.8+apparmor.json", test_upstart_with_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation-apparmor.json", test_upstart_full_serialise_without_apparmor_upgrade },
+	{ "upstart-1.8+full_serialisation+apparmor.json", test_upstart_full_serialise_with_apparmor_upgrade },
 
 	{ NULL, NULL }
 };
@@ -631,6 +638,8 @@ job_class_diff (const JobClass *a, const JobClass *b,
 	if (obj_string_check (a, b, usage))
 		goto fail;
 
+	if (obj_string_check (a, b, apparmor_switch))
+		goto fail;
 
 	return 0;
 
@@ -1122,6 +1131,12 @@ test_process_serialise (void)
 	foo->process[PROCESS_MAIN]->script = 1;
 	foo->process[PROCESS_MAIN]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_MAIN],
 				"echo hello !£$%^&*()_+-={}:@~;'#<>?,./"));
+
+	foo->process[PROCESS_SECURITY] = process_new (foo->process);
+	TEST_NE_P (foo->process[PROCESS_SECURITY], NULL);
+	foo->process[PROCESS_SECURITY]->script = 0;
+	foo->process[PROCESS_SECURITY]->command = NIH_MUST (nih_strdup (foo->process[PROCESS_SECURITY],
+			"/bin/true"));
 
 	foo->process[PROCESS_PRE_START] = process_new (foo->process);
 	TEST_NE_P (foo->process[PROCESS_PRE_START], NULL);
@@ -3370,6 +3385,257 @@ test_upstart1_8_upgrade (const char *path)
 	job_class_init ();
 }
 
+/**
+ * test_upstart_pre_security_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test for Upstart pre-security serialisation data format that doesn't
+ * contain apparmor_switch element, and PROCESS_SECURITY.
+ *
+ **/
+void
+test_upstart_pre_security_upgrade (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	Event           *event;
+	ConfSource      *source;
+	ConfFile        *file;
+	nih_local char  *conf_file_path = NULL;
+	struct stat      statbuf;
+	size_t           len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (sessions);
+
+	TEST_LIST_EMPTY (conf_sources);
+
+	/* Create the ConfSource and ConfFile objects to simulate
+	 * Upstart reading /etc/init on startup. Required since we
+	 * don't currently serialise these objects.
+	 */
+	source = conf_source_new (NULL, "/tmp/security", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	conf_file_path = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				"/tmp/security", "security"));
+
+	file = conf_file_new (source, conf_file_path);
+	TEST_NE_P (file, NULL);
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	event = (Event *)nih_list_remove (events->next);
+	TEST_NE_P (event, NULL);
+	TEST_EQ_STR (event->name, "Christmas");
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		TEST_EQ_STR (class->name, "security");
+		TEST_EQ_STR (class->path, "/com/ubuntu/Upstart/jobs/security");
+		TEST_EQ_P (class->apparmor_switch, NULL);
+		TEST_HASH_NOT_EMPTY (class->instances);
+
+		TEST_EQ_P (class->process[PROCESS_SECURITY], NULL);
+
+		TEST_FALSE (class->process[PROCESS_MAIN]->script);
+		TEST_FALSE (class->process[PROCESS_PRE_START]->script);
+		TEST_FALSE (class->process[PROCESS_POST_START]->script);
+		TEST_FALSE (class->process[PROCESS_PRE_STOP]->script);
+		TEST_FALSE (class->process[PROCESS_POST_STOP]->script);
+
+		TEST_EQ_STR (class->process[PROCESS_MAIN]->command, "a");
+		TEST_EQ_STR (class->process[PROCESS_PRE_START]->command, "b");
+		TEST_EQ_STR (class->process[PROCESS_POST_START]->command, "c");
+		TEST_EQ_STR (class->process[PROCESS_PRE_STOP]->command, "d");
+		TEST_EQ_STR (class->process[PROCESS_POST_STOP]->command, "e");
+
+		NIH_HASH_FOREACH (class->instances, iter2) {
+			Job            *job = (Job *)iter2;
+			nih_local char *instance_path = NULL;
+
+			/* instance name */
+			TEST_EQ_STR (job->name, "");
+
+			instance_path = NIH_MUST (nih_sprintf (NULL, "%s/_", class->path));
+			TEST_EQ_STR (job->path, instance_path);
+
+			TEST_EQ (job->pid[PROCESS_MAIN], 10);
+			TEST_EQ (job->pid[PROCESS_PRE_START], 11);
+			TEST_EQ (job->pid[PROCESS_POST_START], 12);
+			TEST_EQ (job->pid[PROCESS_PRE_STOP], 13);
+			TEST_EQ (job->pid[PROCESS_POST_STOP], 14);
+			TEST_EQ (job->pid[PROCESS_SECURITY], 0);
+
+			TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
+			TEST_EQ_P (job->log[PROCESS_PRE_START], NULL);
+			TEST_EQ_P (job->log[PROCESS_POST_START], NULL);
+			TEST_EQ_P (job->log[PROCESS_PRE_STOP], NULL);
+			TEST_EQ_P (job->log[PROCESS_POST_STOP], NULL);
+			TEST_EQ_P (job->log[PROCESS_SECURITY], NULL);
+
+		}
+	}
+
+	nih_free (event);
+	nih_free (conf_sources);
+	conf_sources = NULL;
+	nih_free (job_classes);
+	job_classes = NULL;
+}
+
+/**
+ * test_upstart_with_apparmor_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise the 1.8-format JSON with the
+ * addition of the apparmor meta-data but _without_ the full serialisation
+ * data (including complete EventOperator data for
+ * JobClass->[start|stop]_on objects).
+ **/
+void
+test_upstart_with_apparmor_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	struct stat       statbuf;
+	size_t            len;
+	json_object      *json = NULL;
+	json_object      *json_job_classes = NULL;
+	json_object      *json_job_class = NULL;
+	json_object      *json_job_class_start_on = NULL;
+	json_object      *json_job_class_process = NULL;
+	json_object      *json_jobs = NULL;
+	json_object      *json_job = NULL;
+	json_object      *json_job_pids = NULL;
+	json_object      *json_job_logs = NULL;
+	size_t            count;
+
+	/*
+	PROCESS_MAIN,
+	PROCESS_PRE_START,
+	PROCESS_POST_START,
+	PROCESS_PRE_STOP,
+	PROCESS_POST_STOP,
+	PROCESS_SECURITY
+	*/
+	size_t            expected_count = 6;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	/* Re-read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	TEST_TRUE (json_object_object_get_ex (json, "job_classes", &json_job_classes));
+	TEST_NE_P (json_job_classes, NULL);
+
+	TEST_TRUE (state_check_json_type (json_job_classes, array));
+
+	/* Look at first JobClass */
+	json_job_class = json_object_array_get_idx (json_job_classes, 0);
+	TEST_NE_P (json_job_class, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class, object));
+
+	/* Check to ensure we are dealing with the old serialisation
+	 * format where the 'start on' condition was encoded as a
+	 * string.
+	 */
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "start_on", &json_job_class_start_on));
+	TEST_NE_P (json_job_class_start_on, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class_start_on, string));
+
+	/* Check to ensure the JobClass contains the expected apparmor field */
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "apparmor_switch", NULL));
+
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "process", &json_job_class_process));
+	TEST_NE_P (json_job_class_process, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class_process, array));
+
+	count = json_object_array_length (json_job_class_process);
+	TEST_EQ (count, expected_count);
+
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "jobs", &json_jobs));
+	TEST_NE_P (json_jobs, NULL);
+
+	TEST_TRUE (state_check_json_type (json_jobs, array));
+
+	/* Look at first Job */
+	json_job = json_object_array_get_idx (json_jobs, 0);
+	TEST_NE_P (json_job, NULL);
+	TEST_TRUE (state_check_json_type (json_job, object));
+
+	/* Check size of Job->pid array is as expected */
+	TEST_TRUE (json_object_object_get_ex (json_job, "pid", &json_job_pids));
+	TEST_NE_P (json_job_pids, NULL);
+	TEST_TRUE (state_check_json_type (json_job_pids, array));
+
+	count = json_object_array_length (json_job_pids);
+	TEST_EQ (count, expected_count);
+
+	/* Check size of Job->log array is as expected */
+	TEST_TRUE (json_object_object_get_ex (json_job, "log", &json_job_logs));
+	TEST_NE_P (json_job_logs, NULL);
+	TEST_TRUE (state_check_json_type (json_job_logs, array));
+
+	count = json_object_array_length (json_job_logs);
+	TEST_EQ (count, expected_count);
+
+	nih_free (job_classes);
+	job_classes = NULL;
+
+	nih_free (events);
+	events = NULL;
+}
 
 /**
  * test_upstart_full_serialise_without_apparmor_upgrade:
@@ -3519,6 +3785,154 @@ test_upstart_full_serialise_without_apparmor_upgrade (const char *path)
 	events = NULL;
 }
 
+/**
+ * test_upstart_full_serialise_with_apparmor_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise the 1.8-format JSON with the
+ * addition of the full serialisation (including complete EventOperator
+ * data for JobClass->[start|stop]_on objects) and the apparmor
+ * meta-data.
+ **/
+void
+test_upstart_full_serialise_with_apparmor_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	struct stat       statbuf;
+	size_t            len;
+	json_object      *json = NULL;
+	json_object      *json_job_classes = NULL;
+	json_object      *json_job_class = NULL;
+	json_object      *json_job_class_stop_on = NULL;
+	json_object      *json_job_class_process = NULL;
+	json_object      *json_job_class_stop_on_node = NULL;
+	json_object      *json_jobs = NULL;
+	json_object      *json_job = NULL;
+	json_object      *json_job_pids = NULL;
+	json_object      *json_job_logs = NULL;
+	size_t            count;
+
+	/*
+	PROCESS_MAIN,
+	PROCESS_PRE_START,
+	PROCESS_POST_START,
+	PROCESS_PRE_STOP,
+	PROCESS_POST_STOP,
+	PROCESS_SECURITY
+	*/
+	size_t            expected_count = 6;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	/* Full serialisation, so we expect some ConfSource objects */
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	/* Re-read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	TEST_TRUE (json_object_object_get_ex (json, "job_classes", &json_job_classes));
+	TEST_NE_P (json_job_classes, NULL);
+
+	TEST_TRUE (state_check_json_type (json_job_classes, array));
+
+	/* Look at 2nd JobClass */
+	TEST_GE (json_object_array_length (json_job_classes), 2);
+	json_job_class = json_object_array_get_idx (json_job_classes, 1);
+	TEST_NE_P (json_job_class, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class, object));
+
+	/* Check to ensure we are dealing with the new serialisation
+	 * format where the 'stop on' condition is encoded as a
+	 * full EventOperator object.
+	 */
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "stop_on", &json_job_class_stop_on));
+	TEST_NE_P (json_job_class_stop_on, NULL);
+	/* EventOperators are serialised as an array of objects
+	 * representing the tree.
+	 */
+	TEST_TRUE (state_check_json_type (json_job_class_stop_on, array));
+
+	/* Look at the first element */
+	json_job_class_stop_on_node = json_object_array_get_idx (json_job_class_stop_on, 0);
+	TEST_NE_P (json_job_class_stop_on_node, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class_stop_on_node, object));
+
+	/* Look for expected EventOperator elements */
+	TEST_TRUE (json_object_object_get_ex (json_job_class_stop_on_node, "name", NULL));
+	TEST_TRUE (json_object_object_get_ex (json_job_class_stop_on_node, "value", NULL));
+	TEST_TRUE (json_object_object_get_ex (json_job_class_stop_on_node, "type", NULL));
+
+	/* Check to ensure the JobClass contains the expected apparmor field */
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "apparmor_switch", NULL));
+
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "process", &json_job_class_process));
+	TEST_NE_P (json_job_class_process, NULL);
+	TEST_TRUE (state_check_json_type (json_job_class_process, array));
+
+	count = json_object_array_length (json_job_class_process);
+	TEST_EQ (count, expected_count);
+
+	TEST_TRUE (json_object_object_get_ex (json_job_class, "jobs", &json_jobs));
+	TEST_NE_P (json_jobs, NULL);
+
+	TEST_TRUE (state_check_json_type (json_jobs, array));
+
+	/* Look at first Job */
+	json_job = json_object_array_get_idx (json_jobs, 0);
+	TEST_NE_P (json_job, NULL);
+	TEST_TRUE (state_check_json_type (json_job, object));
+
+	/* Check size of Job->pid array is as expected */
+	TEST_TRUE (json_object_object_get_ex (json_job, "pid", &json_job_pids));
+	TEST_NE_P (json_job_pids, NULL);
+	TEST_TRUE (state_check_json_type (json_job_pids, array));
+
+	count = json_object_array_length (json_job_pids);
+	TEST_EQ (count, expected_count);
+
+	/* Check size of Job->log array is as expected */
+	TEST_TRUE (json_object_object_get_ex (json_job, "log", &json_job_logs));
+	TEST_NE_P (json_job_logs, NULL);
+	TEST_TRUE (state_check_json_type (json_job_logs, array));
+
+	count = json_object_array_length (json_job_logs);
+	TEST_EQ (count, expected_count);
+
+	nih_free (conf_sources);
+	conf_sources = NULL;
+
+	nih_free (job_classes);
+	job_classes = NULL;
+
+	nih_free (events);
+	events = NULL;
+}
 
 int
 main (int   argc,

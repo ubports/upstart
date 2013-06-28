@@ -1,14 +1,14 @@
-.TH upstart\-events\-bridge 8 2011-03-08 upstart
+.TH upstart\-event\-bridge 8 2013-04-02 upstart
 .\"
 .SH NAME
-upstart\-events\-bridge \- Bridge between system Upstart and session Upstart
+upstart\-event\-bridge \- Bridge between system Upstart and session Upstart
 .\"
 .SH SYNOPSIS
-.B upstart\-events\-bridge
+.B upstart\-event\-bridge
 .RI [ OPTIONS ]...
 .\"
 .SH DESCRIPTION
-.B upstart\-events\-bridge
+.B upstart\-event\-bridge
 receives information about Upstart system
 .BR events (8)
 have completed and creates Upstart session events for them.
@@ -40,6 +40,11 @@ Show brief usage summary.
 .TP
 .B \-\-verbose
 Enable verbose output.
+.\"
+.SH NOTES
+Since events emitted by this bridge at the session level are copies
+of the original system events, the blocking semantics of the
+original system events are not retained.
 .\"
 .SH EXAMPLES
 

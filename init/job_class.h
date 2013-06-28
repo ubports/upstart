@@ -164,6 +164,7 @@ typedef enum console_type {
  * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
  * @usage: usage text - how to control job
+ * @apparmor_switch: AppArmor profile to switch to before starting job
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -220,6 +221,8 @@ typedef struct job_class {
 	int             debug;
 
 	char           *usage;
+
+	char	       *apparmor_switch;
 } JobClass;
 
 

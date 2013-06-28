@@ -1047,7 +1047,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_PRE_START] = 0;
 
 		job->blocker = NULL;
@@ -1113,7 +1113,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_MAIN] = 0;
 
 		job->blocker = NULL;
@@ -1187,7 +1187,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_PRE_START] = 0;
 
 		job->blocker = NULL;
@@ -4000,14 +4000,31 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're starting a starting job is
-	 * pre-start.
+	 * security.
 	 */
 	TEST_FEATURE ("with starting job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 
+	TEST_EQ (job_next_state (job), JOB_SECURITY);
+
+	/* Check that the next state if we're starting a security job is
+	 * pre-start.
+	 */
+	TEST_FEATURE ("with security job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_SECURITY;
+
 	TEST_EQ (job_next_state (job), JOB_PRE_START);
 
+	/* Check that the next state if we're stopping an security job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with security job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_SECURITY;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 	/* Check that the next state if we're stopping a pre-start job is
 	 * stopping.
@@ -5695,6 +5712,13 @@ test_state_name (void)
 	TEST_EQ_STR (name, "starting");
 
 
+	/* Check that the JOB_SECURITY state returns the right string. */
+	TEST_FEATURE ("with security state");
+	name = job_state_name (JOB_SECURITY);
+
+	TEST_EQ_STR (name, "security");
+
+
 	/* Check that the JOB_PRE_START state returns the right string. */
 	TEST_FEATURE ("with pre-start state");
 	name = job_state_name (JOB_PRE_START);
@@ -5777,6 +5801,13 @@ test_state_from_name (void)
 	state = job_state_from_name ("starting");
 
 	TEST_EQ (state, JOB_STARTING);
+
+
+	/* Check that JOB_SECURITY is returned for the right string. */
+	TEST_FEATURE ("with security state");
+	state = job_state_from_name ("security");
+
+	TEST_EQ (state, JOB_SECURITY);
 
 
 	/* Check that JOB_PRE_START is returned for the right string. */
