@@ -90,7 +90,7 @@ DBusBusType dbus_bus = (DBusBusType)-1;
  *
  * type of event to emit.
  **/
-static char * dbus_event = "dbus";
+static char * dbus_event = NULL;
 
 /**
  * Structure we use for tracking jobs
@@ -174,6 +174,9 @@ main (int   argc,
 	/* Default to an appropriate bus */
 	if (dbus_bus == (DBusBusType)-1)
 		dbus_bus = user_mode ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
+
+	if (dbus_event == NULL) 
+		dbus_event = NIH_MUST (nih_strdup (NULL, "dbus"));
 
 	/* Connect to the chosen D-Bus bus */
 	dbus_connection = NIH_SHOULD (nih_dbus_bus (dbus_bus, dbus_disconnected));
