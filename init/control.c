@@ -923,7 +923,7 @@ control_prepare_reexec (void)
 /**
  * control_conn_to_index:
  *
- * @event: event.
+ * @connection: D-Bus connection.
  *
  * Convert a control (DBusConnection) connection to an index number
  * the list of control connections.
@@ -1120,6 +1120,8 @@ control_restart (void           *data,
 
 /**
  * control_notify_event_emitted
+ *
+ * @event: Event.
  *
  * Re-emits an event over DBUS using the EventEmitted signal
  **/

@@ -60,7 +60,7 @@
 #include "blocked.h"
 #include "conf.h"
 #include "errors.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
 #define TEST_SHELL                "/bin/sh"
@@ -164,12 +164,6 @@ fd_valid (int fd)
 		return 0;
 
 	return 1;
-}
-
-static int
-strcmp_compar (const void *a, const void *b)
-{
-	return strcmp(*(char * const *)a, *(char * const *)b);
 }
 
 static void

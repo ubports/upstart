@@ -686,6 +686,9 @@ log_read_watch (Log *log)
 		 * causes the loop to be exited.
 		 */
 		if (len <= 0) {
+			if (saved == EINTR)
+				continue;
+
 			/* Job process has ended and we've drained all the data the job
 			 * produced, so remote end must have closed.
 			 *
@@ -810,7 +813,6 @@ log_clear_unflushed (void)
 			 * exists.
 			 */
 			nih_assert (log->unflushed->len);
-			nih_assert (! log->io);
 		} else {
 			/* Parent job itself has ended, but job spawned one or
 			 * more processes that are still running and

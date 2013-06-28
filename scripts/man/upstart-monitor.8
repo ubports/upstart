@@ -1,0 +1,81 @@
+.TH upstart\-monitor 8 2013-03-13 upstart
+.\"
+.SH NAME
+upstart\-monitor \- Display system and session Upstart events
+.\"
+.SH SYNOPSIS
+.B upstart\-monitor
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart\-monitor
+displays Upstart system events or Upstart session events using either a
+command-line or graphical interface.
+.\"
+.SH OPTIONS
+.\"
+.TP
+.BR \-d " \fIdestination\fP" " , " \-\-destination=\fIdestination\fP
+Specify the endpoint to connect to. Valid destinations are
+.IR session\-socket ", "
+.IR session\-bus ", "
+.IR system\-socket " and "
+.IR system-bus "."
+.\"
+.TP
+.B \-\-help
+Show brief usage summary.
+.\"
+.TP
+.BR \-n " , " \-\-no-gui
+Run in command-line mode.
+.\"
+.TP
+.BR \-s " , " \-\-separator
+Specify alternate field separator to use for command-line output
+(default is a single tab character).
+.\"
+.SH NOTES
+.\"
+.IP \(bu 4
+By default,
+.B upstart\-monitor
+will attempt to start in a graphical mode unless
+.B \-\-no\-gui
+is specified. However, if it is unable to display a graphical interface,
+it will display a warning message and automatically revert to the
+command-line interface.
+.\"
+.IP \(bu 4
+When no command-line option (that affects the destination) is specified,
+.B upstart\-monitor
+will attempt to connect to the Session Init (destination
+\fIsession\-socket\fR) and display session events. In this mode, it
+will display both session events
+.I and
+system events, assuming the
+.BR upstart-event-bridge (8)
+is running.
+
+If invoked with no arguments from within a non-Upstart session
+environment it will attempt to connect to Upstart running as process ID
+1 (destination \fIsystem\-bus\fR) and will only display system events.
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@ubuntu.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2013 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR init (5)
+.BR init (8)
+.BR upstart-events (7)
+.BR upstart-event-bridge (8)

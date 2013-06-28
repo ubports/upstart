@@ -454,8 +454,10 @@ class UpstartEventsGui(Gtk.Window):
             x = int(event.x)
             y = int(event.y)
             path_info = treeview.get_path_at_pos(x, y)
-            if path_info:
-                path, col, cell_x, cell_y = path_info
+            if not path_info:
+                return
+
+            path, col, cell_x, cell_y = path_info
 
             model = treeview.get_model()
             model_iter = model.get_iter(path)
