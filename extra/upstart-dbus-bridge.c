@@ -45,6 +45,7 @@
 #include "com.ubuntu.Upstart.Job.h"
 
 /* Prototypes for static functions */
+static int               dbus_event_setter    (NihOption *option, const char *arg);
 static int               dbus_bus_setter      (NihOption *option, const char *arg);
 static void              dbus_disconnected    (DBusConnection *connection);
 static void              upstart_disconnected (DBusConnection *connection);
@@ -90,7 +91,7 @@ DBusBusType dbus_bus = (DBusBusType)-1;
  *
  * type of event to emit.
  **/
-static char * dbus_event = NULL;
+static const char * dbus_event = NULL;
 
 /**
  * Structure we use for tracking jobs
@@ -129,7 +130,7 @@ static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
 	{ 0, "event", N_("Event to emit to Upstart Jobs"),
-	  NULL, NULL, &dbus_event, NULL },
+	  NULL, "event name", NULL, dbus_event_setter },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
@@ -176,7 +177,7 @@ main (int   argc,
 		dbus_bus = user_mode ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
 
 	if (dbus_event == NULL) 
-		dbus_event = NIH_MUST (nih_strdup (NULL, "dbus"));
+		dbus_event = "dbus";
 
 	/* Connect to the chosen D-Bus bus */
 	dbus_connection = NIH_SHOULD (nih_dbus_bus (dbus_bus, dbus_disconnected));
@@ -378,6 +379,24 @@ upstart_disconnected (DBusConnection *connection)
 {
 	nih_fatal (_("Disconnected from Upstart"));
 	nih_main_loop_exit (EXIT_FAILURE);
+}
+
+/**  
+ * NihOption setter function to handle event name
+ *
+ * Returns: 0 on success
+ **/
+static int
+dbus_event_setter (NihOption *option, const char *arg)
+{
+	nih_assert (option);
+
+	if (arg == NULL || arg[0] == '\0' || arg[0] == ' ') {
+		return -1;
+	}
+
+	dbus_event = arg;
+	return 0;
 }
 
 /**  
