@@ -3,6 +3,7 @@ upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
   [ Dmitrijs Ledkovs ]
   * Use dh_auto_build to run the testsuite, as dh_auto_test stopped
     finding autotools test suite.
+  * Correct typo in upstart postinst (LP: #1195955)
 
   [ James Hunt ]
   * New upstream release.

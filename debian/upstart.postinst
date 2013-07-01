@@ -80,7 +80,7 @@ case "$1" in
 		[ -x /usr/share/update-notifier/notify-reboot-required ] && \
 		    /usr/share/update-notifier/notify-reboot-required || true
 
-	    elif dpkg --compare-version "$UPSTART_VERSION_RUNNING" ge 1.6.1; then
+	    elif dpkg --compare-versions "$UPSTART_VERSION_RUNNING" ge 1.6.1; then
 		# Otherwise, perform partial stateful re-exec and
 		# request a reboot.
 		telinit u || :
