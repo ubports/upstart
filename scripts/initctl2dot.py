@@ -264,23 +264,23 @@ def show_edge(ofh, from_node, to_node, color):
 
 
 def show_start_on_job_edge(ofh, from_job, to_job):
-    show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
-              "%s:job" % mk_job_node_name(to_job), options.color_start_on)
+    show_edge(ofh, "%s:job" % mk_job_node_name(to_job),
+              "%s:start" % mk_job_node_name(from_job), options.color_start_on)
 
 
 def show_start_on_event_edge(ofh, from_job, to_event):
-    show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
-              mk_event_node_name(to_event), options.color_start_on)
+    show_edge(ofh, mk_event_node_name(to_event),
+              "%s:start" % mk_job_node_name(from_job), options.color_start_on)
 
 
 def show_stop_on_job_edge(ofh, from_job, to_job):
-    show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
-              "%s:job" % mk_job_node_name(to_job), options.color_stop_on)
+    show_edge(ofh, "%s:job" % mk_job_node_name(to_job),
+              "%s:stop" % mk_job_node_name(from_job), options.color_stop_on)
 
 
 def show_stop_on_event_edge(ofh, from_job, to_event):
-    show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
-              mk_event_node_name(to_event), options.color_stop_on)
+    show_edge(ofh, mk_event_node_name(to_event),
+              "%s:stop" % mk_job_node_name(from_job), options.color_stop_on)
 
 
 def show_job_emits_edge(ofh, from_job, to_event):
