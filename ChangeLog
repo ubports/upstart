@@ -1,3 +1,11 @@
+2013-07-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Install client library headers.
+	  - Add missing backslash.
+	* lib/upstart.h: Look in upstart/ sub-directory for
+	  auto-generated header files.
+
 2013-06-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9
