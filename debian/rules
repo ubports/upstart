@@ -24,13 +24,14 @@ override_dh_auto_build:
 	dh_auto_build --parallel
 
 override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 ifeq (0,$(shell id -u))
 	# WARNING: RUNNING TESTS AS ROOT IS KNOWN TO FAIL
 	# WARNING: WILL RUN TESTS, BUT WILL IGNORE FAILURE
 	-dh_auto_build -- check
 else
-	# debhelper regression from http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=713257
 	dh_auto_build -- check
+endif
 endif
 
 override_dh_fixperms:
