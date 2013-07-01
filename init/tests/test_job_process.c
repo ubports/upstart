@@ -6077,6 +6077,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6164,6 +6165,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6248,6 +6250,7 @@ test_handler (void)
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test respawning too fast, "
 				       "stopped\n"));
@@ -6321,6 +6324,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -6398,6 +6402,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -6470,6 +6475,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -7431,6 +7437,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -7747,6 +7754,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
