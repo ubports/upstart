@@ -509,6 +509,7 @@ test_run (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		/* Filename should contain the pid */
 		output = fopen (filename, "r");
