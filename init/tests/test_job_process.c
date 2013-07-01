@@ -83,6 +83,14 @@
 #define MAX_ITERATIONS            5
 
 /**
+ * SHELL_CHARS:
+ *
+ * This is the list of characters that, if encountered in a process, cause
+ * it to always be run with a shell.
+ **/
+#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
+
+/**
  * CHECK_FILE_EQ:
  *
  * @_file: FILE to read from,
@@ -677,7 +685,7 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
-		if (job->class->process[PROCESS_MAIN]->script)
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -733,7 +741,7 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
-		if (job->class->process[PROCESS_MAIN]->script)
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -791,7 +799,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
-		if (job->class->process[PROCESS_PRE_STOP]->script)
+		if (job->class->process[PROCESS_PRE_STOP]->script || strpbrk (job->class->process[PROCESS_PRE_STOP]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -849,7 +857,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
-		if (job->class->process[PROCESS_POST_STOP]->script)
+		if (job->class->process[PROCESS_POST_STOP]->script || strpbrk (job->class->process[PROCESS_POST_STOP]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
