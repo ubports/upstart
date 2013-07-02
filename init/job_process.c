@@ -1668,10 +1668,18 @@ job_process_terminated (Job         *job,
 		/* We should always fail the job if the security profile
 		 * failed to load
 		 */
+
+		/* Disabled for now to emulate current Ubuntu behaviour
+		 * in /lib/init/apparmor-profile-load to work around bug
+		 * LP: #1058356
+
 		if (status) {
 			failed = TRUE;
 			stop = TRUE;
 		}
+
+		 */
+
 		break;
 	case PROCESS_PRE_START:
 		nih_assert (job->state == JOB_PRE_START);
