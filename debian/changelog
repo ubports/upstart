@@ -14,7 +14,12 @@ upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
     for jobs that have shell characters in their expanded command line.
     (LP: 1181789)
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Mon, 01 Jul 2013 20:16:24 -0400
+  [ Marc Deslauriers ]
+  * Added some distro-specific changes:
+    - init/apparmor.c: do not load apparmor if running in a container or a
+      live cd.
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 02 Jul 2013 08:23:23 -0400
 
 upstart (1.8-0ubuntu7) saucy; urgency=low
 
