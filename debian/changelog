@@ -9,7 +9,12 @@ upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
   * New upstream release.
   * init/tests/test_conf.c: Remove duplicate define.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 28 Jun 2013 16:36:55 +0100
+  [ Stéphane Graber ]
+  * Cherry-pick r1498 from upstream upstart to fix incorrect respawn handling
+    for jobs that have shell characters in their expanded command line.
+    (LP: 1181789)
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Mon, 01 Jul 2013 20:16:24 -0400
 
 upstart (1.8-0ubuntu7) saucy; urgency=low
 

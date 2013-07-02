@@ -261,12 +261,6 @@ job_process_run (Job         *job,
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
-
-		/* At the end, always set proc->script to TRUE, even if the user didn't
-		 * explicitly set it (when using shell variables). That way tests
-		 * can reliably check for shell-specific behaviour.
-		 */
-		proc->script = TRUE;
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
