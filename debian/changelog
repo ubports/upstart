@@ -1,4 +1,4 @@
-upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
+upstart (1.9-0ubuntu1) saucy; urgency=low
 
   [ Dmitrijs Ledkovs ]
   * Use dh_auto_build to run the testsuite, as dh_auto_test stopped
@@ -21,7 +21,7 @@ upstart (1.9-0ubuntu1) UNRELEASED; urgency=low
     - init/job_process.c: don't fail if the security profile failed to load
       to emulate current behaviour on Ubuntu.
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 02 Jul 2013 08:27:04 -0400
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Tue, 02 Jul 2013 20:14:51 +0100
 
 upstart (1.8-0ubuntu7) saucy; urgency=low
 
