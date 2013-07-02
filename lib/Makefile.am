@@ -33,14 +33,12 @@ upstartinclude_HEADERS = \
 	upstart/com.ubuntu.Upstart.Job.h \
 	upstart/upstart-dbus.h
 
-$(builddir)/upstart:
-	mkdir -p $(builddir)/upstart
 
 upstart/upstart-dbus.h: \
 	$(top_srcdir)/dbus/upstart.h \
-	$(builddir)/upstart/com.ubuntu.Upstart.h \
-	$(builddir)/upstart/com.ubuntu.Upstart.Instance.h \
-	$(builddir)/upstart/com.ubuntu.Upstart.Job.h upstart
+	upstart/com.ubuntu.Upstart.h \
+	upstart/com.ubuntu.Upstart.Instance.h \
+	upstart/com.ubuntu.Upstart.Job.h
 	cp $< $@
 
 nodist_libupstart_la_SOURCES = \
@@ -106,15 +104,16 @@ test_libupstart_LDADD = \
 	-lrt
 
 com_ubuntu_Upstart_OUTPUTS = \
-	$(builddir)/upstart/com.ubuntu.Upstart.c \
-	$(builddir)/upstart/com.ubuntu.Upstart.h
+	upstart/com.ubuntu.Upstart.c \
+	upstart/com.ubuntu.Upstart.h
 
 com_ubuntu_Upstart_XML = \
 	../dbus/com.ubuntu.Upstart.xml
 
 # XXX: We have to use proxy mode for clients
 # XXX: (meaning we cannot use the library for init itself)
-$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) upstart
+$(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML)
+	mkdir -p upstart
 	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
 		--package=$(PACKAGE) \
 		--mode=proxy --prefix=upstart \
@@ -122,13 +121,14 @@ $(com_ubuntu_Upstart_OUTPUTS): $(com_ubuntu_Upstart_XML) upstart
 		--output=$@ $<
 
 com_ubuntu_Upstart_Job_OUTPUTS = \
-	$(builddir)/upstart/com.ubuntu.Upstart.Job.c \
-	$(builddir)/upstart/com.ubuntu.Upstart.Job.h
+	upstart/com.ubuntu.Upstart.Job.c \
+	upstart/com.ubuntu.Upstart.Job.h
 
 com_ubuntu_Upstart_Job_XML = \
 	../dbus/com.ubuntu.Upstart.Job.xml
 
-$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) upstart
+$(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
+	mkdir -p upstart
 	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
 		--package=$(PACKAGE) \
 		--mode=proxy --prefix=job_class \
@@ -136,13 +136,14 @@ $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML) upstart
 		--output=$@ $<
 
 com_ubuntu_Upstart_Instance_OUTPUTS = \
-	$(builddir)/upstart/com.ubuntu.Upstart.Instance.c \
-	$(builddir)/upstart/com.ubuntu.Upstart.Instance.h
+	upstart/com.ubuntu.Upstart.Instance.c \
+	upstart/com.ubuntu.Upstart.Instance.h
 
 com_ubuntu_Upstart_Instance_XML = \
 	../dbus/com.ubuntu.Upstart.Instance.xml
 
-$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML) upstart
+$(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
+	mkdir -p upstart
 	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
 		--package=$(PACKAGE) \
 		--mode=proxy --prefix=job \
@@ -155,7 +156,7 @@ BUILT_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS) \
-	$(builddir)/upstart/upstart-dbus.h
+	upstart/upstart-dbus.h
 
 CLEANFILES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
@@ -170,7 +171,7 @@ tests: $(check_PROGRAMS)
 
 clean-local:
 	rm -f *.gcno *.gcda
-	rm -rf $(builddir)/upstart/
+	rm -rf upstart/
 
 maintainer-clean-local:
 	rm -f *.gcov
