@@ -1,3 +1,12 @@
+upstart (1.9-0ubuntu3) UNRELEASED; urgency=low
+
+  * debian/upstart.apport:
+    - Added session count to report ('UpstartRunningSessionCount').
+    - Join Upstart session to ensure 'UpstartRunningSessionJobs' shows
+      session jobs and doesn't default to showing system ones.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 03 Jul 2013 12:27:36 +0100
+
 upstart (1.9-0ubuntu2) saucy; urgency=low
 
   * Cherry-pick upstream fix for crashing bridges (LP: #1197225)

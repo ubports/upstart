@@ -176,7 +176,19 @@ def add_info(report, ui):
     if category == 'System' or category == 'Unknown':
         report['UpstartRunningSystemJobs'] = command_output(['initctl', '--system', 'list'])
 
+    session_count = 0
     if category == 'Session' or category == 'Unknown':
+        sessions = command_output(['initctl', 'list-sessions']).split('\n')
+        if sessions:
+            session_count = len(sessions)
+            report['UpstartRunningSessionCount'] = str(session_count)
+
+    # join the running session if possible
+    if not os.environ.get('UPSTART_SESSION', None) and session_count == 1:
+        session = sessions[0].strip().split()[1]
+        if session:
+            os.environ['UPSTART_SESSION'] = session
+
+    if os.environ.get('UPSTART_SESSION', None):
         report['UpstartRunningSessionVersion'] = command_output(['initctl', 'version'])
         report['UpstartRunningSessionJobs'] = command_output(['initctl', 'list'])
-
