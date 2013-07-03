@@ -547,24 +547,28 @@ main (int   argc,
 		 * the Upstart instance (last part of the DBus path) in the filename.
 		 */
 
-		/* Extract PID from UPSTART_SESSION */
-		user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
-		for (int i = 0; user_session_path[i] != NULL; i++)
-			path_element = user_session_path[i];
+		if (user) {
 
-		if (! path_element) {
-			nih_fatal (_("Invalid value for UPSTART_SESSION"));
-			exit (1);
-		}
+			/* Extract PID from UPSTART_SESSION */
+			user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
 
-		pidfile_path = getenv ("XDG_RUNTIME_DIR");
-		if (! pidfile_path)
-			pidfile_path = getenv ("HOME");
+			for (int i = 0; user_session_path && user_session_path[i]; i++)
+				path_element = user_session_path[i];
 
-		if (pidfile_path) {
-			NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/upstart-file-bridge.%s.pid",
-					                        pidfile_path, path_element));
-			nih_main_set_pidfile (pidfile);
+			if (! path_element) {
+				nih_fatal (_("Invalid value for UPSTART_SESSION"));
+				exit (1);
+			}
+
+			pidfile_path = getenv ("XDG_RUNTIME_DIR");
+			if (! pidfile_path)
+				pidfile_path = getenv ("HOME");
+
+			if (pidfile_path) {
+				NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/upstart-file-bridge.%s.pid",
+							pidfile_path, path_element));
+				nih_main_set_pidfile (pidfile);
+			}
 		}
 
 		if (nih_main_daemonise () < 0) {
