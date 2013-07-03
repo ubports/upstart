@@ -1,3 +1,12 @@
+2013-07-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-event-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-file-bridge.c: main():
+	  - Check nih_str_split() return.
+	  - Only attempt to extract PID from UPSTART_SESSION
+	    in user mode (LP: #1197225).
+
 2013-06-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9
