@@ -1,3 +1,9 @@
+upstart (1.9-0ubuntu2) saucy; urgency=low
+
+  * Cherry-pick upstream fix for crashing bridges (LP: #1197225)
+
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Wed, 03 Jul 2013 09:37:35 +0100
+
 upstart (1.9-0ubuntu1) saucy; urgency=low
 
   [ Dmitrijs Ledkovs ]

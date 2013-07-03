@@ -297,7 +297,8 @@ main (int   argc,
 		if (user_mode) {
 			/* Extract PID from UPSTART_SESSION */
 			user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
-			for (int i = 0; user_session_path[i] != NULL; i++)
+
+			for (int i = 0; user_session_path && user_session_path[i]; i++)
 				path_element = user_session_path[i];
 
 			if (! path_element) {
