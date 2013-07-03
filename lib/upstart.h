@@ -24,9 +24,10 @@
 
 NIH_BEGIN_EXTERN
 
-#include "com.ubuntu.Upstart.h"
-#include "com.ubuntu.Upstart.Instance.h"
-#include "com.ubuntu.Upstart.Job.h"
+#include "upstart/upstart-dbus.h"
+#include "upstart/com.ubuntu.Upstart.h"
+#include "upstart/com.ubuntu.Upstart.Instance.h"
+#include "upstart/com.ubuntu.Upstart.Job.h"
 
 NIH_END_EXTERN
 

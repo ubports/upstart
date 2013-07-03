@@ -16,7 +16,7 @@ LT_PREREQ(2.2.4)
 LT_INIT
 
 AM_GNU_GETTEXT_VERSION([0.17])
-AM_GNU_GETTEXT()
+AM_GNU_GETTEXT([external])
 
 # Checks for programs.
 AC_PROG_CC
