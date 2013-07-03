@@ -1,3 +1,8 @@
+2013-07-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* Makefile.am: Remove intl directory.
+	* configure.ac: Use external gettext library.
+
 2013-07-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* lib/Makefile.am: Make nih-dbus-tool generate code into the
