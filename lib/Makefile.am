@@ -69,11 +69,23 @@ $(abi_build_XML): $(abi_build_XML).in
 	    -e 's|[@]libupstart_version[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
 	    $< > $@
 
+# libupstart.pc: libupstart.pc.in
+# 	sed -e 's|[@]prefix[@]|$(prefix)|g' \
+# 	    -e 's|[@]exec_prefix[@]|$(exec_prefix)|g' \
+# 	    -e 's|[@]libdir[@]|$(libdir)|g' \
+# 	    -e 's|[@]includedir[@]|$(includedir)|g' \
+# 	    -e 's|[@]VERSION[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
+# 	    $< > $@
+
+libupstart.pc: libupstart.pc.in
+	sed -e 's|[@]LIBUPSTART_VERSION_DOTTED[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
+	    $< > $@
+
 pkgconfigdir = $(prefix)/lib/pkgconfig
 pkgconfig_DATA = libupstart.pc
 
 EXTRA_DIST = \
-	libupstart.pc.in \
+	libupstart.pc.in.in \
 	run_abi_checker.sh.in \
 	libupstart.ver \
 	$(abi_official) \
@@ -165,7 +177,7 @@ CLEANFILES = \
 	$(abi_build_XML) \
 	$(pkgconfig_DATA)
 
-CLEANFILES += $(check_SCRIPTS)
+CLEANFILES += $(check_SCRIPTS) libupstart.pc.in
 
 tests: $(check_PROGRAMS)
 

@@ -5,6 +5,6 @@ includedir=@includedir@
 
 Name: libupstart
 Description: Upstart Utility Library
-Version: @VERSION@
+Version: @LIBUPSTART_VERSION_DOTTED@
 Libs: -L${libdir} -lupstart
 Cflags: -I${includedir}
