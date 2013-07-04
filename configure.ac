@@ -109,7 +109,7 @@ NIH_COMPILER_COVERAGE
 NIH_LINKER_OPTIMISATIONS
 
 
-AC_CONFIG_FILES([ Makefile intl/Makefile
+AC_CONFIG_FILES([ Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
 		  scripts/Makefile scripts/data/Makefile
