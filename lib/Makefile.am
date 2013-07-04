@@ -69,14 +69,6 @@ $(abi_build_XML): $(abi_build_XML).in
 	    -e 's|[@]libupstart_version[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
 	    $< > $@
 
-# libupstart.pc: libupstart.pc.in
-# 	sed -e 's|[@]prefix[@]|$(prefix)|g' \
-# 	    -e 's|[@]exec_prefix[@]|$(exec_prefix)|g' \
-# 	    -e 's|[@]libdir[@]|$(libdir)|g' \
-# 	    -e 's|[@]includedir[@]|$(includedir)|g' \
-# 	    -e 's|[@]VERSION[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
-# 	    $< > $@
-
 libupstart.pc: libupstart.pc.in
 	sed -e 's|[@]LIBUPSTART_VERSION_DOTTED[@]|$(LIBUPSTART_VERSION_DOTTED)|g' \
 	    $< > $@
