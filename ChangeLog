@@ -1,3 +1,8 @@
+2013-07-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* Perform 2-pass generation of libupstart.pc to ensure library
+	  version specified correctly.
+
 2013-07-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-dbus-bridge.c: main(): Check nih_str_split() return.

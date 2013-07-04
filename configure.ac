@@ -113,6 +113,6 @@ AC_CONFIG_FILES([ Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
 		  scripts/Makefile scripts/data/Makefile
-		  test/Makefile lib/Makefile lib/libupstart.pc ])
+		  test/Makefile lib/Makefile lib/libupstart.pc.in ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT
