@@ -1,8 +1,9 @@
 /* upstart-dconf-bridge
  *
- * Copyright © 2012 Canonical Ltd.
+ * Copyright © 2012-2013 Canonical Ltd.
  * Author: Stéphane Graber <stgraber@ubuntu.com>.
  * Author: Thomas Bechtold <thomasbechtold@jpberlin.de>.
+ * Author: James Hunt <james.hunt@ubuntu.com>.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -39,10 +40,17 @@
 #include <nih/logging.h>
 #include <nih/error.h>
 
+/**
+ * DCONF_EVENT:
+ *
+ * Name of event this program emits.
+ **/
+#define DCONF_EVENT "dconf-changed"
+
 /* Prototypes for static functions */
-static void dconf_changed   (DConfClient *client, const gchar *prefix,
-							    const gchar * const *changes, const gchar *tag,
-							    GDBusProxy *upstart);
+static void dconf_changed (DConfClient *client, const gchar *prefix,
+			   const gchar * const *changes, const gchar *tag,
+			   GDBusProxy *upstart);
 
 /**
  * daemonise:
@@ -68,11 +76,17 @@ int
 main (int   argc,
       char *argv[])
 {
-	char **             args;
-	DConfClient *       client;
-	GMainLoop *         mainloop;
-	GDBusProxy *        upstart_proxy;
-	GError *            error = NULL;
+	char             **args;
+	DConfClient       *client;
+	GMainLoop         *mainloop;
+	GDBusProxy        *upstart_proxy;
+	GDBusConnection   *connection;
+	GError            *error = NULL;
+	char              *user_session_addr = NULL;
+	nih_local char   **user_session_path = NULL;
+	char              *path_element = NULL;
+	char              *pidfile_path = NULL;
+	char              *pidfile = NULL;
 
 	client = dconf_client_new ();
 	mainloop = g_main_loop_new (NULL, FALSE);
@@ -90,25 +104,72 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
-	/* get a upstart proxy object on session bus */
-	upstart_proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
-						       G_DBUS_PROXY_FLAGS_NONE,
-						       NULL, /* GDBusInterfaceInfo */
-						       "com.ubuntu.Upstart",
-						       "/com/ubuntu/Upstart",
-						       "com.ubuntu.Upstart0_6",
-						       NULL, /* GCancellable */
-						       &error);
+	user_session_addr = getenv ("UPSTART_SESSION");
+	if (! user_session_addr) {
+		nih_fatal (_("UPSTART_SESSION isn't set in environment"));
+		exit (1);
+	}
 
-	if (upstart_proxy == NULL) {
+	/* Connect to the Upstart session */
+	connection = g_dbus_connection_new_for_address_sync (user_session_addr,
+			G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT,
+			NULL, /* GDBusAuthObserver*/
+			NULL, /* GCancellable */
+			&error);
+
+	if (! connection) {
+		g_error ("D-BUS Upstart session init error: %s",
+			 (error && error->message) ? error->message : "Unknown error");
+		g_clear_error (&error);
+		exit (1);
+	}
+
+	/* Get an Upstart proxy object */
+	upstart_proxy = g_dbus_proxy_new_sync  (connection,
+					        (G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START
+						| G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES),
+					        NULL, /* GDBusInterfaceInfo */
+					        NULL, /* name */
+					        "/com/ubuntu/Upstart",
+					        "com.ubuntu.Upstart0_6",
+					        NULL, /* GCancellable */
+					        &error);
+
+	if (! upstart_proxy) {
 		g_error ("D-BUS Upstart proxy error: %s",
 			 (error && error->message) ? error->message : "Unknown error");
 		g_clear_error (&error);
-		return EXIT_FAILURE;
+		exit (1);
 	}
 
-	/* Become daemon FIXME: Tries to create a pid file, fails when non-root */
 	if (daemonise) {
+		/* Deal with the pidfile location when becoming a daemon.
+		 * We need to be able to run one bridge per upstart daemon.
+		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid of
+		 * the Upstart instance (last part of the DBus path) in the filename.
+		 */
+
+		/* Extract PID from UPSTART_SESSION */
+		user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
+
+		for (int i = 0; user_session_path && user_session_path[i]; i++)
+			path_element = user_session_path[i];
+
+		if (! path_element) {
+			nih_fatal (_("Invalid value for UPSTART_SESSION"));
+			exit (1);
+		}
+
+		pidfile_path = getenv ("XDG_RUNTIME_DIR");
+		if (!pidfile_path)
+			pidfile_path = getenv ("HOME");
+
+		if (pidfile_path) {
+			NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/upstart-dconf-bridge.%s.pid",
+					                        pidfile_path, path_element));
+			nih_main_set_pidfile (pidfile);
+		}
+
 		if (nih_main_daemonise () < 0) {
 			NihError *err;
 
@@ -131,41 +192,67 @@ main (int   argc,
 
 	g_object_unref (client);
 	g_object_unref (upstart_proxy);
+	g_object_unref (connection);
 	g_main_loop_unref (mainloop);
 
-	return EXIT_SUCCESS;
+	exit (0);
 }
 
-static
-void dconf_changed (DConfClient *client, const gchar *prefix,
-					    const gchar * const *changes, const gchar *tag,
-					    GDBusProxy *upstart)
+/**
+ * dconf_changed:
+ *
+ * Emit an event 
+ *
+ **/
+static void
+dconf_changed (DConfClient         *client,
+	       const gchar         *prefix,
+	       const gchar * const *changes,
+	       const gchar         *tag,
+	       GDBusProxy          *upstart)
 {
-	GVariant *          value;
-	gchar *             value_str = NULL;
-	gchar *             path = NULL;
-	gchar *             env_key = NULL;
-	gchar *             env_value = NULL;
-	int                 i = 0;
-	GVariantBuilder     builder;
-	GVariant *          event;
+	GVariant         *value;
+	gchar            *value_str = NULL;
+	gchar            *path = NULL;
+	gchar            *env_key = NULL;
+	gchar            *env_value = NULL;
+	GVariant         *event;
+	GVariantBuilder   builder;
+	int               i = 0;
 
 	/* Iterate through the various changes */
 	while (changes[i] != NULL) {
-		/* Get the current values */
-		path = g_strconcat (prefix, path, NULL);
+		if (changes[i] && *changes[i]) {
+			/* It is unclear from the documentation which if
+			 * either of prefix or each individual change element contains
+			 * a slash as separator, but clearly to
+			 * reconstruct the full path we need to produce one from
+			 * somewhere.
+			 */
+			if (g_str_has_suffix (prefix, "/") || g_str_has_prefix (changes[i], "/"))
+				path = g_strconcat (prefix, changes[i], NULL);
+			else
+				path = g_strconcat (prefix, "/", changes[i], NULL);
+		} else {
+			path = g_strconcat (prefix, NULL);
+		}
+
 		value = dconf_client_read (client, path);
 		value_str = g_variant_print (value, FALSE);
-		env_key = g_strconcat ("KEY=", prefix, path, NULL);
+
+		env_key = g_strconcat ("KEY=", path, NULL);
 		env_value = g_strconcat ("VALUE=", value_str, NULL);
 
 		/* Build event environment as GVariant */
 		g_variant_builder_init (&builder, G_VARIANT_TYPE_TUPLE);
-		g_variant_builder_add (&builder, "s", "dconf-changed");
+
+		g_variant_builder_add (&builder, "s", DCONF_EVENT);
+
 		g_variant_builder_open (&builder, G_VARIANT_TYPE_ARRAY);
 		g_variant_builder_add (&builder, "s", env_key);
 		g_variant_builder_add (&builder, "s", env_value);
 		g_variant_builder_close (&builder);
+
 		g_variant_builder_add (&builder, "b", FALSE);
 		event = g_variant_builder_end (&builder);
 

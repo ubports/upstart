@@ -1,3 +1,15 @@
+2013-07-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c:
+	  - Added DCONF_EVENT.
+	  - Reformatted to be more consistent with other bridges.
+	  - main():
+	    - Connect to UPSTART_SESSION rather than D-Bus session bus.
+	    - Handle generation of pidfile name.
+	  - dconf_changed():
+	    - Correct path logic and ensure that if the changes array contains
+	      values that they are separated correctly from the prefix.
+
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9.1
