@@ -30,7 +30,6 @@ dist_init_DATA = \
 	conf/upstart-file-bridge.conf \
 	conf/upstart-dbus-bridge.conf
 
-# FIXME: add man/upstart-dbus-bridge.8
 dist_man_MANS = \
 	man/upstart-socket-bridge.8 \
 	man/upstart-event-bridge.8 \
