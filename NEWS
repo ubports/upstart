@@ -1,4 +1,31 @@
-1.8  xxxx-xx-xx
+1.10  xxxx-xx-xx
+
+1.9.1  2013-07-04 "The all-inclusive deal"
+
+	* Fix respawn behaviour regression (introduced in version 1.8) affecting
+	  jobs which also specify shell meta-characters in the exec stanza
+	  (LP: #1181789).
+	* Fix common bug which could cause a bridge to crash (LP: #1197225).
+	* Various fixes for libupstart.
+	* initctl2dot: Layout improvements.
+
+1.9  2013-06-28 "This village isn't even on the map"
+
+	* Apparmor support added by means of two new stanzas: 'apparmor load'
+	  and 'apparmor switch' (thanks Marc Deslauriers).
+	* Stateful re-exec: now serialises all objects, not just the minimum set.
+	* Allow inherited environment variables to be unset for Session Inits.
+	* Ability to specify multiple configuration directories when running as
+	  a Session Init.
+	* libupstart: Client library for communicating with Upstart.
+	* upstart-dbus-bridge: New bridge to allow jobs to react to D-Bus signals.
+	* The usual round of fixes and doc improvements.
+
+1.8  2013-03-22 "Scone + Radish = Gherkin?"
+
+	* upstart-file-bridge: New bridge to allow jobs to react to
+	  file, directory and file glob events (create/modify/delete).
+	* upstart-monitor: Simple cli/gui tool that shows event flows.
 
 1.7  2013-03-04 "We've all got one now"
 

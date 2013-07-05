@@ -1,4 +1,4 @@
-.TH init 7 2013-01-25 "Upstart"
+.TH init 5 2013-01-25 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -916,6 +916,37 @@ considered.
 .P
 
 .\"
+.SS AppArmor support
+Upstart provides several stanzas for loading and switching to different
+AppArmor profiles. If AppArmor isn't enabled in the currently running
+kernel, the stanzas will be silently ignored.
+
+.TP
+.B apparmor load \fIPROFILE
+This stanza specifies an AppArmor profile to load into the Linux kernel at
+job start. The AppArmor profile will confine a main process automatically
+using path attachment, or manually by using the \fBapparmor switch\fP
+stanza.
+.I PROFILE
+must be an absolute path to a profile and a failure will occur if the file
+doesn't exist.
+
+.nf
+apparmor load /etc/apparmor.d/usr.sbin.cupsd
+.fi
+.\"
+.TP
+.B apparmor switch \fINAME
+This stanza specifies the name of an AppArmor profile name to switch to
+before running the main process.
+.I NAME
+must be the name of a profile already loaded into the running Linux kernel,
+and will result in a failure if not available.
+
+.nf
+apparmor switch /usr/sbin/cupsd
+.fi
+.\"
 .SS Miscellaneous
 .TP
 .B kill signal \fISIGNAL
@@ -994,11 +1025,12 @@ only evaluated once and state information is then discarded. This can
 lead to jobs with complex \fBstart on\fP or \fPstop on\fP conditions
 not behaving as expected \fIwhen restarted\fP. For example, if a job
 encodes the following condition:
-.ti +4
 .sp 1
+.RS
 .nf
 start on A and (B or C)
 .fi
+.RE
 .P
 When \(aqA\(aq and \(aqB\(aq become true, the condition is satisfied so
 the job will be run. However, if the job ends and subsequently \(aqA\(aq
@@ -1073,3 +1105,4 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .BR prctl (2)
 .BR pty (7)
 .BR sh (1)
+.BR apparmor (7)

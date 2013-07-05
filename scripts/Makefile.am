@@ -1,12 +1,16 @@
 ## Process this file with automake to produce Makefile.in
 
+SUBDIRS = data
+
 EXTRA_DIST = \
   initctl2dot.py \
-  init-checkconf.sh
+  init-checkconf.sh \
+  upstart-monitor.py
 
 dist_man_MANS = \
   man/initctl2dot.8 \
-  man/init-checkconf.8
+  man/init-checkconf.8 \
+  man/upstart-monitor.8
 
 install-exec-hook: $(EXTRA_DIST)
 	[ ! -d "$(DESTDIR)/$(bindir)" ] && mkdir -p "$(DESTDIR)/$(bindir)"; \

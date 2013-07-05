@@ -58,31 +58,31 @@
  *
  * Returns: -1 on raised error, or nothing on success.
  **/
-#define control_get_job(session, job, job_name, instance)            \
-{                                                                    \
-	if (job_name != NULL ) {                                     \
-		JobClass *class;                                     \
-                                                                     \
-		class = job_class_find (session, job_name);          \
-		if (! class) {                                       \
-			nih_dbus_error_raise_printf (                \
-				DBUS_INTERFACE_UPSTART               \
-				".Error.UnknownJob",                 \
-				_("Unknown job: %s"),                \
-				job_name);                           \
-			return -1;                                   \
-		}                                                    \
-                                                                     \
-		job = job_find (session, class, NULL, instance);     \
-		if (job == NULL) {                                   \
-			nih_dbus_error_raise_printf (                \
-				DBUS_INTERFACE_UPSTART               \
-				".Error.UnknownJobInstance",         \
-				_("Unknown instance: %s of job %s"), \
-				instance, job_name);                 \
-			return -1;                                   \
-		}                                                    \
-	}                                                            \
+#define control_get_job(session, job, job_name, instance)             \
+{                                                                     \
+	if (job_name != NULL ) {                                      \
+		JobClass *class;                                      \
+                                                                      \
+		class = job_class_get_registered (job_name, session); \
+		if (! class) {                                        \
+			nih_dbus_error_raise_printf (                 \
+				DBUS_INTERFACE_UPSTART                \
+				".Error.UnknownJob",                  \
+				_("Unknown job: %s"),                 \
+				job_name);                            \
+			return -1;                                    \
+		}                                                     \
+								      \
+		job = job_find (session, class, NULL, instance);      \
+		if (job == NULL) {                                    \
+			nih_dbus_error_raise_printf (                 \
+				DBUS_INTERFACE_UPSTART                \
+				".Error.UnknownJobInstance",          \
+				_("Unknown instance: %s of job %s"),  \
+				instance, job_name);                  \
+			return -1;                                    \
+		}                                                     \
+	}                                                             \
 }
 
 NIH_BEGIN_EXTERN

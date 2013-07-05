@@ -74,8 +74,6 @@ main (int   argc,
 	GDBusProxy *        upstart_proxy;
 	GError *            error = NULL;
 
-	/* Initialise the various gobjects */
-	g_type_init ();
 	client = dconf_client_new ();
 	mainloop = g_main_loop_new (NULL, FALSE);
 

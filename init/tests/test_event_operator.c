@@ -30,6 +30,7 @@
 #include "blocked.h"
 #include "parse_job.h"
 #include "conf.h"
+#include "test_util_common.h"
 #include "test_util.h"
 
 void
@@ -1327,7 +1328,9 @@ test_operator_serialisation (void)
 {
 	JobClass        *job = NULL;
 	EventOperator   *oper1, *oper2;
-	char		    *oper1_string;
+	nih_local char  *oper1_string = NULL;
+	nih_local char  *oper2_string = NULL;
+	int              ret;
 
 	struct test_operator {
 		char *description;
@@ -1375,19 +1378,37 @@ test_operator_serialisation (void)
 
 	for (test = test_operators; test && test->value; test++)
 	{
+		json_object *json;
+
 		TEST_FEATURE (test->description);
 
 		oper1 = parse_on_simple (job, "start", test->value);
 		TEST_NE_P (oper1, NULL);
 
-		/* Ideally we would exercise allocation here,
-		 * but NIH_MUST is being used.
+		json = event_operator_serialise_all (oper1);
+		TEST_NE_P (json, NULL);
+
+		oper2 = event_operator_deserialise_all (job, json);
+		TEST_NE_P (oper2, NULL);
+
+		/* Test the new, full serialisation format */
+		ret = event_operator_diff (oper1, oper2);
+		assert0 (ret);
+
+		/* Test the original string-based serialisation
+		 * format.
 		 */
 		oper1_string = event_operator_collapse (oper1);
 		TEST_NE_P (oper1_string, NULL);
 
-		oper2 = parse_on_simple (job, "start", oper1_string);
-		TEST_NE_P (oper2, NULL);
+
+		oper2_string = event_operator_collapse (oper2);
+		TEST_NE_P (oper2_string, NULL);
+
+		TEST_EQ_STR (oper1_string, oper2_string);
+
+
+		json_object_put (json);
 
 		TEST_EQ (oper1->value, oper2->value);
 		TEST_EQ (oper1->type, oper2->type);

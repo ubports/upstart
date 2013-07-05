@@ -60,7 +60,7 @@
 #include "blocked.h"
 #include "conf.h"
 #include "errors.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
 #define TEST_SHELL                "/bin/sh"
@@ -81,6 +81,14 @@
 
 /* number of iterations to perform to check file contents */
 #define MAX_ITERATIONS            5
+
+/**
+ * SHELL_CHARS:
+ *
+ * This is the list of characters that, if encountered in a process, cause
+ * it to always be run with a shell.
+ **/
+#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
 
 /**
  * CHECK_FILE_EQ:
@@ -164,12 +172,6 @@ fd_valid (int fd)
 		return 0;
 
 	return 1;
-}
-
-static int
-strcmp_compar (const void *a, const void *b)
-{
-	return strcmp(*(char * const *)a, *(char * const *)b);
 }
 
 static void
@@ -507,6 +509,7 @@ test_run (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		/* Filename should contain the pid */
 		output = fopen (filename, "r");
@@ -683,7 +686,7 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
-		if (job->class->process[PROCESS_MAIN]->script)
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -739,7 +742,7 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
-		if (job->class->process[PROCESS_MAIN]->script)
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -797,7 +800,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
-		if (job->class->process[PROCESS_PRE_STOP]->script)
+		if (job->class->process[PROCESS_PRE_STOP]->script || strpbrk (job->class->process[PROCESS_PRE_STOP]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -855,7 +858,7 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
-		if (job->class->process[PROCESS_POST_STOP]->script)
+		if (job->class->process[PROCESS_POST_STOP]->script || strpbrk (job->class->process[PROCESS_POST_STOP]->command, SHELL_CHARS))
 			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
@@ -6075,6 +6078,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6162,6 +6166,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6246,6 +6251,7 @@ test_handler (void)
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test respawning too fast, "
 				       "stopped\n"));
@@ -6319,6 +6325,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -6396,6 +6403,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -6468,6 +6476,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -7429,6 +7438,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -7745,6 +7755,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));

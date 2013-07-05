@@ -416,11 +416,15 @@ int
 main (int   argc,
       char *argv[])
 {
-	char          **args;
-	DBusConnection *connection;
-	char          **job_class_paths;
-	int             ret;
-	char           *user_session_addr = NULL;
+	char               **args;
+	char               **job_class_paths;
+	DBusConnection      *connection;
+	char                *pidfile_path = NULL;
+	char                *pidfile = NULL;
+	char                *user_session_addr = NULL;
+	nih_local char     **user_session_path = NULL;
+	char                *path_element = NULL;
+	int                  ret;
 
 	nih_main_init (argv[0]);
 
@@ -537,6 +541,36 @@ main (int   argc,
 
 	/* Become daemon */
 	if (daemonise) {
+		/* Deal with the pidfile location when becoming a daemon.
+		 * We need to be able to run one bridge per upstart daemon.
+		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid of
+		 * the Upstart instance (last part of the DBus path) in the filename.
+		 */
+
+		if (user) {
+
+			/* Extract PID from UPSTART_SESSION */
+			user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
+
+			for (int i = 0; user_session_path && user_session_path[i]; i++)
+				path_element = user_session_path[i];
+
+			if (! path_element) {
+				nih_fatal (_("Invalid value for UPSTART_SESSION"));
+				exit (1);
+			}
+
+			pidfile_path = getenv ("XDG_RUNTIME_DIR");
+			if (! pidfile_path)
+				pidfile_path = getenv ("HOME");
+
+			if (pidfile_path) {
+				NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/upstart-file-bridge.%s.pid",
+							pidfile_path, path_element));
+				nih_main_set_pidfile (pidfile);
+			}
+		}
+
 		if (nih_main_daemonise () < 0) {
 			NihError *err;
 
@@ -545,12 +579,8 @@ main (int   argc,
 				   err->message);
 			nih_free (err);
 
-			exit (EXIT_FAILURE);
+			exit (1);
 		}
-
-		/* Send all logging output to syslog */
-		openlog (program_name, LOG_PID, LOG_DAEMON);
-		nih_log_set_logger (nih_logger_syslog);
 	}
 
 	if (user) {
@@ -573,6 +603,10 @@ main (int   argc,
 	}
 
 	ret = nih_main_loop ();
+
+	/* Destroy any PID file we may have created */
+	if (daemonise)
+		nih_main_unlink_pidfile();
 
 	return ret;
 }

@@ -36,6 +36,7 @@
 #include "conf.h"
 #include "parse_job.h"
 #include "errors.h"
+#include "apparmor.h"
 
 
 void
@@ -464,6 +465,267 @@ test_stanza_script (void)
 	TEST_EQ (pos, 7);
 	TEST_EQ (lineno, 1);
 	nih_free (err);
+}
+
+void
+test_stanza_apparmor (void)
+{
+	JobClass *job;
+	Process  *process;
+	NihError *err;
+	size_t    pos, lineno;
+	char      buf[1024];
+
+	TEST_FUNCTION ("stanza_apparmor");
+
+
+	/* Check that an apparmor load stanza sets the process of the
+	 * job as a single string.
+	 */
+	TEST_FEATURE ("with load and profile");
+	strcpy (buf, "apparmor load /etc/apparmor.d/usr.sbin.cupsd\n");
+
+	/* TODO: investigate why we can't use TEST_ALLOC_FAIL here.
+	 * It fails when nih_sprintf() is used.
+	 */
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+			 &pos, &lineno);
+
+	TEST_EQ (pos, strlen (buf));
+	TEST_EQ (lineno, 2);
+
+	TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+	process = job->process[PROCESS_SECURITY];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (Process));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	strcpy (buf, APPARMOR_PARSER);
+	strcat (buf, " ");
+	strcat (buf, APPARMOR_PARSER_OPTS);
+	strcat (buf, " /etc/apparmor.d/usr.sbin.cupsd");
+	TEST_EQ_STR (process->command, buf);
+
+	nih_free (job);
+
+
+	/* Check that the last of multiple apparmor load stanzas is used. */
+	TEST_FEATURE ("with multiple load");
+	strcpy (buf, "apparmor load /etc/apparmor.d/usr.sbin.rsyslogd\n");
+	strcat (buf, "apparmor load /etc/apparmor.d/usr.sbin.cupsd\n");
+
+	/* TODO: investigate why we can't use TEST_ALLOC_FAIL here.
+	 * It fails when nih_sprintf() is used.
+	 */
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+			 &pos, &lineno);
+
+	TEST_EQ (pos, strlen (buf));
+	TEST_EQ (lineno, 3);
+
+	TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+	process = job->process[PROCESS_SECURITY];
+	TEST_ALLOC_PARENT (process, job->process);
+	TEST_ALLOC_SIZE (process, sizeof (Process));
+	TEST_EQ (process->script, FALSE);
+	TEST_ALLOC_PARENT (process->command, process);
+	strcpy (buf, APPARMOR_PARSER);
+	strcat (buf, " ");
+	strcat (buf, APPARMOR_PARSER_OPTS);
+	strcat (buf, " /etc/apparmor.d/usr.sbin.cupsd");
+	TEST_EQ_STR (process->command, buf);
+
+	nih_free (job);
+
+
+	/* Check that an apparmor load stanza without any arguments results
+	 * in a syntax error.
+	 */
+	TEST_FEATURE ("with load but no profile");
+	strcpy (buf, "apparmor load\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 13);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an apparmor load stanza with an extra argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument to load");
+	strcpy (buf, "apparmor load /etc/apparmor.d/usr.sbin.cupsd extra\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 45);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an apparmor stanza with an unknown second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with unknown argument");
+	strcpy (buf, "apparmor foo\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNKNOWN_STANZA);
+	TEST_EQ (pos, 9);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an apparmor stanza with no second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with missing argument");
+	strcpy (buf, "apparmor\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 8);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an apparmor switch stanza results in it
+	 * being stored in the job.
+	 */
+	TEST_FEATURE ("with switch and profile");
+	strcpy (buf, "apparmor switch /usr/sbin/cupsd\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 2);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->apparmor_switch, job);
+		TEST_EQ_STR (job->apparmor_switch, "/usr/sbin/cupsd");
+
+		nih_free (job);
+	}
+
+
+	/* Check that the last of multiple apparmor switch stanzas is used. */
+	TEST_FEATURE ("with multiple apparmor switch stanzas");
+	strcpy (buf, "apparmor switch /usr/sbin/rsyslogd\n");
+	strcat (buf, "apparmor switch /usr/sbin/cupsd\n");
+
+	TEST_ALLOC_FAIL {
+		pos = 0;
+		lineno = 1;
+		job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf),
+				 &pos, &lineno);
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (job, NULL);
+
+			err = nih_error_get ();
+			TEST_EQ (err->number, ENOMEM);
+			nih_free (err);
+
+			continue;
+		}
+
+		TEST_EQ (pos, strlen (buf));
+		TEST_EQ (lineno, 3);
+
+		TEST_ALLOC_SIZE (job, sizeof (JobClass));
+
+		TEST_ALLOC_PARENT (job->apparmor_switch, job);
+		TEST_EQ_STR (job->apparmor_switch, "/usr/sbin/cupsd");
+
+		nih_free (job);
+	}
+
+
+	/* Check that an apparmor switch stanza without a profile results in
+	 * a syntax error.
+	 */
+	TEST_FEATURE ("with switch and no profile");
+	strcpy (buf, "apparmor switch\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
+	TEST_EQ (pos, 15);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
+
+	/* Check that an apparmor switch stanza with an extra second argument
+	 * results in a syntax error.
+	 */
+	TEST_FEATURE ("with extra argument to switch");
+	strcpy (buf, "apparmor switch /usr/sbin/cupsd extra\n");
+
+	pos = 0;
+	lineno = 1;
+	job = parse_job (NULL, NULL, NULL, "test", buf, strlen (buf), &pos, &lineno);
+
+	TEST_EQ_P (job, NULL);
+
+	err = nih_error_get ();
+	TEST_EQ (err->number, NIH_CONFIG_UNEXPECTED_TOKEN);
+	TEST_EQ (pos, 32);
+	TEST_EQ (lineno, 1);
+	nih_free (err);
+
 }
 
 void
@@ -8372,6 +8634,7 @@ main (int   argc,
 
 	test_stanza_exec ();
 	test_stanza_script ();
+	test_stanza_apparmor ();
 	test_stanza_pre_start ();
 	test_stanza_post_start ();
 	test_stanza_pre_stop ();

@@ -54,6 +54,9 @@ enum {
 
 	/* Errors while handling control requests */
 	CONTROL_NAME_TAKEN,
+
+	/* Errors while handling security profiles */
+	SECURITY_ERROR,
 };
 
 /* Error strings for defined messages */

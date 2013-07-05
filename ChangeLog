@@ -1,7 +1,597 @@
+2013-07-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.9.1
+
+2013-07-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* Perform 2-pass generation of libupstart.pc to ensure library
+	  version specified correctly.
+
+2013-07-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-event-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-file-bridge.c: main():
+	  - Check nih_str_split() return.
+	  - Only attempt to extract PID from UPSTART_SESSION
+	    in user mode (LP: #1197225).
+	* Makefile.am: Remove intl directory.
+	* configure.ac: Use external gettext library.
+
+2013-07-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am: Make nih-dbus-tool generate code into the
+	  upstart/ directory as we need it there to allow the tests to run
+	  against a simulated installed header directory.
+	* lib/tests/test_libupstart.c: Remove unecessary include (which
+	  is now included automatically by upstart.h).
+
+2013-07-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Install client library headers.
+	  - Add missing backslash.
+	* lib/upstart.h: Look in upstart/ sub-directory for
+	  auto-generated header files.
+
+2013-06-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.9
+
+2013-06-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am:
+	  - Avoid defining test list twice.
+	  - Append $(EXEEXT) where appropriate to appease automake.
+
+2013-06-27  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am: Added dependency on libtest_util_common.
+	* lib/tests/test_libupstart.c: 
+	  - Use test_util_common.
+	  - test_libupstart():
+	    - Start a private D-Bus server and Session Init to handle possibility
+	      of building on systems not using Upstart as PID 1.
+	    - Ensure XDG_RUNTIME_DIR is available, required for
+	      'initctl list-sessions'.
+	  - main(): Disable tests if required environment not available (as done
+	    for test_initctl).
+	* test/test_util_common.c:
+	  - wait_for_upstart(): Pass pid of session init to pass to
+	    set_upstart_session().
+	  - set_upstart_session(): Now accepts a session init pid to allow
+	    filtering of sessions and remove limitations of this function.
+	* test/test_util_common.h:
+	  - REEXEC_UPSTART(): Updated for changed wait_for_upstart() parameter.
+	* util/tests/test_initctl.c:
+	  - Moved in_chroot() and dbus_configured() to test_util_common.c.
+
+2013-06-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Add man pages and conf file.
+	* extra/upstart-dbus-bridge.c: Only emit events if any jobs care
+	  about them.
+	* extra/conf/upstart-dbus-bridge.conf: New configuration file.
+	* extra/man/dbus-event.7: New man page.
+	* extra/man/upstart-dbus-bridge.8: New man page.
+	* extra/upstart-dbus-bridge.c:
+	  - Comments and formatting.
+	  - main(): Default to an appropriate bus.
+	  - signal_filter(): Display signal details when run with --debug.
+	* init/log.c: log_clear_unflushed(): Remove log->io assertions as the
+	  state cannot be reliably determined when remote_closed is set
+	  (LP: #1188642).
+
+2013-06-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Added missing json file to TEST_DATA_FILES.
+
+2013-06-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_show_slow_jobs(): Change message log level
+	  to ensure it is displayed by default.
+
+2013-06-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_show_slow_jobs(): Don't free static string
+	  (LP: #1190526).
+
+2013-06-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-1.8+apparmor.json: New test data file.
+	* init/tests/data/upstart-1.8+full_serialisation-apparmor.json:
+	  New test data file.
+	* init/tests/data/upstart-1.8+full_serialisation+apparmor.json:
+	  New test data file.
+	* init/tests/test_state.c:
+	  - test_upgrade(): Re-initialise lists and hashes as a convenience to
+	    the tests.
+	  - test_upstart_with_apparmor_upgrade(): New test to ensure Upstart can
+	    parse the current 1.8 format JSON with the addition of the AppArmor
+	    serialisation (but crucially *without* the full serialisation data
+	    (EventOperator, etc).
+	  - test_upstart_full_serialise_without_apparmor_upgrade(): New test to
+	    ensure Upstart can parse the current 1.8 format JSON with the
+	    addition of the full serialisation data (EventOperator, etc),
+	    but _without_ the AppArmor serialisation.
+	  - test_upstart_full_serialise_with_apparmor_upgrade(): New test to
+	    ensure Upstart can parse the current 1.8 format JSON with the
+	    addition of the full serialisation data (EventOperator, etc),
+	    and the AppArmor serialisation.
+	* init/state.c: state_from_string(): Check if ConfSources
+	  exist in the serialisation data to allow distinction between
+	  ConfSources not present and failing to deserialise them.
+
+2013-06-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_deserialise(): Revert to checking JSON for
+	  blockers to avoid reliance on JSON serialisation data format version.
+	* init/event_operator.h: Fix misplacement of NIH_END_EXTERN.
+	* init/state.c: Remove serialisation version code since the autoconf
+	  approach of detecting the format of the JSON is safer.
+	* init/state.h: Remove STATE_VERSION.
+
+2013-06-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c:
+	  - test_no_inherit_job_env(): New function to test --no-inherit-env.
+	  - test_job_env():
+	    - Move code that sets HOME+PATH if not set from
+	      test_default_job_env() so that test_no_inherit_job_env() can make
+	      use of it.
+	    - Session file cleanup tweaks to work with test_no_inherit_job_env().
+
+2013-05-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_environment_init(): Copy inits environment
+	  to the default job class environment for user mode where appropriate.
+	  (LP: #1159895).
+	* init/job_process.c: job_process_run(): Don't copy inits environment
+	  into the job instances environment table as those values are now
+	  already in the table.
+	* util/tests/test_initctl.c: Updates for new behaviour (where
+	  'list-env' will now contain the entire environment of the init
+	  process, not just those variables explicitly set via set-env).
+	* util/man/initctl.8: Update on behaviour.
+
+	[ Eric S. Raymond <esr@thyrsus.com> ]
+	* init/man/init.5: Fix unliftable markup (LP: #1185108).
+
+2013-05-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Use plain-text ABI dump, rather than .tar.gz version to allow
+	    changes to be easily diff'ed.
+	  - Pass path to official ABI to script to avoid script determining it.
+	* lib/run_abi_checker.sh.in: Use provided official ABI path.
+	* Renamed lib/abi_dumps/ to lib/abi/.
+
+2013-05-27  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/job.c: Don't check for user mode when trying to load an
+	  AppArmor profile. User mode is supported as root, and upstart
+	  can be run as a user without being in user mode.
+	* init/man/init.5: Adjust man page.
+
+2013-05-24  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/job_process.c: Allow environment variables in apparmor
+	  switch stanzas.
+	* init/apparmor.[ch]: Use a profile name instead of a Job so we
+	  can use environment variables.
+
+	[ James Hunt <james.hunt@ubuntu.com> ]
+	* init/log.c:
+	  - log_clear_unflushed(): Expand assertion to handle scenario
+	    where the NihIo is still valid but empty (since the data now
+	    exists on the unflushed list).
+	  - log_read_watch(): Handle EINTR.
+	* configure.ac: Add --disable-abi-check option to allow ABI
+	  check to be skipped.
+
+2013-05-23  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/tests/test_state.c: An unused process is actually supposed
+          to be NULL. Fix test.
+	* init/process.c: Adjust to leave unused process as NULL.
+
+	[ James Hunt <james.hunt@ubuntu.com> ]
+	* lib/Makefile.am:
+	  - Fix library LDFLAGS.
+	  - Added test program.
+	* lib/tests/test_libupstart.c: Basic library test.
+
+2013-05-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Added libupstart library, built from auto-generated
+	  D-Bus bindings. To avoid ABI breakage, build calls
+	  abi-compliance-checker(1), if available.
+
+2013-05-17  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/process.c: Fix deserialising with PROCESS_SECURITY.
+	* init/tests/data/upstart-pre-security.json: Added new file to
+	  test importing serialisation data without security elements.
+	* init/tests/test_state.c: Added new data format test.
+
+2013-05-15  Marc Deslauriers  <marc.deslauriers@ubuntu.com>
+
+	* init/apparmor.[ch]: AppArmor profile helper.
+	* init/Makefile.am: Added AppArmor profile helper.
+	* init/errors.h: Added SECURITY_ERROR.
+	* init/job.c:
+	  - Added new JOB_SECURITY state and PROCESS_SECURITY process.
+	  - Fix job_deserialise() for new PROCESS_SECURITY process.
+	* init/job.h: Added new JOB_SECURITY state.
+	* init/job_class.[ch]: Added apparmor_switch to hold the new
+	  "apparmor switch" stanza.
+	* init/job_process.c:
+	  - Switch to new AppArmor profile.
+	  - Handle PROCESS_SECURITY process.
+	* init/job_process.h: Added JOB_PROCESS_ERROR_SECURITY.
+	* init/man/init.5: Document new AppArmor stanzas.
+	* init/parse_job.c: Parse new "apparmor" stanzas.
+	* init/process.[ch]: Add PROCESS_SECURITY.
+	* init/tests/test_job.c: Add new tests, and adjust existing ones.
+	* init/tests/test_job_class.c: Added apparmor_switch.
+	* init/tests/test_parse_job.c: Test new AppArmor stanza parsing.
+	* init/tests/test_process.c: Added PROCESS_SECURITY tests.
+	* init/tests/test_state.c: Test apparmor_switch and
+	  PROCESS_SECURITY.
+
+2013-05-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/state.c: stateful_reexec(): Specify all values for array
+	  initialiser.
+
+2013-05-10  James Hunt  <james.hunt@ubuntu.com>
+
+	Revert to not supporting deserialisation of JobClasses with associated
+	user/chroot sessions to avoid behavioural change for now.
+	
+	* init/job_class.c: 
+	  - job_class_deserialise(): Revert to failing if associated session is
+	    non-NULL.
+	  - job_class_deserialise_all(): Revert to ignoring failure to
+	    deserialise a JobClass iff it has a non-NULL associated session.
+	* init/state.c: 
+	  - state_to_string(): Provide some diagnostics if serialisation fails.
+	  - state_from_string(): Provide some diagnostics if deserialisation fails.
+	  - state_deserialise_resolve_deps(): Ignore failure to lookup JobClass
+	    iff it has an associated user/chroot session.
+	  - state_deserialise_blocking(): Revert to ignoring failure to
+	    deserialise a Blocked object that is associated with a Job whose
+	    JobClass has a non-NULL session.
+	* init/tests/test_state.c: test_blocking(): Revert test to assert that
+	  blocked job with non-NULL session is ignored.
+
+2013-05-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise(): Corrected logic for handling 'stop on'
+	  condition.
+	* init/job_class.c: job_class_deserialise(): Only check type after JSON
+	  queried (thanks Coverity).
+
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Link test_util to test_event_operator.
+	* init/conf.c: conf_source_deserialise_all(): Assert conf_sources is
+	  empty.
+	* init/control.h: control_get_job(): Use job_class_get_registered()
+	  rather than redundant job_class_find().
+	* init/event_operator.c:
+	  - Typos and formatting.
+	  - event_operator_serialise(): Conditionally encode name and env.
+	  - event_operator_deserialise(): Treat env as a string array, not an
+	    environ array to ensure values are not discarded unless they contain '='.
+	* init/job.c:
+	  - job_deserialise(): Check JSON type for 'stop on' prior to attempting value extraction.
+	  - job_find():
+	    - Make job_class const.
+	    - Use job_class_get_registered() rather than job_class_find().
+	* init/job_class.c:
+	  - job_class_get_registered(): Rework.
+	  - job_class_add_safe(): Re-add since required to support old
+	    serialisation formats that do not encode ConfSource and ConfFile
+	    objects.
+	  - job_class_deserialise():
+	    - Take care to only associate ConfFile with JobClass if JSON encodes
+	      ConfFile objects.
+	    - Check JSON type for 'start/stop on' prior to attempting value extraction.
+	  - job_class_find(): Remove (redundant due to job_class_get_registered()).
+	* init/state.c:
+	  - Set serialisation_version to an invalid value to detect if it was
+	    never set (to handle old serialisation formats).
+	  - state_from_string():
+	    - Make failure to read header and ConfSources warnings only, to support old
+	      serialisation formats that do not encode this information.
+	  - state_deserialise_blocked(): Fix bug where event blocker was being
+	    incremented twice. Now, just assert it is set.
+	  - state_deserialise_blocking(): Failure to deserialise a Blocked object 
+	    is no longer ignored since sessions are supported.
+	* init/state.h: STATE_VERSION history and notes.
+	* init/tests/test_conf.c: Replace calls to job_class_find() with
+	  job_class_get_registered().
+	* init/tests/test_event_operator.c:
+	  - test_operator_serialisation(): Check both the original string
+	    serialisation format and the new full EventOperator serialisation.
+	    type.
+	* init/tests/test_job.c:
+	  - test_deserialise_ptrace():
+	    - Comments and more checks.
+	    - Create ConfSource, ConfFile and JobClass manually.
+	    - Call job_class_consider() as we now have a backing ConfFile.
+	    - Wait for childs child.
+	* init/tests/test_state.c:
+	  - Simplify TestDataFile.
+	  - Ensure files passed to conf_file_new() provide expected suffix.
+	  - job_class_diff(): Add event_operator_diff() call.
+	  - conf_source_diff(): New function.
+	  - conf_file_diff(): New function.
+	  - test_blocking():
+	    - Extra checks.
+	    - Expect ConfFiles to be recreated on re-exec.
+	  - test_upgrade(): Check environment is clean before running the next test.
+	  - test_upstart1_8_upgrade(): New Upstart-1.8 serialisation format test.
+	  - conf_source_from_path(): New utility function.
+	* init/tests/test_util.c:
+	  - event_operator_diff(): New function.
+	  - session_from_chroot(): New function.
+	* init/tests/data/upstart-1.8.json: New test file.
+
+2013-05-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_source_serialise_all(): Make failures fatal.
+	* init/event_operator.c: event_operator_collapse(): Unhide but mark as
+	  unused (it's still used by the tests).
+	* init/job.c:
+	  - job_serialise(): Remove unused variable.
+	  - job_deserialise(): Check the type of the start/stop on condition in
+	    the json, not the json passed to the function.
+	* init/job_class.c: job_class_deserialise(): Check the type of the
+	  start/stop on condition in the json, not the json passed to the
+	  function.
+	* init/state.c:
+	  - Comments.
+	  - state_read_header(): Extract header from JSON before checking for
+	    serialisation version.
+
+2013-05-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/man/shutdown.8: Specify default action is to bring system
+	  down to single-user mode (LP: #1065851).
+
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_deserialise(): Only set blockers if EventOperators
+	  are serialised.
+	* init/event_operator.c: event_operator_collapse(): Now only needed for
+	  DEBUG.
+	* init/job.c:
+	  - job_deserialise(): Support old string format for 'stop_on'
+	    EventOperator as well as new array format.
+	* init/job_class.c:
+	* init/state.c: Create a meta-header containing a serialisation version
+	  number.
+
+2013-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - New serialisation and support functions:
+	    - conf_source_serialise()
+	    - conf_source_serialise_all()
+	    - conf_source_deserialise()
+	    - conf_source_deserialise_all()
+	    - conf_source_type_enum_to_str()
+	    - conf_source_type_str_to_enum()
+	    - conf_file_serialise()
+	    - conf_file_deserialise()
+	    - conf_file_deserialise_all()
+	    - conf_source_get_index()
+	    - conf_file_find()
+	    - debug_show_event_operator()
+	    - debug_show_event_operators()
+	* init/event_operator.c:
+	  - event_deserialise():
+	    - Fix leaked env array.
+	    - Deserialise blockers count now EventOperators are also serialised.
+	  - event_operator_type_enum_to_str()
+	  - event_operator_type_str_to_enum()
+	  - event_operator_serialise()
+	  - event_operator_serialise_all()
+	  - event_operator_deserialise()
+	  - event_operator_deserialise_all()
+	* init/job_class.c:
+	  - job_class_add_safe(): Remove as no longer required.
+	  - job_class_get(): Must call job_class_init().
+	  - job_class_serialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Serialise start/stop on fully (as EventOperators) rather than just the original
+	      string condition (LP: #1103881).
+	  - job_class_deserialise():
+	    - Remove error case if chroot session specified now that ConfSources
+	      are serialised.
+	    - Associate the JobClass with its ConfFile.
+	  - job_class_serialise_all():
+	    - Comments.
+	    - Failure to serialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_deserialise():
+	    - Deserialise start/stop on conditions as EventOperators rather than as a
+	      string condition.
+	    - Since ConfFiles are now serialised, call job_class_consider()
+	      rather than job_class_add_safe().
+	  - job_class_deserialise_all():
+	    - Failure to deserialise a JobClass is now a hard error since we now
+	      serialise all JobClasses.
+	  - job_class_get_index(): New function.
+	* init/state.c:
+	  - state_to_string(): Serialise ConfSources and ConfFiles.
+	  - state_from_string(): Deserialise ConfSources and ConfFiles.
+	  - state_deserialise_resolve_deps(): Allow chroot sessions to be
+	    handled now we serialise ConfSources and ConfFiles.
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Added test_main.
+	* init/tests/test_main.c: New test.
+	* init/tests/test_job_process.c: strcmp_compar() moved to test_util.c.
+	* util/tests/test_initctl.c: strcmp_compar() removed.
+	* init/xdg.c: Disable loading of jobs from SYSTEM_USERCONFDIR if
+	  "UPSTART_NO_SYSTEM_USERCONFDIR" envvar set (required for testing).
+	* test/test_util.c: Added strcmp_compar() and get_session_file().
+	* util/tests/test_initctl.c: Use get_session_file().
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* Makefile.am: Added 'test'.
+	* configure.ac: Added 'test/Makefile'.
+	* init/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* init/state.c: Added missing config.h include.
+	* util/Makefile.am: Depend on test_util archive rather than source
+	  files.
+	* util/tests/test_initctl.c: Moved common utility code to
+	  test/test_util.c and replaced INITCTL_BINARY by get_initctl_binary().
+	* test/test_util.[ch]: New location for init/tests/test_util.[ch] to
+	  allow all tests access to common functionality.
+
+2013-04-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job.c: job_serialise_all(): Really serialise all JobClasses,
+	* init/main.c: Add 'write-state-file' command-line option.
+	  regardless of whether they have associated Jobs.
+	* init/paths.h: Added STATE_FILE_ENV.
+	* init/state.c:
+	  - state_read_objects(): Write state file if 'write-state-file'
+	    specified or STATE_FILE_ENV set.
+	  - event_deserialise():
+	    - Preserve the pre-reexec blockers count until JobClasses
+	      are deserialised and reverse-dependencies resolved.
+	    - Fix incorrect calls for failed and blockers Event attributes.
+	* init/state.h: Comments.
+	* init/tests/test_state.c:
+	  - test_job_class_serialise(): Ensure that all JobClasses get
+	    serialised, regardless of whether they have any associated
+	    Jobs.
+	  - test_event_serialise(): New "with failed" test.
+	* init/event.c: event_deserialise(): Don't deserialise Event->blockers -
+	  there is no point until we serialise EventOperators.
+
+2013-04-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_reload(): Explanation of how reload works.
+	  - conf_reload_path(): Defer destruction of original ConfFile until
+	    newly-loaded .conf file has a chance to reference any events its
+	    'start on' condition requires (LP: 1124384).
+	  - debug_show_jobs(): Return if no instances.
+	  - debug_show_events(): New function.
+	* init/event.c: Comments.
+	* init/job.c: Comment.
+	* init/job_class.c:
+	  - job_class_get_registered(): New function resulting from refactor of
+	    job_class_consider() and job_class_reconsider().
+	  - job_class_consider():
+	    - Use job_class_get_registered().
+	    - Call job_class_event_block() to avoid premature event destruction.
+	  - job_class_reconsider(): Use job_class_get_registered().
+	  - job_class_event_block(): New function to increase reference count
+	    for events new JobClass specifies in its 'start on' condition that
+	    old JobClass has also referenced (second part of LP: #1124384).
+	* init/tests/test_conf.c:
+	  - test_source_reload(): New tests:
+	    - "ensure reload does not destroy a blocked event used by another job"
+	    - "ensure .conf reload causes waiting job to run when 'start on' matches"
+	* init/tests/test_conf.h: TEST_ENSURE_CLEAN_ENV(): Check
+	  nih_child_watches too.
+
+2013-04-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* Typo and doc changes.
+
+2013-04-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/Makefile.am: Build wrap_inotify library and run test_conf
+	  via test_conf_preload.sh.
+	* init/tests/test_conf.c: Communicate with wrap_inotify library by
+	  setting INOTIFY_DISABLE to reliably disable inotify rather than trying
+	  to exhaust inotify instances (LP: #1157713).
+	* init/tests/test_conf_preload.sh.in: Script to run test_conf within
+	  LD_PRELOAD environment.
+	* init/tests/wrap_inotify.c: Wrapper library that provides the inotify
+	  API and allows test_conf to believe inotify is disabled by
+	  conditionally failing all inotify calls, depending on whether
+	  INOTIFY_DISABLE is set.
+
+2013-04-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c:
+	  - main(): Allow Session Init to accept multiple --confdir values,
+	    which replace all built-in values (behaviour required for testing).
+	  - handle_confdir(): Operate on conf_dirs array rather than single
+	    conf_dir value.
+	  - conf_dir_setter(): Command-line setter function to add configuration
+	    file directories to conf_dirs array.
+	* init/man/init.8: Update on --confdir behaviour.
+	* extra/man/file-event.7: Correct EVENT values in examples.
+	* extra/man/upstart-event-bridge.8:
+	  - Corrected bridge name.
+	  - Explain that blocking semantics of system jobs not retained.
+
+2013-03-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/upstart-monitor.py: on_button_press_event():
+	  Handle path_info being None (LP: #1161098).
+	* extra/upstart-event-bridge.c: main():
+	  - Handle daemon pidfile as the upstart-event-bridge does.
+	  - Write to stdout, not syslog.
+	* init/job_process.[ch]: Removed now unused
+	  JOB_PROCESS_ERROR_OPENPT_MASTER.
+
+2013-03-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/socket-event.7: Correct section number.
+	* init/man/init.5: Correct section number.
+
+2013-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Added missing entry for
+	  man/upstart-monitor.8.
+
+2013-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.8
+
+2013-03-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/initctl2dot.py:
+	  - footer(): Add details of session.
+	  - sanitise(): Handle jobs in sub-directories.
+	  - main(): Add --user and --system options and determine
+	    correct session to connect to.
+	* scripts/man/initctl2dot.8:
+	  - Added --user and --system options.
+	  - Escape dashes in options.
+	  - Update date.
+
 2013-03-21  James Hunt  <james.hunt@ubuntu.com>
 
-	* po/POTFILES.in: Added missing entries for init/quiesce.c
-	  and init/state.c.
+	* po/POTFILES.in:
+	  - Added missing entries for init/quiesce.c and init/state.c.
+	  - Added upstart-monitor.py.
+	* scripts/upstart-monitor.py: UpstartEventsGui(): Removed class
+	  attributes and added explicit instance ones in __init__().
+
+2013-03-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac: Added scripts/data/Makefile.
+	* scripts/Makefile.am: Added SUBDIRS=data.
+	* scripts/data/Makefile.am: New Makefile.
+	* scripts/data/upstart-monitor.desktop: Desktop file for
+	  upstart-monitor.
 
 2013-03-15  James Hunt  <james.hunt@ubuntu.com>
 
@@ -27,6 +617,13 @@
 	  - watched_dir_new(): Special case watching the root directory.
 	* extra/conf/upstart-file-bridge.conf: Change start on condition
 	  to ensure all filesystems are mounted before it starts.
+
+2013-03-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/man/upstart-monitor.8: New manpage.
+	* scripts/upstart-monitor.py: New cli+gui tool to monitor
+	  Upstart events.
+	* scripts/Makefile.am: Updated for upstart-monitor.
 
 2013-03-11  James Hunt  <james.hunt@ubuntu.com>
 

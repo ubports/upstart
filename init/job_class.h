@@ -164,6 +164,7 @@ typedef enum console_type {
  * @setgid: group name to drop to before starting process,
  * @deleted: whether job should be deleted when finished.
  * @usage: usage text - how to control job
+ * @apparmor_switch: AppArmor profile to switch to before starting job
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -220,6 +221,8 @@ typedef struct job_class {
 	int             debug;
 
 	char           *usage;
+
+	char	       *apparmor_switch;
 } JobClass;
 
 
@@ -356,10 +359,16 @@ JobClass * job_class_get (const char *name, Session *session)
 
 void job_class_prepare_reexec (void);
 
-JobClass * job_class_find (const Session *session, const char *name)
+time_t     job_class_max_kill_timeout (void)
 	__attribute__ ((warn_unused_result));
 
-time_t     job_class_max_kill_timeout (void)
+JobClass  *job_class_get_registered (const char *name, const Session *session)
+	__attribute__ ((warn_unused_result));
+
+void       job_class_event_block (void *parent, JobClass *old, JobClass *new);
+
+ssize_t
+job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

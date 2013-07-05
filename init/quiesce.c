@@ -216,14 +216,14 @@ quiesce_show_slow_jobs (void)
 
 		/* Note that instances get killed in a random order */
 		NIH_HASH_FOREACH (class->instances, job_iter) {
-			nih_local const char  *name = NULL;
-			Job                   *job;
+			const char  *name;
+			Job         *job;
 		       
 			job = (Job *)job_iter;
 
 			name = job_name (job);
 
-			nih_message ("job %s failed to stop", name);
+			nih_warn ("job %s failed to stop", name);
 		}
 	}
 }
