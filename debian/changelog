@@ -1,12 +1,13 @@
-upstart (1.9-0ubuntu3) UNRELEASED; urgency=low
+upstart (1.9.1-0ubuntu1) UNRELEASED; urgency=low
 
   * debian/upstart.apport:
     - Added session count to report ('UpstartRunningSessionCount').
     - Join Upstart session to ensure 'UpstartRunningSessionJobs' shows
       session jobs and doesn't default to showing system ones.
   * debian/copyright: Update year.
+  * New upstream release.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 09:05:07 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 09:12:53 +0100
 
 upstart (1.9-0ubuntu2) saucy; urgency=low
 

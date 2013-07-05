@@ -32,8 +32,6 @@
 #include <nih-dbus/errors.h>
 #include <nih-dbus/dbus_connection.h>
 
-#include "dbus/upstart.h"
-
 #include "upstart.h"
 #include "test_util_common.h"
 
