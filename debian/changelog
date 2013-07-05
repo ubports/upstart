@@ -6,8 +6,9 @@ upstart (1.9.1-0ubuntu1) UNRELEASED; urgency=low
       session jobs and doesn't default to showing system ones.
   * debian/copyright: Update year.
   * New upstream release.
+  * debian/{control,libupstart*}: Add libupstart packaging.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 09:12:53 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 10:01:43 +0100
 
 upstart (1.9-0ubuntu2) saucy; urgency=low
 

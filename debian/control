@@ -36,3 +36,28 @@ Description: event monitor for upstart
  command-line tool or as a graphical one that displays upstart
  events as they are emitted. It is useful for observing system
  changes and for determining appropriate events for new jobs.
+
+Package: libupstart1
+Priority: optional
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}, ${shlibs:Depends}, ${misc:Depends}
+Depends: libnih-dbus1
+Multi-Arch: same
+Description: Upstart Client Library
+ The libupstart library allows access to services provided by the Upstart init
+ daemon without having to use low-level D-Bus calls.
+ .
+ This package contains the shared library.
+
+Package: libupstart-dev
+Priority: optional
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libupstart1 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Upstart Client Library (development files)
+ The libupstart library allows access to services provided by the Upstart init
+ daemon without having to use low-level D-Bus calls.
+ .
+ This package contains the static library and C header files which are
+ needed for developing software using libupstart.

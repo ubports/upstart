@@ -639,6 +639,8 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+SELINUX_LIBS
+SELINUX_CFLAGS
 HAVE_ABI_CHECKER_FALSE
 HAVE_ABI_CHECKER_TRUE
 ABI_COMPLIANCE_CHECKER
@@ -810,6 +812,7 @@ with_libiconv_prefix
 with_libintl_prefix
 with_local_libnih
 enable_abi_check
+enable_selinux
 enable_threading
 enable_compiler_warnings
 enable_compiler_optimisations
@@ -837,7 +840,9 @@ DBUS_LIBS
 UDEV_CFLAGS
 UDEV_LIBS
 JSON_CFLAGS
-JSON_LIBS'
+JSON_LIBS
+SELINUX_CFLAGS
+SELINUX_LIBS'
 
 
 # Initialize some variables set by options.
@@ -1474,6 +1479,7 @@ Optional Features:
   --disable-rpath         do not hardcode runtime library paths
   --disable-abi-check     Disable libupstart ABI check performed if
                           abi-compliance-checker available
+  --enable-selinux        enable SELinux support
   --enable-threading      Enable support for multi-threading
   --enable-compiler-warnings
                           Enable additional compiler warnings
@@ -1526,6 +1532,10 @@ Some influential environment variables:
   UDEV_LIBS   linker flags for UDEV, overriding pkg-config
   JSON_CFLAGS C compiler flags for JSON, overriding pkg-config
   JSON_LIBS   linker flags for JSON, overriding pkg-config
+  SELINUX_CFLAGS
+              C compiler flags for SELINUX, overriding pkg-config
+  SELINUX_LIBS
+              linker flags for SELINUX, overriding pkg-config
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -14930,6 +14940,111 @@ else
   HAVE_ABI_CHECKER_FALSE=
 fi
 
+
+# Check whether --enable-selinux was given.
+if test "${enable_selinux+set}" = set; then :
+  enableval=$enable_selinux;
+else
+  enable_selinux=no
+fi
+
+
+if test "x$enable_selinux" = "xyes" ; then
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for SELINUX" >&5
+$as_echo_n "checking for SELINUX... " >&6; }
+
+if test -n "$SELINUX_CFLAGS"; then
+    pkg_cv_SELINUX_CFLAGS="$SELINUX_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libselinux\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libselinux") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_SELINUX_CFLAGS=`$PKG_CONFIG --cflags "libselinux" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$SELINUX_LIBS"; then
+    pkg_cv_SELINUX_LIBS="$SELINUX_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libselinux\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libselinux") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_SELINUX_LIBS=`$PKG_CONFIG --libs "libselinux" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        SELINUX_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libselinux" 2>&1`
+        else
+	        SELINUX_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libselinux" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$SELINUX_PKG_ERRORS" >&5
+
+	as_fn_error $? "Package requirements (libselinux) were not met:
+
+$SELINUX_PKG_ERRORS
+
+Consider adjusting the PKG_CONFIG_PATH environment variable if you
+installed software in a non-standard prefix.
+
+Alternatively, you may set the environment variables SELINUX_CFLAGS
+and SELINUX_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details." "$LINENO" 5
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The pkg-config script could not be found or is too old.  Make sure it
+is in your PATH or set the PKG_CONFIG environment variable to the full
+path to pkg-config.
+
+Alternatively, you may set the environment variables SELINUX_CFLAGS
+and SELINUX_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details.
+
+To get pkg-config, see <http://pkg-config.freedesktop.org/>.
+See \`config.log' for more details" "$LINENO" 5; }
+else
+	SELINUX_CFLAGS=$pkg_cv_SELINUX_CFLAGS
+	SELINUX_LIBS=$pkg_cv_SELINUX_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+fi
+
+$as_echo "#define HAVE_SELINUX 1" >>confdefs.h
+
+fi
 
 # Checks for header files.
 for ac_header in valgrind/valgrind.h, sys/prctl.h
