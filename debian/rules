@@ -40,6 +40,7 @@ override_dh_fixperms:
 	chmod 755 debian/upstart/lib/init/apparmor-profile-load
 	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
 	rm debian/upstart/etc/init/upstart-event-bridge.conf
+	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 override_dh_install:
 	dh_install

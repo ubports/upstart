@@ -7,8 +7,10 @@ upstart (1.9.1-0ubuntu1) UNRELEASED; urgency=low
   * debian/copyright: Update year.
   * New upstream release.
   * debian/{control,libupstart*}: Add libupstart packaging.
+  * debian/rules: Delete upstart-dbus-bridge.conf to avoid running it
+    at the system level.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 10:01:43 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 05 Jul 2013 14:37:32 +0100
 
 upstart (1.9-0ubuntu2) saucy; urgency=low
 
