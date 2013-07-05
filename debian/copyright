@@ -4,7 +4,7 @@ Upstream-Contact: upstart-devel@lists.ubuntu.com
 Source: http://http://launchpad.net/upstart
 
 Files: *
-Copyright: 2009-2012 Canonical Ltd.
+Copyright: 2009-2013 Canonical Ltd.
 License: GPL-2
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License version 2, as
