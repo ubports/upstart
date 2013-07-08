@@ -12,6 +12,8 @@ upstart (1.9.1-0ubuntu1) saucy; urgency=low
     - Install libupstart.pc to correct multi-arch location.
   * debian/upstart.postinst: Handle safe removal of
     upstart-dbus-bridge.conf (which is not used at the system level).
+  * debian/control: Add build-depends on automake >= 1.12 for serial-tests
+    in configure.ac (LP: #1197529).
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 08 Jul 2013 11:11:48 +0100
 
