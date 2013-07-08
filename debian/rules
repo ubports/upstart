@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 
+include /usr/share/dpkg/architecture.mk
+
 DEB_BUILD_MAINT_OPTIONS  := hardening=+pie,+bindnow
 DEB_LDFLAGS_MAINT_APPEND := -Wl,--as-needed
 DEB_CFLAGS_MAINT_APPEND  := -Wall
@@ -41,6 +43,9 @@ override_dh_fixperms:
 	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
 	rm debian/upstart/etc/init/upstart-event-bridge.conf
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
+
+override_dh_auto_install:
+	dh_auto_install -- pkgconfigdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
 
 override_dh_install:
 	dh_install

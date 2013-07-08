@@ -40,8 +40,8 @@ Description: event monitor for upstart
 Package: libupstart1
 Priority: optional
 Architecture: any
-Pre-Depends: ${misc:Pre-Depends}, ${shlibs:Depends}, ${misc:Depends}
-Depends: libnih-dbus1
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Multi-Arch: same
 Description: Upstart Client Library
  The libupstart library allows access to services provided by the Upstart init
