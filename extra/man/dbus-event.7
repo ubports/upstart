@@ -10,6 +10,8 @@ dbus \- event signalling that a dbus signal has been emitted
 .BI PATH\fR= PATH
 .BI SENDER\fR= SENDER
 .BI DESTINATION\fR= DESTINATION
+.BI ARG0\fR= VALUE
+.BI ARGN\fR= VALUE
 .\"
 .SH DESCRIPTION
 
@@ -25,10 +27,12 @@ or
 .B stop on
 stanza is modified.
 
+Arguments that are simple types (string, int, etc.) are translated into strings and placed as parameters on the event with the pattern ARG and the number representing the placement in the event prototype.  Parameters that are not a simple type are skipped, with the number being incremented the same.
+
 .\"
 .SH EXAMPLES
 .\"
-.IP "start on dbus SIGNAL=NameAcquired INTERFACE=org.freedesktop.DBus PATH=/org/freedesktop/DBus SENDER=org.freedesktop.DBus"
+.IP "start on dbus SIGNAL=NameAcquired INTERFACE=org.freedesktop.DBus PATH=/org/freedesktop/DBus SENDER=org.freedesktop.DBus ARG0=com.mycorp.foo"
 Start job when a particular
 .I NameAcquired
 D-Bus signal is received.
