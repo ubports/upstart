@@ -183,6 +183,15 @@ main (int   argc,
 	if (dbus_bus == (DBusBusType)-1)
 		dbus_bus = user_mode ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
 
+	/* Checking to make sure it wasn't set already */
+	if (bus_name == NULL) {
+		if (dbus_bus == DBUS_BUS_SESSION) {
+			bus_name = "session";
+		} else if (dbus_bus == DBUS_BUS_SYSTEM) {
+			bus_name = "system";
+		}
+	}
+
 	/* Connect to the chosen D-Bus bus */
 	dbus_connection = NIH_SHOULD (nih_dbus_bus (dbus_bus, dbus_disconnected));
 
