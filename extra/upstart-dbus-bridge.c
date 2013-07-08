@@ -44,8 +44,15 @@
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
+/**
+ * DBUS_EVENT:
+ *
+ * Name of event this program handles.
+ **/
+#define DBUS_EVENT "dbus"
+
 /* Prototypes for static functions */
-static int               dbus_event_setter    (NihOption *option, const char *arg);
+static int               bus_name_setter      (NihOption *option, const char *arg);
 static int               dbus_bus_setter      (NihOption *option, const char *arg);
 static void              dbus_disconnected    (DBusConnection *connection);
 static void              upstart_disconnected (DBusConnection *connection);
@@ -87,11 +94,11 @@ static int user_mode = FALSE;
 DBusBusType dbus_bus = (DBusBusType)-1;
 
 /**
- * dbus_event:
+ * bus_name:
  *
  * type of event to emit.
  **/
-static const char * dbus_event = NULL;
+static const char * bus_name = NULL;
 
 /**
  * Structure we use for tracking jobs
@@ -129,8 +136,8 @@ static NihOption options[] = {
 	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "event", N_("Event to emit to Upstart Jobs"),
-	  NULL, "event name", NULL, dbus_event_setter },
+	{ 0, "bus-name", N_("Bus name to emit to Upstart Jobs"),
+	  NULL, "bus name", NULL, bus_name_setter },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
@@ -175,9 +182,6 @@ main (int   argc,
 	/* Default to an appropriate bus */
 	if (dbus_bus == (DBusBusType)-1)
 		dbus_bus = user_mode ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
-
-	if (dbus_event == NULL) 
-		dbus_event = "dbus";
 
 	/* Connect to the chosen D-Bus bus */
 	dbus_connection = NIH_SHOULD (nih_dbus_bus (dbus_bus, dbus_disconnected));
@@ -303,7 +307,8 @@ main (int   argc,
 		if (user_mode) {
 			/* Extract PID from UPSTART_SESSION */
 			user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
-			for (int i = 0; user_session_path[i] != NULL; i++)
+
+			for (int i = 0; user_session_path && user_session_path[i]; i++)
 				path_element = user_session_path[i];
 
 			if (! path_element) {
@@ -382,12 +387,12 @@ upstart_disconnected (DBusConnection *connection)
 }
 
 /**  
- * NihOption setter function to handle event name
+ * NihOption setter function to handle bus name
  *
  * Returns: 0 on success
  **/
 static int
-dbus_event_setter (NihOption *option, const char *arg)
+bus_name_setter (NihOption *option, const char *arg)
 {
 	nih_assert (option);
 
@@ -395,7 +400,7 @@ dbus_event_setter (NihOption *option, const char *arg)
 		return -1;
 	}
 
-	dbus_event = arg;
+	bus_name = arg;
 	return 0;
 }
 
@@ -492,6 +497,12 @@ signal_filter (DBusConnection  *connection,
 		goto out;
 	}
 
+	if (bus_name) {
+		nih_local char *var = NULL;
+		var = NIH_MUST (nih_sprintf (NULL, "BUS=%s", bus_name));
+		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	}
+
 	if (interface) {
 		nih_local char *var = NULL;
 		var = NIH_MUST (nih_sprintf (NULL, "INTERFACE=%s", interface));
@@ -525,7 +536,7 @@ signal_filter (DBusConnection  *connection,
 		   path ? path : "");
 
 	pending_call = upstart_emit_event (upstart,
-			dbus_event, env, FALSE,
+			DBUS_EVENT, env, FALSE,
 			NULL, emit_event_error, NULL,
 			NIH_DBUS_TIMEOUT_NEVER);
 
@@ -614,13 +625,13 @@ upstart_job_added (void            *data,
 
 	/* Find out whether this job listens for any DBUS events */
 	for (char ***event = start_on; event && *event && **event; event++)
-		if (! strcmp (**event, dbus_event)) {
+		if (! strcmp (**event, DBUS_EVENT)) {
 			add = TRUE;
 			break;
 		}
 
 	for (char ***event = stop_on; ! add && event && *event && **event; event++)
-		if (! strcmp (**event, dbus_event)) {
+		if (! strcmp (**event, DBUS_EVENT)) {
 			add = TRUE;
 			break;
 		}
@@ -628,7 +639,7 @@ upstart_job_added (void            *data,
 	if (! add)
 		return;
 
-	nih_debug ("Job got added %s for event %s", job_class_path, dbus_event);
+	nih_debug ("Job got added %s for event %s", job_class_path, DBUS_EVENT);
 
 	/* Free any existing record for the job (should never happen,
 	 * but worth being safe).
