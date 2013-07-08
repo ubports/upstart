@@ -2,4 +2,4 @@ usr/lib/*/libupstart.a
 usr/lib/*/libupstart.so
 usr/include/upstart.h
 usr/include/upstart
-usr/lib/pkgconfig/libupstart.pc
+usr/lib/*/pkgconfig/libupstart.pc

@@ -14,8 +14,9 @@ upstart (1.9.1-0ubuntu1) saucy; urgency=low
     upstart-dbus-bridge.conf (which is not used at the system level).
   * debian/control: Add build-depends on automake >= 1.12 for serial-tests
     in configure.ac (LP: #1197529).
+  * debian/libupstart-dev.install: Specify wildcarded path (for multi-arch).
 
- -- James Hunt <james.hunt@ubuntu.com>  Mon, 08 Jul 2013 11:11:48 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 08 Jul 2013 14:04:28 +0100
 
 upstart (1.9-0ubuntu2) saucy; urgency=low
 
