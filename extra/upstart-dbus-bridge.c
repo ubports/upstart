@@ -87,11 +87,11 @@ static int user_mode = FALSE;
 DBusBusType dbus_bus = (DBusBusType)-1;
 
 /**
- * dbus_event:
+ * bus_name:
  *
  * type of event to emit.
  **/
-static const char * dbus_event = NULL;
+static const char * bus_name = NULL;
 
 /**
  * Structure we use for tracking jobs
@@ -129,8 +129,8 @@ static NihOption options[] = {
 	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "event", N_("Event to emit to Upstart Jobs"),
-	  NULL, "event name", NULL, dbus_event_setter },
+	{ 0, "bus-name", N_("Bus name to emit to Upstart Jobs"),
+	  NULL, "bus name", NULL, bus_name_setter },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
@@ -175,9 +175,6 @@ main (int   argc,
 	/* Default to an appropriate bus */
 	if (dbus_bus == (DBusBusType)-1)
 		dbus_bus = user_mode ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM;
-
-	if (dbus_event == NULL) 
-		dbus_event = "dbus";
 
 	/* Connect to the chosen D-Bus bus */
 	dbus_connection = NIH_SHOULD (nih_dbus_bus (dbus_bus, dbus_disconnected));
@@ -382,12 +379,12 @@ upstart_disconnected (DBusConnection *connection)
 }
 
 /**  
- * NihOption setter function to handle event name
+ * NihOption setter function to handle bus name
  *
  * Returns: 0 on success
  **/
 static int
-dbus_event_setter (NihOption *option, const char *arg)
+bus_name_setter (NihOption *option, const char *arg)
 {
 	nih_assert (option);
 
@@ -395,7 +392,7 @@ dbus_event_setter (NihOption *option, const char *arg)
 		return -1;
 	}
 
-	dbus_event = arg;
+	bus_name = arg;
 	return 0;
 }
 
