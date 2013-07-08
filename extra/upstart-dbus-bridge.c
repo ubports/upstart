@@ -497,6 +497,12 @@ signal_filter (DBusConnection  *connection,
 		goto out;
 	}
 
+	if (bus_name) {
+		nih_local char *var = NULL;
+		var = NIH_MUST (nih_sprintf (NULL, "BUS=%s", bus_name));
+		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	}
+
 	if (interface) {
 		nih_local char *var = NULL;
 		var = NIH_MUST (nih_sprintf (NULL, "INTERFACE=%s", interface));
