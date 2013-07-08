@@ -1,3 +1,9 @@
+2013-07-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c: dconf_changed():
+	  - Simplified logic after desrt clarified 'changed' signal
+	  behaviour.
+
 2013-07-05  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-dconf-bridge.c:

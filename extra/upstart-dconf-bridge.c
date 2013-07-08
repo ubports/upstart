@@ -222,20 +222,7 @@ dconf_changed (DConfClient         *client,
 
 	/* Iterate through the various changes */
 	while (changes[i] != NULL) {
-		if (changes[i] && *changes[i]) {
-			/* It is unclear from the documentation which if
-			 * either of prefix or each individual change element contains
-			 * a slash as separator, but clearly to
-			 * reconstruct the full path we need to produce one from
-			 * somewhere.
-			 */
-			if (g_str_has_suffix (prefix, "/") || g_str_has_prefix (changes[i], "/"))
-				path = g_strconcat (prefix, changes[i], NULL);
-			else
-				path = g_strconcat (prefix, "/", changes[i], NULL);
-		} else {
-			path = g_strconcat (prefix, NULL);
-		}
+		path = g_strconcat (prefix, changes[i], NULL);
 
 		value = dconf_client_read (client, path);
 		value_str = g_variant_print (value, FALSE);
