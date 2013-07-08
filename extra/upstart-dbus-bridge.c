@@ -525,16 +525,82 @@ signal_filter (DBusConnection  *connection,
 			nih_local char *var = NULL;
 
 			switch (current_type) {
+				case DBUS_TYPE_BOOLEAN: {
+					dbus_bool_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg ? "TRUE" : "FALSE"));
+					break;
+				}
+				case DBUS_TYPE_INT16: {
+					dbus_int16_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%u", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT16: {
+					dbus_uint16_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%d", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_INT32: {
+					dbus_int32_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%d", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT32: {
+					dbus_uint32_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%u", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_INT64: {
+					dbus_int64_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%ld", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT64: {
+					dbus_uint64_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%lu", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_DOUBLE: {
+					double arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%f", arg_num, arg));
+					break;
+				}
 				case DBUS_TYPE_STRING: {
 					const char * arg = NULL;
 					dbus_message_iter_get_basic(&message_iter, &arg);
 
 					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
-					NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+					break;
+				}
+				case DBUS_TYPE_OBJECT_PATH: {
+					const char * arg = NULL;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
 					break;
 				}
 				/* NOTE: Only supporting strings for now, we can consider other
 				   types in the future by extending this switch */
+			}
+
+			if (var != NULL) {
+				NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 			}
 
 			dbus_message_iter_next(&message_iter);
