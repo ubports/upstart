@@ -1,3 +1,39 @@
+2013-07-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.9.1
+
+2013-07-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* Perform 2-pass generation of libupstart.pc to ensure library
+	  version specified correctly.
+
+2013-07-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-event-bridge.c: main(): Check nih_str_split() return.
+	* extra/upstart-file-bridge.c: main():
+	  - Check nih_str_split() return.
+	  - Only attempt to extract PID from UPSTART_SESSION
+	    in user mode (LP: #1197225).
+	* Makefile.am: Remove intl directory.
+	* configure.ac: Use external gettext library.
+
+2013-07-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am: Make nih-dbus-tool generate code into the
+	  upstart/ directory as we need it there to allow the tests to run
+	  against a simulated installed header directory.
+	* lib/tests/test_libupstart.c: Remove unecessary include (which
+	  is now included automatically by upstart.h).
+
+2013-07-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/Makefile.am:
+	  - Install client library headers.
+	  - Add missing backslash.
+	* lib/upstart.h: Look in upstart/ sub-directory for
+	  auto-generated header files.
+
 2013-06-28  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9

@@ -1,4 +1,13 @@
-1.10  xxxx-xx-xx 
+1.10  xxxx-xx-xx
+
+1.9.1  2013-07-04 "The all-inclusive deal"
+
+	* Fix respawn behaviour regression (introduced in version 1.8) affecting
+	  jobs which also specify shell meta-characters in the exec stanza
+	  (LP: #1181789).
+	* Fix common bug which could cause a bridge to crash (LP: #1197225).
+	* Various fixes for libupstart.
+	* initctl2dot: Layout improvements.
 
 1.9  2013-06-28 "This village isn't even on the map"
 
