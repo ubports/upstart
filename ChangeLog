@@ -1,3 +1,8 @@
+2013-07-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
+	  disabled even if dependencies are available (--disable-dconf-bridge).
+
 2013-07-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-dconf-bridge.c: dconf_changed():

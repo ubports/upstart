@@ -83,7 +83,7 @@ upstart_dbus_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-if HAVE_DCONF
+if ENABLE_DCONF_BRIDGE
 sbin_PROGRAMS += \
 	upstart-dconf-bridge
 

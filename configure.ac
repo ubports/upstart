@@ -34,8 +34,15 @@ PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.36], [have_gio=yes], [have_gio=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
 AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
-AM_CONDITIONAL([HAVE_DCONF], [test "$have_dconf" = yes &&
-                                test "$have_gio" = yes])
+
+AC_ARG_ENABLE([dconf-bridge],
+	AS_HELP_STRING([--disable-dconf-bridge],
+		[Disable building of upstart-dconf-bridge even if required dependencies available]),
+		[dconf_bridge=no], [dconf_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
+                                test "$have_gio" = yes &&
+				test "$dconf_bridge" = yes])
 
 # Reasons for requiring this library version:
 #
