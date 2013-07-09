@@ -20,6 +20,7 @@ upstart (1.9.1-0ubuntu1) saucy; urgency=low
   [ Dmitrijs Ledkovs ]
   * Correct libupstart1.symbols, whilst soname is at 1.0.0, all of them
     first appeared in 1.9.1 upstream version.
+  * Use dpkg-maintscript-helper to remove obsolete conffiles.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 08 Jul 2013 14:04:28 +0100
 

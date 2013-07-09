@@ -1,31 +1,4 @@
 #!/bin/sh -e
-# This script can be called in the following ways:
-#
-# After the package was installed:
-#	<postinst> configure <old-version>
-#
-#
-# If prerm fails during upgrade or fails on failed upgrade:
-#	<old-postinst> abort-upgrade <new-version>
-#
-# If prerm fails during deconfiguration of a package:
-#	<postinst> abort-deconfigure in-favour <new-package> <version>
-#	           removing <old-package> <version>
-#
-# If prerm fails during replacement due to conflict:
-#	<postinst> abort-remove in-favour <new-package> <version>
-
-# Remove a no-longer used conffile
-rm_conffile()
-{
-    CONFFILE="$1"
-
-    if [ -e "$CONFFILE".dpkg-obsolete ]; then
-	echo "Removing obsolete conffile $CONFFILE"
-	rm -f "$CONFFILE".dpkg-obsolete
-    fi
-}
-
 
 case "$1" in
     configure)
@@ -94,15 +67,7 @@ case "$1" in
 	    fi
 	fi
 
-	# Upgrade from karmic development version
-	if dpkg --compare-versions "$2" lt-nl 0.6.3-7; then
-	    rm_conffile /etc/init/dbus-reconnect.conf
-	fi
-
 	# Bridge is not used at the system level
-	dpkg-maintscript-helper rm_conffile \
-		/etc/init/upstart-dbus-bridge.conf \
-		1.9-0ubuntu1~ -- "$@"
 	;;
 
     abort-upgrade|abort-deconfigure|abort-remove)
