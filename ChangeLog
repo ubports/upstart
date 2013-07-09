@@ -2,6 +2,9 @@
 
 	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
 	  disabled even if dependencies are available (--disable-dconf-bridge).
+	* extra/upstart-dconf-bridge.c: Changed event name to simply 'dconf'
+	  with fixed first argument of 'TYPE=changed' for consistency with
+	  other bridge events and to accommodate future dconf API changes.
 
 2013-07-08  James Hunt  <james.hunt@ubuntu.com>
 

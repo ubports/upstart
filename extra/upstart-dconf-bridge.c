@@ -45,7 +45,7 @@
  *
  * Name of event this program emits.
  **/
-#define DCONF_EVENT "dconf-changed"
+#define DCONF_EVENT "dconf"
 
 /* Prototypes for static functions */
 static void dconf_changed (DConfClient *client, const gchar *prefix,
@@ -220,6 +220,11 @@ dconf_changed (DConfClient         *client,
 	GVariantBuilder   builder;
 	int               i = 0;
 
+	/* dconf only currently supports the changed signal, but
+	 * parameterise to allow for a future API change.
+	 */
+	const gchar      *event_type = "TYPE=changed";
+
 	/* Iterate through the various changes */
 	while (changes[i] != NULL) {
 		path = g_strconcat (prefix, changes[i], NULL);
@@ -236,6 +241,7 @@ dconf_changed (DConfClient         *client,
 		g_variant_builder_add (&builder, "s", DCONF_EVENT);
 
 		g_variant_builder_open (&builder, G_VARIANT_TYPE_ARRAY);
+		g_variant_builder_add (&builder, "s", event_type);
 		g_variant_builder_add (&builder, "s", env_key);
 		g_variant_builder_add (&builder, "s", env_value);
 		g_variant_builder_close (&builder);
