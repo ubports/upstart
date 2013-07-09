@@ -1,5 +1,6 @@
 upstart (1.9.1-0ubuntu1) saucy; urgency=low
 
+  [ James Hunt ]
   * debian/upstart.apport:
     - Added session count to report ('UpstartRunningSessionCount').
     - Join Upstart session to ensure 'UpstartRunningSessionJobs' shows
@@ -15,6 +16,10 @@ upstart (1.9.1-0ubuntu1) saucy; urgency=low
   * debian/control: Add build-depends on automake >= 1.12 for serial-tests
     in configure.ac (LP: #1197529).
   * debian/libupstart-dev.install: Specify wildcarded path (for multi-arch).
+
+  [ Dmitrijs Ledkovs ]
+  * Correct libupstart1.symbols, whilst soname is at 1.0.0, all of them
+    first appeared in 1.9.1 upstream version.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 08 Jul 2013 14:04:28 +0100
 
