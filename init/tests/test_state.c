@@ -148,6 +148,7 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
 void test_upstart1_6_upgrade (const char *path);
+void test_session_upgrade (const char *path);
 void test_upstart1_8_upgrade (const char *path);
 void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
@@ -194,7 +195,7 @@ TestDataFile test_data_files[] = {
 	{ "upstart-1.8+apparmor.json", test_upstart_with_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation-apparmor.json", test_upstart_full_serialise_without_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation+apparmor.json", test_upstart_full_serialise_with_apparmor_upgrade },
-
+	{ "upstart-session.json", test_session_upgrade },
 	{ NULL, NULL }
 };
 
@@ -3325,6 +3326,61 @@ test_upstart1_6_upgrade (const char *path)
 	conf_init ();
 	job_class_init ();
 }
+
+/**
+ * test_session_upgrade
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test for original Upstart 1.6 serialisation data format containing
+ * a blocked object that does not contain a 'session' element.
+ *
+ * Note that this test is NOT testing whether a JobClass with an
+ * associated Upstart session is handled correctly, it is merely
+ * testing that a JobClass with the NULL session encoded in the JSON
+ * is handled correctly.
+ **/
+void
+test_session_upgrade (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	Event           *event;
+	struct stat      statbuf;
+	size_t           len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+
+}
+
 
 /**
  * test_upstart1_8_upgrade:
