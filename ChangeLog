@@ -1,3 +1,10 @@
+2013-07-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c: conf_source_deserialise_all(): Assert that any
+	  existing ConfSources relate to chroot sessions, created as
+	  part of the earlier Session deserialisation. (LP: #1199778)
+	* init/state.c: Formatting.
+
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9.1

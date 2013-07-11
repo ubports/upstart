@@ -459,7 +459,7 @@ state_from_string (const char *state)
 			goto out;
 		}
 	} else {
-			nih_warn ("%s", _("No ConfSources present in state data"));
+		nih_warn ("%s", _("No ConfSources present in state data"));
 	}
 
 	if (job_class_deserialise_all (json) < 0) {
