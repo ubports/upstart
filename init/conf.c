@@ -1507,7 +1507,15 @@ conf_source_deserialise_all (json_object *json)
 
 	conf_init ();
 
-	nih_assert (NIH_LIST_EMPTY (conf_sources));
+	/* The only ConfSources that should exist at this stage are
+	 * those associated with a (chroot) session since these were
+	 * created as part of session deserialisation.
+	 */
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source  = (ConfSource *)iter;
+
+		nih_assert (source->session);
+	}
 
 	json_conf_sources = json_object_object_get (json, "conf_sources");
 
