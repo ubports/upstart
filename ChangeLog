@@ -1,3 +1,12 @@
+2013-07-12  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/tests/data: upstart-session.json: add stateful re-exec
+	tests with chroot session. (LP: #1200264)
+
+	* init/state.c: state_deserialise_resolve_deps(): properly account
+	at dependency resolution stage for skipped job_classes from chroot
+	sessions when those got deserialised. Fixes above unit test.
+
 2013-07-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/conf.c: conf_source_deserialise_all(): Assert that any

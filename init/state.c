@@ -1211,10 +1211,14 @@ state_deserialise_resolve_deps (json_object *json)
 			goto error;
 	}
 
+	int skipped_classes = 0;
+	int session_index = -1;
+
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
 		json_object  *json_class;
 		json_object  *json_jobs;
 		JobClass     *class = NULL;
+		session_index = -1;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
@@ -1222,24 +1226,27 @@ state_deserialise_resolve_deps (json_object *json)
 
 		if (! state_check_json_type (json_class, object))
 			goto error;
+		
+		if (! state_get_json_int_var (json_class, "session", session_index))
+			goto error;
+
+		if (session_index > 0) {
+			/* Although ConfSources are now serialised,
+			 * skip JobClasses with associated user/chroot
+			 * sessions to avoid behavioural changes for
+			 * the time being.
+			 */
+			skipped_classes++;
+			continue;
+		}
 
 		/* lookup class associated with JSON class index */
-		class = state_index_to_job_class (i);
-		if (! class) {
-			int session_index = -1;
+		class = state_index_to_job_class (i - skipped_classes);
 
-			if (state_get_json_int_var (json_class, "session", session_index)
-					&& session_index > 0) {
-
-				/* Although ConfSources are now serialised, ignore
-				 * JobClasses with associated user/chroot sessions to avoid
-				 * behavioural changes for the time being.
-				 */
-				continue;
-			} else {
-				goto error;
-			}
-		}
+		/* Whoops, unaccounted gap in the 1-1 mapping between
+		 * job_classes and json_objects */
+		if (! class)
+			goto error;
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
@@ -1757,6 +1764,13 @@ state_index_to_job_class (int job_class_index)
 
 		i++;
 	}
+
+	/*
+	 * Warning! You have reached the end of the conveyor!
+	 * 
+	 * Please mind the gaps in job_classes, due to skipping
+	 * deserialisation of chroot job_classes.
+	 */
 
 	return NULL;
 }
