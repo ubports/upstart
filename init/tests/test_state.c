@@ -3370,6 +3370,53 @@ test_session_upgrade (const char *path)
 	/* Recreate state from JSON data file */
 	assert0 (state_from_string (json_string));
 
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		TEST_EQ_STR (session->chroot, "/mnt");
+		TEST_EQ_STR (session->conf_path, "/mnt/etc/init");
+		session_count++;
+	}
+	TEST_EQ (session_count, 1);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		TEST_EQ_P (class->session, NULL);
+	}
 
 	nih_free (conf_sources);
 	nih_free (job_classes);
@@ -3379,6 +3426,9 @@ test_session_upgrade (const char *path)
 	job_classes = NULL;
 	events = NULL;
 
+	conf_init ();
+	job_class_init ();
+	event_init ();
 }
 
 
