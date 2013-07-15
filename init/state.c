@@ -1249,12 +1249,14 @@ state_deserialise_resolve_deps (json_object *json)
 		/* lookup class associated with JSON class index */
 		class = job_class_get_registered (class_name, session);
 
-		/* Whoops, unaccounted gap in the 1-1 mapping between
-		 * job_classes and json_objects */
 		if (! class)
 			goto error;
 
-		nih_assert (! class->session);
+		/* Sessions have been ignored, but handle the impossible
+		 * anyway.
+		 */
+		if (class->session)
+			goto error;
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
