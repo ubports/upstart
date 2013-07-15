@@ -80,10 +80,6 @@ int restart = FALSE;
 int write_state_file = FALSE;
 
 /* Prototypes for static functions */
-static JobClass *
-state_index_to_job_class (int job_class_index)
-	__attribute__ ((warn_unused_result));
-
 static void state_write_file (NihIoBuffer *buffer);
 
 /**
@@ -1182,6 +1178,8 @@ state_get_json_type (const char *short_type)
 int
 state_deserialise_resolve_deps (json_object *json)
 {
+	int  session_index = -1;
+
 	nih_assert (json);
 
 	/* XXX: Sessions, Events, JobClasses, Jobs and DBusConnections
@@ -1211,13 +1209,13 @@ state_deserialise_resolve_deps (json_object *json)
 			goto error;
 	}
 
-	int skipped_classes = 0;
-	int session_index = -1;
-
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		json_object  *json_class;
-		json_object  *json_jobs;
-		JobClass     *class = NULL;
+		json_object     *json_class;
+		json_object     *json_jobs;
+		JobClass        *class = NULL;
+		nih_local char  *class_name = NULL;
+		Session         *session;
+
 		session_index = -1;
 
 		json_class = json_object_array_get_idx (json_classes, i);
@@ -1236,17 +1234,27 @@ state_deserialise_resolve_deps (json_object *json)
 			 * sessions to avoid behavioural changes for
 			 * the time being.
 			 */
-			skipped_classes++;
 			continue;
 		}
 
+		session = session_from_index (session_index);
+
+		/* All (non-NULL) sessions should already exist */
+		if (session_index > 0 && ! session)
+			goto error;
+
+		if (! state_get_json_string_var_strict (json_class, "name", NULL, class_name))
+			goto error;
+
 		/* lookup class associated with JSON class index */
-		class = state_index_to_job_class (i - skipped_classes);
+		class = job_class_get_registered (class_name, session);
 
 		/* Whoops, unaccounted gap in the 1-1 mapping between
 		 * job_classes and json_objects */
 		if (! class)
 			goto error;
+
+		nih_assert (! class->session);
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
@@ -1737,42 +1745,6 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 
 error:
 	return -1;
-}
-
-/**
- * state_index_to_job_class:
- *
- * @job_class_index: job class index number.
- *
- * Lookup JobClass based on JSON array index number.
- *
- * Returns: existing JobClass on success, or NULL if JobClass not found.
- **/
-static JobClass *
-state_index_to_job_class (int job_class_index)
-{
-	int     i = 0;
-
-	nih_assert (job_class_index >= 0);
-	nih_assert (job_classes);
-
-	NIH_HASH_FOREACH (job_classes, iter) {
-		JobClass *class = (JobClass *)iter;
-
-		if (i == job_class_index)
-			return class;
-
-		i++;
-	}
-
-	/*
-	 * Warning! You have reached the end of the conveyor!
-	 * 
-	 * Please mind the gaps in job_classes, due to skipping
-	 * deserialisation of chroot job_classes.
-	 */
-
-	return NULL;
 }
 
 /**

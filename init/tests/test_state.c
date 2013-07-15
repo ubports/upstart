@@ -3344,9 +3344,9 @@ void
 test_session_upgrade (const char *path)
 {
 	nih_local char  *json_string = NULL;
-	Event           *event;
 	struct stat      statbuf;
 	size_t           len;
+	int              got_tty1 = FALSE;
 
 	nih_assert (path);
 
@@ -3416,7 +3416,17 @@ test_session_upgrade (const char *path)
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
 	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
 
 	nih_free (conf_sources);
 	nih_free (job_classes);

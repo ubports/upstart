@@ -1,3 +1,14 @@
+2013-07-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/state.c:
+	  - state_deserialise_resolve_deps(): Look up class
+	    conventionally using name and session since existing indexing
+	    code unreliable as referencing a hash.
+	  - state_index_to_job_class(): Removed.
+	* init/tests/test_state.c: test_session_upgrade(): Add check to ensure
+	  session job with same name as NULL session job does not stop latter
+	  being deserialised.
+
 2013-07-12  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/tests/data: upstart-session.json: add stateful re-exec
