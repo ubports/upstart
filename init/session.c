@@ -429,7 +429,16 @@ session_deserialise_all (json_object *json)
 		if (! session)
 			goto error;
 
-		session_create_conf_source (session, TRUE);
+		/* Note that we do not call session_create_conf_source()
+		 * to create a conf source for each session.
+		 *
+		 * Once we support the deserialisation of chroots, this
+		 * will need to happen. However, currently making this
+		 * call will result in the creation of JobClasses for
+		 * each ConfFile associated with a Session. This is
+		 * pointless since those session-specific JobClasses
+		 * are never used.
+		 */
 	}
 
 	return 0;

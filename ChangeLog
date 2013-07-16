@@ -1,3 +1,23 @@
+2013-07-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-session2.json: New JSON used by
+	  test_session_upgrade2().
+	* init/Makefile.am: Added upstart-session.json and upstart-session2.json
+	  to TEST_DATA_FILES.
+	* init/conf.c: conf_source_deserialise_all(): Assert that no conf
+	  sources have yet been deserialised since now session deserialisation
+	  avoids creating chroot conf sources (see below).
+	* init/job_class.c: job_class_deserialise_all(): Formatting.
+	* init/session.c: session_deserialise_all(): Don't create ConfSources
+	  for each Session (since they are not actually used).
+	* init/tests/test_state.c:
+	  - test_upgrade(): Call ensure_env_clean() both before each test and
+	    after the last test to ensure it left the environment clean.
+	  - test_session_upgrade(): Clear up sessions.
+	  - test_session_upgrade2(): New test.
+	* init/tests/test_util.c: ensure_env_clean(): New function abstracted
+	  from code in test_upgrade().
+
 2013-07-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/state.c:

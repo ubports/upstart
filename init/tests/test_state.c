@@ -149,6 +149,7 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 
 void test_upstart1_6_upgrade (const char *path);
 void test_session_upgrade (const char *path);
+void test_session_upgrade2 (const char *path);
 void test_upstart1_8_upgrade (const char *path);
 void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
@@ -196,6 +197,7 @@ TestDataFile test_data_files[] = {
 	{ "upstart-1.8+full_serialisation-apparmor.json", test_upstart_full_serialise_without_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation+apparmor.json", test_upstart_full_serialise_with_apparmor_upgrade },
 	{ "upstart-session.json", test_session_upgrade },
+	{ "upstart-session2.json", test_session_upgrade2 },
 	{ NULL, NULL }
 };
 
@@ -3218,13 +3220,13 @@ test_upgrade (void)
 					TEST_DATA_DIR, datafile->filename));
 
 		/* Ensure environment is clean before test is run */
-		TEST_LIST_EMPTY (sessions);
-		TEST_LIST_EMPTY (events);
-		TEST_LIST_EMPTY (conf_sources);
-		TEST_HASH_EMPTY (job_classes);
+		ensure_env_clean ();
 
 		datafile->func (path);
 	}
+
+	/* Call again to make sure last test left environment sane */
+	ensure_env_clean ();
 }
 
 /**
@@ -3431,16 +3433,139 @@ test_session_upgrade (const char *path)
 	nih_free (conf_sources);
 	nih_free (job_classes);
 	nih_free (events);
+	nih_free (sessions);
 
 	conf_sources = NULL;
 	job_classes = NULL;
 	events = NULL;
+	sessions = NULL;
 
 	conf_init ();
 	job_class_init ();
 	event_init ();
+	session_init ();
 }
 
+
+/**
+ * test_session_upgrade2
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test to ensure Upstart can deserialise a state file containing a
+ * session and which caused an early fix for bug LP:#1199778 to fail
+ * (resulting in stateless re-exec).
+ **/
+void
+test_session_upgrade2 (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	struct stat      statbuf;
+	size_t           len;
+	int              got_tty1 = FALSE;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		TEST_EQ_STR (session->chroot, "/var/lib/lxc/saucy/rootfs");
+		TEST_EQ_STR (session->conf_path, "/var/lib/lxc/saucy/rootfs//etc/init");
+		session_count++;
+	}
+	TEST_EQ (session_count, 1);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		if (class->session) {
+			nih_debug ("XXX:%s:%d: class='%s', session='%s'",
+					__func__, __LINE__,
+					class->name,
+					class->session->conf_path);
+		}
+
+		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
+	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
 
 /**
  * test_upstart1_8_upgrade:

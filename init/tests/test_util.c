@@ -86,3 +86,23 @@ session_from_chroot (const char *chroot)
 
 	return NULL;
 }
+
+/**
+ * ensure_env_clean:
+ *
+ * Ensure the common data structures are empty.
+ **/
+void
+ensure_env_clean (void)
+{
+	TEST_NE_P (sessions, NULL);
+	TEST_NE_P (events, NULL);
+	TEST_NE_P (conf_sources, NULL);
+	TEST_NE_P (job_classes, NULL);
+
+	/* Ensure environment is clean before test is run */
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+}
