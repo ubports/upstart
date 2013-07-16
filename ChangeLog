@@ -1,3 +1,7 @@
+2013-07-16  Colin Watson  <cjwatson@ubuntu.com>
+
+	* configure.ac: Use json-c rather than json if available.
+
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.9.1
