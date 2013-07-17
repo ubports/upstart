@@ -149,7 +149,7 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 
 void test_upstart1_6_upgrade (const char *path);
 void test_session_upgrade (const char *path);
-void test_session_upgrade2 (const char *path);
+void test_session_upgrade2 (const char *original_path);
 void test_upstart1_8_upgrade (const char *path);
 void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
@@ -972,17 +972,23 @@ fail:
 void
 test_session_serialise (void)
 {
-	json_object  *json;
-	json_object  *json_sessions;
-	Session      *session1;
-	Session      *session2;
-	Session      *new_session1;
-	Session      *new_session2;
-	int           ret;
+	json_object     *json;
+	json_object     *json_sessions;
+	Session         *session1;
+	Session         *session2;
+	Session         *new_session1;
+	Session         *new_session2;
+	int              ret;
+	char             chroot_path[PATH_MAX];
+	mode_t           old_perms;
+	nih_local char  *path = NULL;
 
 	session_init ();
 
 	TEST_GROUP ("Session serialisation and deserialisation");
+
+	/*******************************/
+	TEST_FEATURE ("Session deserialisation");
 
 	TEST_LIST_EMPTY (sessions);
 
@@ -1014,8 +1020,6 @@ test_session_serialise (void)
 
 	TEST_LIST_EMPTY (sessions);
 
-	TEST_FEATURE ("Session deserialisation");
-
 	/* Convert the JSON back into Session objects */
 	ret = session_deserialise_all (json);
 	assert0 (ret);
@@ -1045,6 +1049,83 @@ test_session_serialise (void)
 	nih_free (session2);
 	nih_free (new_session1);
 	nih_free (new_session2);
+
+	/*******************************/
+	TEST_FEATURE ("Ensure session deserialisation does not create JobClasses");
+
+	clean_env ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	old_perms = umask (0);
+
+	TEST_FILENAME (chroot_path);
+	assert0 (mkdir (chroot_path, 0755));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (mkdir (path, 0755));
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (mkdir (path, 0755));
+
+	CREATE_FILE (path, "foo.conf", "manual");
+
+	session1 = session_new (NULL, chroot_path);
+	TEST_NE_P (session1, NULL);
+	session1->conf_path = NIH_MUST (nih_sprintf (session1, "%s//etc/init", chroot_path));
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	json_sessions = session_serialise_all ();
+	TEST_NE_P (json_sessions, NULL);
+
+	json_object_object_add (json, "sessions", json_sessions);
+
+	/* Remove the session from the master list (but don't free it)
+	 */
+	nih_list_remove (&session1->entry);
+	TEST_LIST_EMPTY (sessions);
+
+	clean_env ();
+
+	/* Convert the JSON back into Session objects */
+	ret = session_deserialise_all (json);
+	assert0 (ret);
+
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	/* Ensure no ConfSources, ConfFiles or JobClasses were created
+	 * as part of the session deserialisation.
+	 */
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	session2 = (Session *)nih_list_remove (sessions->next);
+	assert0 (session_diff (session1, session2));
+
+	/* Clean up */
+
+	/* free the JSON */
+	json_object_put (json);
+
+	DELETE_FILE (path, "foo.conf");
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (rmdir (path));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (rmdir (path));
+
+	assert0 (rmdir (chroot_path));
+
+	/* Restore */
+	umask (old_perms);
 }
 
 void
@@ -3450,21 +3531,31 @@ test_session_upgrade (const char *path)
 /**
  * test_session_upgrade2
  *
- * @path: full path to JSON data file to deserialise.
+ * @path: full path to JSON data file that needs pre-processing.
+ *
+ * XXX: @path contains multiple occurences of @CHROOT_PATH@ which must
+ * be replaced by a valid temporary directory path before attempting
+ * deserialisation.
  *
  * Test to ensure Upstart can deserialise a state file containing a
- * session and which caused an early fix for bug LP:#1199778 to fail
- * (resulting in stateless re-exec).
+ * chroot session where that chroot path actually exists with jobs on disk.
+ * This was added since that exact scenario caught a bug in an early fix
+ * for LP:#1199778 (resulting in stateless re-exec).
  **/
 void
-test_session_upgrade2 (const char *path)
+test_session_upgrade2 (const char *original_path)
 {
 	nih_local char  *json_string = NULL;
 	struct stat      statbuf;
 	size_t           len;
 	int              got_tty1 = FALSE;
+	char             chroot_path[PATH_MAX];
+	nih_local char  *path = NULL;
+	nih_local char  *file = NULL;
+	nih_local char  *processed_json = NULL;
+	mode_t           old_perms;
 
-	nih_assert (path);
+	nih_assert (original_path);
 
 	conf_init ();
 	session_init ();
@@ -3478,13 +3569,34 @@ test_session_upgrade2 (const char *path)
 	TEST_HASH_EMPTY (job_classes);
 
 	/* Check data file exists */
-	TEST_EQ (stat (path, &statbuf), 0);
+	TEST_EQ (stat (original_path, &statbuf), 0);
 
-	json_string = nih_file_read (NULL, path, &len);
-	TEST_NE_P (json_string, NULL);
+	/* Read the original file */
+	file = nih_file_read (NULL, original_path, &len);
+	TEST_NE_P (file, NULL);
+
+	old_perms = umask (0);
+
+	TEST_FILENAME (chroot_path);
+	assert0 (mkdir (chroot_path, 0755));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (mkdir (path, 0755));
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (mkdir (path, 0755));
+
+	/* Replace @CHROOT_PATH@ with our temporary path */
+	processed_json = search_and_replace (NULL, file, "@CHROOT_PATH@", chroot_path);
+	TEST_NE_P (processed_json, NULL);
+
+	/* Create some jobs which are also specified in the original
+	 * JSON state data.
+	 */
+	CREATE_FILE (path, "tty1.conf", "manual");
+	CREATE_FILE (path, "tty2.conf", "manual");
 
 	/* Recreate state from JSON data file */
-	assert0 (state_from_string (json_string));
+	assert0 (state_from_string (processed_json));
 
 	TEST_LIST_NOT_EMPTY (conf_sources);
 	TEST_LIST_NOT_EMPTY (events);
@@ -3494,8 +3606,14 @@ test_session_upgrade2 (const char *path)
 	int session_count = 0;
 	NIH_LIST_FOREACH (sessions, iter) {
 		Session *session = (Session *)iter;
-		TEST_EQ_STR (session->chroot, "/var/lib/lxc/saucy/rootfs");
-		TEST_EQ_STR (session->conf_path, "/var/lib/lxc/saucy/rootfs//etc/init");
+		nih_local char *new_path = NULL;
+
+		/* yes, there is a double-slash in this path */
+		new_path = nih_sprintf (NULL, "%s/%s", chroot_path,
+				"/etc/init");
+
+		TEST_EQ_STR (session->chroot, chroot_path);
+		TEST_EQ_STR (session->conf_path, new_path);
 		session_count++;
 	}
 	TEST_EQ (session_count, 1);
@@ -3504,6 +3622,7 @@ test_session_upgrade2 (const char *path)
 
 	NIH_LIST_FOREACH (conf_sources, iter) {
 		ConfSource *source = (ConfSource *) iter;
+
 		if (! source->session) {
 			switch (source->type) {
 			case CONF_FILE:
@@ -3531,12 +3650,6 @@ test_session_upgrade2 (const char *path)
 
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
-		if (class->session) {
-			nih_debug ("XXX:%s:%d: class='%s', session='%s'",
-					__func__, __LINE__,
-					class->name,
-					class->session->conf_path);
-		}
 
 		TEST_EQ_P (class->session, NULL);
 		if (! strcmp (class->name, "tty1"))
@@ -3565,6 +3678,20 @@ test_session_upgrade2 (const char *path)
 	job_class_init ();
 	event_init ();
 	session_init ();
+
+	DELETE_FILE (path, "tty1.conf");
+	DELETE_FILE (path, "tty2.conf");
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (rmdir (path));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (rmdir (path));
+
+	assert0 (rmdir (chroot_path));
+
+	/* Restore */
+	umask (old_perms);
 }
 
 /**
@@ -4175,6 +4302,34 @@ test_upstart_full_serialise_with_apparmor_upgrade (const char *path)
 	events = NULL;
 }
 
+
+/**
+ * conf_source_from_path:
+ *
+ * @path: path to consider,
+ * @type: tyoe of ConfSource to check for,
+ * @session: session.
+ *
+ * Look for a ConfSource with path @path, type @type and session
+ * @session.
+ *
+ * Returns: Matching ConfSource or NULL if not found.
+ */
+ConfSource *
+conf_source_from_path (const char *path, ConfSourceType type, const Session *session)
+{
+	nih_assert (path);
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+		if (! strcmp (source->path, path)
+				&& source->type == type && source->session == session)
+			return source;
+	}
+
+	return NULL;
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -4202,31 +4357,4 @@ main (int   argc,
 	test_upgrade ();
 
 	return 0;
-}
-
-/**
- * conf_source_from_path:
- *
- * @path: path to consider,
- * @type: tyoe of ConfSource to check for,
- * @session: session.
- *
- * Look for a ConfSource with path @path, type @type and session
- * @session.
- *
- * Returns: Matching ConfSource or NULL if not found.
- */
-ConfSource *
-conf_source_from_path (const char *path, ConfSourceType type, const Session *session)
-{
-	nih_assert (path);
-
-	NIH_LIST_FOREACH (conf_sources, iter) {
-		ConfSource *source = (ConfSource *)iter;
-		if (! strcmp (source->path, path)
-				&& source->type == type && source->session == session)
-			return source;
-	}
-
-	return NULL;
 }

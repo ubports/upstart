@@ -1,3 +1,21 @@
+2013-07-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_state.c:
+	  - test_session_serialise(): Added new test "Ensure session
+	    deserialisation does not create JobClasses" to assert
+	    new session deserialisation behaviour.
+	  - test_session_upgrade2(): Finished writing this test - it now creates
+	    a fake chroot path, updates the JSON so that all references to the
+	    chroot session refer to the temporary chroot path, creates 2 jobs
+	    and then performs the serialisation/deserialisation.
+	* init/tests/test_util.c:
+	  - ensure_env_clean():
+	    - Comments.
+	    - Added log_unflushed_files.
+	  - clean_env(): New function that re-initialises the common
+	    data structures.
+	* test/test_util_common.c: search_and_replace(): New function.
+
 2013-07-16  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/data/upstart-session2.json: New JSON used by
