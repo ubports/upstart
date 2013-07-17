@@ -16,6 +16,10 @@
 	    data structures.
 	* test/test_util_common.c: search_and_replace(): New function.
 
+2013-07-16  Colin Watson  <cjwatson@ubuntu.com>
+
+	* configure.ac: Use json-c rather than json if available.
+
 2013-07-16  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/data/upstart-session2.json: New JSON used by
