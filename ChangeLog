@@ -1,3 +1,7 @@
+2013-07-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/conf-session/: Addition of example jobs for Session Inits.
+
 2013-07-17  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_state.c:
