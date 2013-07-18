@@ -49,7 +49,8 @@ AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 # 2) New json_tokener_parse_verbose() function required to detect invalid
 #    JSON (!)
 #
-PKG_CHECK_MODULES([JSON], [json >= 0.10])
+PKG_CHECK_MODULES([JSON], [json-c], [],
+	[PKG_CHECK_MODULES([JSON], [json >= 0.10])])
 
 AC_ARG_ENABLE([abi-check],
 	AS_HELP_STRING([--disable-abi-check],

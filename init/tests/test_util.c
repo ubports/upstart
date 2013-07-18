@@ -86,3 +86,63 @@ session_from_chroot (const char *chroot)
 
 	return NULL;
 }
+
+/**
+ * ensure_env_clean:
+ *
+ * Ensure most common data structures are empty.
+ *
+ * Note: Control connections are not handled as the init routine
+ * does more than just initialise the structure.
+ **/
+void
+ensure_env_clean (void)
+{
+	TEST_NE_P (sessions, NULL);
+	TEST_NE_P (events, NULL);
+	TEST_NE_P (conf_sources, NULL);
+	TEST_NE_P (job_classes, NULL);
+	TEST_NE_P (log_unflushed_files, NULL);
+
+	/* Ensure environment is clean before test is run */
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (log_unflushed_files);
+}
+
+/**
+ * clean_env:
+ *
+ * Re-initialise all common data structures.
+ *
+ * Note: Like ensure_env_clean(), control connections are not handled.
+ **/
+void
+clean_env (void)
+{
+	session_init ();
+	event_init ();
+	job_class_init ();
+	conf_init ();
+	log_unflushed_init ();
+
+	nih_free (sessions);
+	nih_free (events);
+	nih_free (job_classes);
+	nih_free (conf_sources);
+	nih_free (log_unflushed_files);
+
+	sessions = NULL;
+	events = NULL;
+	job_classes = NULL;
+	conf_sources = NULL;
+	log_unflushed_files = NULL;
+
+	session_init ();
+	event_init ();
+	job_class_init ();
+	conf_init ();
+	log_unflushed_init ();
+}
