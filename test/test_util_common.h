@@ -729,4 +729,8 @@ int in_chroot (void)
 int dbus_configured (void)
 	__attribute__ ((warn_unused_result));
 
+char *search_and_replace (void *parent, const char *str,
+			  const char *from, const char *to)
+	__attribute__ ((warn_unused_result));
+
 #endif /* TEST_UTIL_COMMON_H */
