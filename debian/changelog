@@ -1,4 +1,4 @@
-upstart (1.9.1-0ubuntu2) UNRELEASED; urgency=low
+upstart (1.9.1-0ubuntu2) saucy; urgency=low
 
   [ Dmitrijs Ledkovs ]
   * Upload to saucy.
@@ -9,7 +9,7 @@ upstart (1.9.1-0ubuntu2) UNRELEASED; urgency=low
   [ Colin Watson ]
   * Alternatively try new and old pkg-config names for json-c library.
 
- -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Thu, 18 Jul 2013 10:52:16 +0100
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Thu, 18 Jul 2013 10:56:31 +0100
 
 upstart (1.9.1-0ubuntu1) saucy; urgency=low
 
