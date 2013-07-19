@@ -1,3 +1,8 @@
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Don't set debug log prioirity when running
+	  as a non-priv user by default (LP: #1201865).
+
 2013-07-18  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/conf-session/: Addition of example jobs for Session Inits.
