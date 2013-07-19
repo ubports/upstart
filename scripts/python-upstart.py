@@ -17,7 +17,6 @@ Upstart test module.
 import os
 import sys
 import logging
-import pwd
 import tempfile
 import pyinotify
 import subprocess
@@ -29,7 +28,6 @@ import unittest
 import time
 from datetime import datetime, timedelta
 from gi.repository import GLib
-
 
 VERSION = '0.1'
 NAME = 'TestUpstart'
@@ -47,7 +45,7 @@ SYSTEM_LOG_DIR = '/var/log/upstart'
 # used to log session init output
 DEFAULT_LOGFILE = '/tmp/upstart.log'
 
-SESSION_DIR_FMT = '/run/user/%s/upstart/sessions'
+SESSION_DIR_FMT = 'upstart/sessions'
 
 BUS_NAME                 = 'com.ubuntu.Upstart'
 INTERFACE_NAME           = 'com.ubuntu.Upstart0_6'
@@ -909,8 +907,8 @@ class SessionInit(Upstart):
             mask = pyinotify.IN_CREATE
             notifier = \
                 pyinotify.Notifier(watch_manager, InotifyHandler())
-            user = pwd.getpwuid(os.geteuid())[0]
-            watch_manager.add_watch(SESSION_DIR_FMT % user, mask)
+            session = os.path.join(os.environ['XDG_RUNTIME_DIR'], SESSION_DIR_FMT)
+            watch_manager.add_watch(session, mask)
 
             notifier.process_events()
 

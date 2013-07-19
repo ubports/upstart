@@ -1,3 +1,8 @@
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Updates for XDG_RUNTIME_DIR based
+	  on review comments.
+
 2013-07-18  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/conf-session/: Addition of example jobs for Session Inits.
