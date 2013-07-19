@@ -148,8 +148,9 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
 void test_upstart1_6_upgrade (const char *path);
-void test_session_upgrade (const char *path);
-void test_session_upgrade2 (const char *original_path);
+void test_session_upgrade_midflight (const char *path);
+void test_session_upgrade_exists (const char *original_path);
+void test_session_upgrade_stale (const char *path);
 void test_upstart1_8_upgrade (const char *path);
 void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
@@ -196,8 +197,9 @@ TestDataFile test_data_files[] = {
 	{ "upstart-1.8+apparmor.json", test_upstart_with_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation-apparmor.json", test_upstart_full_serialise_without_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation+apparmor.json", test_upstart_full_serialise_with_apparmor_upgrade },
-	{ "upstart-session.json", test_session_upgrade },
-	{ "upstart-session2.json", test_session_upgrade2 },
+	{ "upstart-session.json", test_session_upgrade_midflight },
+	{ "upstart-session2.json", test_session_upgrade_exists },
+	{ "upstart-session-infinity.json", test_session_upgrade_stale },
 	{ NULL, NULL }
 };
 
@@ -3411,20 +3413,15 @@ test_upstart1_6_upgrade (const char *path)
 }
 
 /**
- * test_session_upgrade
+ * test_session_upgrade_midflight
  *
  * @path: full path to JSON data file to deserialise.
  *
- * Test for original Upstart 1.6 serialisation data format containing
- * a blocked object that does not contain a 'session' element.
+ * Test for re-exec with an active and existing chroot session.
  *
- * Note that this test is NOT testing whether a JobClass with an
- * associated Upstart session is handled correctly, it is merely
- * testing that a JobClass with the NULL session encoded in the JSON
- * is handled correctly.
  **/
 void
-test_session_upgrade (const char *path)
+test_session_upgrade_midflight (const char *path)
 {
 	nih_local char  *json_string = NULL;
 	struct stat      statbuf;
@@ -3529,7 +3526,7 @@ test_session_upgrade (const char *path)
 
 
 /**
- * test_session_upgrade2
+ * test_session_upgrade_exists
  *
  * @path: full path to JSON data file that needs pre-processing.
  *
@@ -3543,7 +3540,7 @@ test_session_upgrade (const char *path)
  * for LP:#1199778 (resulting in stateless re-exec).
  **/
 void
-test_session_upgrade2 (const char *original_path)
+test_session_upgrade_exists (const char *original_path)
 {
 	nih_local char  *json_string = NULL;
 	struct stat      statbuf;
@@ -3693,6 +3690,127 @@ test_session_upgrade2 (const char *original_path)
 	/* Restore */
 	umask (old_perms);
 }
+
+/**
+ * test_session_upgrade_stale
+ *
+ * @path: full path to JSON data file that needs pre-processing.
+ *
+ * Test to ensure Upstart can deserialise a state file containing a
+ * stale chroot session which is long gone.  This was added since
+ * updated scenario caught a bug in a bug fix to an early fix for
+ * LP:#1199778 (resulting in stateless re-exec).
+ *
+ **/
+void
+test_session_upgrade_stale (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	struct stat      statbuf;
+	size_t           len;
+	int              got_tty1 = FALSE;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		if (session_count == 0) {
+			TEST_EQ_STR (session->chroot, "/var/lib/schroot/mount/raring-amd64-9684b2e0-c5c2-49f0-9baf-7eddd72f2482");
+			TEST_EQ_STR (session->conf_path, "/var/lib/schroot/mount/raring-amd64-9684b2e0-c5c2-49f0-9baf-7eddd72f2482/etc/init");
+		} else {
+			TEST_EQ_STR (session->chroot, "/var/lib/schroot/mount/saucy-amd64-4c0015a8-7e99-4d1b-8453-557a82aff76f");
+			TEST_EQ_STR (session->conf_path, "/var/lib/schroot/mount/saucy-amd64-4c0015a8-7e99-4d1b-8453-557a82aff76f/etc/init");
+		}
+		session_count++;
+	}
+	TEST_EQ (session_count, 2);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 2);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
+	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
 
 /**
  * test_upstart1_8_upgrade:

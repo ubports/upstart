@@ -1,3 +1,10 @@
+2013-07-19  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/session.c: fix a bug in session_from_index to handle more
+	than one session.
+	* init/tests/test_state.c: add a test_sesion_upgrade_stale with 2
+	stale chroot sessions.
+
 2013-07-19  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: main(): Don't set debug log prioirity when running
