@@ -1,8 +1,8 @@
-upstart (1.9.1-0ubuntu3) UNRELEASED; urgency=low
+upstart (1.9.1-0ubuntu3) saucy; urgency=low
 
   * Fix stateful re-exec with multiple stale chroot sessions (LP: #1199778)
 
- -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Fri, 19 Jul 2013 23:55:51 +0100
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Sat, 20 Jul 2013 00:17:07 +0100
 
 upstart (1.9.1-0ubuntu2) saucy; urgency=low
 
