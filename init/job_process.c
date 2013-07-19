@@ -67,6 +67,7 @@
 #include "errors.h"
 #include "control.h"
 #include "xdg.h"
+#include "apparmor.h"
 
 
 /**
@@ -260,12 +261,6 @@ job_process_run (Job         *job,
 			NIH_MUST (nih_str_array_addp (&argv, NULL,
 						      &argc, cmd));
 		}
-
-		/* At the end, always set proc->script to TRUE, even if the user didn't
-		 * explicitly set it (when using shell variables). That way tests
-		 * can reliably check for shell-specific behaviour.
-		 */
-		proc->script = TRUE;
 	} else {
 		/* Split the command on whitespace to produce a list of
 		 * arguments that we can exec directly.
@@ -281,9 +276,6 @@ job_process_run (Job         *job,
 	 */
 	envc = 0;
 	env = NIH_MUST (nih_str_array_new (NULL));
-
-	if (user_mode && ! no_inherit_env)
-		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, environ));
 
 	if (job->env)
 		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, job->env));
@@ -701,184 +693,208 @@ job_process_spawn (Job          *job,
 		close (pty_slave);
 	}
 
-	/* Set resource limits for the process, skipping over any that
-	 * aren't set in the job class such that they inherit from
-	 * ourselves (and we inherit from kernel defaults).
+	/* Switch to the specified AppArmor profile, but only for the main
+	   process, so we don't confine the pre- and post- processes.
 	 */
-	for (i = 0; i < RLIMIT_NLIMITS; i++) {
-		if (! class->limits[i])
-			continue;
+	if ((class->apparmor_switch) && (process == PROCESS_MAIN)) {
+		nih_local char *profile = NULL;
 
-		if (setrlimit (i, class->limits[i]) < 0) {
+		/* Use the environment to expand the AppArmor profile name
+		 */
+		profile = NIH_SHOULD (environ_expand (NULL,
+						      class->apparmor_switch,
+						      environ));
+
+		if (! profile) {
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SECURITY, 0);
+		}
+
+		if (apparmor_switch (profile) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SECURITY, 0);
+		}
+	}
+
+	if (process != PROCESS_SECURITY) {
+		/* Set resource limits for the process, skipping over any that
+		 * aren't set in the job class such that they inherit from
+		 * ourselves (and we inherit from kernel defaults).
+		 */
+		for (i = 0; i < RLIMIT_NLIMITS; i++) {
+			if (! class->limits[i])
+				continue;
+
+			if (setrlimit (i, class->limits[i]) < 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1],
+							 JOB_PROCESS_ERROR_RLIMIT, i);
+			}
+		}
+
+		/* Set the file mode creation mask; this is one of the few operations
+		 * that can never fail.
+		 */
+		umask (class->umask);
+
+		/* Adjust the process priority ("nice level").
+		 */
+		if (class->nice != JOB_NICE_INVALID &&
+		    setpriority (PRIO_PROCESS, 0, class->nice) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1],
-						 JOB_PROCESS_ERROR_RLIMIT, i);
+						 JOB_PROCESS_ERROR_PRIORITY, 0);
 		}
-	}
 
-	/* Set the file mode creation mask; this is one of the few operations
-	 * that can never fail.
-	 */
-	umask (class->umask);
-
-	/* Adjust the process priority ("nice level").
-	 */
-	if (class->nice != JOB_NICE_INVALID &&
-	    setpriority (PRIO_PROCESS, 0, class->nice) < 0) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1],
-					 JOB_PROCESS_ERROR_PRIORITY, 0);
-	}
-
-	/* Adjust the process OOM killer priority.
-	 */
-	if (class->oom_score_adj != JOB_DEFAULT_OOM_SCORE_ADJ) {
-		int oom_value;
-		snprintf (filename, sizeof (filename),
-			  "/proc/%d/oom_score_adj", getpid ());
-		oom_value = class->oom_score_adj;
-		fd = fopen (filename, "w");
-		if ((! fd) && (errno == ENOENT)) {
+		/* Adjust the process OOM killer priority.
+		 */
+		if (class->oom_score_adj != JOB_DEFAULT_OOM_SCORE_ADJ) {
+			int oom_value;
 			snprintf (filename, sizeof (filename),
-				  "/proc/%d/oom_adj", getpid ());
-			oom_value = (class->oom_score_adj
-				     * ((class->oom_score_adj < 0) ? 17 : 15)) / 1000;
+				  "/proc/%d/oom_score_adj", getpid ());
+			oom_value = class->oom_score_adj;
 			fd = fopen (filename, "w");
-		}
-		if (! fd) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
-		} else {
-			fprintf (fd, "%d\n", oom_value);
-
-			if (fclose (fd)) {
+			if ((! fd) && (errno == ENOENT)) {
+				snprintf (filename, sizeof (filename),
+					  "/proc/%d/oom_adj", getpid ());
+				oom_value = (class->oom_score_adj
+					     * ((class->oom_score_adj < 0) ? 17 : 15)) / 1000;
+				fd = fopen (filename, "w");
+			}
+			if (! fd) {
 				nih_error_raise_system ();
 				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
-			}
-		}
-	}
-
-	/* Handle changing a chroot session job prior to dealing with
-	 * the 'chroot' stanza.
-	 */
-	if (class->session && class->session->chroot) {
-		if (chroot (class->session->chroot) < 0) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHROOT, 0);
-		}
-	}
-
-	/* Change the root directory, confining path resolution within it;
-	 * we do this before the working directory call so that is always
-	 * relative to the new root.
-	 */
-	if (class->chroot) {
-		if (chroot (class->chroot) < 0) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1],
-						 JOB_PROCESS_ERROR_CHROOT, 0);
-		}
-	}
-
-	/* Change the working directory of the process, either to the one
-	 * configured in the job, or to the root directory of the filesystem
-	 * (or at least relative to the chroot).
-	 */
-	if (class->chdir || user_mode == FALSE) {
-		if (chdir (class->chdir ? class->chdir : "/") < 0) {
-			nih_error_raise_system ();
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
-		}
-	}
-
-	/* Change the user and group of the process to the one
-	 * configured in the job. We must wait until now to lookup the
-	 * UID and GID from the names to accommodate both chroot
-	 * session jobs and jobs with a chroot stanza.
-	 */
-	if (class->setuid) {
-		/* Without resetting errno, it's impossible to
-		 * distinguish between a non-existent user and and
-		 * error during lookup */
-		errno = 0;
-		pwd = getpwnam (class->setuid);
-		if (! pwd) {
-			if (errno != 0) {
-				nih_error_raise_system ();
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWNAM, 0);
 			} else {
-				nih_error_raise (JOB_PROCESS_INVALID_SETUID,
-						 JOB_PROCESS_INVALID_SETUID_STR);
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETUID, 0);
+				fprintf (fd, "%d\n", oom_value);
+
+				if (fclose (fd)) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_OOM_ADJ, 0);
+				}
 			}
 		}
 
-		job_setuid = pwd->pw_uid;
-		/* This will be overridden if setgid is also set: */
-		job_setgid = pwd->pw_gid;
-	}
-
-	if (class->setgid) {
-		errno = 0;
-		grp = getgrnam (class->setgid);
-		if (! grp) {
-			if (errno != 0) {
+		/* Handle changing a chroot session job prior to dealing with
+		 * the 'chroot' stanza.
+		 */
+		if (class->session && class->session->chroot) {
+			if (chroot (class->session->chroot) < 0) {
 				nih_error_raise_system ();
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRNAM, 0);
-			} else {
-				nih_error_raise (JOB_PROCESS_INVALID_SETGID,
-						 JOB_PROCESS_INVALID_SETGID_STR);
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETGID, 0);
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHROOT, 0);
 			}
 		}
 
-		job_setgid = grp->gr_gid;
-	}
+		/* Change the root directory, confining path resolution within it;
+		 * we do this before the working directory call so that is always
+		 * relative to the new root.
+		 */
+		if (class->chroot) {
+			if (chroot (class->chroot) < 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1],
+							 JOB_PROCESS_ERROR_CHROOT, 0);
+			}
+		}
 
-	if (script_fd != -1 &&
-	    (job_setuid != (uid_t) -1 || job_setgid != (gid_t) -1) &&
-	    fchown (script_fd, job_setuid, job_setgid) < 0) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
-	}
+		/* Change the working directory of the process, either to the one
+		 * configured in the job, or to the root directory of the filesystem
+		 * (or at least relative to the chroot).
+		 */
+		if (class->chdir || user_mode == FALSE) {
+			if (chdir (class->chdir ? class->chdir : "/") < 0) {
+				nih_error_raise_system ();
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHDIR, 0);
+			}
+		}
 
-	/* Make sure we always have the needed pwd and grp structs.
-	 * Then pass those to initgroups() to setup the user's group list.
-	 * Only do that if we're root as initgroups() won't work when non-root. */
-	if (geteuid () == 0) {
-		if (! pwd) {
-			pwd = getpwuid (geteuid ());
+		/* Change the user and group of the process to the one
+		 * configured in the job. We must wait until now to lookup the
+		 * UID and GID from the names to accommodate both chroot
+		 * session jobs and jobs with a chroot stanza.
+		 */
+		if (class->setuid) {
+			/* Without resetting errno, it's impossible to
+			 * distinguish between a non-existent user and and
+			 * error during lookup */
+			errno = 0;
+			pwd = getpwnam (class->setuid);
 			if (! pwd) {
-				nih_error_raise_system ();
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
+				if (errno != 0) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWNAM, 0);
+				} else {
+					nih_error_raise (JOB_PROCESS_INVALID_SETUID,
+							 JOB_PROCESS_INVALID_SETUID_STR);
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETUID, 0);
+				}
 			}
+
+			job_setuid = pwd->pw_uid;
+			/* This will be overridden if setgid is also set: */
+			job_setgid = pwd->pw_gid;
 		}
 
-		if (! grp) {
-			grp = getgrgid (getegid ());
+		if (class->setgid) {
+			errno = 0;
+			grp = getgrnam (class->setgid);
 			if (! grp) {
-				nih_error_raise_system ();
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRGID, 0);
+				if (errno != 0) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRNAM, 0);
+				} else {
+					nih_error_raise (JOB_PROCESS_INVALID_SETGID,
+							 JOB_PROCESS_INVALID_SETGID_STR);
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETGID, 0);
+				}
+			}
+
+			job_setgid = grp->gr_gid;
+		}
+
+		if (script_fd != -1 &&
+		    (job_setuid != (uid_t) -1 || job_setgid != (gid_t) -1) &&
+		    fchown (script_fd, job_setuid, job_setgid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CHOWN, 0);
+		}
+
+		/* Make sure we always have the needed pwd and grp structs.
+		 * Then pass those to initgroups() to setup the user's group list.
+		 * Only do that if we're root as initgroups() won't work when non-root. */
+		if (geteuid () == 0) {
+			if (! pwd) {
+				pwd = getpwuid (geteuid ());
+				if (! pwd) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWUID, 0);
+				}
+			}
+
+			if (! grp) {
+				grp = getgrgid (getegid ());
+				if (! grp) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRGID, 0);
+				}
+			}
+
+			if (pwd && grp) {
+				if (initgroups (pwd->pw_name, grp->gr_gid) < 0) {
+					nih_error_raise_system ();
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_INITGROUPS, 0);
+				}
 			}
 		}
 
-		if (pwd && grp) {
-			if (initgroups (pwd->pw_name, grp->gr_gid) < 0) {
-				nih_error_raise_system ();
-				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_INITGROUPS, 0);
-			}
+		/* Start dropping privileges */
+		if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
 		}
-	}
 
-	/* Start dropping privileges */
-	if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
-	}
-
-	if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
-		nih_error_raise_system ();
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+		if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
+			nih_error_raise_system ();
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
+		}
 	}
 
 	/* Reset all the signal handlers back to their default handling so
@@ -922,6 +938,7 @@ job_process_spawn (Job          *job,
 
 	nih_assert_not_reached ();
 }
+
 
 /**
  * job_process_error_abort:
@@ -1183,6 +1200,11 @@ job_process_error_read (int fd)
 	case JOB_PROCESS_ERROR_INITGROUPS:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to initgroups: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_SECURITY:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to switch security profile: %s"),
 				  strerror (err->errnum)));
 		break;
 	default:
@@ -1639,6 +1661,17 @@ job_process_terminated (Job         *job,
 		 * stop the job now.
 		 */
 		stop = TRUE;
+		break;
+	case PROCESS_SECURITY:
+		nih_assert (job->state == JOB_SECURITY);
+
+		/* We should always fail the job if the security profile
+		 * failed to load
+		 */
+		if (status) {
+			failed = TRUE;
+			stop = TRUE;
+		}
 		break;
 	case PROCESS_PRE_START:
 		nih_assert (job->state == JOB_PRE_START);

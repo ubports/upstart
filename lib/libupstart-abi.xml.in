@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+ upstart - official libupstart abi-compliance-checker(1) descriptor
+
+ Copyright © 2013 Canonical Ltd.
+ Author: James Hunt <james.hunt@canonical.com>
+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License version 2, as
+ published by the Free Software Foundation.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License along
+ with this program; if not, write to the Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+-->
+
+<descriptor>
+
+<version>
+	@libupstart_version@-build
+</version>
+
+<headers>
+	@abs_builddir@
+</headers>
+
+<libs>
+	@abs_builddir@
+</libs>
+
+<!--
+  Include paths are automatically detected but the tool needs help to
+  find the default include directory.
+-->
+<add_include_paths>
+	/usr/include
+</add_include_paths>
+
+</descriptor>

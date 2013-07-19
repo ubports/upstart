@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.9], [upstart-devel@lists.ubuntu.com])
+AC_INIT([upstart], [1.10], [upstart-devel@lists.ubuntu.com])
 NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -16,7 +16,7 @@ LT_PREREQ(2.2.4)
 LT_INIT
 
 AM_GNU_GETTEXT_VERSION([0.17])
-AM_GNU_GETTEXT()
+AM_GNU_GETTEXT([external])
 
 # Checks for programs.
 AC_PROG_CC
@@ -31,6 +31,7 @@ PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
+AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
 
 # Reasons for requiring this library version:
 #
@@ -48,9 +49,20 @@ PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 # 2) New json_tokener_parse_verbose() function required to detect invalid
 #    JSON (!)
 #
-PKG_CHECK_MODULES([JSON], [json >= 0.10])
+PKG_CHECK_MODULES([JSON], [json-c], [],
+	[PKG_CHECK_MODULES([JSON], [json >= 0.10])])
 
-AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+AC_ARG_ENABLE([abi-check],
+	AS_HELP_STRING([--disable-abi-check],
+		[Disable libupstart ABI check performed if abi-compliance-checker available]),
+		[abi_check=no], [abi_check=yes])
+
+if test x$abi_check = xyes; then
+	AC_CHECK_PROGS([ABI_COMPLIANCE_CHECKER],[abi-compliance-checker])
+	AC_SUBST([ABI_COMPLIANCE_CHECKER])
+fi
+
+AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
@@ -98,9 +110,10 @@ NIH_COMPILER_COVERAGE
 NIH_LINKER_OPTIMISATIONS
 
 
-AC_CONFIG_FILES([ Makefile intl/Makefile
+AC_CONFIG_FILES([ Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
-		  scripts/Makefile scripts/data/Makefile ])
+		  scripts/Makefile scripts/data/Makefile
+		  test/Makefile lib/Makefile lib/libupstart.pc.in ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

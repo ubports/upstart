@@ -66,6 +66,7 @@ typedef enum job_goal {
 typedef enum job_state {
 	JOB_WAITING,
 	JOB_STARTING,
+	JOB_SECURITY,
 	JOB_PRE_START,
 	JOB_SPAWNED,
 	JOB_POST_START,
@@ -221,8 +222,8 @@ int         job_deserialise_all (JobClass *parent, json_object *json)
 
 Job *       job_find            (const Session *session,
 				 JobClass       *class,
-				 char  *job_class,
-				 const char *job_name)
+				 const char     *job_class,
+				 const char     *job_name)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

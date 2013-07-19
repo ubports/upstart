@@ -565,10 +565,13 @@ When run from within a job, this command will automatically query the
 job-specific environment table; otherwise the global environment table
 that is applied to all jobs when they first start is queried.
 
-Note that the global job environment table only includes the minimal set
-of standard system variables added by the
+Note that the global job environment table comprises those variables
+already set in the
 .BR init (8)
-daemon along with any variables set using
+daemons environment at startup, the minimal set of standard system
+variables added by the
+.BR init (8)
+daemon, and any variables set using
 .BR set\-env "."
 See
 .BR init (5)
