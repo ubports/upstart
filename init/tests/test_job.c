@@ -6351,6 +6351,43 @@ test_stop (void)
 }
 
 void
+test_reload (void)
+{
+	JobClass        *class;
+	Job             *job = NULL;
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+		class->process[PROCESS_MAIN], "sleep 10");
+
+
+	TEST_FUNCTION ("job_reload");
+	/* Check that an attempt to reload a job that's running
+	 * succeeds
+	 */
+	TEST_FEATURE ("with running job");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+		}
+
+		job->goal = JOB_START;
+		job->state = JOB_RUNNING;
+		TEST_CHILD (job->pid[PROCESS_MAIN]) {
+			pause ();
+		}
+		
+		assert0(kill (job->pid[PROCESS_MAIN], job->class->reload_signal));
+		
+		nih_free (job);
+	}
+
+	nih_free (class);
+}
+
+void
 test_restart (void)
 {
 	DBusConnection  *conn, *client_conn;

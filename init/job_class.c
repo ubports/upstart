@@ -342,6 +342,8 @@ job_class_new (const void *parent,
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	class->kill_signal = SIGTERM;
 
+	class->reload_signal = SIGHUP;
+
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
 	class->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
