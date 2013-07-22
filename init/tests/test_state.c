@@ -584,6 +584,9 @@ job_class_diff (const JobClass *a, const JobClass *b,
 	if (obj_num_check (a, b, kill_signal))
 		goto fail;
 
+	if (obj_num_check (a, b, reload_signal))
+		goto fail;
+
 	if (obj_num_check (a, b, respawn))
 		goto fail;
 
@@ -2281,6 +2284,7 @@ test_job_class_serialise (void)
 
 	class = file->job = job_class_new (NULL, "bar", NULL);
 	TEST_NE_P (class, NULL);
+	class->reload_signal = SIGUSR1;
 	TEST_HASH_EMPTY (job_classes);
 	TEST_TRUE (job_class_consider (class));
 	TEST_HASH_NOT_EMPTY (job_classes);
