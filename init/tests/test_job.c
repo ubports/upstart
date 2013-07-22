@@ -6353,8 +6353,28 @@ test_stop (void)
 void
 test_reload (void)
 {
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
 	JobClass        *class;
-	Job             *job = NULL;
+	Job             *job;
+	Blocked *        blocked;
+	int              ret, status;
+	NihError        *error;
+	NihDBusError    *dbus_error;
+
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	TEST_FUNCTION ("job_reload");
+	TEST_FEATURE ("with default reload signal");
 
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
@@ -6362,27 +6382,114 @@ test_reload (void)
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 		class->process[PROCESS_MAIN], "sleep 10");
 
-
-	TEST_FUNCTION ("job_reload");
-	/* Check that an attempt to reload a job that's running
-	 * succeeds
-	 */
-	TEST_FEATURE ("with running job");
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			job = job_new (class, "");
-		}
-
-		job->goal = JOB_START;
-		job->state = JOB_RUNNING;
-		TEST_CHILD (job->pid[PROCESS_MAIN]) {
-			pause ();
-		}
-		
-		assert0(kill (job->pid[PROCESS_MAIN], job->class->reload_signal));
-		
-		nih_free (job);
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	TEST_CHILD (job->pid[PROCESS_MAIN]) {
+		pause ();
 	}
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Reload");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_reload (job, message);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGHUP);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+	TEST_FEATURE ("with SIGUSR1 reload signal");
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+		class->process[PROCESS_MAIN], "sleep 10");
+	class->reload_signal = SIGUSR1;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	TEST_CHILD (job->pid[PROCESS_MAIN]) {
+		pause ();
+	}
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Reload");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_reload (job, message);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGUSR1);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
 
 	nih_free (class);
 }
@@ -7488,6 +7595,7 @@ main (int   argc,
 	test_start ();
 	test_stop ();
 	test_restart ();
+	test_reload ();
 
 	test_get_name ();
 	test_get_goal ();
