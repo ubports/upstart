@@ -1,2 +1,2 @@
 rm_conffile /etc/init/dbus-reconnect.conf 0.6.3-7
-rm_conffile /etc/init/upstart-dbus-bridge.conf 1.9-0ubuntu2~
+rm_conffile /etc/init/upstart-dbus-bridge.conf 1.9.1-0ubuntu4
