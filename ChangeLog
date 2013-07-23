@@ -2,6 +2,8 @@
 
 	* extra/upstart-text-bridge.c: New bridge.
 	* extra/Makefile.am: Updated for new bridge.
+	* extra/man/upstart-text-bridge.8: New man page.
+	* extra/Makefile.am: Added man page for text-bridge.
 
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 

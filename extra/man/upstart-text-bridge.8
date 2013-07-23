@@ -1,0 +1,114 @@
+.TH upstart\-text\-bridge 8 2013-07-23 upstart
+.\"
+.SH NAME
+upstart\-text\-bridge \- Bridge between Upstart and a client socket
+connection.
+.\"
+.SH SYNOPSIS
+.B upstart\-text\-bridge
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart\-text\-bridge
+listens on a socket for name value pairs and creates
+.BR init (8)
+events for them.
+
+The socket can be either an internet socket (IPv4 or IPv6) or a local
+unix domain socket.
+
+.\"
+.SH OPTIONS
+.\"
+.TP
+.B \-\-address \fIaddress\fP
+Specify IPv4 or IPv6 address to listen on.
+.\"
+.TP
+.B \-\-daemon
+Detach and run in the background.
+.\"
+.TP
+.B \-\-debug
+Enable debugging output.
+.\"
+.TP
+.B \-\-event \fIevent\fP
+Specify name of event to emit on receipt of name/value pair.
+.\"
+.TP
+.B \-\-help
+Show brief usage summary.
+.\"
+.TP
+.B \-\-path \fIpath\fP
+Specify path for local/abstract socket to listen on. If the first byte of
+.I path
+is an \(aq\fI@\fP\(aq, the socket will be created as an abstract socket.
+.\"
+.TP
+.B \-\-port \fIport\fP
+Specify port number to use.
+.\"
+.TP
+.B \-\-socket\-type \fIsocket\fP
+Specify type of socket to listen on. Supported types are
+.I inet
+for IPv4,
+.I inet6
+for IPv6 and 
+.I unix
+for local unix domain sockets.
+.\"
+.TP
+.B \-\-verbose
+Enable verbose output.
+.\"
+.SH EXAMPLES
+.IP "upstart\-text\-bridge \-\-event=foo \-\-socket\-type=inet \-\-address=127.0.0.1 \-\-port=8765" 0.4i
+Listen on address 127.0.0.1 port 8765 and emit an event named
+.I foo
+for every name/value pair read on the socket.
+.IP "upstart\-text\-bridge \-\-event=bar \-\-socket\-type=unix \-\-path=/var/foo/bar" 0.4i
+Listen on local socket
+.I /var/foo/bar
+and emit an event named
+.I bar
+for every name/value pair read on the socket.
+.\"
+.SH NOTES
+The name/value pair forms the single environment variable for the
+specified event name. For example, if
+.I \-\-event=foo
+is specified and the bridge reads the value
+.I bar=baz
+from the socket, the event will be emitted as:
+
+.RS
+.nf
+foo bar=baz
+.fi
+.RE
+
+.\"
+.SH LIMITATIONS
+
+.IP \(bu 4
+Only a single client connection is serviced at any one time.
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@canonical.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2013 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR init (5)
+.BR init (8)

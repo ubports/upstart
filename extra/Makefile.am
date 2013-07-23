@@ -23,19 +23,18 @@ sbin_PROGRAMS = \
 	upstart-dbus-bridge \
 	upstart-text-bridge
 
-# FIXME: add upstart-text-bridge.conf
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
 	conf/upstart-event-bridge.conf \
 	conf/upstart-file-bridge.conf \
 	conf/upstart-dbus-bridge.conf
 
-# FIXME: add upstart-text-bridge.8
 dist_man_MANS = \
 	man/upstart-socket-bridge.8 \
 	man/upstart-event-bridge.8 \
 	man/upstart-file-bridge.8 \
 	man/upstart-dbus-bridge.8 \
+	man/upstart-text-bridge.8 \
 	man/socket-event.7 \
 	man/file-event.7 \
 	man/dbus-event.7
