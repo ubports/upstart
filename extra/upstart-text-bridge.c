@@ -85,10 +85,6 @@ typedef struct job {
  * Representation of a socket(2).
  **/
 typedef struct socket {
-	/* human-readable name */
-	/* FIXME: REMOVE */
-	char *name;
-
 	union {
 		struct sockaddr     addr;      /* Generic type */
 		struct sockaddr_in  sin_addr;  /* IPv4 */
@@ -128,6 +124,8 @@ static void term_handler (void *data, NihSignal *signal);
 
 static void cleanup (void);
 
+void make_socket_name (void);
+
 /**
  * daemonise:
  *
@@ -157,7 +155,6 @@ static NihDBusProxy *upstart = NULL;
  **/
 static char *event_name = NULL;
 
-/* FIXME: document */
 /**
  * socket_type:
  *
@@ -251,7 +248,7 @@ term_handler (void      *data,
 }
 
 /**
- * cleanup
+ * cleanup:
  *
  * Perform final operations before exit.
  **/
@@ -269,9 +266,14 @@ cleanup (void)
 		unlink (sock->sun_addr.sun_path);
 }
 
-/* FIXME: document */
+/**
+ * make_socket_name:
+ *
+ * Check that sane argument combinations have been provided and 
+ * create a human-readable socket name used for subsequent messages.
+ **/
 void
-check_socket_args (void)
+make_socket_name (void)
 {
 	if (! socket_type) {
 		nih_fatal ("%s", _("Must specify socket type"));
@@ -573,8 +575,6 @@ socket_watcher (Socket *sock,
 	nih_assert (sock);
 	nih_assert (watch);
 
-	nih_debug ("XXX:%s:%d:", __func__, __LINE__);
-
 	client_len = sizeof (struct sockaddr);
 	fd = accept (sock->sock, (struct sockaddr *)&client_addr, &client_len);
 
@@ -594,6 +594,14 @@ socket_watcher (Socket *sock,
 			&fd));
 }
 
+/**
+ * show_remote_details:
+ *
+ * @sock: Socket,
+ * @socket_fd: file descriptor of connected client.
+ *
+ * Display details of remote client associated with @socket_fd.
+ **/
 static void
 show_remote_details (const Socket *sock, int socket_fd)
 {
@@ -650,6 +658,17 @@ error:
 			sock->name, strerror (errno));
 }
 
+/**
+ * socket_reader:
+ *
+ * @fd: file descriptor of client connection,
+ * @io: NihIo,
+ * @buf: data read from client,
+ * @len: length of @buf.
+ *
+ * NihIoReader function called when data has been read from the
+ * connected client.
+ **/
 static void
 socket_reader (int         *fd,
 	       NihIo       *io,
@@ -683,12 +702,6 @@ socket_reader (int         *fd,
 
 	if (used_len < 2)
 		goto error;
-
-	/* FIXME */
-#if 1
-	nih_debug ("XXX:%s:%d:used_len=%d, buf='%*.*s'",
-			__func__, __LINE__, used_len, used_len, used_len, buf);
-#endif
 
 	env = NIH_MUST (nih_str_array_new (NULL));
 	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, buf, used_len));
@@ -725,10 +738,7 @@ close_handler (void *data, NihIo *io)
 {
 	nih_assert (io);
 
-	/* FIXME */
-#if 1
-	nih_debug ("XXX:%s:%d: Remote end closed connection", __func__, __LINE__);
-#endif
+	nih_debug ("Remote end closed connection");
 
 	nih_free (io);
 }
@@ -744,13 +754,22 @@ error_handler (void *data, NihIo *io)
 #endif
 }
 
+/**
+ * create_socket:
+ * @parent: Parent pointer.
+ *
+ * Create a Socket object, listen on it and arrange for NIH to monitor
+ * it.
+ *
+ * Returns: Newly-allocated Socket on success, or NULL on error.
+ **/
 static Socket *
 create_socket (void *parent)
 {
 	Socket   *sock = NULL;
 	int       opt = 1;
 
-	check_socket_args ();
+	make_socket_name ();
 
 	sock = NIH_MUST (nih_new (NULL, Socket));
 	memset (sock, 0, sizeof (Socket));
