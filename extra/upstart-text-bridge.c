@@ -580,7 +580,7 @@ socket_watcher (Socket *sock,
 
 	if (fd < 0) {
 		nih_fatal ("%s %s %s", _("Failed to accept socket"),
-			  sock->name, strerror (errno));
+			  socket_name, strerror (errno));
 		return;
 	}
 
@@ -627,7 +627,7 @@ show_remote_details (const Socket *sock, int socket_fd)
 		}
 
 		nih_debug ("Client connected via internet socket to %s: %s:%u",
-				sock->name,
+				socket_name,
 				ip_address,
 				port);
 
@@ -641,7 +641,7 @@ show_remote_details (const Socket *sock, int socket_fd)
 			goto error;
 
 		nih_debug ("Client connected via local socket to %s: pid %d (uid %d, gid %d)",
-				sock->name,
+				socket_name,
 				creds.pid,
 				creds.uid,
 				creds.gid);
@@ -655,7 +655,7 @@ error:
 
 	nih_warn (_("Cannot establish peer %s for socket %s: %s"),
 			sock->sun_addr.sun_family == AF_UNIX ? "credentials" : "address",
-			sock->name, strerror (errno));
+			socket_name, strerror (errno));
 }
 
 /**
@@ -866,8 +866,6 @@ create_socket (void *parent)
 			  socket_name, strerror (errno));
 		goto error;
 	}
-
-	sock->name = NIH_MUST (nih_strdup (sock, socket_name));
 
 	sock->watch = NIH_MUST (nih_io_add_watch (sock, sock->sock, NIH_IO_READ|NIH_IO_EXCEPT,
 				(NihIoWatcher)socket_watcher, sock));
