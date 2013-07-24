@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -352,7 +353,7 @@ main (int   argc,
 
 	/* Destroy any PID file we may have created */
 	if (daemonise) {
-		nih_main_unlink_pidfile();
+		nih_main_unlink_pidfile ();
 	}
 
 	return ret;
@@ -532,13 +533,13 @@ signal_filter (DBusConnection  *connection,
 		int current_type = DBUS_TYPE_INVALID;
 		int arg_num = 0;
 
-		while ((current_type = dbus_message_iter_get_arg_type(&message_iter)) != DBUS_TYPE_INVALID) {
+		while ((current_type = dbus_message_iter_get_arg_type (&message_iter)) != DBUS_TYPE_INVALID) {
 			nih_local char *var = NULL;
 
 			switch (current_type) {
 				case DBUS_TYPE_BOOLEAN: {
 					dbus_bool_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
 					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg ? "TRUE" : "FALSE"));
 					break;
@@ -547,61 +548,61 @@ signal_filter (DBusConnection  *connection,
 					dbus_int16_t arg = 0;
 					dbus_message_iter_get_basic(&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%u", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi16, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_UINT16: {
 					dbus_uint16_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%d", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu16, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_INT32: {
 					dbus_int32_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%d", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi32, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_UINT32: {
 					dbus_uint32_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%u", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu32, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_INT64: {
 					dbus_int64_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%ld", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi64, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_UINT64: {
 					dbus_uint64_t arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
-					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%lu", arg_num, arg));
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu64, arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_DOUBLE: {
 					double arg = 0;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
 					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%f", arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_STRING: {
 					const char * arg = NULL;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
 					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
 					break;
 				}
 				case DBUS_TYPE_OBJECT_PATH: {
 					const char * arg = NULL;
-					dbus_message_iter_get_basic(&message_iter, &arg);
+					dbus_message_iter_get_basic (&message_iter, &arg);
 
 					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
 					break;
@@ -614,7 +615,7 @@ signal_filter (DBusConnection  *connection,
 				NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 			}
 
-			dbus_message_iter_next(&message_iter);
+			dbus_message_iter_next (&message_iter);
 			arg_num++;
 		}
 	}
