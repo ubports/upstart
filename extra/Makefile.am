@@ -20,7 +20,9 @@ sessionsdir = $(datadir)/upstart/sessions
 dist_sessions_DATA = \
 	conf-session/upstart-event-bridge.conf \
 	conf-session/upstart-file-bridge.conf \
-	conf-session/re-exec.conf
+	conf-session/re-exec.conf \
+	conf-session/upstart-dbus-session-bridge.conf \
+	conf-session/upstart-dbus-system-bridge.conf
 
 sbin_PROGRAMS = \
 	upstart-socket-bridge \
