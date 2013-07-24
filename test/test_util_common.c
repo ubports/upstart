@@ -685,3 +685,58 @@ dbus_configured (void)
 	return !stat (path, &st);
 }
 
+/**
+ * search_and_replace:
+ *
+ * @parent: parent for returned string,
+ * @str: string to operate on,
+ * @from: string to look for,
+ * @to: string to replace @from with.
+ *
+ * Replace all occurences of @from in @str with @to.
+ *
+ * Returns: Newly-allocated string, or NULL on error or
+ * if @str does not contain any occurences of @from.
+ **/
+char *
+search_and_replace (void        *parent,
+		    const char  *str,
+		    const char  *from,
+		    const char  *to)
+{
+	const char *start;
+	const char *match;
+	char       *new = NULL;
+	size_t      len;
+
+	nih_assert (str);
+	nih_assert (from);
+	nih_assert (to);
+
+	start = str;
+	len = strlen (from);
+
+	while (start && *start) {
+		match = strstr (start, from);
+
+		if (! match) {
+			/* No more matches, so copy the remainder of the original string */
+			if (! nih_strcat (&new, parent, start))
+				return NULL;
+			break;
+		}
+
+		/* Copy data from start of segment to the match */
+		if (! nih_strncat (&new, parent , start, match - start))
+			return NULL;
+
+		/* Replace the string */
+		if (! nih_strcat (&new, parent, to))
+			return NULL;
+
+		/* Make start move to 1 byte beyond the end of the match */
+		start = match + len;
+	}
+
+	return new;
+}
