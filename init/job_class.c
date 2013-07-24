@@ -2334,7 +2334,7 @@ job_class_deserialise_all (json_object *json)
 	json_classes = json_object_object_get (json, "job_classes");
 
 	if (! json_classes)
-			goto error;
+		goto error;
 
 	if (! state_check_json_type (json_classes, array))
 		goto error;

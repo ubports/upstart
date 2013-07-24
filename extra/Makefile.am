@@ -15,6 +15,12 @@ AM_CPPFLAGS = \
 
 initdir = $(sysconfdir)/init
 
+sessionsdir = $(datadir)/upstart/sessions
+
+dist_sessions_DATA = \
+	conf-session/upstart-event-bridge.conf \
+	conf-session/upstart-file-bridge.conf \
+	conf-session/re-exec.conf
 
 sbin_PROGRAMS = \
 	upstart-socket-bridge \
@@ -28,7 +34,6 @@ dist_init_DATA = \
 	conf/upstart-file-bridge.conf \
 	conf/upstart-dbus-bridge.conf
 
-# FIXME: add man/upstart-dbus-bridge.8
 dist_man_MANS = \
 	man/upstart-socket-bridge.8 \
 	man/upstart-event-bridge.8 \
