@@ -429,7 +429,16 @@ session_deserialise_all (json_object *json)
 		if (! session)
 			goto error;
 
-		session_create_conf_source (session, TRUE);
+		/* Note that we do not call session_create_conf_source()
+		 * to create a conf source for each session.
+		 *
+		 * Once we support the deserialisation of chroots, this
+		 * will need to happen. However, currently making this
+		 * call will result in the creation of JobClasses for
+		 * each ConfFile associated with a Session. This is
+		 * pointless since those session-specific JobClasses
+		 * are never used.
+		 */
 	}
 
 	return 0;
@@ -499,7 +508,10 @@ session_from_index (int idx)
 
 		if (i == idx)
 			return session;
+		++i;
 	}
 
+	/* TODO xnox 20130719 shouldn't we return -1 on error, just
+	 * like session_get_index() above? */
 	nih_assert_not_reached ();
 }

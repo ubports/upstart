@@ -263,24 +263,28 @@ def show_edge(ofh, from_node, to_node, color):
     ofh.write("  %s -> %s [color=\"%s\"];\n" % (from_node, to_node, color))
 
 
-def show_start_on_job_edge(ofh, from_job, to_job):
-    show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
-              "%s:job" % mk_job_node_name(to_job), options.color_start_on)
+def show_start_on_job_edge(ofh, from_job, to_job, relation):
+    if relation == 'starting':
+        show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
+                  "%s:job" % mk_job_node_name(to_job),options.color_start_on)
+    else:
+        show_edge(ofh, "%s:job" % mk_job_node_name(to_job),
+                  "%s:start" % mk_job_node_name(from_job), options.color_start_on)
 
 
 def show_start_on_event_edge(ofh, from_job, to_event):
-    show_edge(ofh, "%s:start" % mk_job_node_name(from_job),
-              mk_event_node_name(to_event), options.color_start_on)
+    show_edge(ofh, mk_event_node_name(to_event),
+              "%s:start" % mk_job_node_name(from_job), options.color_start_on)
 
 
 def show_stop_on_job_edge(ofh, from_job, to_job):
-    show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
-              "%s:job" % mk_job_node_name(to_job), options.color_stop_on)
+    show_edge(ofh, "%s:job" % mk_job_node_name(to_job),
+              "%s:stop" % mk_job_node_name(from_job), options.color_stop_on)
 
 
 def show_stop_on_event_edge(ofh, from_job, to_event):
-    show_edge(ofh, "%s:stop" % mk_job_node_name(from_job),
-              mk_event_node_name(to_event), options.color_stop_on)
+    show_edge(ofh, mk_event_node_name(to_event),
+              "%s:stop" % mk_job_node_name(from_job), options.color_stop_on)
 
 
 def show_job_emits_edge(ofh, from_job, to_event):
@@ -298,7 +302,7 @@ def show_edges(ofh):
 
     for job in jobs_list:
         for s in jobs[job]['start on']['job']:
-            show_start_on_job_edge(ofh, job, s)
+            show_start_on_job_edge(ofh, job, s, jobs[job]['start on']['job'][s])
 
         for s in jobs[job]['start on']['event']:
             show_start_on_event_edge(ofh, job, s)
@@ -384,7 +388,7 @@ def read_data():
             _event = encode_dollar(job, result.group(1))
             _job = result.group(2)
             if _job:
-                jobs[job]['start on']['job'][_job] = 1
+                jobs[job]['start on']['job'][_job] = _event
             else:
                 jobs[job]['start on']['event'][_event] = 1
                 events[_event] = 1
