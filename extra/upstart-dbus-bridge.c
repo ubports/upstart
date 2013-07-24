@@ -52,6 +52,7 @@
 #define DBUS_EVENT "dbus"
 
 /* Prototypes for static functions */
+static int               bus_name_setter      (NihOption *option, const char *arg);
 static int               dbus_bus_setter      (NihOption *option, const char *arg);
 static void              dbus_disconnected    (DBusConnection *connection);
 static void              upstart_disconnected (DBusConnection *connection);
@@ -93,6 +94,13 @@ static int user_mode = FALSE;
 DBusBusType dbus_bus = (DBusBusType)-1;
 
 /**
+ * bus_name:
+ *
+ * type of event to emit.
+ **/
+static const char * bus_name = NULL;
+
+/**
  * Structure we use for tracking jobs
  *
  * @entry: list header, 
@@ -128,6 +136,8 @@ static NihOption options[] = {
 	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
+	{ 0, "bus-name", N_("Bus name to emit to Upstart Jobs"),
+	  NULL, "bus name", NULL, bus_name_setter },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
@@ -377,6 +387,24 @@ upstart_disconnected (DBusConnection *connection)
 }
 
 /**  
+ * NihOption setter function to handle bus name
+ *
+ * Returns: 0 on success
+ **/
+static int
+bus_name_setter (NihOption *option, const char *arg)
+{
+	nih_assert (option);
+
+	if (arg == NULL || arg[0] == '\0' || arg[0] == ' ') {
+		return -1;
+	}
+
+	bus_name = arg;
+	return 0;
+}
+
+/**  
  * NihOption setter function to handle selection of D-Bus bus type.
  *
  * Returns: 0 on success, -1 on invalid console type.
@@ -467,6 +495,12 @@ signal_filter (DBusConnection  *connection,
 		/* We need something to work with */
 		nih_debug ("Ignoring message with no signal name");
 		goto out;
+	}
+
+	if (bus_name) {
+		nih_local char *var = NULL;
+		var = NIH_MUST (nih_sprintf (NULL, "BUS=%s", bus_name));
+		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 	}
 
 	if (interface) {
