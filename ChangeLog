@@ -1,3 +1,10 @@
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-text-bridge.8: Added extra variables.
+	* extra/upstart-text-bridge.c: socket_reader():
+	  - Fixed assertion failure caused by passing invalid address of fd.
+	  - Added new standard environment variables to event.
+
 2013-07-23  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-text-bridge.c: New bridge.

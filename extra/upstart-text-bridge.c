@@ -1,5 +1,6 @@
 /** TODO:
  *
+ * - XXX: XXX: SECURITY TEAM REVIEW!! XXX: XXX:
  * - decide on name!:
  *
  *   - upstart-text-bridge
@@ -10,6 +11,16 @@
  *   - upstart-host-bridge
  *   - upstart-proxy-bridge
  *
+ * - allow arbitrary number of name=value pairs (need to consider
+ *   carefully how to handle quoting and whitespace delimiters)
+ *
+ * - make client send data in form to minimise DoS (by allowing a
+ *   read-limit to be set)?
+ *
+ *   <len> <pair-count> <name1=value1> <name2=value2> ...
+ *
+ * - add client connection details to emitted event
+ *   (CLIENT_{PID,UID,GID}, CLIENT_ADDRESS, CLIENT_PORT)?
  * - option to fork to handle connections?
  *
  * - could implement an access-control mechanism as to whether to
@@ -109,7 +120,7 @@ static Socket *create_socket (void *parent);
 static void socket_watcher (Socket *sock, NihIoWatch *watch,
 			   NihIoEvents events);
 
-static void socket_reader (int *fd, NihIo *io,
+static void socket_reader (int fd, NihIo *io,
 			   const char *buf, size_t len);
 
 static void close_handler (void *data, NihIo *io);
@@ -213,7 +224,7 @@ static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
 
-	{ 0, "event", N_("specify name of event to emit on receipt of name/value pair"),
+	{ 0, "event", N_("specify name of event to emit on receipt of name=value pair"),
 		NULL, "EVENT", &event_name, NULL },
 
 	{ 0, "path", N_("specify path for local/abstract socket to use"),
@@ -591,7 +602,7 @@ socket_watcher (Socket *sock,
 			(NihIoReader)socket_reader, 
 			close_handler,
 			error_handler,
-			&fd));
+			(void *)fd));
 }
 
 /**
@@ -670,25 +681,27 @@ error:
  * connected client.
  **/
 static void
-socket_reader (int         *fd,
+socket_reader (int          fd,
 	       NihIo       *io,
 	       const char  *buf,
 	       size_t       len)
 {
 	DBusPendingCall    *pending_call;
 	nih_local char    **env = NULL;
+	nih_local char     *var = NULL;
 	size_t              used_len = 0;
 	int                 i;
 
 	nih_assert (sock);
-	nih_assert (fd);
-	nih_assert (*fd >= 0);
+	nih_assert (fd >= 0);
 	nih_assert (io);
 	nih_assert (buf);
 
+	/* Ignore messages that are too short */
 	if (len < 2)
 		goto error;
 
+	/* Ensure the data is a name=value pair */
 	if (! strchr (buf, '=') || buf[0] == '=')
 		goto error;
 
@@ -700,10 +713,40 @@ socket_reader (int         *fd,
 			break;
 	}
 
+	/* Second check to ensure overly short messages are ignored */
 	if (used_len < 2)
 		goto error;
 
+	/* Construct the event environment.
+	 *
+	 * Note that although the client could conceivably specify one
+	 * of the variables below _itself_, if the intent is malicious
+	 * it will be thwarted since although the following example
+	 * event is valid...
+	 *
+	 *    foo BAR=BAZ BAR=MALICIOUS
+	 *
+	 * ... environment variable matching only happens for the first
+	 * occurence of a variable. In summary, a malicious client
+	 * cannot spoof the standard variables we set.
+	 */
 	env = NIH_MUST (nih_str_array_new (NULL));
+
+	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_TYPE=%s", socket_type));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	if (sock->sun_addr.sun_family == AF_UNIX) {
+		var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
+		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+	} else {
+		var = NIH_MUST (nih_sprintf (NULL, "ADDRESS=%s", socket_address));
+		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+		var = NIH_MUST (nih_sprintf (NULL, "PORT=%u", socket_port));
+		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+	}
+
+	/* Add the name=value pair */
 	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, buf, used_len));
 
 	pending_call = upstart_emit_event (upstart,
