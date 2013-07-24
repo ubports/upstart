@@ -1,6 +1,11 @@
 upstart (1.9.1-0ubuntu4) UNRELEASED; urgency=low
 
+  [ Dmitrijs Ledkovs ]
   * Bump upstart-dbus-bridge conf file removal to 1.9.1-0ubuntu4. (LP: #1203323)
+
+  [ James Hunt ]
+  * debian/upstart.apport: Check to ensure that the sessions array contains
+    atleast one element.
 
  -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Tue, 23 Jul 2013 13:07:27 +0100
 

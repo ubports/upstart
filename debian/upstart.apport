@@ -179,7 +179,7 @@ def add_info(report, ui):
     session_count = 0
     if category == 'Session' or category == 'Unknown':
         sessions = command_output(['initctl', 'list-sessions']).split('\n')
-        if sessions:
+        if sessions and sessions[0]:
             session_count = len(sessions)
             report['UpstartRunningSessionCount'] = str(session_count)
 
