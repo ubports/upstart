@@ -514,9 +514,7 @@ socket_watcher (Socket *sock,
 {
 	struct sockaddr     client_addr;
 	socklen_t           client_len;
-	//int                 fd;
 	nih_local char     *buffer = NULL;
-	//struct              ucred creds;
 	ClientConnection   *client;
 	size_t              len;
 
