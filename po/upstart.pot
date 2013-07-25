@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.9\n"
+"Project-Id-Version: upstart 1.10\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-06-28 14:07+0100\n"
+"POT-Creation-Date: 2013-07-17 15:09+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -380,257 +380,257 @@ msgstr ""
 msgid "unable to clear CLOEXEC bit on log fd"
 msgstr ""
 
-#: init/job_process.c:331
+#: init/job_process.c:325
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
 
-#: init/job_process.c:337
+#: init/job_process.c:331
 msgid "Temporary process spawn error"
 msgstr ""
 
-#: init/job_process.c:344
+#: init/job_process.c:338
 #, c-format
 msgid "%s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:493
+#: init/job_process.c:487
 msgid "Failed to create pty - disabling logging for job"
 msgstr ""
 
-#: init/job_process.c:540
+#: init/job_process.c:534
 #, c-format
 msgid "Pausing %s (%d) [pre-exec] for debug"
 msgstr ""
 
-#: init/job_process.c:677
+#: init/job_process.c:671
 #, c-format
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:1040
+#: init/job_process.c:1034
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:1045
+#: init/job_process.c:1039
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:1100
+#: init/job_process.c:1094
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:1105
+#: init/job_process.c:1099
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:1110
+#: init/job_process.c:1104
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:1115
+#: init/job_process.c:1109
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:1120
+#: init/job_process.c:1114
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:1125
+#: init/job_process.c:1119
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:1130
+#: init/job_process.c:1124
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:1135
+#: init/job_process.c:1129
 #, c-format
 msgid "unable to getpwnam: %s"
 msgstr ""
 
-#: init/job_process.c:1140
+#: init/job_process.c:1134
 #, c-format
 msgid "unable to getgrnam: %s"
 msgstr ""
 
-#: init/job_process.c:1145
+#: init/job_process.c:1139
 #, c-format
 msgid "unable to getpwuid: %s"
 msgstr ""
 
-#: init/job_process.c:1150
+#: init/job_process.c:1144
 #, c-format
 msgid "unable to getgrgid: %s"
 msgstr ""
 
-#: init/job_process.c:1155
+#: init/job_process.c:1149
 msgid "unable to find setuid user"
 msgstr ""
 
-#: init/job_process.c:1159
+#: init/job_process.c:1153
 msgid "unable to find setgid group"
 msgstr ""
 
-#: init/job_process.c:1163
+#: init/job_process.c:1157
 #, c-format
 msgid "unable to setuid: %s"
 msgstr ""
 
-#: init/job_process.c:1168
+#: init/job_process.c:1162
 #, c-format
 msgid "unable to setgid: %s"
 msgstr ""
 
-#: init/job_process.c:1173
+#: init/job_process.c:1167
 #, c-format
 msgid "unable to chown: %s"
 msgstr ""
 
-#: init/job_process.c:1178
+#: init/job_process.c:1172
 #, c-format
 msgid "unable to unlockpt: %s"
 msgstr ""
 
-#: init/job_process.c:1183
+#: init/job_process.c:1177
 #, c-format
 msgid "unable to granpt: %s"
 msgstr ""
 
-#: init/job_process.c:1188
+#: init/job_process.c:1182
 #, c-format
 msgid "unable to get ptsname: %s"
 msgstr ""
 
-#: init/job_process.c:1193
+#: init/job_process.c:1187
 #, c-format
 msgid "unable to open pty slave: %s"
 msgstr ""
 
-#: init/job_process.c:1198
+#: init/job_process.c:1192
 #, c-format
 msgid "unable to modify signal handler: %s"
 msgstr ""
 
-#: init/job_process.c:1203
+#: init/job_process.c:1197
 #, c-format
 msgid "unable to allocate memory: %s"
 msgstr ""
 
-#: init/job_process.c:1208
+#: init/job_process.c:1202
 #, c-format
 msgid "unable to initgroups: %s"
 msgstr ""
 
-#: init/job_process.c:1213
+#: init/job_process.c:1207
 #, c-format
 msgid "unable to switch security profile: %s"
 msgstr ""
 
-#: init/job_process.c:1244 init/job_process.c:1377
+#: init/job_process.c:1238 init/job_process.c:1371
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1253 init/job_process.c:1386
+#: init/job_process.c:1247 init/job_process.c:1380
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1447
+#: init/job_process.c:1441
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1452
+#: init/job_process.c:1446
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1467
+#: init/job_process.c:1461
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1471
+#: init/job_process.c:1465
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1485
+#: init/job_process.c:1479
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1489
+#: init/job_process.c:1483
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1503
+#: init/job_process.c:1497
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1507
+#: init/job_process.c:1501
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1642
+#: init/job_process.c:1636
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1648
+#: init/job_process.c:1642
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1759
+#: init/job_process.c:1753
 msgid "Failed to add log to unflushed queue"
 msgstr ""
 
-#: init/job_process.c:1925
+#: init/job_process.c:1919
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1938 init/job_process.c:2133
+#: init/job_process.c:1932 init/job_process.c:2127
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1978 init/job_process.c:2069 init/job_process.c:2124
+#: init/job_process.c:1972 init/job_process.c:2063 init/job_process.c:2118
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2018
+#: init/job_process.c:2012
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2053
+#: init/job_process.c:2047
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2060
+#: init/job_process.c:2054
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:2119
+#: init/job_process.c:2113
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
@@ -754,7 +754,7 @@ msgstr ""
 msgid "Failed to read serialisation data"
 msgstr ""
 
-#: init/main.c:516 init/state.c:1977
+#: init/main.c:516 init/state.c:1965
 msgid "reverting to stateless re-exec"
 msgstr ""
 
@@ -818,54 +818,54 @@ msgstr ""
 msgid "Quiescing due to %s request"
 msgstr ""
 
-#: init/state.c:358 init/state.c:366 init/state.c:375 init/state.c:384
+#: init/state.c:354 init/state.c:362 init/state.c:371 init/state.c:380
 msgid "Failed to serialise"
 msgstr ""
 
-#: init/state.c:435
+#: init/state.c:431
 msgid "Detected invalid serialisation data"
 msgstr ""
 
-#: init/state.c:444 init/state.c:449 init/state.c:458 init/state.c:466
+#: init/state.c:440 init/state.c:445 init/state.c:454 init/state.c:462
 msgid "Failed to deserialise"
 msgstr ""
 
-#: init/state.c:462
+#: init/state.c:458
 msgid "No ConfSources present in state data"
 msgstr ""
 
-#: init/state.c:471
+#: init/state.c:467
 msgid "Failed to resolve deserialisation dependencies"
 msgstr ""
 
-#: init/state.c:1643
+#: init/state.c:1660
 msgid "failed to demarshal D-Bus message"
 msgstr ""
 
-#: init/state.c:1937
+#: init/state.c:1925
 #, c-format
 msgid "Failed to re-execute %s: %s"
 msgstr ""
 
-#: init/state.c:1976
+#: init/state.c:1964
 msgid "Failed to generate serialisation data"
 msgstr ""
 
-#: init/state.c:1984
+#: init/state.c:1972
 msgid "Performing stateful re-exec"
 msgstr ""
 
-#: init/state.c:2024
+#: init/state.c:2012
 #, c-format
 msgid "Passing state from PID %d to parent"
 msgstr ""
 
-#: init/state.c:2033
+#: init/state.c:2021
 #, c-format
 msgid "Failed to release D-Bus name: %s"
 msgstr ""
 
-#: init/state.c:2042
+#: init/state.c:2030
 msgid "Failed to write serialisation data"
 msgstr ""
 
