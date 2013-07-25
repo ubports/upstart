@@ -21,7 +21,7 @@ sbin_PROGRAMS = \
 	upstart-event-bridge \
 	upstart-file-bridge \
 	upstart-dbus-bridge \
-	upstart-text-bridge
+	upstart-local-bridge
 
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
@@ -34,7 +34,7 @@ dist_man_MANS = \
 	man/upstart-event-bridge.8 \
 	man/upstart-file-bridge.8 \
 	man/upstart-dbus-bridge.8 \
-	man/upstart-text-bridge.8 \
+	man/upstart-local-bridge.8 \
 	man/socket-event.7 \
 	man/file-event.7 \
 	man/dbus-event.7
@@ -83,12 +83,12 @@ upstart_dbus_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-upstart_text_bridge_SOURCES = \
-	upstart-text-bridge.c
-nodist_upstart_text_bridge_SOURCES = \
+upstart_local_bridge_SOURCES = \
+	upstart-local-bridge.c
+nodist_upstart_local_bridge_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS)
-upstart_text_bridge_LDADD = \
+upstart_local_bridge_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \

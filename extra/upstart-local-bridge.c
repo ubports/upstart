@@ -1,40 +1,7 @@
-/** TODO:
- *
- * - XXX: XXX: SECURITY TEAM REVIEW!! XXX: XXX:
- * - decide on name!:
- *
- *   - upstart-text-bridge
- *   - upstart-comms-bridge
- *   - upstart-injection-bridge
- *   - upstart-recv-bridge
- *   - upstart-peer-bridge
- *   - upstart-host-bridge
- *   - upstart-proxy-bridge
- *
- * - allow arbitrary number of name=value pairs (need to consider
- *   carefully how to handle quoting and whitespace delimiters)
- *
- * - make client send data in form to minimise DoS (by allowing a
- *   read-limit to be set)?
- *
- *   <len> <pair-count> <name1=value1> <name2=value2> ...
- *
- * - add client connection details to emitted event
- *   (CLIENT_{PID,UID,GID}, CLIENT_ADDRESS, CLIENT_PORT)?
- * - option to fork to handle connections?
- *
- * - could implement an access-control mechanism as to whether to
- *   accept/reject incoming connections:
- *
- *     "start on incoming TYPE=[inet|inet6|unix] [PATH=[@]/foo/bar | [IPADDRESS=x.x.x.x PORT=1234]]"
- *   Bridge would then have a .conf file with this condition. If no .conf file, accept all connections.
- *   Would require bits of init/foo*.c to be put into libupstart though.
- **/
-
 /* upstart
  *
  * Copyright © 2013 Canonical Ltd.
- * Author: James Hunt <james.hunt@ubuntu.com>
+ * Author: James Hunt <james.hunt@canonical.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -57,9 +24,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
 #include <errno.h>
 #include <stdlib.h>
@@ -85,6 +49,15 @@
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
+/**
+ * Job:
+ *
+ * @entry: list header,
+ * @path: D-Bus path for a job.
+ *
+ * Representation of an Upstart Job.
+ *
+ **/
 typedef struct job {
 	NihList entry;
 	char *path;
@@ -93,13 +66,16 @@ typedef struct job {
 /**
  * Socket:
  *
+ * @addr/sun_addr: socket address,
+ * @addrlen: length of sun_addr,
+ * @sock: file descriptor of socket,
+ * @watch: IO Watch used to detect client activity.
+ *
  * Representation of a socket(2).
  **/
 typedef struct socket {
 	union {
 		struct sockaddr     addr;      /* Generic type */
-		struct sockaddr_in  sin_addr;  /* IPv4 */
-		struct sockaddr_in6 sin6_addr; /* IPv6 */
 		struct sockaddr_un  sun_addr;  /* local/domain/unix/abstract socket */
 	};
 	socklen_t   addrlen;
@@ -107,6 +83,21 @@ typedef struct socket {
 	int         sock;
 	NihIoWatch *watch;
 } Socket;
+
+/**
+ * ClientConnection:
+ *
+ * @sock: socket client connected via,
+ * @fd: file descriptor client connected on,
+ * @ucred: client credentials.
+ *
+ * Representation of a connected client.
+ **/
+typedef struct client_connection {
+	Socket        *sock;
+	int            fd;
+	struct ucred   ucred;
+} ClientConnection;
 
 static void upstart_job_added    (void *data, NihDBusMessage *message,
 				  const char *job);
@@ -123,19 +114,13 @@ static void socket_watcher (Socket *sock, NihIoWatch *watch,
 static void socket_reader (int fd, NihIo *io,
 			   const char *buf, size_t len);
 
-static void close_handler (void *data, NihIo *io);
-
-static void error_handler (void *data, NihIo *io);
+static void close_handler (ClientConnection *client, NihIo *io);
 
 static void emit_event_error (void *data, NihDBusMessage *message);
 
-static void show_remote_details (const Socket *sock, int socket_fd);
-
-static void term_handler (void *data, NihSignal *signal);
+static void signal_handler (void *data, NihSignal *signal);
 
 static void cleanup (void);
-
-void make_socket_name (void);
 
 /**
  * daemonise:
@@ -167,27 +152,6 @@ static NihDBusProxy *upstart = NULL;
 static char *event_name = NULL;
 
 /**
- * socket_type:
- *
- * inet/inet6/unix.
- **/
-static char *socket_type = NULL;
-
-/**
- * socket_port
- *
- * Port to connect to (inet* socket_types only).
- **/
-static unsigned int socket_port = 0;
-
-/**
- * socket_address:
- *
- * IPv4 / IPv6 address.
- **/
-static char *socket_address = NULL;
-
-/**
  * Unix (local) domain socket path.
  *
  * Abstract sockets will have '@' as first character.
@@ -195,12 +159,17 @@ static char *socket_address = NULL;
 static char *socket_path = NULL;
 
 /**
+ * socket_type:
+ * 
+ * Type of socket supported by this bridge.
+ **/
+static char *socket_type = "unix";
+
+/**
  * socket_name:
  *
  * Human-readable socket name in form:
  *
- * inet:<ipv4_address>:port
- * inet6:\[ipv6_address\]:port
  * unix:[@]/some/path
  **/
 static char *socket_name = NULL;
@@ -213,42 +182,45 @@ static char *socket_name = NULL;
 static Socket *sock = NULL;
 
 /**
+ * any_user:
+ *
+ * If FALSE, only accept connections from the same uid as
+ * user the bridge runs as.
+ * If TRUE, accept connections from any user.
+ **/
+static int any_user = FALSE;
+
+/**
  * options:
  *
  * Command-line options accepted by this program.
  **/
 static NihOption options[] = {
-	{ 0, "address", N_("specify socket address"),
-		NULL, "ADDRESS", &socket_address, NULL },
-
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
 
 	{ 0, "event", N_("specify name of event to emit on receipt of name=value pair"),
 		NULL, "EVENT", &event_name, NULL },
 
+	{ 0, "any-user", N_("allow any user to connect"),
+		NULL, NULL, &any_user, NULL },
+
 	{ 0, "path", N_("specify path for local/abstract socket to use"),
 		NULL, "PATH", &socket_path, NULL },
-
-	{ 0, "port", N_("specify port number to use"),
-		NULL, "PORT", &socket_port, nih_option_int },
-
-	{ 0, "socket-type", N_("specify type of socket to listen on"),
-		NULL, "SOCKET", &socket_type, NULL },
 
 	NIH_OPTION_LAST
 };
 
 
 /**
- * term_handler:
+ * signal_handler:
  * @data: unused,
  * @signal: signal caught.
  *
- * Called when we receive the TERM signal.
+ * Called when we receive the TERM/INT signal.
  **/
 static void
-term_handler (void      *data,
+signal_handler (void      *data,
 	      NihSignal *signal)
 {
 	nih_assert (signal != NULL);
@@ -270,58 +242,8 @@ cleanup (void)
 
 	close (sock->sock);
 
-	if (sock->sun_addr.sun_family != AF_UNIX)
-		return;
-
 	if (sock->sun_addr.sun_path[0] != '@')
 		unlink (sock->sun_addr.sun_path);
-}
-
-/**
- * make_socket_name:
- *
- * Check that sane argument combinations have been provided and 
- * create a human-readable socket name used for subsequent messages.
- **/
-void
-make_socket_name (void)
-{
-	if (! socket_type) {
-		nih_fatal ("%s", _("Must specify socket type"));
-		exit (1);
-	}
-
-	if (! strcmp (socket_type, "inet") || ! strcmp (socket_type, "inet6")) {
-
-		if (! socket_address) {
-			nih_fatal ("%s", _("Must specify socket address"));
-			exit (1);
-		}
-		if (! socket_port) {
-			nih_fatal ("%s", _("Must specify socket port"));
-			exit (1);
-		}
-		NIH_MUST (nih_strcat_sprintf (&socket_name, NULL, "%s:", socket_type));
-
-		if (! strcmp (socket_type, "inet6")) {
-			NIH_MUST (nih_strcat_sprintf (&socket_name, NULL, "[%s]:%u",
-						socket_address, socket_port));
-		} else {
-			NIH_MUST (nih_strcat_sprintf (&socket_name, NULL, "%s:%u",
-						socket_address, socket_port));
-		}
-
-	} else if (! strcmp (socket_type, "unix")) {
-		if (! socket_path) {
-			nih_fatal ("%s", _("Must specify socket path"));
-			exit (1);
-		}
-		NIH_MUST (nih_strcat_sprintf (&socket_name, NULL, "%s:", socket_type));
-		NIH_MUST (nih_strcat (&socket_name, NULL, socket_path));
-	} else {
-		nih_fatal ("%s: %s", _("Invalid socket type"), socket_type);
-		exit (1);
-	}
 }
 
 int
@@ -333,9 +255,9 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("Test Upstart Bridge"));
+	nih_option_set_synopsis (_("Local socket Upstart Bridge"));
 	nih_option_set_help (
-		_("By default, this test bridge does not detach from the "
+		_("By default, this bridge does not detach from the "
 		  "console and remains in the foreground.  Use the --daemon "
 		  "option to have it detach."));
 
@@ -382,7 +304,10 @@ main (int   argc,
 	}
 
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
+	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, signal_handler, NULL));
+
+	nih_signal_set_handler (SIGINT, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGINT, signal_handler, NULL));
 
 	/* Handle TERM and INT signals gracefully */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
@@ -573,99 +498,79 @@ upstart_disconnected (DBusConnection *connection)
 	nih_main_loop_exit (1);
 }
 
+/**
+ * socket_watcher:
+ *
+ * @sock: Socket,
+ * @watch: IO watch,
+ * @event: events that occurred.
+ *
+ * Called when activity is received for socket fd.
+ **/
 static void
 socket_watcher (Socket *sock,
 		NihIoWatch *watch,
 		NihIoEvents events)
 {
-	struct sockaddr_in  client_addr;
+	struct sockaddr     client_addr;
 	socklen_t           client_len;
-	int                 fd;
+	//int                 fd;
 	nih_local char     *buffer = NULL;
+	//struct              ucred creds;
+	ClientConnection   *client;
+	size_t              len;
 
 	nih_assert (sock);
 	nih_assert (watch);
 
-	client_len = sizeof (struct sockaddr);
-	fd = accept (sock->sock, (struct sockaddr *)&client_addr, &client_len);
+	client = NIH_MUST (nih_new (NULL, ClientConnection));
+	memset (client, 0, sizeof (ClientConnection));
+	client->sock = sock;
 
-	if (fd < 0) {
+	client_len = sizeof (struct sockaddr);
+
+	client->fd = accept (sock->sock, (struct sockaddr *)&client_addr, &client_len);
+
+	if (client->fd < 0) {
 		nih_fatal ("%s %s %s", _("Failed to accept socket"),
 			  socket_name, strerror (errno));
 		return;
 	}
 
-	show_remote_details (sock, fd);
+	len = sizeof (client->ucred);
 
-	NIH_MUST (nih_io_reopen (sock, fd,
-			NIH_IO_STREAM, 
-			(NihIoReader)socket_reader, 
-			close_handler,
-			error_handler,
-			(void *)fd));
-}
+	/* Establish who is connected to the other end */
+	if (getsockopt (client->fd, SOL_SOCKET, SO_PEERCRED, &client->ucred, &len) < 0)
+		goto error;
 
-/**
- * show_remote_details:
- *
- * @sock: Socket,
- * @socket_fd: file descriptor of connected client.
- *
- * Display details of remote client associated with @socket_fd.
- **/
-static void
-show_remote_details (const Socket *sock, int socket_fd)
-{
-	nih_assert (sock);
-	nih_assert (socket_fd >= 0);
-
-	if (sock->sin_addr.sin_family == AF_INET) {
-		struct sockaddr      addr;
-		struct sockaddr_in  *sin_addr;
-		socklen_t            addrlen;
-		unsigned int         port;
-		char                 ip_address[INET6_ADDRSTRLEN];
-	       
-		if (getpeername (socket_fd, &addr, &addrlen) < 0)
-			goto error;
-
-		sin_addr = (struct sockaddr_in *)&addr;
-		port = ntohs (sin_addr->sin_port);
-
-		if (! inet_ntop (AF_INET, &sin_addr->sin_addr, ip_address, sizeof (ip_address))) {
-			nih_warn ("%s: %s", _("Cannot establish IP address"),
-					strerror (errno));
-		}
-
-		nih_debug ("Client connected via internet socket to %s: %s:%u",
-				socket_name,
-				ip_address,
-				port);
-
-	} else if (sock->sun_addr.sun_family == AF_UNIX) {
-		struct  ucred creds;
-		size_t  len;
-
-		len = sizeof (creds);
-
-		if (getsockopt (socket_fd, SOL_SOCKET, SO_PEERCRED, &creds, &len) < 0)
-			goto error;
-
-		nih_debug ("Client connected via local socket to %s: pid %d (uid %d, gid %d)",
-				socket_name,
-				creds.pid,
-				creds.uid,
-				creds.gid);
-	} else {
-		nih_assert_not_reached ();
+	if (! any_user && client->ucred.uid != geteuid ()) {
+		nih_warn ("Ignoring request from uid %u (gid %u, pid %u)",
+				(unsigned int)client->ucred.uid,
+				(unsigned int)client->ucred.gid,
+				(unsigned int)client->ucred.pid);
+		close (client->fd);
+		return;
 	}
 
+	nih_debug ("Client connected via local socket to %s: "
+			"pid %d (uid %d, gid %d)",
+			socket_name,
+			client->ucred.pid,
+			client->ucred.uid,
+			client->ucred.gid);
+
+	/* Wait for remote end to send data */
+	NIH_MUST (nih_io_reopen (sock, client->fd,
+			NIH_IO_STREAM, 
+			(NihIoReader)socket_reader, 
+			(NihIoCloseHandler)close_handler,
+			NULL,
+			client));
 	return;
 
 error:
-
-	nih_warn (_("Cannot establish peer %s for socket %s: %s"),
-			sock->sun_addr.sun_family == AF_UNIX ? "credentials" : "address",
+	nih_warn ("%s %s: %s",
+			_("Cannot establish peer credentials for socket"),
 			socket_name, strerror (errno));
 }
 
@@ -732,19 +637,16 @@ socket_reader (int          fd,
 	 */
 	env = NIH_MUST (nih_str_array_new (NULL));
 
+	/* Specify type to allow for other types to be added in the future */
 	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_TYPE=%s", socket_type));
 	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
-	if (sock->sun_addr.sun_family == AF_UNIX) {
-		var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
-		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-	} else {
-		var = NIH_MUST (nih_sprintf (NULL, "ADDRESS=%s", socket_address));
-		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_VARIANT=%s",
+				sock->sun_addr.sun_path[0] ? "named" : "abstract"));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
-		var = NIH_MUST (nih_sprintf (NULL, "PORT=%u", socket_port));
-		NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-	}
+	var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
 	/* Add the name=value pair */
 	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, buf, used_len));
@@ -777,24 +679,16 @@ error:
 }
 
 static void
-close_handler (void *data, NihIo *io)
+close_handler (ClientConnection *client, NihIo *io)
 {
+	nih_assert (client);
 	nih_assert (io);
 
 	nih_debug ("Remote end closed connection");
 
+	close (client->fd);
+	nih_free (client);
 	nih_free (io);
-}
-
-static void
-error_handler (void *data, NihIo *io)
-{
-	nih_assert (io);
-
-	/* FIXME */
-#if 1
-	nih_debug ("XXX:%s:%d:", __func__, __LINE__);
-#endif
 }
 
 /**
@@ -811,106 +705,78 @@ create_socket (void *parent)
 {
 	Socket   *sock = NULL;
 	int       opt = 1;
+	size_t    len;
 
-	make_socket_name ();
+	if (! socket_path) {
+		nih_fatal ("%s", _("Must specify socket path"));
+		exit (1);
+	}
+
+	NIH_MUST (nih_strcat_sprintf (&socket_name, NULL, "%s:%s",
+				socket_type, socket_path));
 
 	sock = NIH_MUST (nih_new (NULL, Socket));
 	memset (sock, 0, sizeof (Socket));
 	sock->sock = -1;
 
-	if (! strcmp (socket_type, "inet")) {
-		sock->addrlen = sizeof (sock->sin_addr);
-		sock->sin_addr.sin_family = AF_INET;
-		sock->sin_addr.sin_addr.s_addr = INADDR_ANY;
+	sock->sun_addr.sun_family = AF_UNIX;
 
-		if (! inet_pton (AF_INET, socket_address, &(sock->sin_addr.sin_addr))) {
-			nih_fatal ("%s %s", _("Invalid address"), socket_address);
-			goto error;
-		}
-
-		sock->sin_addr.sin_port = htons (socket_port);
-		if (! sock->sin_addr.sin_port)
-			goto error;
-
-	} else if (! strcmp (socket_type, "inet6")) {
-		sock->addrlen = sizeof (sock->sin6_addr);
-		sock->sin6_addr.sin6_family = AF_INET6;
-		sock->sin6_addr.sin6_addr = in6addr_any;
-
-		if (! inet_pton (AF_INET6, socket_address, &(sock->sin6_addr.sin6_addr))) {
-			nih_fatal ("%s %s", _("Invalid address"), socket_address);
-			goto error;
-		}
-
-		sock->sin6_addr.sin6_port = htons (socket_port);
-		if (! sock->sin_addr.sin_port)
-			goto error;
-
-	} else if (! strcmp (socket_type, "unix")) {
-		size_t len;
-
-		sock->sun_addr.sun_family = AF_UNIX;
-
-		if (! *socket_path || (socket_path[0] != '/' && socket_path[0] != '@')) {
-			nih_fatal ("%s %s", _("Invalid path"), socket_path);
-			goto error;
-		}
-
-		len = strlen (socket_path);
-
-		if (len > sizeof (sock->sun_addr.sun_path)) {
-			nih_fatal ("%s %s", _("Path too long"), socket_path);
-			goto error;
-		}
-
-		strncpy (sock->sun_addr.sun_path, socket_path,
-			 sizeof (sock->sun_addr.sun_path));
-
-		sock->addrlen = sizeof (sock->sun_addr.sun_family) + len;
-
-		/* Handle abstract names */
-		if (sock->sun_addr.sun_path[0] == '@')
-			sock->sun_addr.sun_path[0] = '\0';
-	} else {
-		nih_assert_not_reached ();
+	if (! *socket_path || (socket_path[0] != '/' && socket_path[0] != '@')) {
+		nih_fatal ("%s %s", _("Invalid path"), socket_path);
+		goto error;
 	}
+
+	len = strlen (socket_path);
+
+	if (len > sizeof (sock->sun_addr.sun_path)) {
+		nih_fatal ("%s %s", _("Path too long"), socket_path);
+		goto error;
+	}
+
+	strncpy (sock->sun_addr.sun_path, socket_path,
+			sizeof (sock->sun_addr.sun_path));
+
+	sock->addrlen = sizeof (sock->sun_addr.sun_family) + len;
+
+	/* Handle abstract names */
+	if (sock->sun_addr.sun_path[0] == '@')
+		sock->sun_addr.sun_path[0] = '\0';
 
 	sock->sock = socket (sock->addr.sa_family, SOCK_STREAM, 0);
 	if (sock->sock < 0) {
 		nih_fatal ("%s %s %s", _("Failed to create socket"),
-			  socket_name, strerror (errno));
+				socket_name, strerror (errno));
 		goto error;
 	}
 
 	if (setsockopt (sock->sock, SOL_SOCKET, SO_REUSEADDR,
-			&opt, sizeof (opt)) < 0) {
+				&opt, sizeof (opt)) < 0) {
 		nih_fatal ("%s %s %s", _("Failed to set socket reuse"),
 				socket_name, strerror (errno));
 		goto error;
 	}
 
-	if (sock->sun_addr.sun_family == AF_UNIX) {
-		if (setsockopt (sock->sock, SOL_SOCKET, SO_PASSCRED,
-					&opt, sizeof (opt)) < 0) {
-			nih_fatal ("%s %s %s", _("Failed to set socket credential-passing"),
-					socket_name, strerror (errno));
-			goto error;
-		}
+	if (setsockopt (sock->sock, SOL_SOCKET, SO_PASSCRED,
+				&opt, sizeof (opt)) < 0) {
+		nih_fatal ("%s %s %s", _("Failed to set socket credential-passing"),
+				socket_name, strerror (errno));
+		goto error;
 	}
 
 	if (bind (sock->sock, &sock->addr, sock->addrlen) < 0) {
 		nih_fatal ("%s %s %s", _("Failed to bind socket"),
-			  socket_name, strerror (errno));
+				socket_name, strerror (errno));
 		goto error;
 	}
 
 	if (listen (sock->sock, SOMAXCONN) < 0) {
 		nih_fatal ("%s %s %s", _("Failed to listen on socket"),
-			  socket_name, strerror (errno));
+				socket_name, strerror (errno));
 		goto error;
 	}
 
-	sock->watch = NIH_MUST (nih_io_add_watch (sock, sock->sock, NIH_IO_READ|NIH_IO_EXCEPT,
+	sock->watch = NIH_MUST (nih_io_add_watch (sock, sock->sock,
+				NIH_IO_READ,
 				(NihIoWatcher)socket_watcher, sock));
 
 	return sock;
