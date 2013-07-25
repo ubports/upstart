@@ -19,6 +19,12 @@ The local unix domain socket can be either named or abstract.
 .SH OPTIONS
 .\"
 .TP
+.B \-\-any\-user
+By default the bridge will only accept connections from clients running
+under the same user ID as the bridge itself. This option allows
+connections from any user.
+.\"
+.TP
 .B \-\-daemon
 Detach and run in the background.
 .\"
@@ -53,6 +59,16 @@ to be emitted, with the name=value pair being added as the last variable.
 SOCKET_TYPE=unix
 .IP \(bu 4
 SOCKET_VARIANT=[\fInamed\fP|\fIabstract\fP]
+Sub-type of socket.
+.IP \(bu 4
+CLIENT_UID=\fIUID\fP
+User ID of connected client.
+.IP \(bu 4
+CLIENT_GID=\fIGID\fP
+Group ID of connected client.
+.IP \(bu 4
+CLIENT_PID=\fIPID\fP
+Process ID of connected client.
 .IP \(bu 4
 PATH=\fIPATH\fP
 .P

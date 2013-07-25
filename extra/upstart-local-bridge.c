@@ -111,7 +111,7 @@ static Socket *create_socket (void *parent);
 static void socket_watcher (Socket *sock, NihIoWatch *watch,
 			   NihIoEvents events);
 
-static void socket_reader (int fd, NihIo *io,
+static void socket_reader (ClientConnection *client, NihIo *io,
 			   const char *buf, size_t len);
 
 static void close_handler (ClientConnection *client, NihIo *io);
@@ -577,7 +577,7 @@ error:
 /**
  * socket_reader:
  *
- * @fd: file descriptor of client connection,
+ * @client: client connection,
  * @io: NihIo,
  * @buf: data read from client,
  * @len: length of @buf.
@@ -586,10 +586,10 @@ error:
  * connected client.
  **/
 static void
-socket_reader (int          fd,
-	       NihIo       *io,
-	       const char  *buf,
-	       size_t       len)
+socket_reader (ClientConnection  *client,
+	       NihIo             *io,
+	       const char        *buf,
+	       size_t             len)
 {
 	DBusPendingCall    *pending_call;
 	nih_local char    **env = NULL;
@@ -598,7 +598,7 @@ socket_reader (int          fd,
 	int                 i;
 
 	nih_assert (sock);
-	nih_assert (fd >= 0);
+	nih_assert (client);
 	nih_assert (io);
 	nih_assert (buf);
 
@@ -643,6 +643,15 @@ socket_reader (int          fd,
 
 	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_VARIANT=%s",
 				sock->sun_addr.sun_path[0] ? "named" : "abstract"));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_UID=%u", (unsigned int)client->ucred.uid));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_GID=%u", (unsigned int)client->ucred.gid));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_PID=%u", (unsigned int)client->ucred.pid));
 	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
 	var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
