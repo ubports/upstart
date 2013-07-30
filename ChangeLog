@@ -14,6 +14,45 @@
 	  from python-upstart.py.
 	* scripts/tests/test_pyupstart_system_init.py: New PID 1 tests.
 
+2013-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Renamed to upstart-local-bridge.
+	* extra/man/upstart-local-bridge.8: Removed inet type details.
+	* extra/upstart-local-bridge.c:
+	  - Removed inet socket handling.
+	  - General clean-up.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-text-bridge.8: Added extra variables.
+	* extra/upstart-text-bridge.c: socket_reader():
+	  - Fixed assertion failure caused by passing invalid address of fd.
+	  - Added new standard environment variables to event.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: signal_filter(): Use inttype
+	  macros to ensure portability.
+
+2013-07-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-text-bridge.c: New bridge.
+	* extra/Makefile.am: Updated for new bridge.
+	* extra/man/upstart-text-bridge.8: New man page.
+	* extra/Makefile.am: Added man page for text-bridge.
+
+2013-07-19  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/session.c: fix a bug in session_from_index to handle more
+	than one session.
+	* init/tests/test_state.c: add a test_sesion_upgrade_stale with 2
+	stale chroot sessions.
+
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Don't set debug log prioirity when running
+	  as a non-priv user by default (LP: #1201865).
+
 2013-07-19  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/python-upstart.py: Updates for XDG_RUNTIME_DIR based
