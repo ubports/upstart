@@ -1,3 +1,11 @@
+2013-07-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/dconf-event.7: New man page.
+	* extra/man/upstart-dconf-bridge.8: New man page.
+	* extra/upstart-dconf-bridge.c: Bridge will now only emit
+	  events on dconf changes if any jobs care about them
+	  (unless --always is specified).
+
 2013-07-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
