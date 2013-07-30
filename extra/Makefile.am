@@ -103,6 +103,13 @@ upstart_local_bridge_LDADD = \
 	$(DBUS_LIBS)
 
 if ENABLE_DCONF_BRIDGE
+dist_sessions_DATA += \
+	conf-session/upstart-dconf-bridge.conf
+
+dist_man_MANS += \
+	man/upstart-dconf-bridge.8 \
+	man/dconf-event.7
+
 sbin_PROGRAMS += \
 	upstart-dconf-bridge
 

@@ -5,6 +5,10 @@
 	* extra/upstart-dconf-bridge.c: Bridge will now only emit
 	  events on dconf changes if any jobs care about them
 	  (unless --always is specified).
+	* extra/conf-session/upstart-dconf-bridge.conf: Sample conf
+	  file for dconf bridge.
+	* extra/Makefile.am: Added dconf bridge man pages and sample
+	  conf to distribution.
 
 2013-07-25  James Hunt  <james.hunt@ubuntu.com>
 
