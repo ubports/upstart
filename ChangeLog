@@ -6,6 +6,118 @@
 	  events on dconf changes if any jobs care about them
 	  (unless --always is specified).
 
+2013-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Renamed to upstart-local-bridge.
+	* extra/man/upstart-local-bridge.8: Removed inet type details.
+	* extra/upstart-local-bridge.c:
+	  - Removed inet socket handling.
+	  - General clean-up.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-text-bridge.8: Added extra variables.
+	* extra/upstart-text-bridge.c: socket_reader():
+	  - Fixed assertion failure caused by passing invalid address of fd.
+	  - Added new standard environment variables to event.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: signal_filter(): Use inttype
+	  macros to ensure portability.
+
+2013-07-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-text-bridge.c: New bridge.
+	* extra/Makefile.am: Updated for new bridge.
+	* extra/man/upstart-text-bridge.8: New man page.
+	* extra/Makefile.am: Added man page for text-bridge.
+
+2013-07-19  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/session.c: fix a bug in session_from_index to handle more
+	than one session.
+	* init/tests/test_state.c: add a test_sesion_upgrade_stale with 2
+	stale chroot sessions.
+
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Don't set debug log prioirity when running
+	  as a non-priv user by default (LP: #1201865).
+
+2013-07-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/conf-session/: Addition of example jobs for Session Inits.
+
+2013-07-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_state.c:
+	  - test_session_serialise(): Added new test "Ensure session
+	    deserialisation does not create JobClasses" to assert
+	    new session deserialisation behaviour.
+	  - test_session_upgrade2(): Finished writing this test - it now creates
+	    a fake chroot path, updates the JSON so that all references to the
+	    chroot session refer to the temporary chroot path, creates 2 jobs
+	    and then performs the serialisation/deserialisation.
+	* init/tests/test_util.c:
+	  - ensure_env_clean():
+	    - Comments.
+	    - Added log_unflushed_files.
+	  - clean_env(): New function that re-initialises the common
+	    data structures.
+	* test/test_util_common.c: search_and_replace(): New function.
+
+2013-07-16  Colin Watson  <cjwatson@ubuntu.com>
+
+	* configure.ac: Use json-c rather than json if available.
+
+2013-07-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-session2.json: New JSON used by
+	  test_session_upgrade2().
+	* init/Makefile.am: Added upstart-session.json and upstart-session2.json
+	  to TEST_DATA_FILES.
+	* init/conf.c: conf_source_deserialise_all(): Assert that no conf
+	  sources have yet been deserialised since now session deserialisation
+	  avoids creating chroot conf sources (see below).
+	* init/job_class.c: job_class_deserialise_all(): Formatting.
+	* init/session.c: session_deserialise_all(): Don't create ConfSources
+	  for each Session (since they are not actually used).
+	* init/tests/test_state.c:
+	  - test_upgrade(): Call ensure_env_clean() both before each test and
+	    after the last test to ensure it left the environment clean.
+	  - test_session_upgrade(): Clear up sessions.
+	  - test_session_upgrade2(): New test.
+	* init/tests/test_util.c: ensure_env_clean(): New function abstracted
+	  from code in test_upgrade().
+
+2013-07-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/state.c:
+	  - state_deserialise_resolve_deps(): Look up class
+	    conventionally using name and session since existing indexing
+	    code unreliable as referencing a hash.
+	  - state_index_to_job_class(): Removed.
+	* init/tests/test_state.c: test_session_upgrade(): Add check to ensure
+	  session job with same name as NULL session job does not stop latter
+	  being deserialised.
+
+2013-07-12  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/tests/data: upstart-session.json: add stateful re-exec
+	tests with chroot session. (LP: #1200264)
+
+	* init/state.c: state_deserialise_resolve_deps(): properly account
+	at dependency resolution stage for skipped job_classes from chroot
+	sessions when those got deserialised. Fixes above unit test.
+
+2013-07-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c: conf_source_deserialise_all(): Assert that any
+	  existing ConfSources relate to chroot sessions, created as
+	  part of the earlier Session deserialisation. (LP: #1199778)
+	* init/state.c: Formatting.
+
 2013-07-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be

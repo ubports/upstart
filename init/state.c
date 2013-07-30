@@ -80,10 +80,6 @@ int restart = FALSE;
 int write_state_file = FALSE;
 
 /* Prototypes for static functions */
-static JobClass *
-state_index_to_job_class (int job_class_index)
-	__attribute__ ((warn_unused_result));
-
 static void state_write_file (NihIoBuffer *buffer);
 
 /**
@@ -459,7 +455,7 @@ state_from_string (const char *state)
 			goto out;
 		}
 	} else {
-			nih_warn ("%s", _("No ConfSources present in state data"));
+		nih_warn ("%s", _("No ConfSources present in state data"));
 	}
 
 	if (job_class_deserialise_all (json) < 0) {
@@ -1182,6 +1178,8 @@ state_get_json_type (const char *short_type)
 int
 state_deserialise_resolve_deps (json_object *json)
 {
+	int  session_index = -1;
+
 	nih_assert (json);
 
 	/* XXX: Sessions, Events, JobClasses, Jobs and DBusConnections
@@ -1212,9 +1210,13 @@ state_deserialise_resolve_deps (json_object *json)
 	}
 
 	for (int i = 0; i < json_object_array_length (json_classes); i++) {
-		json_object  *json_class;
-		json_object  *json_jobs;
-		JobClass     *class = NULL;
+		json_object     *json_class;
+		json_object     *json_jobs;
+		JobClass        *class = NULL;
+		nih_local char  *class_name = NULL;
+		Session         *session;
+
+		session_index = -1;
 
 		json_class = json_object_array_get_idx (json_classes, i);
 		if (! json_class)
@@ -1222,24 +1224,39 @@ state_deserialise_resolve_deps (json_object *json)
 
 		if (! state_check_json_type (json_class, object))
 			goto error;
+		
+		if (! state_get_json_int_var (json_class, "session", session_index))
+			goto error;
+
+		if (session_index > 0) {
+			/* Although ConfSources are now serialised,
+			 * skip JobClasses with associated user/chroot
+			 * sessions to avoid behavioural changes for
+			 * the time being.
+			 */
+			continue;
+		}
+
+		session = session_from_index (session_index);
+
+		/* All (non-NULL) sessions should already exist */
+		if (session_index > 0 && ! session)
+			goto error;
+
+		if (! state_get_json_string_var_strict (json_class, "name", NULL, class_name))
+			goto error;
 
 		/* lookup class associated with JSON class index */
-		class = state_index_to_job_class (i);
-		if (! class) {
-			int session_index = -1;
+		class = job_class_get_registered (class_name, session);
 
-			if (state_get_json_int_var (json_class, "session", session_index)
-					&& session_index > 0) {
+		if (! class)
+			goto error;
 
-				/* Although ConfSources are now serialised, ignore
-				 * JobClasses with associated user/chroot sessions to avoid
-				 * behavioural changes for the time being.
-				 */
-				continue;
-			} else {
-				goto error;
-			}
-		}
+		/* Sessions have been ignored, but handle the impossible
+		 * anyway.
+		 */
+		if (class->session)
+			goto error;
 
 		if (! state_get_json_var_full (json_class, "jobs", array, json_jobs))
 			goto error;
@@ -1730,35 +1747,6 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 
 error:
 	return -1;
-}
-
-/**
- * state_index_to_job_class:
- *
- * @job_class_index: job class index number.
- *
- * Lookup JobClass based on JSON array index number.
- *
- * Returns: existing JobClass on success, or NULL if JobClass not found.
- **/
-static JobClass *
-state_index_to_job_class (int job_class_index)
-{
-	int     i = 0;
-
-	nih_assert (job_class_index >= 0);
-	nih_assert (job_classes);
-
-	NIH_HASH_FOREACH (job_classes, iter) {
-		JobClass *class = (JobClass *)iter;
-
-		if (i == job_class_index)
-			return class;
-
-		i++;
-	}
-
-	return NULL;
 }
 
 /**
