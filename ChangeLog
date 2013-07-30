@@ -1,3 +1,19 @@
+2013-07-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Distribute python module and tests,
+	  but don't install them.
+	* scripts/pyupstart.py:
+	  - Renamed from python-upstart.py.
+	  - Upstart:connect(): Added a force parameter to reconnect even if
+	    already connected.
+	  - Upstart.reconnect(): Utility method.
+	  - Upstart.polling_connect(): Call version() to ensure the connection
+	    is usable.
+	  - New methods to query internal Upstart state.
+	* scripts/tests/test_pyupstart_session_init.py: Session tests extracted
+	  from python-upstart.py.
+	* scripts/tests/test_pyupstart_system_init.py: New PID 1 tests.
+
 2013-07-19  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/python-upstart.py: Updates for XDG_RUNTIME_DIR based

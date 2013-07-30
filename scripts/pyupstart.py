@@ -24,8 +24,8 @@ import shutil
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-import unittest
 import time
+import json
 from datetime import datetime, timedelta
 from gi.repository import GLib
 
@@ -37,6 +37,8 @@ INITCTL = '/sbin/initctl'
 
 UPSTART_SESSION_ENV = 'UPSTART_SESSION'
 
+UPSTART_STATE_FILE = 'upstart.state'
+
 INIT_SOCKET = 'unix:abstract=/com/ubuntu/upstart'
 
 SYSTEM_JOB_DIR = '/etc/init'
@@ -44,6 +46,8 @@ SYSTEM_LOG_DIR = '/var/log/upstart'
 
 # used to log session init output
 DEFAULT_LOGFILE = '/tmp/upstart.log'
+
+DEFAULT_SESSION_INSTALL_PATH = '/usr/share/upstart/sessions'
 
 SESSION_DIR_FMT = 'upstart/sessions'
 
@@ -181,10 +185,18 @@ class Upstart:
 
         self.create_dirs()
 
-    def connect(self):
+    def connect(self, force=False):
         """
         Connect to Upstart.
+
+        @force: if True, connect regardless of whether already
+        connected.
+
+        Notes:
+          - Raises an UpstartException() if already connected.
         """
+        if self.connection and not force:
+            raise UpstartException('Already connected')
 
         # Create appropriate D-Bus connection
         self.connection = dbus.connection.Connection(self.socket)
@@ -192,7 +204,13 @@ class Upstart:
             object_path=OBJECT_PATH)
         self.proxy = dbus.Interface(self.remote_object, INTERFACE_NAME)
 
-    def polling_connect(self, timeout=REEXEC_WAIT_SECS):
+    def reconnect(self):
+        """
+        Forcibly reconnect to Upstart.
+        """
+        self.connect(force=True)
+
+    def polling_connect(self, timeout=REEXEC_WAIT_SECS, force=False):
         """
         Attempt to connect to Upstart repeatedly for up to @timeout
         seconds.
@@ -201,14 +219,15 @@ class Upstart:
         an indeterminate amount of time to complete.
 
         @timeout: seconds to wait for successful connection.
+        @force: if True, force a reconnection.
         """
         for i in range(timeout):
             try:
-                self.connect()
+                self.connect(force=force)
+                self.version()
+                return
             except dbus.exceptions.DBusException:
                 time.sleep(1)
-            else:
-                return
 
         raise UpstartException(
             'Failed to reconnect to Upstart after %d seconds' % timeout)
@@ -225,7 +244,7 @@ class Upstart:
         the main loop starts.
 
         """
-        self.new_job = Job(self, self.test_dir, self.test_dir_name, name, body)
+        self.new_job = Job(self, self.test_dir, self.test_dir_name, name, body=body)
 
         # deregister
         return False
@@ -281,6 +300,11 @@ class Upstart:
         if self.test_dir:
             shutil.rmtree(self.test_dir)
 
+        # invalidate
+        self.connection = None
+        self.remote_object = None
+        self.proxy = None
+
     def emit(self, event, env=None, wait=True):
         """
         @event: Name of event to emit.
@@ -310,6 +334,39 @@ class Upstart:
             return version_string
 
         return version_string.split()[2].strip(')')
+
+    def get_state_json(self):
+        """
+        Obtain Upstart internal state in JSON format.
+        """
+        return self.proxy.GetState()
+
+    def get_state(self):
+        """
+        Obtain Upstart internal state (JSON) and convert to Python
+        dictionary format before returning.
+        """
+        return json.loads(self.get_state_json())
+
+    def get_sessions(self):
+        """
+        Returns dictionary of session details.
+        """
+        state = self.get_state()
+        sessions = state['sessions']
+        return sessions
+
+    def session_count(self):
+        """
+        Returns number of chroot sessions.
+        """
+        return len(self.get_sessions())
+
+    def sessions_exist(self):
+        """
+        Returns True if sessions exist, else False.
+        """
+        return self.session_count() > 0
 
     def reexec(self):
         """
@@ -413,7 +470,7 @@ class Job:
 
     """
 
-    def __init__(self, upstart, dir_name, subdir_name, job_name, body):
+    def __init__(self, upstart, dir_name, subdir_name, job_name, body=None):
         """
         @upstart: Upstart() parent object.
         @dir_name: Full path to job configuration files directory.
@@ -442,9 +499,12 @@ class Job:
 
         self.properties = None
 
+        if not self.body:
+            raise UpstartException('No body specified')
+
         self.conffile = os.path.join(self.job_dir, self.name + '.conf')
 
-        if isinstance(body, str):
+        if self.body and isinstance(self.body, str):
             # Assume body cannot be a bytes object.
             body = body.splitlines()
 
@@ -494,7 +554,8 @@ class Job:
         instance_name = instance_path.replace("%s/" % self.object_path, '')
 
         # store the D-Bus encoded instance name ('_' for single-instance jobs)
-        self.instance_names.append(instance_name)
+        if instance_name not in self.instance_names:
+            self.instance_names.append(instance_name)
 
         instance = JobInstance(self, instance_name, instance_path)
         self.instances.append(instance)
@@ -977,258 +1038,3 @@ class SessionInit(Upstart):
             raise UpstartException('Not yet connected')
 
         self.proxy.Restart()
-
-
-class TestUpstart(unittest.TestCase):
-
-    FILE_BRIDGE_CONF = \
-        '/usr/share/upstart/sessions/upstart-file-bridge.conf'
-
-    REEXEC_CONF = \
-        '/usr/share/upstart/sessions/re-exec.conf'
-
-    PSCMD_FMT = 'ps --no-headers -p %d -o comm,args'
-
-    def setUp(self):
-        self.upstart = None
-
-        self.logger = logging.getLogger(self.__class__.__name__)
-        for cmd in UPSTART, INITCTL:
-            if not os.path.exists(cmd):
-                raise UpstartException('Command %s not found' % cmd)
-
-    def start_session_init(self):
-        """
-        Start a Session Init.
-        """
-        self.assertFalse(self.upstart)
-
-        extra_args = ['--no-startup-event', '--debug']
-        self.upstart = \
-            SessionInit(extra=extra_args, capture=DEFAULT_LOGFILE)
-        self.assertTrue(self.upstart)
-
-        # check it's running
-        os.kill(self.upstart.pid, 0)
-
-        # checks it responds
-        self.assertTrue(self.upstart.version())
-
-    def stop_session_init(self):
-        """
-        Stop a Session Init.
-        """
-        self.assertTrue(self.upstart)
-
-        pid = self.upstart.pid
-
-        # check it's running
-        os.kill(pid, 0)
-
-        self.upstart.destroy()
-        self.assertRaises(ProcessLookupError, os.kill, pid, 0)
-
-        self.upstart = None
-
-    def test_init_start_file_bridge(self):
-        self.start_session_init()
-
-        # create the file-bridge job in the correct test location by copying
-        # the system-provided session job.
-        with open(self.FILE_BRIDGE_CONF, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        file_bridge = self.upstart.job_create('upstart-file-bridge', lines)
-        self.assertTrue(file_bridge)
-        file_bridge.start()
-
-        pids = file_bridge.pids()
-
-        self.assertEqual(len(pids.keys()), 1)
-
-        for proc, pid in pids.items():
-            self.assertEqual(proc, 'main')
-            self.assertIsInstance(pid, int)
-            os.kill(pid, 0)
-
-        # create a job that makes use of the file event to watch to a
-        # file in a newly-created directory.
-        dir = tempfile.mkdtemp()
-        file = dir + os.sep + 'foo'
-
-        msg = 'got file %s' % file
-        lines = []
-        lines.append('start on file FILE=%s EVENT=create' % file)
-        lines.append('exec echo %s' % msg)
-        create_job = self.upstart.job_create('wait-for-file-creation', lines)
-        self.assertTrue(create_job)
-
-        # create empty file
-        open(file, 'w').close()
-
-        # create another job that triggers when the same file is deleted
-        lines = []
-        lines.append('start on file FILE=%s EVENT=delete' % file)
-        lines.append('exec echo %s' % msg)
-        delete_job = self.upstart.job_create('wait-for-file-deletion', lines)
-        self.assertTrue(delete_job)
-
-        # No need to start the jobs of course as the file-bridge handles that!
-
-        # Identify full path to job logfiles
-        create_job_logfile = create_job.logfile_name(dbus_encode(''))
-        assert(create_job_logfile)
-
-        delete_job_logfile = delete_job.logfile_name(dbus_encode(''))
-        assert(delete_job_logfile)
-
-        # wait for the create job to run and produce output
-        self.assertTrue(wait_for_file(create_job_logfile))
-
-        # check the output
-        with open(create_job_logfile, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        self.assertTrue(len(lines) == 1)
-        self.assertEqual(msg, lines[0].rstrip())
-
-        shutil.rmtree(dir)
-
-        # wait for the delete job to run and produce output
-        self.assertTrue(wait_for_file(delete_job_logfile))
-
-        # check the output
-        with open(delete_job_logfile, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        self.assertTrue(len(lines) == 1)
-        self.assertEqual(msg, lines[0].rstrip())
-
-        os.remove(create_job_logfile)
-        os.remove(delete_job_logfile)
-
-        file_bridge.stop()
-        self.stop_session_init()
-
-    def test_session_init_reexec(self):
-        self.start_session_init()
-
-        self.assertTrue(self.upstart.pid)
-
-        cmd = self.PSCMD_FMT % self.upstart.pid
-
-        output = subprocess.getoutput(cmd)
-
-        # ensure no stateful-reexec already performed.
-        self.assertFalse(re.search('state-fd', output))
-
-        # Trigger re-exec and catch the D-Bus exception resulting
-        # from disconnection from Session Init when it severs client
-        # connections.
-        self.assertRaises(dbus.exceptions.DBusException, self.upstart.reexec)
-
-        os.kill(self.upstart.pid, 0)
-
-        # SessionInit does not sanitise its command-line and will show
-        # the fd used to read state from after a re-exec.
-        output = subprocess.getoutput(cmd)
-        result = re.search('--state-fd\s+(\d+)', output)
-        self.assertTrue(result)
-
-        # Upstart is now in the process of starting, but we need to
-        # reconnect to it via D-Bus since it cannot yet retain
-        # client connections. However, since the re-exec won't be
-        # instantaneous, try a few times.
-        self.upstart.polling_connect()
-
-        # check that we can still operate on the re-exec'd Upstart
-        self.assertTrue(self.upstart.version())
-
-        self.stop_session_init()
-
-    def test_session_init_reexec_when_pid1_does(self):
-
-        timeout = 5
-
-        self.start_session_init()
-
-        self.assertTrue(self.upstart.pid)
-
-        # create the REEXEC_CONF job in the correct test location by copying
-        # the system-provided session job.
-        with open(self.REEXEC_CONF, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        reexec_job = self.upstart.job_create('re-exec', lines)
-        self.assertTrue(reexec_job)
-
-        cmd = self.PSCMD_FMT % self.upstart.pid
-
-        output = subprocess.getoutput(cmd)
-
-        # ensure no stateful-reexec already performed.
-        self.assertFalse(re.search('state-fd', output))
-
-        # Simulate a PID 1 restart event.
-        self.upstart.emit(':sys:restarted')
-
-        # wait for a reasonable period of time for the stateful re-exec
-        # to occur.
-        until = datetime.now() + timedelta(seconds=timeout)
-
-        while datetime.now() < until:
-            output = subprocess.getoutput(cmd)
-            result = re.search('--state-fd\s+(\d+)', output)
-            if result:
-                break
-            time.sleep(0.1)
-        else:
-            raise AssertionError('Failed to detect re-exec')
-
-        # Upstart is now in the process of starting, but we need to
-        # reconnect to it via D-Bus since it cannot yet retain
-        # client connections. However, since the re-exec won't be
-        # instantaneous, try a few times.
-        self.upstart.polling_connect()
-
-        # check that we can still operate on the re-exec'd Upstart
-        self.assertTrue(self.upstart.version())
-
-        self.stop_session_init()
-
-    def test_session_init(self):
-        self.start_session_init()
-        job = self.upstart.job_create('zebra', 'exec sleep 999')
-        self.assertTrue(job)
-
-        inst = job.start()
-        pids = job.pids()
-        self.assertEqual(len(pids), 1)
-
-        for key, value in pids.items():
-            self.assertEqual(key, 'main')
-            self.assertTrue(isinstance(value, int))
-
-        # expected since there is only a single instance of the job
-        self.assertEqual(inst.pids(), pids)
-
-        inst.stop()
-        self.stop_session_init()
-
-
-if __name__ == '__main__':
-    import re
-
-    kwargs = {}
-    format =             \
-        '%(asctime)s:'   \
-        '%(filename)s:'  \
-        '%(name)s:'      \
-        '%(funcName)s:'  \
-        '%(levelname)s:' \
-        '%(message)s'
-
-    kwargs['format'] = format
-
-    # We want to see what's happening
-    kwargs['level'] = logging.DEBUG
-
-    logging.basicConfig(**kwargs)
-    unittest.main(verbosity=2)
-    sys.exit(0)
