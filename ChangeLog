@@ -1,3 +1,9 @@
+2013-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_finalise(): Move cleanup to main()
+	  since the NIH main loop may be iterated once more before
+	  shutdown.
+
 2013-07-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/Makefile.am: Renamed to upstart-local-bridge.
