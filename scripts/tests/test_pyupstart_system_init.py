@@ -41,9 +41,9 @@ from pyupstart import *
 import unittest
 
 class TestSystemUpstart(unittest.TestCase):
-    # XXX: These tests must operate on PID 1 as root
     def setUp(self):
-        self.assertEqual(os.geteuid(), 0)
+        if os.geteuid():
+            raise unittest.SkipTest('Need root for System-level Upstart tests')
 
         # Tests must not operate within a session
         self.assertEqual(None, os.environ.get('UPSTART_SESSION', None))

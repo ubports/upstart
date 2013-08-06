@@ -1,3 +1,15 @@
+2013-08-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* README.tests: Explanation of the tests and how to run them.
+	* Makefile.am: Ensure README.tests gets distributed.
+	* scripts/tests/__init__.py: Empty file to allow python3's unittest
+	  module to auto-discover tests.
+	* scripts/Makefile.am: Ensure __init__.py gets distributed.
+	* scripts/tests/test_pyupstart_session_init.py: TestSessionUpstart.setUp():
+	  Created XDG_RUNTIME_DIR if necessary (for example if running as root).
+	* scripts/tests/test_pyupstart_system_init.py: TestSystemUpstart.setUp():
+	  Skip test if not running as root rather than asserting.
+
 2013-07-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/Makefile.am: Distribute python module and tests,

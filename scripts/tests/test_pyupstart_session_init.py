@@ -55,6 +55,16 @@ class TestSessionUpstart(unittest.TestCase):
 
     def setUp(self):
 
+        # If this test is run as root, chances are that user won't have
+        # an XDG_RUNTIME_DIR, so create a temporary one and set the
+        # variable since this is required by the Session Init.
+        xdg_runtime_dir = os.environ.get('XDG_RUNTIME_DIR', None)
+        if not xdg_runtime_dir or not os.path.exists(xdg_runtime_dir):
+            tmp_xdg_runtime_dir = tempfile.mkdtemp(prefix='tmp-xdg-runtime-dir')
+            os.environ['XDG_RUNTIME_DIR'] = tmp_xdg_runtime_dir
+            print('INFO: User has no XDG_RUNTIME_DIR so created one: {}'.format(tmp_xdg_runtime_dir))
+
+
         self.file_bridge_conf = '{}{}{}'.format(bridge_session_conf_dir, os.sep, self.FILE_BRIDGE_CONF)
         self.reexec_conf = '{}{}{}'.format(bridge_session_conf_dir, os.sep, self.REEXEC_CONF)
 
