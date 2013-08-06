@@ -10,6 +10,12 @@
 	* scripts/tests/test_pyupstart_system_init.py: TestSystemUpstart.setUp():
 	  Skip test if not running as root rather than asserting.
 
+2013-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_finalise(): Move cleanup to main()
+	  since the NIH main loop may be iterated once more before
+	  shutdown.
+
 2013-07-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* scripts/Makefile.am: Distribute python module and tests,

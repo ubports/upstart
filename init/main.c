@@ -683,6 +683,11 @@ main (int   argc,
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
 
+	/* Cleanup */
+	conf_destroy ();
+	session_destroy ();
+	control_cleanup ();
+
 	return ret;
 }
 
