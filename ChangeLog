@@ -1,3 +1,11 @@
+2013-08-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am:
+	  - Add missing DCONF_CFLAGS.
+	  - Ensure upstart-dconf-bridge sources are always distributed,
+	    regardless of whether the local system is able to build it, or has
+	    disabled building it.
+
 2013-07-30  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/dconf-event.7: New man page.

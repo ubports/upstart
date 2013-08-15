@@ -4,7 +4,8 @@ AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(DCONF_CFLAGS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -102,7 +103,6 @@ upstart_local_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-if ENABLE_DCONF_BRIDGE
 dist_sessions_DATA += \
 	conf-session/upstart-dconf-bridge.conf
 
@@ -110,6 +110,7 @@ dist_man_MANS += \
 	man/upstart-dconf-bridge.8 \
 	man/dconf-event.7
 
+if ENABLE_DCONF_BRIDGE
 sbin_PROGRAMS += \
 	upstart-dconf-bridge
 
@@ -124,6 +125,9 @@ upstart_dconf_bridge_LDADD = \
 	$(DBUS_LIBS) \
 	$(GIO_LIBS) \
 	$(DCONF_LIBS)
+else
+	EXTRA_DIST = \
+		upstart-dconf-bridge.c
 endif
 
 if HAVE_UDEV
@@ -160,7 +164,7 @@ install-data-hook:
 	done
 
 else
-EXTRA_DIST = \
+EXTRA_DIST += \
 	man/upstart-udev-bridge.8
 endif
 
