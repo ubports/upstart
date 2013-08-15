@@ -31,7 +31,13 @@ PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
-AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+
+AC_ARG_ENABLE([udev-bridge],
+	AS_HELP_STRING([--disable-udev-bridge],
+		[Disable building of upstart-udev-bridge even if required dependencies available]),
+		[udev_bridge=no], [udev_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_UDEV_BRIDGE], [test "$have_udev" = yes && test "$udev_bridge" = yes])
 
 # Reasons for requiring this library version:
 #
