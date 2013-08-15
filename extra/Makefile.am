@@ -1,5 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+# Required to allow conditional appends below
+EXTRA_DIST =
+
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
@@ -126,17 +129,17 @@ upstart_dconf_bridge_LDADD = \
 	$(GIO_LIBS) \
 	$(DCONF_LIBS)
 else
-	EXTRA_DIST = \
-		upstart-dconf-bridge.c
+EXTRA_DIST += \
+	upstart-dconf-bridge.c
 endif
 
-if HAVE_UDEV
 dist_init_DATA += \
 	conf/upstart-udev-bridge.conf
 
 dist_man_MANS += \
 	man/upstart-udev-bridge.8
 
+if ENABLE_UDEV_BRIDGE
 sbin_PROGRAMS += \
 	upstart-udev-bridge
 
@@ -165,9 +168,9 @@ install-data-hook:
 
 else
 EXTRA_DIST += \
+	upstart-udev-bridge.c \
 	man/upstart-udev-bridge.8
 endif
-
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \
