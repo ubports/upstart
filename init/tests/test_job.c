@@ -6360,10 +6360,7 @@ test_reload (void)
 	dbus_uint32_t    serial;
 	JobClass        *class;
 	Job             *job;
-	Blocked *        blocked;
 	int              ret, status;
-	NihError        *error;
-	NihDBusError    *dbus_error;
 
 	nih_error_init ();
 	nih_main_loop_init ();

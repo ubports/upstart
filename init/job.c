@@ -1413,7 +1413,6 @@ job_reload (Job            *job,
 	    NihDBusMessage *message)
 {
 	Session *session;
-	Blocked *blocked = NULL;
 
 	nih_assert (job != NULL);
 	nih_assert (message != NULL);
