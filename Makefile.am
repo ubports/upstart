@@ -2,7 +2,7 @@
 
 SUBDIRS = test dbus init util extra lib conf doc contrib po scripts
 
-EXTRA_DIST = HACKING
+EXTRA_DIST = HACKING README.tests
 
 ACLOCAL_AMFLAGS = --install -I m4
 
