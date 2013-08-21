@@ -2,9 +2,14 @@
 
 	* configure.ac:
 	  - Allow udev bridge to be disabled.
-	* extra/Makefile.am: Ensure source for upstart-udev-bridge is
-	  distributed, regardless of whether the local system is able to build
-	  it, or has disabled building it.
+	* extra/Makefile.am:
+	  - Ensure source for upstart-udev-bridge is distributed,
+	    regardless of whether the local system is able to build it,
+	    or has disabled building it.
+	  - Add missing DCONF_CFLAGS.
+	  - Ensure upstart-dconf-bridge sources are always distributed,
+	    regardless of whether the local system is able to build it, or has
+	    disabled building it.
 
 2013-08-06  James Hunt  <james.hunt@ubuntu.com>
 
@@ -39,6 +44,15 @@
 	* scripts/tests/test_pyupstart_session_init.py: Session tests extracted
 	  from python-upstart.py.
 	* scripts/tests/test_pyupstart_system_init.py: New PID 1 tests.
+	* extra/man/dconf-event.7: New man page.
+	* extra/man/upstart-dconf-bridge.8: New man page.
+	* extra/upstart-dconf-bridge.c: Bridge will now only emit
+	  events on dconf changes if any jobs care about them
+	  (unless --always is specified).
+	* extra/conf-session/upstart-dconf-bridge.conf: Sample conf
+	  file for dconf bridge.
+	* extra/Makefile.am: Added dconf bridge man pages and sample
+	  conf to distribution.
 
 2013-07-25  James Hunt  <james.hunt@ubuntu.com>
 
@@ -156,6 +170,32 @@
 	  existing ConfSources relate to chroot sessions, created as
 	  part of the earlier Session deserialisation. (LP: #1199778)
 	* init/state.c: Formatting.
+
+2013-07-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
+	  disabled even if dependencies are available (--disable-dconf-bridge).
+	* extra/upstart-dconf-bridge.c: Changed event name to simply 'dconf'
+	  with fixed first argument of 'TYPE=changed' for consistency with
+	  other bridge events and to accommodate future dconf API changes.
+
+2013-07-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c: dconf_changed():
+	  - Simplified logic after desrt clarified 'changed' signal
+	  behaviour.
+
+2013-07-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c:
+	  - Added DCONF_EVENT.
+	  - Reformatted to be more consistent with other bridges.
+	  - main():
+	    - Connect to UPSTART_SESSION rather than D-Bus session bus.
+	    - Handle generation of pidfile name.
+	  - dconf_changed():
+	    - Correct path logic and ensure that if the changes array contains
+	      values that they are separated correctly from the prefix.
 
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 

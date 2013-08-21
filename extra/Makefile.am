@@ -1,10 +1,14 @@
 ## Process this file with automake to produce Makefile.in
 
+# Required to allow conditional appends below
+EXTRA_DIST =
+
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(DCONF_CFLAGS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -102,6 +106,33 @@ upstart_local_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
+dist_sessions_DATA += \
+	conf-session/upstart-dconf-bridge.conf
+
+dist_man_MANS += \
+	man/upstart-dconf-bridge.8 \
+	man/dconf-event.7
+
+if ENABLE_DCONF_BRIDGE
+sbin_PROGRAMS += \
+	upstart-dconf-bridge
+
+upstart_dconf_bridge_SOURCES = \
+	upstart-dconf-bridge.c
+nodist_upstart_dconf_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+upstart_dconf_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(GIO_LIBS) \
+	$(DCONF_LIBS)
+else
+EXTRA_DIST += \
+	upstart-dconf-bridge.c
+endif
+
 dist_init_DATA += \
 	conf/upstart-udev-bridge.conf
 
@@ -136,7 +167,7 @@ install-data-hook:
 	done
 
 else
-EXTRA_DIST = \
+EXTRA_DIST += \
 	upstart-udev-bridge.c \
 	man/upstart-udev-bridge.8
 endif
