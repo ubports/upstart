@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: upstart 1.10\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-07-17 15:09+0100\n"
+"POT-Creation-Date: 2013-08-21 12:26+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -59,7 +59,7 @@ msgstr ""
 msgid "You do not have permission to reload configuration"
 msgstr ""
 
-#: init/control.c:423 init/main.c:915
+#: init/control.c:423 init/main.c:919
 msgid "Reloading configuration"
 msgstr ""
 
@@ -702,7 +702,7 @@ msgid ""
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:228 util/reboot.c:170 util/shutdown.c:371 util/telinit.c:248
+#: init/main.c:228 util/reboot.c:172 util/shutdown.c:373 util/telinit.c:250
 msgid "Need to be root"
 msgstr ""
 
@@ -730,7 +730,7 @@ msgstr ""
 msgid "Unable to initialize console as /dev/null"
 msgstr ""
 
-#: init/main.c:351 init/main.c:797
+#: init/main.c:351 init/main.c:801
 msgid "Unable to set root directory"
 msgstr ""
 
@@ -742,62 +742,62 @@ msgstr ""
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:486 init/main.c:492
+#: init/main.c:485 init/main.c:491
 msgid "Unable to set default oom score"
 msgstr ""
 
-#: init/main.c:501
+#: init/main.c:500
 msgid "Stateful re-exec supported but stateless re-exec requested"
 msgstr ""
 
-#: init/main.c:515
+#: init/main.c:514
 msgid "Failed to read serialisation data"
 msgstr ""
 
-#: init/main.c:516 init/state.c:1965
+#: init/main.c:515 init/state.c:1965
 msgid "reverting to stateless re-exec"
 msgstr ""
 
-#: init/main.c:528
+#: init/main.c:527
 msgid "Both stateful and stateless re-execs failed"
 msgstr ""
 
-#: init/main.c:583
+#: init/main.c:582
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:617
+#: init/main.c:616
 msgid "Unable to setup standard file descriptors"
 msgstr ""
 
-#: init/main.c:673
+#: init/main.c:672
 msgid "Unable to register as subreaper"
-msgstr ""
-
-#: init/main.c:814
-#, c-format
-msgid "Caught %s, core dumped"
 msgstr ""
 
 #: init/main.c:818
 #, c-format
+msgid "Caught %s, core dumped"
+msgstr ""
+
+#: init/main.c:822
+#, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:849
+#: init/main.c:853
 #, c-format
 msgid "Re-executing %s"
 msgstr ""
 
-#: init/main.c:932
+#: init/main.c:936
 msgid "Reconnecting to system bus"
 msgstr ""
 
-#: init/main.c:938
+#: init/main.c:942
 msgid "Unable to connect to the system bus"
 msgstr ""
 
-#: init/main.c:1017
+#: init/main.c:1021
 msgid "invalid console type specified"
 msgstr ""
 
@@ -1266,28 +1266,32 @@ msgid ""
 "than 0 or 6, it will actually execute /sbin/shutdown.\n"
 msgstr ""
 
-#: util/reboot.c:220
+#: util/reboot.c:169 util/shutdown.c:370 util/telinit.c:247
+msgid "Couldn't set uid."
+msgstr ""
+
+#: util/reboot.c:222
 msgid "Calling shutdown"
 msgstr ""
 
-#: util/reboot.c:223
+#: util/reboot.c:225
 #, c-format
 msgid "Unable to execute shutdown: %s"
 msgstr ""
 
-#: util/reboot.c:244
+#: util/reboot.c:246
 msgid "Rebooting"
 msgstr ""
 
-#: util/reboot.c:248
+#: util/reboot.c:250
 msgid "Halting"
 msgstr ""
 
-#: util/reboot.c:252
+#: util/reboot.c:254
 msgid "Powering off"
 msgstr ""
 
-#: util/reboot.c:256
+#: util/reboot.c:258
 #, c-format
 msgid "Rebooting with %s"
 msgstr ""
@@ -1380,57 +1384,57 @@ msgstr ""
 msgid "%s: illegal time value\n"
 msgstr ""
 
-#: util/shutdown.c:382
+#: util/shutdown.c:384
 msgid "Shutdown is not running"
 msgstr ""
 
-#: util/shutdown.c:391
+#: util/shutdown.c:393
 msgid "Another shutdown is already running"
 msgstr ""
 
-#: util/shutdown.c:395
+#: util/shutdown.c:397
 msgid "Cannot find pid of running shutdown"
 msgstr ""
 
-#: util/shutdown.c:409
+#: util/shutdown.c:411
 msgid "Unable to change directory"
 msgstr ""
 
-#: util/shutdown.c:423
+#: util/shutdown.c:425
 msgid "Unable to write pid file"
 msgstr ""
 
-#: util/shutdown.c:522
+#: util/shutdown.c:524
 msgid "Shutdown cancelled"
 msgstr ""
 
-#: util/shutdown.c:607
+#: util/shutdown.c:609
 msgid "The system is going down for power off NOW!"
 msgstr ""
 
-#: util/shutdown.c:620
+#: util/shutdown.c:622
 msgid "The system is going down for halt NOW!"
 msgstr ""
 
-#: util/shutdown.c:633
+#: util/shutdown.c:635
 msgid "The system is going down for maintenance NOW!"
 msgstr ""
 
-#: util/shutdown.c:646
+#: util/shutdown.c:648
 msgid "The system is going down for reboot NOW!"
 msgstr ""
 
-#: util/shutdown.c:693
+#: util/shutdown.c:695
 #, c-format
 msgid "Unable to fork child-process to warn users: %s"
 msgstr ""
 
-#: util/shutdown.c:738
+#: util/shutdown.c:740
 #, c-format
 msgid "Broadcast message from %s@%s"
 msgstr ""
 
-#: util/shutdown.c:740
+#: util/shutdown.c:742
 #, c-format
 msgid "(%s) at %d:%02d ..."
 msgstr ""

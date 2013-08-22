@@ -165,7 +165,9 @@ main (int   argc,
 		exit (1);
 
 	/* Check we're root */
-	setuid (geteuid ());
+	if (setuid (geteuid ()) < 0)
+	    nih_info (_("Couldn't set uid."));
+
 	if (getuid ()) {
 		nih_fatal (_("Need to be root"));
 		exit (1);

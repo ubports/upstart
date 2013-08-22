@@ -516,7 +516,7 @@ socket_watcher (Socket *sock,
 	socklen_t           client_len;
 	nih_local char     *buffer = NULL;
 	ClientConnection   *client;
-	size_t              len;
+	socklen_t           len;
 
 	nih_assert (sock);
 	nih_assert (watch);
