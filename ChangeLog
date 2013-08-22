@@ -1,3 +1,86 @@
+2013-08-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac:
+	  - Allow udev bridge to be disabled.
+	* extra/Makefile.am:
+	  - Ensure source for upstart-udev-bridge is distributed,
+	    regardless of whether the local system is able to build it,
+	    or has disabled building it.
+	  - Add missing DCONF_CFLAGS.
+	  - Ensure upstart-dconf-bridge sources are always distributed,
+	    regardless of whether the local system is able to build it, or has
+	    disabled building it.
+
+2013-08-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* README.tests: Explanation of the tests and how to run them.
+	* Makefile.am: Ensure README.tests gets distributed.
+	* scripts/tests/__init__.py: Empty file to allow python3's unittest
+	  module to auto-discover tests.
+	* scripts/Makefile.am: Ensure __init__.py gets distributed.
+	* scripts/tests/test_pyupstart_session_init.py: TestSessionUpstart.setUp():
+	  Created XDG_RUNTIME_DIR if necessary (for example if running as root).
+	* scripts/tests/test_pyupstart_system_init.py: TestSystemUpstart.setUp():
+	  Skip test if not running as root rather than asserting.
+
+2013-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_finalise(): Move cleanup to main()
+	  since the NIH main loop may be iterated once more before
+	  shutdown.
+
+2013-07-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Distribute python module and tests,
+	  but don't install them.
+	* scripts/pyupstart.py:
+	  - Renamed from python-upstart.py.
+	  - Upstart:connect(): Added a force parameter to reconnect even if
+	    already connected.
+	  - Upstart.reconnect(): Utility method.
+	  - Upstart.polling_connect(): Call version() to ensure the connection
+	    is usable.
+	  - New methods to query internal Upstart state.
+	* scripts/tests/test_pyupstart_session_init.py: Session tests extracted
+	  from python-upstart.py.
+	* scripts/tests/test_pyupstart_system_init.py: New PID 1 tests.
+	* extra/man/dconf-event.7: New man page.
+	* extra/man/upstart-dconf-bridge.8: New man page.
+	* extra/upstart-dconf-bridge.c: Bridge will now only emit
+	  events on dconf changes if any jobs care about them
+	  (unless --always is specified).
+	* extra/conf-session/upstart-dconf-bridge.conf: Sample conf
+	  file for dconf bridge.
+	* extra/Makefile.am: Added dconf bridge man pages and sample
+	  conf to distribution.
+
+2013-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Renamed to upstart-local-bridge.
+	* extra/man/upstart-local-bridge.8: Removed inet type details.
+	* extra/upstart-local-bridge.c:
+	  - Removed inet socket handling.
+	  - General clean-up.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-text-bridge.8: Added extra variables.
+	* extra/upstart-text-bridge.c: socket_reader():
+	  - Fixed assertion failure caused by passing invalid address of fd.
+	  - Added new standard environment variables to event.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: signal_filter(): Use inttype
+	  macros to ensure portability.
+
+2013-07-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-text-bridge.c: New bridge.
+	* extra/Makefile.am: Updated for new bridge.
+	* extra/man/upstart-text-bridge.8: New man page.
+	* extra/Makefile.am: Added man page for text-bridge.
+
 2013-07-19  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/session.c: fix a bug in session_from_index to handle more
@@ -9,6 +92,11 @@
 
 	* init/main.c: main(): Don't set debug log prioirity when running
 	  as a non-priv user by default (LP: #1201865).
+
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Updates for XDG_RUNTIME_DIR based
+	  on review comments.
 
 2013-07-18  James Hunt  <james.hunt@ubuntu.com>
 
@@ -82,6 +170,32 @@
 	  existing ConfSources relate to chroot sessions, created as
 	  part of the earlier Session deserialisation. (LP: #1199778)
 	* init/state.c: Formatting.
+
+2013-07-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
+	  disabled even if dependencies are available (--disable-dconf-bridge).
+	* extra/upstart-dconf-bridge.c: Changed event name to simply 'dconf'
+	  with fixed first argument of 'TYPE=changed' for consistency with
+	  other bridge events and to accommodate future dconf API changes.
+
+2013-07-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c: dconf_changed():
+	  - Simplified logic after desrt clarified 'changed' signal
+	  behaviour.
+
+2013-07-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c:
+	  - Added DCONF_EVENT.
+	  - Reformatted to be more consistent with other bridges.
+	  - main():
+	    - Connect to UPSTART_SESSION rather than D-Bus session bus.
+	    - Handle generation of pidfile name.
+	  - dconf_changed():
+	    - Correct path logic and ensure that if the changes array contains
+	      values that they are separated correctly from the prefix.
 
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 
@@ -610,6 +724,28 @@
 	  API and allows test_conf to believe inotify is disabled by
 	  conditionally failing all inotify calls, depending on whether
 	  INOTIFY_DISABLE is set.
+
+2013-04-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Update based on review comments.
+
+2013-04-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py:
+	  - Upstart::polling_connect(): New method used to connect
+	    after a re-exec.
+	  - SystemInit::reexec(): Check proxy connection before
+	    attempting re-exec.
+	  - TestUpstart:test_session_init_reexec(): Re-connect post
+	    re-exec to prove instance still usable.
+	  - TestUpstart:test_session_init_reexec_when_pid1_does():
+	    Re-connect post re-exec to prove instance still usable.
+
+2013-04-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Added python-upstart.py.
+	* scripts/python-upstart.py: Python3 Upstart interface
+	  incorporating a minimal set of Python unittest tests.
 
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 

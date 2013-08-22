@@ -1,10 +1,14 @@
 ## Process this file with automake to produce Makefile.in
 
+# Required to allow conditional appends below
+EXTRA_DIST =
+
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(DCONF_CFLAGS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -20,13 +24,16 @@ sessionsdir = $(datadir)/upstart/sessions
 dist_sessions_DATA = \
 	conf-session/upstart-event-bridge.conf \
 	conf-session/upstart-file-bridge.conf \
-	conf-session/re-exec.conf
+	conf-session/re-exec.conf \
+	conf-session/upstart-dbus-session-bridge.conf \
+	conf-session/upstart-dbus-system-bridge.conf
 
 sbin_PROGRAMS = \
 	upstart-socket-bridge \
 	upstart-event-bridge \
 	upstart-file-bridge \
-	upstart-dbus-bridge
+	upstart-dbus-bridge \
+	upstart-local-bridge
 
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
@@ -39,6 +46,7 @@ dist_man_MANS = \
 	man/upstart-event-bridge.8 \
 	man/upstart-file-bridge.8 \
 	man/upstart-dbus-bridge.8 \
+	man/upstart-local-bridge.8 \
 	man/socket-event.7 \
 	man/file-event.7 \
 	man/dbus-event.7
@@ -87,13 +95,51 @@ upstart_dbus_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
-if HAVE_UDEV
+upstart_local_bridge_SOURCES = \
+	upstart-local-bridge.c
+nodist_upstart_local_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS)
+upstart_local_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS)
+
+dist_sessions_DATA += \
+	conf-session/upstart-dconf-bridge.conf
+
+dist_man_MANS += \
+	man/upstart-dconf-bridge.8 \
+	man/dconf-event.7
+
+if ENABLE_DCONF_BRIDGE
+sbin_PROGRAMS += \
+	upstart-dconf-bridge
+
+upstart_dconf_bridge_SOURCES = \
+	upstart-dconf-bridge.c
+nodist_upstart_dconf_bridge_SOURCES = \
+	$(com_ubuntu_Upstart_OUTPUTS)
+upstart_dconf_bridge_LDADD = \
+	$(LTLIBINTL) \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(GIO_LIBS) \
+	$(DCONF_LIBS)
+else
+EXTRA_DIST += \
+	upstart-dconf-bridge.c
+endif
+
 dist_init_DATA += \
 	conf/upstart-udev-bridge.conf
 
 dist_man_MANS += \
 	man/upstart-udev-bridge.8
 
+if ENABLE_UDEV_BRIDGE
 sbin_PROGRAMS += \
 	upstart-udev-bridge
 
@@ -121,10 +167,10 @@ install-data-hook:
 	done
 
 else
-EXTRA_DIST = \
+EXTRA_DIST += \
+	upstart-udev-bridge.c \
 	man/upstart-udev-bridge.8
 endif
-
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \

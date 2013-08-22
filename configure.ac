@@ -30,8 +30,25 @@ NIH_WITH_LOCAL_LIBNIH
 PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
+PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.36], [have_gio=yes], [have_gio=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
-AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
+
+AC_ARG_ENABLE([udev-bridge],
+	AS_HELP_STRING([--disable-udev-bridge],
+		[Disable building of upstart-udev-bridge even if required dependencies available]),
+		[udev_bridge=no], [udev_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_UDEV_BRIDGE], [test "$have_udev" = yes && test "$udev_bridge" = yes])
+
+AC_ARG_ENABLE([dconf-bridge],
+	AS_HELP_STRING([--disable-dconf-bridge],
+		[Disable building of upstart-dconf-bridge even if required dependencies available]),
+		[dconf_bridge=no], [dconf_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
+                                test "$have_gio" = yes &&
+				test "$dconf_bridge" = yes])
 
 # Reasons for requiring this library version:
 #
