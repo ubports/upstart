@@ -156,6 +156,7 @@ void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
+void test_reload_signal_state (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -200,6 +201,7 @@ TestDataFile test_data_files[] = {
 	{ "upstart-session.json", test_session_upgrade_midflight },
 	{ "upstart-session2.json", test_session_upgrade_exists },
 	{ "upstart-session-infinity.json", test_session_upgrade_stale },
+	{ "upstart-reload-signal.json", test_reload_signal_state },
 	{ NULL, NULL }
 };
 
@@ -4424,6 +4426,73 @@ test_upstart_full_serialise_with_apparmor_upgrade (const char *path)
 	events = NULL;
 }
 
+
+/**
+ * test_reload_signal_state:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise the 1.9-format JSON with the
+ * addition of the reload signal stanza.
+ **/
+void
+test_reload_signal_state (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		if (strcmp (class->name, "whoopsie") == 0) {
+			TEST_EQ (class->reload_signal, SIGUSR1);
+		} else
+			TEST_EQ (class->reload_signal, SIGHUP);
+	}
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+
+}
 
 /**
  * conf_source_from_path:
