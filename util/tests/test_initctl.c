@@ -8469,13 +8469,6 @@ test_reload_action (void)
 	char **         args_value;
 	int             args_elements;
 	const char *    str_value;
-	const char *    interface;
-	const char *    property;
-	DBusMessageIter iter;
-	DBusMessageIter subiter;
-	DBusMessageIter arrayiter;
-	DBusMessageIter structiter;
-	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
 	int             ret = 0;
@@ -8585,63 +8578,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge.
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/_");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -8698,10 +8652,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 
@@ -8788,63 +8738,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/_");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -8903,10 +8814,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 
@@ -8995,63 +8902,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge.
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/foo");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -9107,10 +8975,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 	unsetenv ("UPSTART_JOB");

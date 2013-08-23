@@ -342,6 +342,8 @@ job_class_new (const void *parent,
 	class->kill_timeout = JOB_DEFAULT_KILL_TIMEOUT;
 	class->kill_signal = SIGTERM;
 
+	class->reload_signal = SIGHUP;
+
 	class->respawn = FALSE;
 	class->respawn_limit = JOB_DEFAULT_RESPAWN_LIMIT;
 	class->respawn_interval = JOB_DEFAULT_RESPAWN_INTERVAL;
@@ -1918,6 +1920,9 @@ job_class_serialise (const JobClass *class)
 	if (! state_set_json_int_var_from_obj (json, class, kill_signal))
 		goto error;
 
+	if (! state_set_json_int_var_from_obj (json, class, reload_signal))
+		goto error;
+
 	if (! state_set_json_int_var_from_obj (json, class, respawn))
 		goto error;
 
@@ -2217,6 +2222,12 @@ job_class_deserialise (json_object *json)
 
 	if (! state_get_json_int_var_to_obj (json, class, kill_signal))
 		goto error;
+
+	/* reload_signal is new in upstart 1.10+ */
+	if (json_object_object_get (json, "reload_signal")) {
+		if (! state_get_json_int_var_to_obj (json, class, reload_signal))
+			goto error;
+	}
 
 	if (! state_get_json_int_var_to_obj (json, class, respawn))
 		goto error;

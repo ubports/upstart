@@ -142,7 +142,9 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.8+apparmor.json \
 	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation+apparmor.json \
 	$(TEST_DATA_DIR)/upstart-session.json \
-	$(TEST_DATA_DIR)/upstart-session2.json
+	$(TEST_DATA_DIR)/upstart-session2.json \
+	$(TEST_DATA_DIR)/upstart-session-infinity.json \
+	$(TEST_DATA_DIR)/upstart-reload-signal.json
 
 upstart_test_programs = \
 	test_system \
