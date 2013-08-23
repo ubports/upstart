@@ -6489,6 +6489,12 @@ test_reload (void)
 	dbus_message_unref (reply);
 
 	nih_free (class);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 }
 
 void
