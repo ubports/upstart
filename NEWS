@@ -1,4 +1,19 @@
-1.10  xxxx-xx-xx
+1.10  2013-08-23 "Swim to the buoy"
+
+	* upstart-local-bridge: New bridge for starting jobs on local
+	  socket connections.
+	* upstart-dconf-bridge: New bridge for Session Inits.
+	* upstart-dbus-bridge: New '--bus-name' option to allow bus name
+	  variable to be included in dbus-event(7).
+	* New "reload signal" stanza to allow jobs to specify a custom signal
+	  that will be sent to the main process (rather than the default
+	  SIGHUP).
+	* Inclusion of Session Init sample jobs.
+	* Re-exec fixes for handling chroot sessions.
+	* Shutdown fix for Session Inits.
+	* New python3 module and accompanying integration test suite for
+	  testing Upstart running as PID 1 and as a Session Init
+	  (priveleged and non-privileged).
 
 1.9.1  2013-07-04 "The all-inclusive deal"
 
