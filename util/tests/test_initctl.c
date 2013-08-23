@@ -8462,7 +8462,6 @@ test_reload_action (void)
 	FILE *          output;
 	FILE *          errors;
 	pid_t           server_pid;
-	pid_t           proc_pid;
 	DBusMessage *   method_call;
 	DBusMessage *   reply = NULL;
 	const char *    name_value;
@@ -8502,10 +8501,6 @@ test_reload_action (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8635,9 +8630,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
@@ -8660,10 +8652,6 @@ test_reload_action (void)
 	 */
 	TEST_FEATURE ("with multiple arguments");
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8797,9 +8785,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
@@ -8827,10 +8812,6 @@ test_reload_action (void)
 	setenv ("UPSTART_INSTANCE", "foo", TRUE);
 
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8958,9 +8939,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
