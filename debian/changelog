@@ -4,6 +4,11 @@ upstart (1.10-0ubuntu1) saucy; urgency=low
   * debian/user-conf/{re-exec,upstart-file-bridge}.conf: Removed as now
     supplied by upstream.
   * debian/upstart.install: Use all upstream-provided session config files.
+  * debian/control: Add upstart-dconf-bridge package.
+  * debian/rules: Remove files from upstart package that now live in the
+    upstart-dconf-bridge package.
+  * debian/upstart-dconf-bridge.install: New.
+  * debian/upstart-dconf-bridge.manpages: New.
 
  -- James Hunt <james.hunt@ubuntu.com>  Tue, 27 Aug 2013 09:08:28 +0100
 

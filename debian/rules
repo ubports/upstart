@@ -47,6 +47,8 @@ override_dh_fixperms:
 override_dh_auto_install:
 	dh_auto_install -- pkgconfigdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
 
+# Remove the appropriate dconf files from the upstart package - they
+# will be added used by the upstart-dconf-bridge.install file.
 override_dh_install:
 	dh_install
 	for i in \
@@ -58,11 +60,16 @@ override_dh_install:
 	done
 	install -m 644 debian/upstart.apport \
 		debian/upstart/usr/share/apport/package-hooks/upstart.py
+	rm debian/upstart/sbin/upstart-dconf-bridge
+	rm debian/upstart/usr/share/upstart/sessions/upstart-dconf-bridge.conf
 
-# Remove this man page for the upstart package; it will be added to the
-# upstart-monitor package by its .manpages file, but removing it here is
-# simpler than specifying every other section 8 manpage in the upstart
-# packages .manpages file.
+# Remove the following man pages from the upstart package; they will be
+# added to the upstart-monitor and upstart-dconf-bridge packages via
+# their .manpages files, but removing the files here is simpler than
+# specifying every other section 8 manpage in the upstart packages
+# .manpages file.
 override_dh_installman:
 	dh_installman
 	rm debian/upstart/usr/share/man/man8/upstart-monitor.8*
+	rm debian/upstart/usr/share/man/man8/upstart-dconf-bridge.8*
+	rm debian/upstart/usr/share/man/man7/dconf-event.7*
