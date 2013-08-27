@@ -8,7 +8,7 @@ debian/upstart-job lib/init/
 debian/apparmor-profile-load lib/init/
 debian/migrate-inittab.pl usr/lib/upstart/
 debian/running-in-container bin/
-extra/conf/upstart-event-bridge.conf usr/share/upstart/sessions/
+usr/share/upstart/sessions/*
 debian/user-conf/*.conf usr/share/upstart/sessions/
 debian/xsession.d/* etc/X11/Xsession.d/
 debian/upstart-xsessions etc/

@@ -1,6 +1,9 @@
 upstart (1.10-0ubuntu1) saucy; urgency=low
 
   * New upstream release (LP: #1199778, #1200264, #1201865).
+  * debian/user-conf/{re-exec,upstart-file-bridge}.conf: Removed as now
+    supplied by upstream.
+  * debian/upstart.install: Use all upstream-provided session config files.
 
  -- James Hunt <james.hunt@ubuntu.com>  Tue, 27 Aug 2013 09:08:28 +0100
 
