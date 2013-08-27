@@ -40,6 +40,8 @@ typedef void (*JobStopReply) (void *data, NihDBusMessage *message);
 
 typedef void (*JobRestartReply) (void *data, NihDBusMessage *message);
 
+typedef void (*JobReloadReply) (void *data, NihDBusMessage *message);
+
 typedef void (*JobGoalChangedHandler) (void *data, NihDBusMessage *message, const char *goal);
 
 typedef void (*JobStateChangedHandler) (void *data, NihDBusMessage *message, const char *state);
@@ -74,6 +76,10 @@ int              job_stop_sync          (const void *parent, NihDBusProxy *proxy
 DBusPendingCall *job_restart            (NihDBusProxy *proxy, int wait, JobRestartReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
 	__attribute__ ((warn_unused_result));
 int              job_restart_sync       (const void *parent, NihDBusProxy *proxy, int wait)
+	__attribute__ ((warn_unused_result));
+DBusPendingCall *job_reload             (NihDBusProxy *proxy, JobReloadReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
+	__attribute__ ((warn_unused_result));
+int              job_reload_sync        (const void *parent, NihDBusProxy *proxy)
 	__attribute__ ((warn_unused_result));
 DBusPendingCall *job_get_name           (NihDBusProxy *proxy, JobGetNameReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
 	__attribute__ ((warn_unused_result));

@@ -148,11 +148,15 @@ int blocked_diff (const Blocked *a, const Blocked *b, AlreadySeen seen)
 	__attribute__ ((warn_unused_result));
 
 void test_upstart1_6_upgrade (const char *path);
+void test_session_upgrade_midflight (const char *path);
+void test_session_upgrade_exists (const char *original_path);
+void test_session_upgrade_stale (const char *path);
 void test_upstart1_8_upgrade (const char *path);
 void test_upstart_pre_security_upgrade (const char *path);
 void test_upstart_with_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
+void test_reload_signal_state (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -194,7 +198,10 @@ TestDataFile test_data_files[] = {
 	{ "upstart-1.8+apparmor.json", test_upstart_with_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation-apparmor.json", test_upstart_full_serialise_without_apparmor_upgrade },
 	{ "upstart-1.8+full_serialisation+apparmor.json", test_upstart_full_serialise_with_apparmor_upgrade },
-
+	{ "upstart-session.json", test_session_upgrade_midflight },
+	{ "upstart-session2.json", test_session_upgrade_exists },
+	{ "upstart-session-infinity.json", test_session_upgrade_stale },
+	{ "upstart-reload-signal.json", test_reload_signal_state },
 	{ NULL, NULL }
 };
 
@@ -577,6 +584,9 @@ job_class_diff (const JobClass *a, const JobClass *b,
 		goto fail;
 
 	if (obj_num_check (a, b, kill_signal))
+		goto fail;
+
+	if (obj_num_check (a, b, reload_signal))
 		goto fail;
 
 	if (obj_num_check (a, b, respawn))
@@ -969,17 +979,23 @@ fail:
 void
 test_session_serialise (void)
 {
-	json_object  *json;
-	json_object  *json_sessions;
-	Session      *session1;
-	Session      *session2;
-	Session      *new_session1;
-	Session      *new_session2;
-	int           ret;
+	json_object     *json;
+	json_object     *json_sessions;
+	Session         *session1;
+	Session         *session2;
+	Session         *new_session1;
+	Session         *new_session2;
+	int              ret;
+	char             chroot_path[PATH_MAX];
+	mode_t           old_perms;
+	nih_local char  *path = NULL;
 
 	session_init ();
 
 	TEST_GROUP ("Session serialisation and deserialisation");
+
+	/*******************************/
+	TEST_FEATURE ("Session deserialisation");
 
 	TEST_LIST_EMPTY (sessions);
 
@@ -1011,8 +1027,6 @@ test_session_serialise (void)
 
 	TEST_LIST_EMPTY (sessions);
 
-	TEST_FEATURE ("Session deserialisation");
-
 	/* Convert the JSON back into Session objects */
 	ret = session_deserialise_all (json);
 	assert0 (ret);
@@ -1042,6 +1056,83 @@ test_session_serialise (void)
 	nih_free (session2);
 	nih_free (new_session1);
 	nih_free (new_session2);
+
+	/*******************************/
+	TEST_FEATURE ("Ensure session deserialisation does not create JobClasses");
+
+	clean_env ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	old_perms = umask (0);
+
+	TEST_FILENAME (chroot_path);
+	assert0 (mkdir (chroot_path, 0755));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (mkdir (path, 0755));
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (mkdir (path, 0755));
+
+	CREATE_FILE (path, "foo.conf", "manual");
+
+	session1 = session_new (NULL, chroot_path);
+	TEST_NE_P (session1, NULL);
+	session1->conf_path = NIH_MUST (nih_sprintf (session1, "%s//etc/init", chroot_path));
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	json = json_object_new_object ();
+	TEST_NE_P (json, NULL);
+
+	json_sessions = session_serialise_all ();
+	TEST_NE_P (json_sessions, NULL);
+
+	json_object_object_add (json, "sessions", json_sessions);
+
+	/* Remove the session from the master list (but don't free it)
+	 */
+	nih_list_remove (&session1->entry);
+	TEST_LIST_EMPTY (sessions);
+
+	clean_env ();
+
+	/* Convert the JSON back into Session objects */
+	ret = session_deserialise_all (json);
+	assert0 (ret);
+
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	/* Ensure no ConfSources, ConfFiles or JobClasses were created
+	 * as part of the session deserialisation.
+	 */
+	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
+
+	session2 = (Session *)nih_list_remove (sessions->next);
+	assert0 (session_diff (session1, session2));
+
+	/* Clean up */
+
+	/* free the JSON */
+	json_object_put (json);
+
+	DELETE_FILE (path, "foo.conf");
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (rmdir (path));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (rmdir (path));
+
+	assert0 (rmdir (chroot_path));
+
+	/* Restore */
+	umask (old_perms);
 }
 
 void
@@ -2195,6 +2286,7 @@ test_job_class_serialise (void)
 
 	class = file->job = job_class_new (NULL, "bar", NULL);
 	TEST_NE_P (class, NULL);
+	class->reload_signal = SIGUSR1;
 	TEST_HASH_EMPTY (job_classes);
 	TEST_TRUE (job_class_consider (class));
 	TEST_HASH_NOT_EMPTY (job_classes);
@@ -3217,13 +3309,13 @@ test_upgrade (void)
 					TEST_DATA_DIR, datafile->filename));
 
 		/* Ensure environment is clean before test is run */
-		TEST_LIST_EMPTY (sessions);
-		TEST_LIST_EMPTY (events);
-		TEST_LIST_EMPTY (conf_sources);
-		TEST_HASH_EMPTY (job_classes);
+		ensure_env_clean ();
 
 		datafile->func (path);
 	}
+
+	/* Call again to make sure last test left environment sane */
+	ensure_env_clean ();
 }
 
 /**
@@ -3325,6 +3417,406 @@ test_upstart1_6_upgrade (const char *path)
 	conf_init ();
 	job_class_init ();
 }
+
+/**
+ * test_session_upgrade_midflight
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test for re-exec with an active and existing chroot session.
+ *
+ **/
+void
+test_session_upgrade_midflight (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	struct stat      statbuf;
+	size_t           len;
+	int              got_tty1 = FALSE;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		TEST_EQ_STR (session->chroot, "/mnt");
+		TEST_EQ_STR (session->conf_path, "/mnt/etc/init");
+		session_count++;
+	}
+	TEST_EQ (session_count, 1);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
+	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+
+/**
+ * test_session_upgrade_exists
+ *
+ * @path: full path to JSON data file that needs pre-processing.
+ *
+ * XXX: @path contains multiple occurences of @CHROOT_PATH@ which must
+ * be replaced by a valid temporary directory path before attempting
+ * deserialisation.
+ *
+ * Test to ensure Upstart can deserialise a state file containing a
+ * chroot session where that chroot path actually exists with jobs on disk.
+ * This was added since that exact scenario caught a bug in an early fix
+ * for LP:#1199778 (resulting in stateless re-exec).
+ **/
+void
+test_session_upgrade_exists (const char *original_path)
+{
+	nih_local char  *json_string = NULL;
+	struct stat      statbuf;
+	size_t           len;
+	int              got_tty1 = FALSE;
+	char             chroot_path[PATH_MAX];
+	nih_local char  *path = NULL;
+	nih_local char  *file = NULL;
+	nih_local char  *processed_json = NULL;
+	mode_t           old_perms;
+
+	nih_assert (original_path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (original_path, &statbuf), 0);
+
+	/* Read the original file */
+	file = nih_file_read (NULL, original_path, &len);
+	TEST_NE_P (file, NULL);
+
+	old_perms = umask (0);
+
+	TEST_FILENAME (chroot_path);
+	assert0 (mkdir (chroot_path, 0755));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (mkdir (path, 0755));
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (mkdir (path, 0755));
+
+	/* Replace @CHROOT_PATH@ with our temporary path */
+	processed_json = search_and_replace (NULL, file, "@CHROOT_PATH@", chroot_path);
+	TEST_NE_P (processed_json, NULL);
+
+	/* Create some jobs which are also specified in the original
+	 * JSON state data.
+	 */
+	CREATE_FILE (path, "tty1.conf", "manual");
+	CREATE_FILE (path, "tty2.conf", "manual");
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (processed_json));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		nih_local char *new_path = NULL;
+
+		/* yes, there is a double-slash in this path */
+		new_path = nih_sprintf (NULL, "%s/%s", chroot_path,
+				"/etc/init");
+
+		TEST_EQ_STR (session->chroot, chroot_path);
+		TEST_EQ_STR (session->conf_path, new_path);
+		session_count++;
+	}
+	TEST_EQ (session_count, 1);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 1);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
+	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+
+	DELETE_FILE (path, "tty1.conf");
+	DELETE_FILE (path, "tty2.conf");
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc/init", chroot_path));
+	assert0 (rmdir (path));
+
+	path = NIH_MUST (nih_sprintf (NULL, "%s/etc", chroot_path));
+	assert0 (rmdir (path));
+
+	assert0 (rmdir (chroot_path));
+
+	/* Restore */
+	umask (old_perms);
+}
+
+/**
+ * test_session_upgrade_stale
+ *
+ * @path: full path to JSON data file that needs pre-processing.
+ *
+ * Test to ensure Upstart can deserialise a state file containing a
+ * stale chroot session which is long gone.  This was added since
+ * updated scenario caught a bug in a bug fix to an early fix for
+ * LP:#1199778 (resulting in stateless re-exec).
+ *
+ **/
+void
+test_session_upgrade_stale (const char *path)
+{
+	nih_local char  *json_string = NULL;
+	struct stat      statbuf;
+	size_t           len;
+	int              got_tty1 = FALSE;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (sessions);
+
+	int session_count = 0;
+	NIH_LIST_FOREACH (sessions, iter) {
+		Session *session = (Session *)iter;
+		if (session_count == 0) {
+			TEST_EQ_STR (session->chroot, "/var/lib/schroot/mount/raring-amd64-9684b2e0-c5c2-49f0-9baf-7eddd72f2482");
+			TEST_EQ_STR (session->conf_path, "/var/lib/schroot/mount/raring-amd64-9684b2e0-c5c2-49f0-9baf-7eddd72f2482/etc/init");
+		} else {
+			TEST_EQ_STR (session->chroot, "/var/lib/schroot/mount/saucy-amd64-4c0015a8-7e99-4d1b-8453-557a82aff76f");
+			TEST_EQ_STR (session->conf_path, "/var/lib/schroot/mount/saucy-amd64-4c0015a8-7e99-4d1b-8453-557a82aff76f/etc/init");
+		}
+		session_count++;
+	}
+	TEST_EQ (session_count, 2);
+
+	int source_types[3] = {0, 0, 0};
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *) iter;
+		if (! source->session) {
+			switch (source->type) {
+			case CONF_FILE:
+				source_types[0]++;
+				break;
+			case CONF_JOB_DIR:
+				source_types[1]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		} else {
+			switch (source->type) {
+			case CONF_JOB_DIR:
+				source_types[2]++;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+	TEST_EQ (source_types[0], 1);
+	TEST_EQ (source_types[1], 1);
+	TEST_EQ (source_types[2], 2);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		TEST_EQ_P (class->session, NULL);
+		if (! strcmp (class->name, "tty1"))
+			got_tty1 = TRUE;
+	}
+
+	/* XXX: The json contains 2 tty1 jobs: one in the NULL session,
+	 * and the other in the chroot session.
+	 *
+	 * Make sure that duplicate job names (albeit in different sessions)
+	 * do not stop the NULL session job from being recreated.
+	 */
+	TEST_EQ (got_tty1, TRUE);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
 
 /**
  * test_upstart1_8_upgrade:
@@ -3934,33 +4426,72 @@ test_upstart_full_serialise_with_apparmor_upgrade (const char *path)
 	events = NULL;
 }
 
-int
-main (int   argc,
-      char *argv[])
+
+/**
+ * test_reload_signal_state:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise the 1.9-format JSON with the
+ * addition of the reload signal stanza.
+ **/
+void
+test_reload_signal_state (const char *path)
 {
-	/* run tests in legacy (pre-session support) mode */
-	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+	nih_local char   *json_string = NULL;
+	struct stat       statbuf;
+	size_t            len;
 
-	/* Modify Upstart's behaviour slightly since it's running under
-	 * the test suite.
-	 */
-	test_basic_types ();
-	test_clean_args ();
-	test_enums ();
-	test_int_arrays ();
-	test_string_arrays ();
-	test_hex_encoding ();
-	test_rlimit_encoding ();
-	test_session_serialise ();
-	test_process_serialise ();
-	test_blocking ();
-	test_event_serialise ();
-	test_log_serialise ();
-	test_job_serialise ();
-	test_job_class_serialise ();
-	test_upgrade ();
+	nih_assert (path);
 
-	return 0;
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+		if (strcmp (class->name, "whoopsie") == 0) {
+			TEST_EQ (class->reload_signal, SIGUSR1);
+		} else
+			TEST_EQ (class->reload_signal, SIGHUP);
+	}
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+
 }
 
 /**
@@ -3988,4 +4519,33 @@ conf_source_from_path (const char *path, ConfSourceType type, const Session *ses
 	}
 
 	return NULL;
+}
+
+int
+main (int   argc,
+      char *argv[])
+{
+	/* run tests in legacy (pre-session support) mode */
+	setenv ("UPSTART_NO_SESSIONS", "1", 1);
+
+	/* Modify Upstart's behaviour slightly since it's running under
+	 * the test suite.
+	 */
+	test_basic_types ();
+	test_clean_args ();
+	test_enums ();
+	test_int_arrays ();
+	test_string_arrays ();
+	test_hex_encoding ();
+	test_rlimit_encoding ();
+	test_session_serialise ();
+	test_process_serialise ();
+	test_blocking ();
+	test_event_serialise ();
+	test_log_serialise ();
+	test_job_serialise ();
+	test_job_class_serialise ();
+	test_upgrade ();
+
+	return 0;
 }

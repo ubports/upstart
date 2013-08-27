@@ -232,17 +232,12 @@ quiesce_show_slow_jobs (void)
 /**
  * quiesce_finalise:
  *
- * Perform final shutdown operations.
+ * Request shutdown.
  **/
 void
 quiesce_finalise (void)
 {
 	nih_assert (quiesce_phase == QUIESCE_PHASE_CLEANUP);
-
-	/* Cleanup */
-	conf_destroy ();
-	session_destroy ();
-	control_cleanup ();
 
 	nih_main_loop_exit (0);
 }

@@ -171,6 +171,11 @@ static int stanza_kill        (JobClass *class, NihConfigStanza *stanza,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
 
+static int stanza_reload      (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+
 static int stanza_apparmor    (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -262,6 +267,7 @@ static NihConfigStanza stanzas[] = {
 	{ "expect",      (NihConfigHandler)stanza_expect      },
 	{ "task",        (NihConfigHandler)stanza_task        },
 	{ "kill",        (NihConfigHandler)stanza_kill        },
+	{ "reload",      (NihConfigHandler)stanza_reload      },
 	{ "respawn",     (NihConfigHandler)stanza_respawn     },
 	{ "normal",      (NihConfigHandler)stanza_normal      },
 	{ "console",     (NihConfigHandler)stanza_console     },
@@ -1937,6 +1943,92 @@ finish:
 
 	return ret;
 }
+
+
+/**
+ * stanza_reload:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a reload stanza from @file, extracting a second-level stanza that
+ * states which value to set from its argument.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_reload (JobClass        *class,
+	       NihConfigStanza *stanza,
+	       const char      *file,
+	       size_t           len,
+	       size_t          *pos,
+	       size_t          *lineno)
+{
+	size_t          a_pos, a_lineno;
+	int             ret = -1;
+	char           *endptr;
+	nih_local char *arg = NULL;
+
+	nih_assert (class != NULL);
+	nih_assert (stanza != NULL);
+	nih_assert (file != NULL);
+	nih_assert (pos != NULL);
+
+	a_pos = *pos;
+	a_lineno = (lineno ? *lineno : 1);
+
+	arg = nih_config_next_token (NULL, file, len, &a_pos, &a_lineno,
+				     NIH_CONFIG_CNLWS, FALSE);
+	if (! arg)
+		goto finish;
+
+	if (! strcmp (arg, "signal")) {
+		unsigned long   status;
+		nih_local char *sigarg = NULL;
+		int		signal;
+
+		/* Update error position to the exit status */
+		*pos = a_pos;
+		if (lineno)
+			*lineno = a_lineno;
+
+		sigarg = nih_config_next_arg (NULL, file, len, &a_pos,
+					      &a_lineno);
+
+		if (! sigarg)
+			goto finish;
+
+		signal = nih_signal_from_name (sigarg);
+		if (signal < 0) {
+			errno = 0;
+			status = strtoul (sigarg, &endptr, 10);
+			if (errno || *endptr || (status > INT_MAX))
+				nih_return_error (-1, PARSE_ILLEGAL_SIGNAL,
+						  _(PARSE_ILLEGAL_SIGNAL_STR));
+
+			signal = status;
+		}
+
+		/* Set the signal */
+		class->reload_signal = signal;
+	} else {
+		nih_return_error (-1, NIH_CONFIG_UNKNOWN_STANZA,
+				  _(NIH_CONFIG_UNKNOWN_STANZA_STR));
+	}
+
+	ret = nih_config_skip_comment (file, len, &a_pos, &a_lineno);
+
+finish:
+	*pos = a_pos;
+	if (lineno)
+		*lineno = a_lineno;
+
+	return ret;
+}
+
 
 /**
  * stanza_apparmor:

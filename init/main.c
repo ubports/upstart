@@ -375,7 +375,6 @@ main (int   argc,
 		}
 
 	} else {
-		nih_log_set_priority (NIH_LOG_DEBUG);
 		nih_debug ("Running with UID %d as PID %d (PPID %d)",
 				(int)getuid (), (int)getpid (), (int)getppid ());
 	}
@@ -683,6 +682,11 @@ main (int   argc,
 	 */
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
+
+	/* Cleanup */
+	conf_destroy ();
+	session_destroy ();
+	control_cleanup ();
 
 	return ret;
 }
