@@ -1,8 +1,8 @@
-upstart (1.9.1-0ubuntu5) UNRELEASED; urgency=low
+upstart (1.9.1-0ubuntu5) saucy; urgency=low
 
   * Turn on Upstart user sessions for all the Ubuntu flavours.
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 Aug 2013 10:23:48 -0400
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 Aug 2013 10:25:22 -0400
 
 upstart (1.9.1-0ubuntu4) saucy; urgency=low
 
