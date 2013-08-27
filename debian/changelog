@@ -1,3 +1,9 @@
+upstart (1.10-0ubuntu1) saucy; urgency=low
+
+  * New upstream release (LP: #1199778, #1200264, #1201865).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 27 Aug 2013 09:08:28 +0100
+
 upstart (1.9.1-0ubuntu4) saucy; urgency=low
 
   [ Dmitrijs Ledkovs ]
