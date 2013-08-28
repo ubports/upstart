@@ -11125,6 +11125,7 @@ test_quiesce (void)
 {
 	char                      confdir[PATH_MAX];
 	char                      logdir[PATH_MAX];
+	char                      pid_file[PATH_MAX];
 	char                      sessiondir[PATH_MAX];
 	nih_local char           *cmd = NULL;
 	pid_t                     upstart_pid = 0;
@@ -11135,6 +11136,8 @@ test_quiesce (void)
 	nih_local NihDBusProxy   *upstart = NULL;
 	nih_local char           *orig_xdg_runtime_dir = NULL;
 	nih_local char           *session_file = NULL;
+	nih_local char           *job = NULL;
+	pid_t                     job_pid;
 
 	TEST_GROUP ("Session Init quiesce");
 
@@ -11204,6 +11207,9 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
@@ -11218,6 +11224,8 @@ test_quiesce (void)
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	kill (job_pid, SIGKILL);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11243,6 +11251,9 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
@@ -11258,18 +11269,24 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	kill (job_pid, SIGKILL);
+
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11302,19 +11319,31 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* kill job pid if not already dead */
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end and ignores SIGTERM");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11347,6 +11376,14 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* kill job pid if not already dead */
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end-term.conf");
 
 	/*******************************************************************/
@@ -11357,17 +11394,20 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running-term.conf",
 			"script\n"
 			"  trap '' TERM\n"
-		        "  sleep 999\n"
+		        "  exec sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11381,6 +11421,9 @@ test_quiesce (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
@@ -11396,6 +11439,16 @@ test_quiesce (void)
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* kill job pids if not already dead */
+	kill (job_pid, SIGKILL);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
@@ -11449,6 +11502,9 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
+
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
 
@@ -11469,6 +11525,8 @@ test_quiesce (void)
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	kill (job_pid, SIGKILL);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11484,12 +11542,15 @@ test_quiesce (void)
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
-			get_initctl (), "long-running");
+			get_initctl (), "long-running-term");
 	TEST_NE_P (cmd, NULL);
 
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11512,18 +11573,24 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	kill (job_pid, SIGKILL);
+
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11555,6 +11622,13 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
+
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
@@ -11564,14 +11638,18 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11603,6 +11681,13 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
+
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
@@ -11620,13 +11705,17 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11637,6 +11726,9 @@ test_quiesce (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11658,6 +11750,16 @@ test_quiesce (void)
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* kill job pids if not already dead */
+	kill (job_pid, SIGKILL);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+	kill (job_pid, SIGKILL);
+	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
