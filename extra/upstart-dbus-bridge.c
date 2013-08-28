@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -52,6 +53,7 @@
 #define DBUS_EVENT "dbus"
 
 /* Prototypes for static functions */
+static int               bus_name_setter      (NihOption *option, const char *arg);
 static int               dbus_bus_setter      (NihOption *option, const char *arg);
 static void              dbus_disconnected    (DBusConnection *connection);
 static void              upstart_disconnected (DBusConnection *connection);
@@ -93,6 +95,13 @@ static int user_mode = FALSE;
 DBusBusType dbus_bus = (DBusBusType)-1;
 
 /**
+ * bus_name:
+ *
+ * type of event to emit.
+ **/
+static const char * bus_name = NULL;
+
+/**
  * Structure we use for tracking jobs
  *
  * @entry: list header, 
@@ -128,6 +137,8 @@ static NihOption options[] = {
 	  NULL, NULL, &always, NULL },
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
+	{ 0, "bus-name", N_("Bus name to specify in event environment"),
+	  NULL, "name", NULL, bus_name_setter },
 	{ 0, "user", N_("Connect to user session"),
 	  NULL, NULL, &user_mode, NULL },
 	{ 0, "session", N_("Use D-Bus session bus"),
@@ -342,7 +353,7 @@ main (int   argc,
 
 	/* Destroy any PID file we may have created */
 	if (daemonise) {
-		nih_main_unlink_pidfile();
+		nih_main_unlink_pidfile ();
 	}
 
 	return ret;
@@ -374,6 +385,24 @@ upstart_disconnected (DBusConnection *connection)
 {
 	nih_fatal (_("Disconnected from Upstart"));
 	nih_main_loop_exit (EXIT_FAILURE);
+}
+
+/**  
+ * NihOption setter function to handle bus name
+ *
+ * Returns: 0 on success
+ **/
+static int
+bus_name_setter (NihOption *option, const char *arg)
+{
+	nih_assert (option);
+
+	if (arg == NULL || arg[0] == '\0' || arg[0] == ' ') {
+		return -1;
+	}
+
+	bus_name = arg;
+	return 0;
 }
 
 /**  
@@ -415,6 +444,7 @@ signal_filter (DBusConnection  *connection,
 	int                 emit = FALSE;
 	DBusPendingCall    *pending_call;
 	DBusError           error;
+	DBusMessageIter     message_iter;
 	nih_local char    **env = NULL;
 	const char         *sender;
 	const char         *destination;
@@ -469,6 +499,12 @@ signal_filter (DBusConnection  *connection,
 		goto out;
 	}
 
+	if (bus_name) {
+		nih_local char *var = NULL;
+		var = NIH_MUST (nih_sprintf (NULL, "BUS=%s", bus_name));
+		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	}
+
 	if (interface) {
 		nih_local char *var = NULL;
 		var = NIH_MUST (nih_sprintf (NULL, "INTERFACE=%s", interface));
@@ -491,6 +527,97 @@ signal_filter (DBusConnection  *connection,
 		nih_local char *var = NULL;
 		var = NIH_MUST (nih_sprintf (NULL, "DESTINATION=%s", destination));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	}
+
+	if (dbus_message_iter_init (message, &message_iter)) {
+		int current_type = DBUS_TYPE_INVALID;
+		int arg_num = 0;
+
+		while ((current_type = dbus_message_iter_get_arg_type (&message_iter)) != DBUS_TYPE_INVALID) {
+			nih_local char *var = NULL;
+
+			switch (current_type) {
+				case DBUS_TYPE_BOOLEAN: {
+					dbus_bool_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg ? "TRUE" : "FALSE"));
+					break;
+				}
+				case DBUS_TYPE_INT16: {
+					dbus_int16_t arg = 0;
+					dbus_message_iter_get_basic(&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi16, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT16: {
+					dbus_uint16_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu16, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_INT32: {
+					dbus_int32_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi32, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT32: {
+					dbus_uint32_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu32, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_INT64: {
+					dbus_int64_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIi64, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_UINT64: {
+					dbus_uint64_t arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%" PRIu64, arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_DOUBLE: {
+					double arg = 0;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%f", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_STRING: {
+					const char * arg = NULL;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
+					break;
+				}
+				case DBUS_TYPE_OBJECT_PATH: {
+					const char * arg = NULL;
+					dbus_message_iter_get_basic (&message_iter, &arg);
+
+					var = NIH_MUST (nih_sprintf (NULL, "ARG%d=%s", arg_num, arg));
+					break;
+				}
+				/* NOTE: Only supporting strings for now, we can consider other
+				   types in the future by extending this switch */
+			}
+
+			if (var != NULL) {
+				NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+			}
+
+			dbus_message_iter_next (&message_iter);
+			arg_num++;
+		}
 	}
 
 	nih_debug ("Received D-Bus signal: %s "
