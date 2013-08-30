@@ -513,7 +513,7 @@ signal_filter (DBusConnection  *connection,
 
 	if (path) {
 		nih_local char *var = NULL;
-		var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", path));
+		var = NIH_MUST (nih_sprintf (NULL, "OBJPATH=%s", path));
 		NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
 	}
 
