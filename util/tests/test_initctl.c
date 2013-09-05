@@ -11216,16 +11216,54 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	/* Wait for longer than we expect the Session Init to take to
+	 * shutdown to give it time to send SIGKILL to all job
+	 * processes. This is unrealistic, but safer for the tests since
+	 * the exact behaviour can be checked.
+	 *
+	 * In reality, the following steps either side of the markers *will*
+	 * occur and those within the markers *may* occur:
+	 *
+	 * 1) A System Shutdown is triggered.
+	 * 2) The Display Manager receives SIGTERM.
+	 * 3) The Display Manager sends SIGTERM to all its clients.
+	 *    (including the Session Init).
+	 * 4) The Session Init sends SIGTERM to all running job
+	 *    processes.
+	 *
+	 *  --- :XXX: START MARKER :XXX: ---
+	 *
+	 * 5) The Session Init will attempt to wait for
+	 *    MAX(kill_timeout) seconds.
+	 * 6) The Session Init will send all running job processes
+	 *    SIGKILL.
+	 * 7) The Session Init will wait for all remaining job processes
+	 *    to end.
+	 * 8) The Session Init will exit.
+	 *
+	 *  --- :XXX: END MARKER :XXX: ---
+	 *
+	 * 9) The Display Manager sends SIGKILL to all its clients.
+	 * 10) If still running, the Session Init is killed and exits.
+	 *
+	 * The problem is that the Session Init cannot know when the
+	 * Display Manager will kill *it* so it may be that the Session
+	 * Init cannot send SIGKILL to each job process instead relying
+	 * on the System Init to clean up.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	kill (job_pid, SIGKILL);
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11260,16 +11298,19 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	kill (job_pid, SIGKILL);
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
@@ -11299,10 +11340,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11319,12 +11361,17 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	/* kill job pid if not already dead */
 	file = fopen (pid_file, "r");
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* pid should be running since Upstart won't have signalled it
+	 * to stop (since it started as a result of session-end being
+	 * emitted _after_ the job pids were sent SIGTERM).
+	 */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
 	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "session-end.conf");
@@ -11356,10 +11403,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11381,7 +11429,10 @@ test_quiesce (void)
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
 	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "session-end-term.conf");
@@ -11431,23 +11482,28 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	/* kill job pids if not already dead */
+	/* the long-running job pid should no longer exist */
 	kill (job_pid, SIGKILL);
+	TEST_EQ (errno, ESRCH);
 
 	file = fopen (pid_file, "r");
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* .... but the session-end job pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
 	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
@@ -11521,12 +11577,15 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	kill (job_pid, SIGKILL);
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11568,12 +11627,15 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	kill (job_pid, SIGKILL);
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
@@ -11626,7 +11688,11 @@ test_quiesce (void)
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
 	assert0 (unlink (pid_file));
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
@@ -11685,7 +11751,11 @@ test_quiesce (void)
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
 	assert0 (unlink (pid_file));
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
@@ -11751,14 +11821,19 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
-	/* kill job pids if not already dead */
-	kill (job_pid, SIGKILL);
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	file = fopen (pid_file, "r");
 	TEST_NE_P (file, NULL);
 	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
 	fclose (file);
-	kill (job_pid, SIGKILL);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
 	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
