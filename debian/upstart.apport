@@ -168,7 +168,7 @@ def add_info(report, ui):
     if session_state_file:
         attach_file_if_exists(report, session_state_file)
 
-    if os.path.exists(system_state_file) or os.path.exists(session_state_file):
+    if os.path.exists(system_state_file) or (session_state_file and os.path.exists(session_state_file)):
         report['Tags'] += ' ' + 'upstart-stateful-reexec-failed'
 
     report['UpstartRunningSystemVersion'] = command_output(['initctl', '--system', 'version'])

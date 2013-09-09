@@ -1,3 +1,10 @@
+upstart (1.10-0ubuntu2) UNRELEASED; urgency=low
+
+  * debian/upstart.apport: Check session state file set before attempting
+    to add an apport tag. 
+
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 09 Sep 2013 10:28:17 +0100
+
 upstart (1.10-0ubuntu1) saucy; urgency=low
 
   * New upstream release (LP: #1199778, #1200264, #1201865).
