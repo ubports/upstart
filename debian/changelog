@@ -10,7 +10,7 @@ upstart (1.10-0ubuntu1) saucy; urgency=low
   * debian/upstart-dconf-bridge.install: New.
   * debian/upstart-dconf-bridge.manpages: New.
 
- -- James Hunt <james.hunt@ubuntu.com>  Tue, 27 Aug 2013 09:08:28 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 09 Sep 2013 10:22:18 +0100
 
 upstart (1.9.1-0ubuntu5) saucy; urgency=low
 
