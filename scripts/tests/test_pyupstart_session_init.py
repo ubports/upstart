@@ -158,59 +158,170 @@ class TestFileBridge(TestSessionUpstart):
             self.assertIsInstance(pid, int)
             os.kill(pid, 0)
 
-        # Create a job that makes use of the file event to watch to a
-        # file in a newly-created directory.
-        dir = tempfile.mkdtemp()
-        file = dir + os.sep + 'foo'
+        target_dir = tempfile.mkdtemp()
+        file = target_dir + os.sep + 'foo'
+        dir = target_dir + os.sep + 'bar'
 
-        msg = 'got file %s' % file
+        # Create a job that makes use of the file event to watch a
+        # file in a newly-created directory.
+        file_msg = 'got file %s' % file
         lines = []
         lines.append('start on file FILE=%s EVENT=create' % file)
-        lines.append('exec echo %s' % msg)
-        create_job = self.upstart.job_create('wait-for-file-creation', lines)
-        self.assertTrue(create_job)
+        lines.append('exec echo %s' % file_msg)
+        create_file_job = self.upstart.job_create('wait-for-file-creation', lines)
+        self.assertTrue(create_file_job)
 
-        # Create empty file
-        open(file, 'w').close()
+        # Create job that waits for a file modification
+        lines = []
+        lines.append('start on file FILE=%s EVENT=modify' % file)
+        lines.append('exec echo %s' % file_msg)
+        modify_file_job = self.upstart.job_create('wait-for-file-modify', lines)
+        self.assertTrue(modify_file_job)
 
         # Create another job that triggers when the same file is deleted
         lines = []
         lines.append('start on file FILE=%s EVENT=delete' % file)
-        lines.append('exec echo %s' % msg)
-        delete_job = self.upstart.job_create('wait-for-file-deletion', lines)
-        self.assertTrue(delete_job)
+        lines.append('exec echo %s' % file_msg)
+        delete_file_job = self.upstart.job_create('wait-for-file-deletion', lines)
+        self.assertTrue(delete_file_job)
+
+        # Create job that triggers on directory creation
+        dir_msg = 'got directory %s' % dir
+        lines = []
+        # XXX: note the trailing slash to force a directory watch
+        lines.append('start on file FILE=%s/ EVENT=create' % dir)
+        lines.append('exec echo %s' % dir_msg)
+        create_dir_job = self.upstart.job_create('wait-for-dir-creation', lines)
+        self.assertTrue(create_dir_job)
+
+        # Create job that triggers on directory modification
+        lines = []
+        # XXX: note the trailing slash to force a directory watch
+        lines.append('start on file FILE=%s/ EVENT=modify' % dir)
+        lines.append('exec echo %s' % dir_msg)
+        modify_dir_job = self.upstart.job_create('wait-for-dir-modify', lines)
+        self.assertTrue(modify_dir_job)
+
+        # Create job that triggers on directory deletion
+        lines = []
+        # XXX: note the trailing slash to force a directory watch
+        lines.append('start on file FILE=%s/ EVENT=delete' % dir)
+        lines.append('exec echo %s' % dir_msg)
+        delete_dir_job = self.upstart.job_create('wait-for-dir-delete', lines)
+        self.assertTrue(delete_dir_job)
+
+        # Create empty file
+        open(file, 'w').close()
+
+        # Create directory
+        os.mkdir(dir)
 
         # No need to start the jobs of course as the file-bridge handles that!
 
         # Identify full path to job logfiles
-        create_job_logfile = create_job.logfile_name(dbus_encode(''))
-        self.assertTrue(create_job_logfile)
+        create_file_job_logfile = create_file_job.logfile_name(dbus_encode(''))
+        self.assertTrue(create_file_job_logfile)
 
-        delete_job_logfile = delete_job.logfile_name(dbus_encode(''))
-        self.assertTrue(delete_job_logfile)
+        modify_file_job_logfile = modify_file_job.logfile_name(dbus_encode(''))
+        self.assertTrue(modify_file_job_logfile)
 
-        # Wait for the create job to run and produce output
-        self.assertTrue(wait_for_file(create_job_logfile))
+        delete_file_job_logfile = delete_file_job.logfile_name(dbus_encode(''))
+        self.assertTrue(delete_file_job_logfile)
+
+        create_dir_job_logfile = create_dir_job.logfile_name(dbus_encode(''))
+        self.assertTrue(create_dir_job_logfile)
+
+        modify_dir_job_logfile = modify_dir_job.logfile_name(dbus_encode(''))
+        self.assertTrue(modify_dir_job_logfile)
+
+        delete_dir_job_logfile = delete_dir_job.logfile_name(dbus_encode(''))
+        self.assertTrue(delete_dir_job_logfile)
+
+        #--------------------
+
+        # Wait for the create file job to run and produce output
+        self.assertTrue(wait_for_file(create_file_job_logfile))
 
         # Check the output
-        with open(create_job_logfile, 'r', encoding='utf-8') as f:
+        with open(create_file_job_logfile, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         self.assertTrue(len(lines) == 1)
-        self.assertEqual(msg, lines[0].rstrip())
+        self.assertEqual(file_msg, lines[0].rstrip())
 
-        shutil.rmtree(dir)
+        #--------------------
+
+        # Wait for the create directory job to run and produce output
+        self.assertTrue(wait_for_file(create_dir_job_logfile))
+
+        # Check the output
+        with open(create_dir_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        self.assertTrue(len(lines) == 1)
+        self.assertEqual(dir_msg, lines[0].rstrip())
+
+        #--------------------
+
+        # Modify the file
+        open(file, 'w').close()
+
+        # Wait for the create file job to run and produce output
+        self.assertTrue(wait_for_file(modify_file_job_logfile))
+
+        # Check the output
+        with open(modify_file_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        self.assertTrue(len(lines) == 1)
+        self.assertEqual(file_msg, lines[0].rstrip())
+
+        #--------------------
+        # Modify the directory by creating a new file in it.
+
+        dir_file = dir + os.sep + 'baz'
+        open(dir_file, 'w').close()
+
+        # Wait for the modify directory job to run and produce output
+        self.assertTrue(wait_for_file(modify_dir_job_logfile))
+
+        # Check the output
+        with open(modify_dir_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        self.assertTrue(len(lines) == 1)
+        self.assertEqual(dir_msg, lines[0].rstrip())
+
+        #--------------------
+
+        os.remove(dir_file)
+        os.rmdir(dir)
+
+        # Wait for the delete directory job to run and produce output
+        self.assertTrue(wait_for_file(delete_dir_job_logfile))
+
+        # Check the output
+        with open(delete_dir_job_logfile, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        self.assertTrue(len(lines) == 1)
+        self.assertEqual(dir_msg, lines[0].rstrip())
+        #--------------------
+
+        shutil.rmtree(target_dir)
 
         # Wait for the delete job to run and produce output
-        self.assertTrue(wait_for_file(delete_job_logfile))
+        self.assertTrue(wait_for_file(delete_file_job_logfile))
 
         # Check the output
-        with open(delete_job_logfile, 'r', encoding='utf-8') as f:
+        with open(delete_file_job_logfile, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         self.assertTrue(len(lines) == 1)
-        self.assertEqual(msg, lines[0].rstrip())
+        self.assertEqual(file_msg, lines[0].rstrip())
 
-        os.remove(create_job_logfile)
-        os.remove(delete_job_logfile)
+        #--------------------
+
+        os.remove(create_file_job_logfile)
+        os.remove(modify_file_job_logfile)
+        os.remove(delete_file_job_logfile)
+        os.remove(create_dir_job_logfile)
+        os.remove(modify_dir_job_logfile)
+        os.remove(delete_dir_job_logfile)
 
         file_bridge.stop()
         self.stop_session_init()

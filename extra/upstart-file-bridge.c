@@ -177,8 +177,9 @@
  *
  * @file: WatchedFile:
  *
- * Obtain the appropriate WatchedFile path: either the original if the
- * path underwent expansion, else the initial unexpanded path.
+ * Obtain the appropriate WatchedFile path: the original if the
+ * path underwent expansion or is a directory, else the initial
+ * unexpanded path.
  *
  * Required for emitting events since jobs need the unexpanded path to
  * allow their start/stop condition to match even if the path has
@@ -261,6 +262,9 @@ typedef struct watched_dir {
  * @parent: parent who is watching over us.
  *
  * Details of the file being watched.
+ *
+ * For directories, @original contains the full path specified by the
+ * job and @path will contain @original, less any trailing slashes.
  **/
 typedef struct watched_file {
 	NihList      entry;
@@ -855,7 +859,7 @@ job_add_file (Job    *job,
 	 *
 	 * Although technically fraudulent (the file might not have _just
 	 * been created_ - it may have existed forever), it is necessary
-	 * since otherwise jobs will hang around wating for the file to
+	 * since otherwise jobs will hang around waiting for the file to
 	 * be 'freshly-created'. However, although nih_watch_new() has
 	 * been told to run the create handler for pre-existing files
 	 * that doesn't help as we don't watch the files, we watch
@@ -986,10 +990,10 @@ create_handler (WatchedDir   *dir,
 				 * was modified.
 				 */
 				if (file->events & IN_MODIFY)
-					handle_event (handled, file->path, IN_MODIFY, path);
+					handle_event (handled, original_path (file), IN_MODIFY, path);
 			} else if (! strcmp (file->path, path)) {
 				/* Directory has been created */
-				handle_event (handled, file->path, IN_CREATE, NULL);
+				handle_event (handled, original_path (file), IN_CREATE, NULL);
 				add_dir = TRUE;
 				nih_list_add (&entries, &file->entry);
 			}
@@ -1464,6 +1468,10 @@ watched_dir_new (const char         *path,
 
 	len = strlen (watched_path);
 
+	/* Sanity-check */
+	if (len <= 1)
+		return NULL;
+
 	if (len > 1 && watched_path[len-1] == '/') {
 		/* Better to remove a trailing slash before handing to
 		 * inotify since although all works as expected, the
@@ -1570,18 +1578,34 @@ watched_file_new (const char  *path,
 
 	len = strlen (path);
 
+	/* Sanity-check */
+	if (len <= 1)
+		return NULL;
+
+	/* Determine if the file is a directory */
 	file->dir = (path[len-1] == '/');
 
-	/* optionally one or the other, but not both */
+	/* Optionally one or the other, but not both */
 	if (file->dir || file->glob)
 		nih_assert (file->dir || file->glob);
 
-	file->path = nih_strdup (file, path);
+	/* Don't store the trailing slash for directories since that
+	 * confuses the logic and is redundant (due to file->dir).
+	 */
+	file->path = nih_strndup (file, path, file->dir ? len-1 : len);
 	if (! file->path)
 		goto error;
 
 	file->original = NULL;
-	if (original) {
+
+	if (file->dir) {
+		/* Retain the original directory path to simplify event
+		 * matching.
+		 */
+		file->original = nih_strndup (file, path, len);
+		if (! file->original)
+			goto error;
+	} else if (original) {
 		file->original = nih_strdup (file, original);
 		if (! file->original)
 			goto error;
