@@ -229,6 +229,23 @@ class TestSessionInitReExec(TestSessionUpstart):
         # Ensure no stateful-reexec already performed.
         self.assertFalse(re.search('state-fd', output))
 
+        version = self.upstart.version()
+        self.assertTrue(version)
+
+        # create a job and start it, marking it such that the .conf file
+        # will be retained when object becomes unusable (after re-exec).
+        job = self.upstart.job_create('sleeper', 'exec sleep 123', retain=True)
+        self.assertTrue(job)
+
+        # Used when recreating the job
+        conf_path = job.conffile
+
+        inst = job.start()
+        self.assertTrue(inst)
+        pids = job.pids()
+        self.assertEqual(len(pids), 1)
+        pid = pids['main']
+
         # Trigger re-exec and catch the D-Bus exception resulting
         # from disconnection from Session Init when it severs client
         # connections.
@@ -248,8 +265,40 @@ class TestSessionInitReExec(TestSessionUpstart):
         # instantaneous, try a few times.
         self.upstart.polling_connect(force=True)
 
+        # Since the parent job was created with 'retain', this is actually
+        # a NOP but is added to denote that the old instance is dead.
+        inst.destroy()
+
         # check that we can still operate on the re-exec'd Upstart
-        self.assertTrue(self.upstart.version())
+        version_postexec = self.upstart.version()
+        self.assertTrue(version_postexec)
+        self.assertEqual(version, version_postexec)
+
+        # Ensure the job is still running with the same PID
+        os.kill(pid, 0)
+
+        # XXX: The re-exec will have severed the D-Bus connection to
+        # Upstart. Hence, revivify the job with some magic.
+        job = self.upstart.job_recreate('sleeper', conf_path)
+        self.assertTrue(job)
+
+        # Recreate the instance
+        inst = job.get_instance()
+        self.assertTrue(inst)
+
+        self.assertTrue(job.running('_'))
+        pids = job.pids()
+        self.assertEqual(len(pids), 1)
+        self.assertTrue(pids['main'])
+
+        # The pid should not have changed after a restart
+        self.assertEqual(pid, pids['main'])
+
+        job.stop()
+
+        # Ensure the pid has gone
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
 
         self.stop_session_init()
 
