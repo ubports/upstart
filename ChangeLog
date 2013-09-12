@@ -1,3 +1,17 @@
+2013-09-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce():
+	  - Improve kill checks on job processes.
+	  - Assert precisely which job processes are expected to be running
+	    after the Session Init has exited (particularly important for jobs
+	    that 'start on session-end' since they may be running in a System
+	    Shutdown scenario).
+
+2013-08-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce(): Clean up any
+	  processes that the Session Init couldn't before it shut down.
+
 2013-08-23  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.10
