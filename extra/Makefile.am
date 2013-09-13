@@ -156,12 +156,12 @@ upstart_udev_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
-upstart_udev_bridge_CFLAGS =
+upstart_udev_bridge_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(UDEV_CFLAGS)
-	
+
 install-data-hook:
 	src=`echo upstart-udev-bridge| sed '$(transform)'`.8; \
 	for symlink in \
