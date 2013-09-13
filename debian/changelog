@@ -6,6 +6,8 @@ upstart (1.10-0ubuntu2) UNRELEASED; urgency=low
 
   [ Steve Langasek ]
   * Use ${libdir} instead of including /usr/share/dpkg/architecture.mk.
+  * Drop manual symlinking of manpages, the upstream rules do this fine
+    for us already.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 09 Sep 2013 10:28:17 +0100
 
