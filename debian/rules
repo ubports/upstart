@@ -33,13 +33,6 @@ override_dh_auto_install:
 # will be added used by the upstart-dconf-bridge.install file.
 override_dh_install:
 	dh_install
-	for i in \
-		net-device-added \
-		net-device-removed \
-		graphics-device-added \
-		drm-device-added; do \
-		rm debian/tmp/usr/share/man/man7/$$i.7; \
-	done
 	install -m 644 debian/upstart.apport \
 		debian/upstart/usr/share/apport/package-hooks/upstart.py
 	rm debian/upstart/sbin/upstart-dconf-bridge
