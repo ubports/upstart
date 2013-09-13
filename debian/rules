@@ -25,6 +25,22 @@ override_dh_fixperms:
 	chmod 755 debian/upstart/lib/init/upstart-job
 	chmod 755 debian/upstart/lib/init/apparmor-profile-load
 
+# Remove the appropriate dconf files from the upstart package - they
+# will be added used by the upstart-dconf-bridge.install file.
+override_dh_install:
+	dh_install
+	for i in \
+		net-device-added \
+		net-device-removed \
+		graphics-device-added \
+		drm-device-added; do \
+		rm debian/tmp/usr/share/man/man7/$$i.7; \
+	done
+	install -m 644 debian/upstart.apport \
+		debian/upstart/usr/share/apport/package-hooks/upstart.py
+	rm debian/upstart/sbin/upstart-dconf-bridge
+	rm debian/upstart/usr/share/upstart/sessions/upstart-dconf-bridge.conf
+
 # Remove the following man pages from the upstart package; they will be
 # added to the upstart-monitor and upstart-dconf-bridge packages via
 # their .manpages files, but removing the files here is simpler than
