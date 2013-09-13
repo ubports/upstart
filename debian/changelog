@@ -13,6 +13,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - use "serial-tests" harness during build, instead of automake1.13's
       default "parallel-tests" harness; and build-depend on automake
       (>= 1.12) for this interface.
+    - Enable parallel build.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
