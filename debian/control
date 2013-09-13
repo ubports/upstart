@@ -45,3 +45,28 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.1
 Description: DConf bridge for upstart
  This package contains a bridge that allows upstart jobs to react when
  DConf/gsettings keys are changed.
+
+Package: libupstart1
+Priority: optional
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Multi-Arch: same
+Description: Upstart Client Library
+ The libupstart library allows access to services provided by the Upstart init
+ daemon without having to use low-level D-Bus calls.
+ .
+ This package contains the shared library.
+
+Package: libupstart-dev
+Priority: optional
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libupstart1 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Upstart Client Library (development files)
+ The libupstart library allows access to services provided by the Upstart init
+ daemon without having to use low-level D-Bus calls.
+ .
+ This package contains the static library and C header files which are
+ needed for developing software using libupstart.
