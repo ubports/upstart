@@ -10,6 +10,9 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - update debian/copyright.
     - add upstart-monitor package.
     - migrate to python3.
+    - use "serial-tests" harness during build, instead of automake1.13's
+      default "parallel-tests" harness; and build-depend on automake
+      (>= 1.12) for this interface.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
