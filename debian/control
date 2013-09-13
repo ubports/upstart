@@ -13,7 +13,7 @@ XS-Testsuite: autopkgtest
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts, mountall, ifupdown (>= 0.7.3), udev (>= 175-7.1), libjson0 (>= 0.10-1.2)
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts, mountall, ifupdown (>= 0.7.3), udev (>= 175-7.1), libjson0 (>= 0.10-1.2), debianutils (>= 4)
 Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest

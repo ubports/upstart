@@ -20,6 +20,8 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - Silence running-in-container when called from apparmor-profile-load.
     - Hard-code a dependency on libjson0 (>= 0.10-1.2), the first version of
       the package that installs to /lib instead of /usr/lib.
+    - Add postinst to handle stateful reexec on upgrade, and depend on
+      debianutils for ischroot(1).
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
