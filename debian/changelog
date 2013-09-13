@@ -4,6 +4,8 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - fixes racy test utmp test case.  Closes: #722572.
     - drop changes to init/job_class.[ch] process priority handling in favor
       of upstream version.
+  * Pull in Ubuntu packaging changes:
+    - add INIT_VERBOSE to rc*.conf, overlooked in the previous merge.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
