@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright  2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fnmatch.h>
+#include <pwd.h>
+#include <dirent.h>
+#include <ctype.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -41,6 +44,7 @@
 #include <nih/error.h>
 #include <nih/hash.h>
 #include <nih/tree.h>
+#include <nih/file.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_proxy.h>
@@ -53,19 +57,20 @@
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
-#include "../init/events.h"
+#include "init/events.h"
+#include "init/xdg.h"
 #include "initctl.h"
 
 
 /* Prototypes for local functions */
 NihDBusProxy *upstart_open (const void *parent)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 char *        job_status   (const void *parent,
 			    NihDBusProxy *job_class, NihDBusProxy *job)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 char *        job_usage    (const void *parent,
 			    NihDBusProxy *job_class)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 /* Prototypes for static functions */
 static void   start_reply_handler (char **job_path, NihDBusMessage *message,
@@ -103,6 +108,8 @@ static void   display_check_errors (const char *job_class,
 
 static int    allow_job (const char *job);
 static int    allow_event (const char *event);
+static char **get_job_details (void)
+	__attribute__ ((warn_unused_result));
 
 #ifndef TEST
 
@@ -126,6 +133,12 @@ int show_config_action            (NihCommand *command, char * const *args);
 int check_config_action           (NihCommand *command, char * const *args);
 int usage_action                  (NihCommand *command, char * const *args);
 int notify_disk_writeable_action  (NihCommand *command, char * const *args);
+int get_env_action                (NihCommand *command, char * const *args);
+int set_env_action                (NihCommand *command, char * const *args);
+int list_env_action               (NihCommand *command, char * const *args);
+int unset_env_action              (NihCommand *command, char * const *args);
+int reset_env_action              (NihCommand *command, char * const *args);
+int list_sessions_action          (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -143,6 +156,14 @@ int use_dbus = -1;
  * to have an appropriate bus selected.
  */
 int dbus_bus_type = -1;
+
+/**
+ * user_mode:
+ *
+ * If TRUE, talk to Upstart over the private socket defined in UPSTART_SESSION
+ * if UPSTART_SESSION isn't defined, then fallback to the session bus.
+ **/
+int user_mode = FALSE;
 
 /**
  * dest_name:
@@ -177,6 +198,15 @@ int no_wait = FALSE;
 int enumerate_events = FALSE;
 
 /**
+ * retain_var:
+ *
+ * If FALSE, the set-env command will replace any existing variable of
+ * the same name in the job environment table. If TRUE, the original
+ * value will be retained.
+ **/
+int retain_var = FALSE;
+
+/**
  * check_config_mode:
  *
  * If TRUE, parse all job configuration files looking for unreachable
@@ -198,6 +228,14 @@ int check_config_warn = FALSE;
  * Used to record details of all known jobs and events.
  **/
 CheckConfigData check_config_data;
+
+/**
+ * apply_globally:
+ *
+ * If TRUE, make changes to global job environment table rather than the
+ * running jobs instances environment table.
+ **/
+int apply_globally = FALSE;
 
 /**
  * NihOption setter function to handle selection of appropriate D-Bus
@@ -291,11 +329,30 @@ upstart_open (const void *parent)
 	DBusError       dbus_error;
 	DBusConnection *connection;
 	NihDBusProxy *  upstart;
+	char * user_addr;
 
-	if (use_dbus < 0)
-		use_dbus = getuid () ? TRUE : FALSE;
-	if (use_dbus >= 0 && dbus_bus_type < 0)
-		dbus_bus_type = DBUS_BUS_SYSTEM;
+	user_addr = getenv ("UPSTART_SESSION");
+
+	if (user_addr && dbus_bus_type < 0) {
+		user_mode = TRUE;
+	}
+
+	if (! user_mode) {
+		if (use_dbus < 0)
+			use_dbus = getuid () ? TRUE : FALSE;
+		if (use_dbus >= 0 && dbus_bus_type < 0)
+			dbus_bus_type = DBUS_BUS_SYSTEM;
+	}
+	else {
+		if (! user_addr) {
+			nih_error ("UPSTART_SESSION isn't set in the environment. "
+				       "Unable to locate the Upstart instance.");
+			return NULL;
+		}
+		dest_address = user_addr;
+		use_dbus = FALSE;
+	}
+
 
 	dbus_error_init (&dbus_error);
 	if (use_dbus) {
@@ -315,7 +372,7 @@ upstart_open (const void *parent)
 
 		dbus_connection_set_exit_on_disconnect (connection, FALSE);
 	} else {
-		if (dest_name) {
+		if (dest_name && ! user_mode) {
 			fprintf (stderr, _("%s: --dest given without --system\n"),
 				 program_name);
 			nih_main_suggest_help ();
@@ -977,19 +1034,8 @@ reload_action (NihCommand *  command,
 
 	job->auto_start = FALSE;
 
-	/* Get the process list */
-	if (job_get_processes_sync (NULL, job, &processes) < 0)
-		goto error;
-
-	if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
-		nih_error (_("Not running"));
-		return 1;
-	}
-
-	if (kill (processes[0]->item1, SIGHUP) < 0) {
-		nih_error_raise_system ();
-		goto error;
-	}
+	if (job_reload_sync (NULL, job) < 0)
+	        goto error;
 
 	return 0;
 
@@ -1305,6 +1351,266 @@ show_config_action (NihCommand *  command,
 			}
 		}
 	}
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * get_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "get-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+get_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	nih_local char          *envvar = NULL;
+	nih_local char         **job_details = NULL;
+	NihError                *err;
+	char                    *name;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	name = args[0];
+
+	if (! name) {
+		fprintf (stderr, _("%s: missing variable name\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_get_env_sync (NULL, upstart, job_details, name, &envvar) < 0)
+		goto error;
+
+	nih_message ("%s", envvar);
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * set_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "set-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+set_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	char                    *envvar;
+	nih_local char         **job_details = NULL;
+	int                      ret;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (! args[0]) {
+		fprintf (stderr, _("%s: missing variable value\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	envvar = args[0];
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	ret = upstart_set_env_sync (NULL, upstart, job_details,
+			envvar, ! retain_var);
+
+	if (ret < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+
+/**
+ * unset_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "unset-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+unset_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	char                    *name;
+	nih_local char         **job_details = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	name = args[0];
+
+	if (! name) {
+		fprintf (stderr, _("%s: missing variable name\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_unset_env_sync (NULL, upstart, job_details, name) < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * reset_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "reset-env" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+reset_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	nih_local char         **job_details = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_reset_env_sync (NULL, upstart, job_details) < 0)
+		goto error;
+
+	return 0;
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
+ * list_env_qsort_compar:
+ *
+ * @a: first string to compare,
+ * @b: second string to compare.
+ *
+ * qsort() function to sort environment variables for list_env_action().
+ **/
+static int
+list_env_qsort_compar (const void *a, const void *b) 
+{
+	        return strcoll (*(char * const *)a, *(char * const *)b);
+}
+
+/**
+ * list_env_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "list-env" command.
+ *
+ * Output is in lexicographically sorted order.
+ *
+ * Returns: command exit status.
+ **/
+int
+list_env_action (NihCommand *command, char * const *args)
+{
+	nih_local NihDBusProxy  *upstart = NULL;
+	nih_local char         **env = NULL;
+	char                   **e;
+	NihError                *err;
+	size_t                   len;
+	nih_local char         **job_details = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	job_details = get_job_details ();
+	if (! job_details)
+		return 1;
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_list_env_sync (NULL, upstart, job_details, &env) < 0)
+		goto error;
+
+	/* Determine array size */
+	for (len = 0; env[len]; len++)
+		;
+
+	qsort (env, len, sizeof (env[0]), list_env_qsort_compar);
+
+	for (e = env; e && *e; e++)
+		nih_message ("%s", *e);
 
 	return 0;
 
@@ -1678,6 +1984,119 @@ error:
 
 	return 1;
 }
+
+
+/**
+ * list_sessions_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "list-sessions" command.
+ *
+ * Unlike other commands, this does not attempt to connect to Upstart.
+ *
+ * Returns: command exit status.
+ **/
+int
+list_sessions_action (NihCommand *command, char * const *args)
+{
+	nih_local const char *session_dir = NULL;
+	DIR                  *dir;
+	struct dirent        *ent;
+
+	nih_assert (command);
+	nih_assert (args);
+	
+	session_dir = get_session_dir ();
+
+	if (! session_dir) {
+		nih_error (_("Unable to query session directory"));
+		return 1;
+	}
+
+	dir = opendir (session_dir);
+	if (! dir)
+		goto error;
+
+	while ((ent = readdir (dir))) {
+		nih_local char  *contents = NULL;
+		size_t           len;
+		nih_local char  *path = NULL;
+		pid_t            pid;
+		nih_local char  *name = NULL;
+		char            *session;
+		char            *p;
+		char            *ext;
+		char            *file;
+		int              all_digits = TRUE;
+
+		file = ent->d_name;
+
+		if (! strcmp (file, ".") || ! strcmp (file, ".."))
+			continue;
+
+		ext = p = strchr (file, '.');
+
+		/* No extension */
+		if (! ext)
+			continue;
+
+		/* Invalid extension */
+		if (strcmp (ext, ".session"))
+			continue;
+
+		NIH_MUST (nih_strncat (&name, NULL, file, (p - file)));
+
+		for (p = name; p && *p; p++) {
+			if (! isdigit (*p)) {
+				all_digits = FALSE;
+				break;
+			}
+		}
+
+		/* Invalid name */
+		if (! all_digits)
+			continue;
+
+		pid = (pid_t) atol (name);
+
+		NIH_MUST (nih_strcat_sprintf (&path, NULL, "%s/%s", session_dir, file));
+
+		if (kill (pid, 0)) {
+			nih_info ("%s: %s", _("Ignoring stale session file"), path);
+			continue;
+		}
+
+		contents = nih_file_read (NULL, path, &len);
+
+		if (! contents)
+			continue;
+
+		if (contents[len-1] == '\n')
+			contents[len-1] = '\0';
+
+		p = strstr (contents, "UPSTART_SESSION" "=");
+		if (p != contents)
+			continue;
+
+		session = p + strlen ("UPSTART_SESSION") + 1;
+
+		if (! session || ! *session)
+			continue;
+
+		nih_message ("%d %s", (int)pid, session);
+	}
+
+	closedir (dir);
+
+	return 0;
+
+error:
+	nih_error ("unable to determine sessions");
+	return 1;
+
+}
+
 
 static void
 start_reply_handler (char **         job_path,
@@ -2342,6 +2761,64 @@ out:
 	return TRUE;
 }
 
+/**
+ * get_job_details:
+ *
+ * Determine the job and job instance name that the caller should act
+ * upon. Used by the job environment commands. The caller can determine
+ * how to react based on the values in the returned array:
+ *
+ * - If user has requested global operation via the command line, return
+ *   an allocated array with zero elements.
+ *
+ * - If user has specified a job name and possible instance value via the
+ *   command line, return an array containing first the job name, then the
+ *   instance value.
+ *
+ * - If no command-line options have been specified, try to extract the
+ *   job and instance names from the environment variables set within a
+ *   jobs environment.
+ *
+ * Returns: Newly-allocated array containing job name and job
+ * instance, or an empty array if job and instance cannot be resolved,
+ * or NULL on error.
+ **/
+char **
+get_job_details (void)
+{
+	char        **details;
+	const char   *upstart_job = NULL;
+	const char   *upstart_instance = NULL;
+
+	details = nih_str_array_new (NULL);
+
+	if (! details)
+		return NULL;
+
+	if (apply_globally) {
+		upstart_job = upstart_instance = NULL;
+	} else if ((upstart_job = getenv ("UPSTART_JOB")) != NULL) {
+		upstart_instance = getenv ("UPSTART_INSTANCE");
+
+		if (! (upstart_job && upstart_instance)) {
+			fprintf (stderr, _("%s: missing job name\n"), program_name);
+			nih_main_suggest_help ();
+			return NULL;
+		}
+	} else {
+		/* Running outside of job implies global */
+		apply_globally = TRUE;
+		upstart_job = upstart_instance = NULL;
+	}
+
+	if (upstart_job) {
+		NIH_MUST (nih_str_array_add (&details, NULL, NULL, upstart_job));
+		NIH_MUST (nih_str_array_add (&details, NULL, NULL, upstart_instance));
+	}
+
+	return details;
+}
+
 
 #ifndef TEST
 /**
@@ -2356,6 +2833,8 @@ static NihOption options[] = {
 	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "dest", N_("destination well-known name on D-Bus bus"),
 	  NULL, "NAME", &dest_name, NULL },
+	{ 0, "user", N_("run in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -2492,6 +2971,63 @@ NihOption check_config_options[] = {
 };
 
 /**
+ * set_env_options:
+ *
+ * Command-line options accepted for the set-env command.
+ **/
+NihOption set_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	{ 'r', "retain", N_("do not replace the value of the variable if already set"),
+	  NULL, NULL, &retain_var, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * get_env_options:
+ *
+ * Command-line options accepted for the get-env command.
+ **/
+NihOption get_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * unset_env_options:
+ *
+ * Command-line options accepted for the unset-env command.
+ **/
+NihOption unset_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * list_env_options:
+ *
+ * Command-line options accepted for the list-env command.
+ **/
+NihOption list_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
+ * reset_env_options:
+ *
+ * Command-line options accepted for the reset-env command.
+ **/
+NihOption reset_env_options[] = {
+	{ 'g', "global", N_("apply to global job environment table"),
+	  NULL, NULL, &apply_globally, NULL },
+	NIH_OPTION_LAST
+};
+
+/**
  * usage_options:
  *
  * Command-line options accepted for the usage command.
@@ -2513,6 +3049,13 @@ static NihCommandGroup job_commands = { N_("Job") };
  * Group of commands related to events.
  **/
 static NihCommandGroup event_commands = { N_("Event") };
+
+/**
+ * env_group:
+ *
+ * Group of commands related to Job environment variables.
+ **/
+static NihCommandGroup env_group = { N_("Environment") };
 
 /**
  * commands:
@@ -2590,7 +3133,7 @@ static NihCommand commands[] = {
 	  NULL, version_options, version_action },
 	{ "log-priority", N_("[PRIORITY]"),
 	  N_("Change the minimum priority of log messages from the init "
-	     "daemon"),
+	     "daemon."),
 	  N_("PRIORITY may be one of:\n"
 	     "  `debug' (messages useful for debugging upstart are logged, "
 	     "equivalent to --debug on kernel command-line);\n"
@@ -2617,8 +3160,33 @@ static NihCommand commands[] = {
 	{ "check-config", N_("[CONF]"),
 	  N_("Check for unreachable jobs/event conditions."),
 	  N_("List all jobs and events which cannot be satisfied by "
-	     "currently available job configuration files"),
+	     "currently available job configuration files."),
 	  NULL, check_config_options, check_config_action },
+
+	{ "get-env", N_("VARIABLE"),
+	  N_("Retrieve value of a job environment variable."),
+	  N_("Display the value of a variable from the job environment table."),
+	  &env_group, get_env_options, get_env_action },
+
+	{ "list-env", NULL,
+	  N_("Show all job environment variables."),
+	  N_("Displays sorted list of variables and their values from the job environment table."),
+	  &env_group, list_env_options, list_env_action },
+
+	{ "reset-env", N_("VARIABLE"),
+	  N_("Revert all job environment variable changes."),
+	  N_("Discards all changes make to the job environment table, setting it back to its default value."),
+	  &env_group, reset_env_options, reset_env_action },
+
+	{ "set-env", N_("VARIABLE[=VALUE]"),
+	  N_("Set a job environment variable."),
+	  N_("Adds or updates a variable in the job environment table."),
+	  &env_group, set_env_options, set_env_action },
+
+	{ "unset-env", N_("VARIABLE"),
+	  N_("Remove a job environment variable."),
+	  N_("Discards the specified variable from the job environment table."),
+	  &env_group, unset_env_options, unset_env_action },
 
 	{ "usage",  N_("JOB"),
 	  N_("Show job usage message if available."),
@@ -2628,8 +3196,13 @@ static NihCommand commands[] = {
 	{ "notify-disk-writeable", NULL,
 	  N_("Inform Upstart that disk is now writeable."),
 	  N_("Run to ensure output from jobs ending before "
-			  "disk is writeable are flushed to disk"),
+			  "disk is writeable are flushed to disk."),
 	  NULL, NULL, notify_disk_writeable_action },
+
+	{ "list-sessions", NULL,
+	  N_("List all sessions."),
+	  N_("Displays list of running Session Init sessions"),
+	  NULL, NULL, list_sessions_action },
 
 	NIH_COMMAND_LAST
 };

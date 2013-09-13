@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,9 @@
 
 #include <json.h>
 
+#include "event.h"
+#include "quiesce.h"
+
 /**
  * USE_SESSION_BUS_ENV:
  *
@@ -42,6 +45,45 @@
 #define USE_SESSION_BUS_ENV "UPSTART_USE_SESSION_BUS"
 #endif
 
+/**
+ * control_get_job:
+ * 
+ * @session: session,
+ * @job: job that will be set,
+ * @job_name: name of job to search for,
+ * @instance: instance of @job_name to search for.
+ *
+ * Determine the Job associated with @job_name and @instance and set it
+ * to @job.
+ *
+ * Returns: -1 on raised error, or nothing on success.
+ **/
+#define control_get_job(session, job, job_name, instance)             \
+{                                                                     \
+	if (job_name != NULL ) {                                      \
+		JobClass *class;                                      \
+                                                                      \
+		class = job_class_get_registered (job_name, session); \
+		if (! class) {                                        \
+			nih_dbus_error_raise_printf (                 \
+				DBUS_INTERFACE_UPSTART                \
+				".Error.UnknownJob",                  \
+				_("Unknown job: %s"),                 \
+				job_name);                            \
+			return -1;                                    \
+		}                                                     \
+								      \
+		job = job_find (session, class, NULL, instance);      \
+		if (job == NULL) {                                    \
+			nih_dbus_error_raise_printf (                 \
+				DBUS_INTERFACE_UPSTART                \
+				".Error.UnknownJobInstance",          \
+				_("Unknown instance: %s of job %s"),  \
+				instance, job_name);                  \
+			return -1;                                    \
+		}                                                     \
+	}                                                             \
+}
 
 NIH_BEGIN_EXTERN
 
@@ -52,6 +94,7 @@ extern NihList        *control_conns;
 
 
 void control_init                 (void);
+void control_cleanup              (void);
 
 int  control_server_open          (void)
 	__attribute__ ((warn_unused_result));
@@ -111,6 +154,43 @@ int control_get_state (void           *data,
 	__attribute__ ((warn_unused_result));
 
 int  control_restart (void *data, NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+
+void control_notify_event_emitted (Event *event);
+void control_notify_restarted (void);
+
+int control_set_env (void           *data,
+		 NihDBusMessage *message,
+		 char * const    *job_details,
+		 const char     *var,
+		 int             replace)
+	__attribute__ ((warn_unused_result));
+
+int control_get_env (void             *data,
+		 NihDBusMessage   *message,
+		 char * const     *job_details,
+		 const char       *name,
+		 char            **value)
+	__attribute__ ((warn_unused_result));
+
+int
+control_list_env (void             *data,
+		 NihDBusMessage   *message,
+		 char * const     *job_details,
+		 char           ***env)
+	__attribute__ ((warn_unused_result));
+
+int
+control_reset_env (void           *data,
+		 NihDBusMessage   *message,
+		 char * const    *job_details)
+	__attribute__ ((warn_unused_result));
+
+int
+control_unset_env (void            *data,
+		   NihDBusMessage  *message,
+		   char * const    *job_details,
+		   const char      *name)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

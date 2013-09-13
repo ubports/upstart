@@ -4,7 +4,7 @@
  *
  * - XXX: Deferred work:
  *   - handling of Upstart-in-initramfs - for this to work, it would be
- *     necessary to serialise ConfSources along with the following:
+ *     necessary to serialise ConfSources (done) along with the following:
  *
  *     (1) inode number of source->path
  *     (2) inode number of '/'
@@ -26,12 +26,6 @@
  *
  *     Note too that (2)+(3) are the only reliable method for Upstart to
  *     detect that is *has* changed filesystem context.
- *
- *   - Since ConfSources are NOT serialised, it is currently not possible
- *     to support user jobs and chroot jobs (because the only ConfSource
- *     objects created are those at startup (for '/etc/init/'): any
- *     pre-existing ConfSources with non-NULL sessions representing
- *     user jobs will be ignored).
  *
  *   - parent/child timeout handling: we won't support down-grading initially.
  *
@@ -371,7 +365,7 @@
  *
  * Name of file that is written below the job log directory if the
  * newly re-exec'ed init instance failed to understand the JSON sent to
- * it by the old instance.
+ * it by the old instance (or if requested by STATE_FILE_ENV).
  *
  * This could happen for example if the old instance generated invalid
  * JSON, or JSON in an unexected format.
@@ -1158,11 +1152,11 @@ state_serialise_str_array (char ** const array)
 
 json_object *
 state_serialise_int32_array (int32_t *array, int count)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 json_object *
 state_serialise_int64_array (int64_t *array, int count)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 int
 _state_deserialise_str_array (void *parent, json_object *json,
@@ -1181,7 +1175,7 @@ state_deserialise_int64_array (void *parent, json_object *json,
 
 json_object *
 state_rlimit_serialise_all (struct rlimit * const *rlimits)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 int 
 state_rlimit_deserialise_all (json_object *json, const void *parent,
@@ -1189,7 +1183,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 	__attribute__ ((warn_unused_result));
 
 char *state_collapse_env (const char **env)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 enum json_type
 state_get_json_type (const char *short_type)
@@ -1201,7 +1195,7 @@ state_deserialise_resolve_deps (json_object *json)
 
 json_object *
 state_serialise_blocking (const NihList *blocking)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 int
 state_deserialise_blocking (void *parent, NihList *list,
@@ -1221,10 +1215,13 @@ int state_hex_to_data (void *parent, const void *hex_data,
 	__attribute__ ((warn_unused_result));
 
 json_object *state_rlimit_serialise (const struct rlimit *rlimit)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
 
 struct rlimit *state_rlimit_deserialise (json_object *json)
-	__attribute__ ((malloc, warn_unused_result));
+	__attribute__ ((warn_unused_result));
+
+int state_get_version (void)
+	__attribute__ ((warn_unused_result));
 
 extern char **args_copy;
 extern int restart;

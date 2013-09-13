@@ -2,7 +2,7 @@
  *
  * conf.c - configuration management
  *
- * Copyright © 2009,2010,2011 Canonical Ltd.
+ * Copyright  2009,2010,2011,2012,2013 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -49,6 +49,7 @@
 #include "conf.h"
 #include "errors.h"
 #include "paths.h"
+#include "environ.h"
 
 /* Prototypes for static functions */
 static int  conf_source_reload_file    (ConfSource *source)
@@ -83,6 +84,17 @@ static inline int is_conf_file_std     (const char *path)
 static inline int is_conf_file_override(const char *path)
 	__attribute__ ((warn_unused_result));
 
+static inline char *toggle_conf_name   (const void *parent, const char *path)
+	__attribute__ ((warn_unused_result));
+
+static inline char * conf_to_job_name  (const char *source_path,
+                                        const char *conf_path)
+	__attribute__ ((warn_unused_result));
+
+static char * conf_get_best_override   (const char *name,
+                                        const ConfSource *last_source)
+	__attribute__ ((warn_unused_result));
+
 /**
  * conf_sources:
  *
@@ -92,6 +104,7 @@ static inline int is_conf_file_override(const char *path)
  **/
 NihList *conf_sources = NULL;
 
+extern json_object *json_conf_sources;
 
 /**
  * is_conf_file_std:
@@ -107,6 +120,8 @@ NihList *conf_sources = NULL;
 static inline int
 is_conf_file_std (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && IS_CONF_EXT_STD (ptr))
@@ -129,6 +144,8 @@ is_conf_file_std (const char *path)
 static inline int
 is_conf_file_override (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && IS_CONF_EXT_OVERRIDE (ptr))
@@ -151,6 +168,8 @@ is_conf_file_override (const char *path)
 static inline int
 is_conf_file (const char *path)
 {
+	nih_assert (path != NULL);
+
 	char *ptr = strrchr (path, '.');
 
 	if (ptr && (ptr > path) && (ptr[-1] != '/') && IS_CONF_EXT (ptr))
@@ -160,6 +179,99 @@ is_conf_file (const char *path)
 }
 
 /**
+ * conf_to_job_name:
+ * @source_path: path to ConfSource
+ * @conf_path: path to configuration file
+ *
+ * Constructs the job name for a given @conf_path. Removes
+ * @source_path directory name from the front of @conf_path and
+ * extension from the end.
+ *
+ * Returns: newly-allocated name.
+ *
+ **/
+static inline char *
+conf_to_job_name (const char * source_path, const char * conf_path)
+{
+	const char *start, *end;
+	char       *name = NULL;
+	int        source_len;
+
+	nih_assert (source_path != NULL);
+	nih_assert (conf_path != NULL);
+
+	start = conf_path;
+	source_len = strlen (source_path);
+
+	if (! strncmp (start, source_path, source_len))
+		start += source_len;
+
+	while (*start == '/')
+		start++;
+
+	end = strrchr (start, '.');
+	if (end && IS_CONF_EXT (end))
+		name = NIH_MUST (nih_strndup (NULL, start, end - start));
+	else
+		name = NIH_MUST (nih_strdup (NULL, start));
+
+	return name;
+}
+
+
+/**
+ * conf_get_best_override:
+ * @conf_file: conf_file object
+ *
+ * Given a @conf_file iterate over all config sources & find the
+ * first applicable override file. It will not look for override files
+ * beyond the @conf_file's ConfSource.
+ *
+ * Returns: newly allocated path to override file or NULL.
+ **/
+static char *
+conf_get_best_override (const char *name, const ConfSource *last_source)
+{
+	char         *try_path=NULL;
+	struct stat   statbuf;
+
+	nih_assert (name != NULL);
+	nih_assert (last_source != NULL);
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+
+		ConfSource *source = (ConfSource *)iter;
+
+		/* Look at directories only */
+		if (source->type == CONF_FILE)
+			continue;
+
+		/* Reclaim memory */
+		if (try_path)
+			nih_free (try_path);
+
+		/* construct path */
+		try_path = NIH_MUST (nih_sprintf (NULL, "%s/%s%s", source->path, name, CONF_EXT_OVERRIDE));
+
+		/* Found it! */
+		if (lstat (try_path, &statbuf) == 0 && S_ISREG (statbuf.st_mode))
+			return try_path;
+
+		/* Warning, you have reached the end of the conveyor!
+		 * Ignore overrides beyond .conf itself.
+		 */
+		if (source == last_source)
+			break;
+	}
+
+	if (try_path)
+		nih_free (try_path);
+
+	return NULL;
+}
+
+
+/**
  * Convert a configuration file name to an override file name and vice
  * versa.
  *
@@ -167,15 +279,12 @@ is_conf_file (const char *path)
  * "foo.override", whereas if @path is "foo.override", it will return
  * "foo.conf".
  *
- * Note that this function should be static, but isn't to allow the
- * tests to access it.
- *
  * @parent: parent of returned path,
  * @path: path to a configuration file.
  *
  * Returns: newly allocated toggled path, or NULL on error.
  **/
-char *
+static inline char *
 toggle_conf_name (const void     *parent,
 		 const char     *path)
 {
@@ -214,6 +323,17 @@ conf_init (void)
 		conf_sources = NIH_MUST (nih_list_new (NULL));
 }
 
+/**
+ * conf_destroy:
+ *
+ * Clear: the conf_sources list.
+ **/
+void
+conf_destroy (void)
+{
+	if (conf_sources)
+		nih_free (conf_sources);
+}
 
 /**
  * conf_source_new:
@@ -329,11 +449,23 @@ conf_file_new (ConfSource *source,
 /**
  * conf_reload:
  *
- * Reloads all configuration sources.
+ * Reloads configuration sources.
  *
  * Watches on new configuration sources are established so that future
  * changes will be automatically detected with inotify.  Then for both
  * new and existing sources, the current state is parsed.
+ *
+ * All ConfFiles are recreated as part of the reload. If the JobClass
+ * associated with a ConfSource has no Job instances, the JobClass is
+ * recreated and added to the job_classes hash.
+ *
+ * However, if a JobClass has running instances at reload time, although
+ * a new ConfSource *and* a new JobClass are created, the new JobClass
+ * (called the "best") will *NOT* be added to the job_classes hash until
+ * the last running instance has finished. At this point, the "registered"
+ * JobClass will be removed from the hash (when job_class_reconsider()
+ * is called by job_change_state()) and replaced by the "best" (newest)
+ * JobClass.
  *
  * Any errors are logged through the usual mechanism, and not returned,
  * since some configuration may have been parsed; and it's possible to
@@ -511,7 +643,7 @@ conf_source_reload_file (ConfSource *source)
 
 	override_path = toggle_conf_name (NULL, source->path);
 
-	if (stat (override_path, &statbuf) != 0)
+	if (lstat (override_path, &statbuf) != 0)
 		return 0;
 
 	nih_debug ("Updating configuration for %s from %s",
@@ -670,6 +802,66 @@ conf_dir_filter (ConfSource *source,
 }
 
 /**
+ * conf_load_path_with_override:
+ * @source: configuration source
+ * @conf_path: path to config file
+ *
+ * Loads given @conf_path as a config file in a given @source. Then it
+ * finds an override file. If an override file is found it applies it
+ * as well.
+ **/
+static void
+conf_load_path_with_override (ConfSource *source,
+			      const char *conf_path)
+{
+	int                     ret = 0;
+	const char   *error_path = NULL;
+	char      *override_path = NULL;
+	nih_local char *job_name = NULL;
+
+	nih_assert (source != NULL);
+	nih_assert (conf_path != NULL);
+
+	/* reload conf file */
+	nih_debug ("Loading configuration file %s", conf_path);
+	ret = conf_reload_path (source, conf_path, NULL);
+	if (ret < 0) {
+		error_path = conf_path;
+		goto error;
+	}
+
+	job_name = conf_to_job_name (source->path, conf_path);
+	override_path = conf_get_best_override (job_name, source);
+	if (! override_path)
+		return;
+
+	/* overlay override settings */
+	nih_debug ("Loading override file %s for %s", conf_path, override_path);
+	ret = conf_reload_path (source, conf_path, override_path);
+	if (ret < 0) {
+		error_path = override_path;
+		goto error;
+	}
+	nih_free (override_path);
+	return;
+
+error:
+	{
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s: %s", error_path,
+			   _("Error while loading configuration file"),
+			   err->message);
+		nih_free (err);
+		if (override_path)
+			nih_free (override_path);
+		return;
+	}
+}
+
+
+/**
  * conf_create_modify_handler:
  * @source: configuration source,
  * @watch: NihWatch for source,
@@ -693,85 +885,45 @@ conf_create_modify_handler (ConfSource  *source,
 			    struct stat *statbuf)
 {
 	ConfFile *file = NULL;
-	const char *error_path = path;
-	nih_local char *new_path = NULL;
-	int ret;
+	char *config_path = NULL;
+	nih_local char *job_name = NULL;
 
 	nih_assert (source != NULL);
 	nih_assert (watch != NULL);
 	nih_assert (path != NULL);
-	nih_assert (statbuf != NULL);
 
 	/* note that symbolic links are ignored */
-	if (! S_ISREG (statbuf->st_mode))
+	if (statbuf && ! S_ISREG (statbuf->st_mode))
 		return;
 
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
+	/* ignore non-config file changes */
+	if (! is_conf_file (path))
+		return;
 
-	if (is_conf_file_override (path)) {
-		if (! file) {
-			/* override file has no corresponding conf file */
-			nih_debug ("Ignoring orphan override file %s", path);
-			return;
+        /* For config file, load it and it's override file */
+	if (is_conf_file_std (path)) {
+		conf_load_path_with_override (source, path);
+		return;
+	}
+
+	/* For override files, reload all matching conf+override combos */
+	job_name = conf_to_job_name (source->path, path);
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->type == CONF_FILE)
+			continue;
+
+		config_path = NIH_MUST (nih_sprintf (NULL, "%s/%s%s", source->path, job_name, CONF_EXT_STD));
+		file = (ConfFile *)nih_hash_lookup (source->files, config_path);
+		if (file) {
+			/* Find its override file and reload both */
+			conf_load_path_with_override (source, config_path);
 		}
-
-		/* reload conf file */
-		nih_debug ("Loading configuration file %s", new_path);
-		ret = conf_reload_path (source, new_path, NULL);
-		if (ret < 0) {
-			error_path = new_path;
-			goto error;
-		}
-
-		/* overlay override settings */
-		nih_debug ("Loading override file %s for %s", path, new_path);
-		ret = conf_reload_path (source, new_path, path);
-		if (ret < 0) {
-			error_path = path;
-			goto error;
-		}
-	} else {
-		nih_debug ("Loading configuration and override files for %s", path);
-
-		/* load conf file */
-		nih_debug ("Loading configuration file %s", path);
-		ret = conf_reload_path (source, path, NULL);
-		if (ret < 0) {
-			error_path = path;
-			goto error;
-		}
-
-		/* ensure we ignore directory changes (which won't have overrides. */
-		if (is_conf_file_std (path)) {
-			struct stat st;
-			if (stat (new_path, &st) == 0) {
-				/* overlay override settings */
-				nih_debug ("Loading override file %s for %s", new_path, path);
-				ret = conf_reload_path (source, path, new_path);
-				if (ret < 0) {
-					error_path = new_path;
-					goto error;
-				}
-			}
-
-		}
+		nih_free (config_path);
 	}
 
 	return;
-
-error:
-	{
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("%s: %s: %s", error_path,
-				_("Error while loading configuration file"),
-				err->message);
-		nih_free (err);
-		if (file)
-			nih_unref (file, source);
-	}
 }
 
 /**
@@ -823,28 +975,19 @@ conf_delete_handler (ConfSource *source,
 
 	/* non-override files (and directories) are the simple case, so handle
 	 * them and leave.
-	 */ 
+	 */
 	if (! is_conf_file_override (path)) {
 		nih_unref (file, source);
 		return;
 	}
 
-	/* if an override file is deleted for which there is a corresponding
-	 * conf file, reload the conf file to remove any modifications
-	 * introduced by the override file.
+	/* Deleting override file is about the same as changing one.
+	 * We need to iterate across all matching jobs and reload them
+	 * with new "best" override file, if any.
 	 */
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
-
-	if (file) {
-		nih_debug ("Reloading configuration for %s on deletion of overide (%s)",
-				new_path, path);
-
-		if ( conf_reload_path (source, new_path, NULL) < 0 ) {
-			nih_warn ("%s: %s", new_path,
-					_("Unable to reload configuration after override deletion"));
-		}
-	}
+	nih_debug ("Reloading configuration for matching configs on deletion of override (%s)",
+		   path);
+	conf_create_modify_handler (source, watch, path, NULL);
 }
 
 /**
@@ -867,64 +1010,18 @@ conf_file_visitor (ConfSource  *source,
 		   const char  *path,
 		   struct stat *statbuf)
 {
-	ConfFile *file = NULL;
-	nih_local char *new_path = NULL;
-
 	nih_assert (source != NULL);
 	nih_assert (dirname != NULL);
 	nih_assert (path != NULL);
 	nih_assert (statbuf != NULL);
 
-	/* We assume that CONF_EXT_STD files are visited before
-	 * CONF_EXT_OVERRIDE files. Happily, this assumption is currently
-	 * valid since CONF_EXT_STD comes before CONF_EXT_OVERRIDE if ordered
-	 * alphabetically.
-	 *
-	 * If this were ever to change (for example if we decided to
-	 * rename the CONF_EXT_OVERRIDE files to end in ".abc", say), the logic
-	 * in this function would be erroneous since it would never be possible when
-	 * visiting an override file (before a conf file) to lookup a conf file
-	 * in the hash, since the conf file would not yet have been seen and thus would
-	 * not exist in the hash (yet).
-	 */
-	nih_assert (CONF_EXT_STD[1] < CONF_EXT_OVERRIDE[1]);
-
 	if (! S_ISREG (statbuf->st_mode))
 		return 0;
 
-	if (is_conf_file_std (path)) {
-		if (conf_reload_path (source, path, NULL) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error ("%s: %s: %s", path,
-					_("Error while loading configuration file"),
-					err->message);
-			nih_free (err);
-		}
-		return 0;
-	}
-
-	new_path = toggle_conf_name (NULL, path);
-	file = (ConfFile *)nih_hash_lookup (source->files, new_path);
-
-	if (file) {
-		/* we're visiting an override file with an associated conf file that
-		 * has already been loaded, so just overlay the override file. If
-		 * there is no corresponding conf file, we ignore the override file.
-		 */
-		if (conf_reload_path (source, new_path, path) < 0) {
-			NihError *err;
-
-			err = nih_error_get ();
-			nih_error ("%s: %s: %s", new_path,
-					_("Error while reloading configuration file"),
-					err->message);
-			nih_free (err);
-		}
-	}
-
-	return 0;
+	if (is_conf_file_std (path))
+		conf_load_path_with_override (source, path);
+	
+	return 0;      
 }
 
 
@@ -956,8 +1053,8 @@ conf_reload_path (ConfSource *source,
 		  const char *override_path)
 {
 	ConfFile       *file = NULL;
+	ConfFile       *orig = NULL;
 	nih_local char *buf = NULL;
-	const char     *start, *end;
 	nih_local char *name = NULL;
 	size_t          len, pos, lineno;
 	NihError       *err = NULL;
@@ -969,25 +1066,67 @@ conf_reload_path (ConfSource *source,
 	path_to_load = (override_path ? override_path : path);
 
 	/* If there is no corresponding override file, look up the old
-	 * conf file in memory, and then free it.  In cases of failure,
+	 * conf file in memory, and then free it. In cases of failure,
 	 * we discard it anyway, so there's no particular reason
 	 * to keep it around anymore.
 	 *
-	 * Note: if @override_path has been specified, do not
-	 * free the file if found, since we want to _update_ the
-	 * existing entry.
+	 * Notes:
+	 *
+	 * - If @override_path has been specified, do not free the file
+	 *   if found, since we want to _update_ the existing entry.
+	 * - Freeing a ConfFile does _not_ necessarily free its associated
+	 *   JobClass.
 	 */
-	file = (ConfFile *)nih_hash_lookup (source->files, path);
-	if (! override_path && file)
-		nih_unref (file, source);
+	orig = (ConfFile *)nih_hash_lookup (source->files, path);
+	if (! override_path && orig) {
+		/* Found an existing ConfFile. We will free this, but
+		 * just not yet since iff that ConfFiles associated JobClass
+		 * does not have any running instances, freeing the
+		 * ConfFile will cause the original JobClass associated
+		 * with this ConfFile to be destroyed. But if the JobClass
+		 * had referenced any events via it's 'start on' EventOperator tree, 
+		 * the JobClasses destruction could lead to the Events
+		 * being destroyed _before_ the about-to-be-created
+		 * replacement JobClass gets a chance to reference those
+		 * same events (assuming its 'start on' EventOperator tree
+		 * contains nodes specifying the same event names as
+		 * those in the original JobClasses).
+		 *
+		 * As such, we simply remove the ConfFile from its
+		 * parent ConfSources hash, create the new ConfFile and
+		 * JobClass, give the new JobClass a chance to be the
+		 * registered JobClass, and finally allow the original
+		 * ConfFile to be destroyed.
+		 *
+		 * If this is not done, reloading a configuration
+		 * mid-way through the boot sequence could lead to a
+		 * hung system as the new JobClasses will wait forever
+		 * for events to be emitted that have already been
+		 * destroyed.
+		 */
+		nih_list_remove (&orig->entry);
+	}
 
 	/* Read the file into memory for parsing, if this fails we don't
 	 * bother creating a new ConfFile structure for it and bail out
 	 * now.
 	 */
 	buf = nih_file_read (NULL, path_to_load, &len);
-	if (! buf)
+	if (! buf) {
+		if (! override_path && orig) {
+			/* Failed to reload the file from disk in all
+			 * likelihood because the configuration file was
+			 * deleted.
+			 *
+			 * Allow the ConfFile to be cleaned up taking
+			 * its JobClass (and possibly events that
+			 * JobClass was referencing) with it.
+			 */
+			nih_unref (orig, source);
+		}
+
 		return -1;
+	}
 
 	/* Create a new ConfFile structure (if no @override_path specified) */
 	file = (ConfFile *)nih_hash_lookup (source->files, path);
@@ -1014,23 +1153,8 @@ conf_reload_path (ConfSource *source,
 
 		break;
 	case CONF_JOB_DIR:
-		/* Construct the job name by taking the path and removing
-		 * the directory name from the front and the extension
-		 * from the end.
-		 */
-		start = path;
-		if (! strncmp (start, source->path, strlen (source->path)))
-			start += strlen (source->path);
 
-		while (*start == '/')
-			start++;
-
-		end = strrchr (start, '.');
-		if (end && IS_CONF_EXT (end)) {
-			name = NIH_MUST (nih_strndup (NULL, start, end - start));
-		} else {
-			name = NIH_MUST (nih_strdup (NULL, start));
-		}
+		name = conf_to_job_name (source->path, path);
 
 		/* Create a new job item and parse the buffer to produce
 		 * the job definition.
@@ -1045,6 +1169,10 @@ conf_reload_path (ConfSource *source,
 		file->job = parse_job (NULL, source->session, file->job,
 				name, buf, len, &pos, &lineno);
 
+		/* Allow the original ConfFile which has now been replaced to be
+		 * destroyed which will also cause the original JobClass to be
+		 * freed.
+		 */
 		if (file->job) {
 			job_class_consider (file->job);
 		} else {
@@ -1055,6 +1183,12 @@ conf_reload_path (ConfSource *source,
 	default:
 		nih_assert_not_reached ();
 	}
+
+	/* Finally, allow the original ConfFile to be destroyed without
+	 * affecting the new JobClass.
+	 */
+	if (! override_path && orig)
+		nih_unref (orig, source);
 
 	/* Deal with any parsing errors that occurred; we don't consider
 	 * these to be hard failures, which means we can warn about them
@@ -1186,7 +1320,567 @@ conf_select_job (const char *name, const Session *session)
 	return NULL;
 }
 
+/**
+ * conf_source_serialise:
+ * @source: ConfSource to serialise.
+ *
+ * Convert @source into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised ConfSource object, or NULL on error.
+ **/
+json_object *
+conf_source_serialise (const ConfSource *source)
+{
+	json_object      *json;
+	json_object      *json_files;
+	int               session_index;
+
+	nih_assert (source);
+	nih_assert (conf_sources);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	json_files = json_object_new_array ();
+	if (! json_files)
+		goto error;
+
+	session_index = session_get_index (source->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, source, path))
+		goto error;
+
+	if (! state_set_json_enum_var (json,
+				conf_source_type_enum_to_str,
+				"type", source->type))
+		goto error;
+
+	/* 'watch' does not need to be serialised - it gets recreated
+	 * when conf_source_new() is called on deserialisation.
+	 */
+
+	if (! state_set_json_int_var_from_obj (json, source, flag))
+		goto error;
+
+	/* Add array of ConfFile names to represent the files hash */
+	NIH_HASH_FOREACH (source->files, file_iter) {
+		ConfFile *file = (ConfFile *)file_iter;
+		json_object *json_conf_file;
+
+		json_conf_file = conf_file_serialise (file);
+		if (! json_conf_file)
+			goto error;
+
+		json_object_array_add (json_files, json_conf_file);
+	}
+
+	json_object_object_add (json, "conf_files", json_files);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * conf_source_serialise_all:
+ *
+ * Convert existing ConfSource objects to JSON representation.
+ *
+ * Returns: JSON object containing array of ConfSource objects,
+ * or NULL on error.
+ **/
+json_object *
+conf_source_serialise_all (void)
+{
+	json_object *json;
+
+	conf_init ();
+
+	json = json_object_new_array ();
+	if (! json)
+		return NULL;
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		json_object  *json_source;
+		ConfSource   *source = (ConfSource *)iter;
+
+		json_source = conf_source_serialise (source);
+
+		if (! json_source)
+			goto error;
+
+		json_object_array_add (json, json_source);
+	}
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * conf_source_deserialise:
+ * @parent: parent,
+ * @json: JSON-serialised ConfSource object to deserialise.
+ *
+ * Create ConfSource from provided JSON and add to the
+ * conf sources list.
+ *
+ * Returns: ConfSource object, or NULL on error.
+ **/
+ConfSource *
+conf_source_deserialise (void *parent, json_object *json)
+{
+	ConfSource      *source = NULL;
+	ConfSourceType   type = -1;
+	Session         *session;
+	int              session_index = -1;
+	nih_local char  *path = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (! state_get_json_int_var (json, "session", session_index))
+		goto error;
+
+	if (session_index < 0)
+		goto error;
+
+	session = session_from_index (session_index);
+
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+		goto error;
+
+	if (! state_get_json_enum_var (json,
+				conf_source_type_str_to_enum,
+				"type", type))
+		goto error;
+
+	source = conf_source_new (parent, path, type);
+	if (! source)
+		goto error;
+
+	source->session = session;
+
+	if (! state_get_json_int_var_to_obj (json, source, flag))
+		goto error;
+
+	if (conf_file_deserialise_all (source, json) < 0)
+		goto error;
+
+	return source;
+
+error:
+	if (source)
+		nih_free (source);
+
+	return NULL;
+}
+
+/**
+ * conf_source_deserialise_all:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of ConfSources back into ConfSource objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+conf_source_deserialise_all (json_object *json)
+{
+	ConfSource *source = NULL;
+
+	nih_assert (json);
+
+	conf_init ();
+
+	nih_assert (NIH_LIST_EMPTY (conf_sources));
+
+	json_conf_sources = json_object_object_get (json, "conf_sources");
+
+	if (! json_conf_sources)
+			goto error;
+
+	if (! state_check_json_type (json_conf_sources, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_conf_sources); i++) {
+		json_object  *json_source;
+
+		json_source = json_object_array_get_idx (json_conf_sources, i);
+		if (! json_source)
+			goto error;
+
+		if (! state_check_json_type (json_source, object))
+			goto error;
+
+		source = conf_source_deserialise (NULL, json_source);
+
+		if (! source)
+			continue;
+	}
+
+	return 0;
+
+error:
+	if (source)
+		nih_free (source);
+
+	return -1;
+}
+
+/**
+ * conf_source_type_enum_to_str:
+ *
+ * @type: ConfSourceType.
+ *
+ * Convert ConfSourceType to a string representation.
+ *
+ * Returns: string representation of @type, or NULL if not known.
+ **/
+const char *
+conf_source_type_enum_to_str (ConfSourceType type)
+{
+	state_enum_to_str (CONF_FILE, type);
+	state_enum_to_str (CONF_DIR, type);
+	state_enum_to_str (CONF_JOB_DIR, type);
+
+	return NULL;
+}
+
+/**
+ * conf_source_type_str_to_enum:
+ *
+ * @type: string ConfSourceType value.
+ *
+ * Convert @expect back into an enum value.
+ *
+ * Returns: ConfSourceType representing @type, or -1 if not known.
+ **/
+ConfSourceType
+conf_source_type_str_to_enum (const char *type)
+{
+	nih_assert (type);
+
+	state_str_to_enum (CONF_FILE, type);
+	state_str_to_enum (CONF_DIR, type);
+	state_str_to_enum (CONF_JOB_DIR, type);
+
+	return -1;
+}
+
+/**
+ * conf_file_serialise:
+ * @file: ConfFile to serialise.
+ *
+ * Convert @file into a JSON representation for serialisation.
+ * Caller must free returned value using json_object_put().
+ *
+ * Returns: JSON-serialised ConfFile object, or NULL on error.
+ **/
+json_object *
+conf_file_serialise (const ConfFile *file)
+{
+	json_object  *json;
+	json_object  *json_job_class;
+	JobClass     *registered;
+	int           session_index;
+	ssize_t       conf_source_index;
+
+	nih_assert (file);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	if (! state_set_json_string_var_from_obj (json, file, path))
+		goto error;
+
+	conf_source_index = conf_source_get_index (file->source);
+	if (conf_source_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json, "conf_source", conf_source_index))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, file, flag))
+		goto error;
+
+	/*
+	 * Ignore the "best" JobClass associated with this ConfFile
+	 * (file->job) since it won't be serialised.
+	 *
+	 * Instead look up the currently registered JobClass and
+	 * reference that. This ensures that best == registered for the
+	 * re-exec. This may change though immediately after re-exec
+	 * when conf_reload() gets called.
+	 *
+	 * See job_class_serialise_all() for further details.
+	 */
+	registered = job_class_get_registered (file->job->name,
+			file->job->session);
+
+	if (! registered)
+		goto error;
+
+	/* Create a reference to the registered job class in the JSON by
+	 * encoding the name and session index. We do this rather than
+	 * simply encoding an index number for the JobClass since
+	 * job_classes is a hash and it is safer should a re-exec
+	 * result from an upgrade to NIH, say, where its hashing
+	 * algorithm changed meaning the index may be unreliable once
+	 * the job_classes hash was created post-re-exec.
+	 */
+	json_job_class = json_object_new_object ();
+	if (! json_job_class)
+		goto error;
+
+	if (! state_set_json_string_var (json_job_class,
+				"name",
+				registered->name))
+		goto error;
+
+	session_index = session_get_index (registered->session);
+	if (session_index < 0)
+		goto error;
+
+	if (! state_set_json_int_var (json_job_class,
+				"session",
+				session_index))
+		goto error;
+
+	json_object_object_add (json, "job_class", json_job_class);
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * conf_file_deserialise:
+ * @source: ConfSource,
+ * @json: JSON-serialised ConfFile object to deserialise.
+ *
+ * Create ConfFile from provided JSON and add to the
+ * conf sources list.
+ *
+ * Returns: ConfFile object, or NULL on error.
+ **/
+ConfFile *
+conf_file_deserialise (ConfSource *source, json_object *json)
+{
+	ConfFile        *file = NULL;
+	nih_local char  *path = NULL;
+
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		goto error;
+
+	if (! state_get_json_string_var_strict (json, "path", NULL, path))
+		goto error;
+
+	file = conf_file_new (source, path);
+	if (! file)
+		goto error;
+
+	/* Note that the associated JobClass is not handled at this
+	 * stage: it can't be the JobClasses haven't been deserialised
+	 * yet. As such, the ConfFile->JobClass link is dealt with by
+	 * job_class_deserialise_all().
+	 */
+	file->job = NULL;
+
+	if (! state_get_json_int_var_to_obj (json, file, flag))
+		goto error;
+
+	return file;
+
+error:
+	if (file)
+		nih_free (file);
+
+	return NULL;
+}
+
+/**
+ * conf_file_deserialise_all:
+ *
+ * @source: ConfSource,
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of ConfFiles back into ConfFile objects.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+conf_file_deserialise_all (ConfSource *source, json_object *json)
+{
+	json_object  *json_conf_files;
+	ConfFile     *file = NULL;
+
+	nih_assert (source);
+	nih_assert (json);
+
+	conf_init ();
+
+	json_conf_files = json_object_object_get (json, "conf_files");
+
+	if (! json_conf_files)
+			goto error;
+
+	if (! state_check_json_type (json_conf_files, array))
+		goto error;
+
+	for (int i = 0; i < json_object_array_length (json_conf_files); i++) {
+		json_object  *json_file;
+
+		json_file = json_object_array_get_idx (json_conf_files, i);
+		if (! json_file)
+			goto error;
+
+		if (! state_check_json_type (json_file, object))
+			goto error;
+
+		file = conf_file_deserialise (source, json_file);
+
+		if (! file)
+			goto error;
+	}
+
+	return 0;
+
+error:
+	if (file)
+		nih_free (file);
+
+	return -1;
+}
+
+/**
+ * conf_source_get_index:
+ *
+ * @source: ConfSource to search for.
+ *
+ * Returns: index of @source in the conf sources list,
+ * or -1 if not found.
+ **/
+ssize_t
+conf_source_get_index (const ConfSource *source)
+{
+	ssize_t i = 0;
+
+	nih_assert (source);
+
+	conf_init ();
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *s = (ConfSource *)iter;
+
+		if (! strcmp (source->path, s->path)
+				&& source->session == s->session)
+			return i;
+		i++;
+	}
+
+	return -1;
+}
+
+/**
+ * conf_file_find:
+ *
+ * @name: name of ConfFile (without dirname and extension),
+ * @session: session ConfFile belongs to.
+ *
+ * Find the ConfFile with name @name in session @session.
+ *
+ * Returns: ConfFile or NULL if not found.
+ **/
+ConfFile *
+conf_file_find (const char *name, const Session *session)
+{
+	nih_local char  *basename = NULL;
+
+	nih_assert (name);
+
+	conf_init ();
+
+	/* There can only be one ConfFile per session with the same
+	 * basename.
+	 */
+	basename = NIH_MUST (nih_sprintf (NULL, "/%s%s",
+				name, CONF_EXT_STD));
+
+	NIH_LIST_FOREACH (conf_sources, iter) {
+		ConfSource *source = (ConfSource *)iter;
+
+		if (source->session != session)
+			continue;
+
+		NIH_HASH_FOREACH (source->files, file_iter) {
+			ConfFile *file = (ConfFile *)file_iter;
+			char     *match;
+			char     *slash;
+
+			match = strstr (file->path, basename);
+			slash = strrchr (file->path, '/');
+
+			if (match && match == slash)
+				return file;
+		}
+	}
+
+	return NULL;
+}
+
 #ifdef DEBUG
+
+void
+debug_show_event_operator (EventOperator *oper)
+{
+	nih_local char *env = NULL;
+
+	nih_assert (oper);
+
+	if (oper->env) env = state_collapse_env ((const char **)oper->env);
+
+	nih_debug ("EventOperator %p: type='%s', value=%d, name='%s', event='%s', env='%s'",
+			oper,
+			oper->type == EVENT_MATCH ? "EVENT_MATCH"
+			: oper->type == EVENT_AND ? "EVENT_AND"
+			: "EVENT_OR",
+			oper->value,
+			oper->name,
+			oper->event ? oper->event->name : "",
+			env ? env : "");
+}
+
+void
+debug_show_event_operators (EventOperator *root)
+{
+	nih_assert (root);
+
+	NIH_TREE_FOREACH_POST (&root->node, iter) {
+		EventOperator *oper = (EventOperator *)iter;
+
+		debug_show_event_operator (oper);
+	}
+}
 
 size_t
 debug_count_list_entries (const NihList *list)
@@ -1316,7 +2010,8 @@ debug_show_job (const Job *job)
 void
 debug_show_jobs (const NihHash *instances)
 {
-	nih_assert (instances);
+	if (! instances)
+		return;
 
 	nih_debug ("jobs:");
 
@@ -1335,6 +2030,18 @@ debug_show_event (const Event *event)
 			"blockers=%d, blocking=%p",
 			event, event->name, event->progress, event->failed,
 			event->blockers, (void *)&event->blocking);
+}
+
+void
+debug_show_events (void)
+{
+	nih_assert (events);
+
+	NIH_LIST_FOREACH (events, iter) {
+		Event *event = (Event *)iter;
+
+		debug_show_event (event);
+	}
 }
 
 void
@@ -1388,4 +2095,3 @@ debug_show_conf_sources (void)
 }
 
 #endif /* DEBUG */
-

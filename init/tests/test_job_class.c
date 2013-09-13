@@ -123,6 +123,8 @@ test_new (void)
 		TEST_EQ (class->kill_timeout, 5);
 		TEST_EQ (class->kill_signal, SIGTERM);
 
+		TEST_EQ (class->reload_signal, SIGHUP);
+
 		TEST_EQ (class->respawn, FALSE);
 		TEST_EQ (class->respawn_limit, 10);
 		TEST_EQ (class->respawn_interval, 5);
@@ -133,7 +135,7 @@ test_new (void)
 		TEST_EQ (class->console, CONSOLE_LOG);
 
 		TEST_EQ (class->umask, 022);
-		TEST_EQ (class->nice, getpriority (PRIO_PROCESS, 0));
+		TEST_EQ (class->nice, JOB_NICE_INVALID);
 		TEST_EQ (class->oom_score_adj, 0);
 
 		for (i = 0; i < RLIMIT_NLIMITS; i++)
@@ -144,6 +146,8 @@ test_new (void)
 
 		TEST_EQ_P (class->setuid, NULL);
 		TEST_EQ_P (class->setgid, NULL);
+
+		TEST_EQ_P (class->apparmor_switch, NULL);
 
 		TEST_FALSE (class->deleted);
 
@@ -968,6 +972,11 @@ test_environment (void)
 	TEST_FEATURE ("with no configured environment");
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_NONE;
+
+	/* necessary to call this initially to avoid disrupting
+	 * TEST_ALLOC_FAIL()'s bookkeeping.
+	 */
+	job_class_environment_init ();
 
 	TEST_ALLOC_FAIL {
 		env = job_class_environment (NULL, class, &len);

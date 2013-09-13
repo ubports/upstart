@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010,2011 Canonical Ltd.
+ * Copyright  2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -112,12 +112,13 @@ extern NihList *conf_sources;
 
 
 void        conf_init          (void);
+void        conf_destroy       (void);
 
 ConfSource *conf_source_new    (const void *parent, const char *path,
 				ConfSourceType type)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 ConfFile *  conf_file_new      (ConfSource *source, const char *path)
-	__attribute__ ((warn_unused_result, malloc));
+	__attribute__ ((warn_unused_result));
 
 void        conf_reload        (void);
 int         conf_source_reload (ConfSource *source)
@@ -127,8 +128,49 @@ int         conf_file_destroy  (ConfFile *file);
 
 JobClass *  conf_select_job    (const char *name, const Session *session);
 
-char *toggle_conf_name         (const void *parent, const char *path)
-	__attribute__ ((warn_unused_result, malloc));
+const char *
+conf_source_type_enum_to_str (ConfSourceType type)
+	__attribute__ ((warn_unused_result));
+
+ConfSourceType
+conf_source_type_str_to_enum (const char *type)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+conf_source_serialise (const ConfSource *source)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+conf_source_serialise_all (void)
+	__attribute__ ((warn_unused_result));
+
+ConfSource *
+conf_source_deserialise (void *parent, json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int
+conf_source_deserialise_all (json_object *json)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+conf_file_serialise (const ConfFile *file)
+	__attribute__ ((warn_unused_result));
+
+ConfFile *
+conf_file_deserialise (ConfSource *source, json_object *json)
+	__attribute__ ((warn_unused_result));
+
+int
+conf_file_deserialise_all (ConfSource *source, json_object *json)
+	__attribute__ ((warn_unused_result));
+
+ssize_t
+conf_source_get_index (const ConfSource *source)
+	__attribute__ ((warn_unused_result));
+
+ConfFile *
+conf_file_find (const char *name, const Session *session)
+	__attribute__ ((warn_unused_result));
 
 #ifdef DEBUG
 
@@ -162,6 +204,10 @@ debug_show_event               (const Event *event)
 	__attribute__ ((unused));
 
 void
+debug_show_events (void)
+	__attribute__ ((unused));
+
+void
 debug_show_conf_file(const ConfFile *file)
 	__attribute__ ((unused));
 
@@ -171,6 +217,14 @@ debug_show_conf_source(const ConfSource *source)
 
 void
 debug_show_conf_sources(void)
+	__attribute__ ((unused));
+
+void
+debug_show_event_operator (EventOperator *oper)
+	__attribute__ ((unused));
+
+void
+debug_show_event_operators (EventOperator *root)
 	__attribute__ ((unused));
 
 #endif

@@ -35,6 +35,9 @@
       <annotation name="com.netsplit.Nih.Method.Async" value="true" />
       <arg name="wait" type="b" direction="in" />
     </method>
+    <method name="Reload">
+      <annotation name="com.netsplit.Nih.Method.Async" value="true" />
+    </method>
 
     <signal name="GoalChanged">
       <arg name="goal" type="s" />

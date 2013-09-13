@@ -60,7 +60,7 @@
 #include "blocked.h"
 #include "conf.h"
 #include "errors.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 #define EXPECTED_JOB_LOGDIR       "/var/log/upstart"
 #define TEST_SHELL                "/bin/sh"
@@ -81,6 +81,14 @@
 
 /* number of iterations to perform to check file contents */
 #define MAX_ITERATIONS            5
+
+/**
+ * SHELL_CHARS:
+ *
+ * This is the list of characters that, if encountered in a process, cause
+ * it to always be run with a shell.
+ **/
+#define SHELL_CHARS "~`!$^&*()=|\\{}[];\"'<>?"
 
 /**
  * CHECK_FILE_EQ:
@@ -131,6 +139,9 @@ enum child_tests {
 	TEST_FDS
 };
 
+
+pid_t pty_child_pid;
+
 static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
@@ -161,12 +172,6 @@ fd_valid (int fd)
 		return 0;
 
 	return 1;
-}
-
-static int
-strcmp_compar (const void *a, const void *b)
-{
-	return strcmp(*(char * const *)a, *(char * const *)b);
 }
 
 static void
@@ -504,6 +509,7 @@ test_run (void)
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 		TEST_EQ (stat (filename, &statbuf), 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		/* Filename should contain the pid */
 		output = fopen (filename, "r");
@@ -648,6 +654,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -679,6 +686,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -701,6 +710,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = nih_sprintf (
 				class->process[PROCESS_MAIN],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -732,6 +742,8 @@ test_run (void)
 		output = fopen (filename, "r");
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "FOO=BAR\n");
+		if (job->class->process[PROCESS_MAIN]->script || strpbrk (job->class->process[PROCESS_MAIN]->command, SHELL_CHARS))
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=foo\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -755,6 +767,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_STOP] = process_new (class);
+			class->process[PROCESS_PRE_STOP]->script = FALSE;
 			class->process[PROCESS_PRE_STOP]->command = nih_sprintf (
 				class->process[PROCESS_PRE_STOP],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -787,6 +800,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_PRE_STOP]->script || strpbrk (job->class->process[PROCESS_PRE_STOP]->command, SHELL_CHARS))
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -810,6 +825,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_POST_STOP] = process_new (class);
+			class->process[PROCESS_POST_STOP]->script = FALSE;
 			class->process[PROCESS_POST_STOP]->command = nih_sprintf (
 				class->process[PROCESS_POST_STOP],
 				"%s %d %s", argv0, TEST_ENVIRONMENT, filename);
@@ -842,6 +858,8 @@ test_run (void)
 		TEST_FILE_EQ (output, "BAR=BAZ\n");
 		TEST_FILE_EQ (output, "CRACKLE=FIZZ\n");
 		TEST_FILE_EQ (output, "FOO=SMACK\n");
+		if (job->class->process[PROCESS_POST_STOP]->script || strpbrk (job->class->process[PROCESS_POST_STOP]->command, SHELL_CHARS))
+			TEST_FILE_EQ (output, "PWD=/\n");
 		TEST_FILE_EQ (output, "UPSTART_INSTANCE=\n");
 		TEST_FILE_EQ (output, "UPSTART_JOB=test\n");
 		TEST_FILE_EQ (output, "UPSTART_NO_SESSIONS=1\n");
@@ -933,6 +951,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -972,6 +991,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_PRE_START] = process_new (class);
+			class->process[PROCESS_PRE_START]->script = FALSE;
 			class->process[PROCESS_PRE_START]->command = "true";
 
 			job = job_new (class, "");
@@ -1013,6 +1033,7 @@ test_run (void)
 			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_DAEMON;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -1063,6 +1084,7 @@ test_run (void)
 			class->console = CONSOLE_NONE;
 			class->expect = EXPECT_FORK;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = "true";
 
 			job = job_new (class, "");
@@ -1113,6 +1135,7 @@ test_run (void)
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->script = FALSE;
 			class->process[PROCESS_MAIN]->command = filename;
 
 			job = job_new (class, "foo");
@@ -3998,6 +4021,74 @@ test_run (void)
 	}
 
 	/************************************************************/
+
+	/* Check that initgroups gets called.
+	 * The test will run a job as nobody/nogroup (setuid/setgid) target.
+	 *
+	 * When run from an unprivileged user, the check will ensure that upstart
+	 * fails to start the job (returning -1) as initgroups() is a privileged
+	 * call (similar to setuid and setgid).
+	 *
+	 * When run from a privileged user (root), the check will ensure that
+	 * upstart succeeds in dropping privileges, which includes calling
+	 * initgroup, setuid and setgid.
+	 *
+	 * If the test is started by user nobody/nogroup, then it'll succeed as
+	 * there's no privilege changes to be done in such case (same uid/gid).
+	 */
+	TEST_FEATURE ("with setuid");
+	TEST_HASH_EMPTY (job_classes);
+
+	TEST_NE_P (output, NULL);
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			class = job_class_new (NULL, "test", NULL);
+			class->process[PROCESS_MAIN] = process_new (class);
+			class->process[PROCESS_MAIN]->command = nih_sprintf (
+				class->process[PROCESS_MAIN],
+				"touch %s", filename);
+
+			pwd = getpwnam ("nobody");
+			TEST_NE (pwd, NULL);
+			class->setuid = nih_strdup (class, pwd->pw_name);
+
+			grp = getgrnam ("nogroup");
+			TEST_NE (grp, NULL);
+			class->setgid = nih_strdup (class, grp->gr_name);
+
+			job = job_new (class, "");
+			job->goal = JOB_START;
+			job->state = JOB_SPAWNED;
+
+			output = tmpfile ();
+		}
+
+		TEST_DIVERT_STDERR (output) {
+			ret = job_process_run (job, PROCESS_MAIN);
+			if (geteuid() == 0 || getuid() == pwd->pw_uid) {
+				TEST_EQ (ret, 0);
+			}
+			else {
+				TEST_EQ (ret, -1);
+			}
+		}
+
+		if (geteuid() == 0 || getuid() == pwd->pw_uid) {
+			TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+			waitpid (job->pid[PROCESS_MAIN], NULL, 0);
+			TEST_EQ (stat (filename, &statbuf), 0);
+		}
+		else {
+			TEST_EQ (stat (filename, &statbuf), -1);
+		}
+
+		unlink (filename);
+		nih_free (class);
+
+	}
+
+	/************************************************************/
 	TEST_FEATURE ("with multiple processes and log");
 	TEST_HASH_EMPTY (job_classes);
 
@@ -5987,6 +6078,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6074,6 +6166,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process (1) "
 				       "terminated with status 1\n"));
@@ -6158,6 +6251,7 @@ test_handler (void)
 		TEST_EQ (job->failed, TRUE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test respawning too fast, "
 				       "stopped\n"));
@@ -6231,6 +6325,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -6308,6 +6403,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -6380,6 +6476,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		nih_free (job);
 	}
@@ -7341,6 +7438,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -7657,6 +7755,7 @@ test_handler (void)
 		TEST_EQ (job->failed, FALSE);
 		TEST_EQ (job->failed_process, PROCESS_INVALID);
 		TEST_EQ (job->exit_status, 0);
+		TEST_EQ (job->class->process[PROCESS_MAIN]->script, FALSE);
 
 		TEST_FILE_EQ (output, ("test: test main process ended, "
 				       "respawning\n"));
@@ -9043,8 +9142,20 @@ io_error_handler (void   *data,
 	nih_free (err);
 
 	nih_free (io);
-	nih_main_loop_exit (EXIT_SUCCESS);
 }
+
+/* Grab child exit status and ask main loop to exit */
+void
+process_handler (void          *data,
+		pid_t           pid,
+		NihChildEvents  event,
+		int             status)
+{
+	nih_assert (pid == pty_child_pid);
+
+	nih_main_loop_exit (status);
+}
+
 
 /**
  * run_tests_in_pty:
@@ -9065,21 +9176,18 @@ io_error_handler (void   *data,
 void
 run_tests_in_pty (void)
 {
-	pid_t             pid;
 	int               pty_master;
 	int               pty_slave;
 	nih_local NihIo  *io = NULL;
 	int               ret;
-	int               status;
-	int               exit_status = 0;
 
 	ret = openpty (&pty_master, &pty_slave, NULL, NULL, NULL);
 	TEST_NE (ret, -1);
 
-	pid = fork ();
-	TEST_NE (pid, (pid_t)-1);
+	pty_child_pid = fork ();
+	TEST_NE (pty_child_pid, (pid_t)-1);
 
-	if (! pid) {
+	if (! pty_child_pid) {
 		int   i;
 		pid_t self;
 
@@ -9095,7 +9203,7 @@ run_tests_in_pty (void)
 
 		/* connect standard streams to the child end of the pty */
 		for (i = 0; i < 3; i++)
-			while (dup2(pty_slave, i) == -1 && errno == EBUSY)
+			while (dup2 (pty_slave, i) == -1 && errno == EBUSY)
 				;
 
 		/* clean up */
@@ -9117,17 +9225,14 @@ run_tests_in_pty (void)
 			io_error_handler, NULL);
 	TEST_NE_P (io, NULL);
 
-	/* wait for child to finish */
-	TEST_EQ (waitpid (pid, &status, 0), pid);
-
-	/* catch exit status if it failed and return it via parent */
-	exit_status = WIFEXITED (status) ? WEXITSTATUS (status) :
-		      WIFSIGNALED (status) ? WTERMSIG (status) :
-		      WIFSTOPPED (status) ?  WSTOPSIG (status) :
-		      EXIT_FAILURE;
+	/* Watch child for events */
+	NIH_MUST (nih_child_add_watch (NULL, pty_child_pid,
+				(NIH_CHILD_EXITED|NIH_CHILD_KILLED|NIH_CHILD_DUMPED),
+				process_handler, NULL)); 
 
 	ret = nih_main_loop ();
-	exit (exit_status ? exit_status : ret);
+
+	exit (ret ? EXIT_FAILURE : EXIT_SUCCESS);
 }
 
 /**

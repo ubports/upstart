@@ -29,6 +29,13 @@
 #include <sys/resource.h>
 #include <sys/mount.h>
 
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 35
+#endif
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 #include <dirent.h>
@@ -65,6 +72,7 @@
 #include "conf.h"
 #include "control.h"
 #include "state.h"
+#include "xdg.h"
 
 
 /* Prototypes for static functions */
@@ -84,6 +92,7 @@ static void usr1_handler    (void *data, NihSignal *signal);
 static void handle_confdir      (void);
 static void handle_logdir       (void);
 static int  console_type_setter (NihOption *option, const char *arg);
+static int  conf_dir_setter     (NihOption *option, const char *arg);
 
 
 /**
@@ -95,12 +104,11 @@ static int  console_type_setter (NihOption *option, const char *arg);
 static int state_fd = -1;
 
 /**
- * conf_dir:
+ * conf_dirs:
  *
- * Full path to job configuration file directory.
- *
+ * Array of full paths to job configuration file directories.
  **/
-static char *conf_dir = NULL;
+static char **conf_dirs = NULL;
 
 /**
  * initial_event:
@@ -116,10 +124,13 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
+extern int          no_inherit_env;
+extern int          user_mode;
 extern int          disable_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
 extern int          default_console;
+extern int          write_state_file;
 extern char        *log_dir;
 
 
@@ -130,10 +141,13 @@ extern char        *log_dir;
  **/
 static NihOption options[] = {
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
-		NULL, "DIR", &conf_dir, NULL },
+		NULL, "DIR", NULL, conf_dir_setter },
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
+
+	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
+		NULL, NULL, &no_inherit_env ,NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
@@ -141,7 +155,7 @@ static NihOption options[] = {
 	{ 0, "no-log", N_("disable job logging"),
 		NULL, NULL, &disable_job_logging, NULL },
 
-	{ 0, "no-sessions", N_("disable user and chroot sessions"),
+	{ 0, "no-sessions", N_("disable chroot sessions"),
 		NULL, NULL, &disable_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
@@ -160,6 +174,12 @@ static NihOption options[] = {
 
 	{ 0, "startup-event", N_("specify an alternative initial event (for testing)"),
 		NULL, "NAME", &initial_event, NULL },
+
+	{ 0, "user", N_("start in user mode (as used for user sessions)"),
+		NULL, NULL, &user_mode, NULL },
+
+	{ 0, "write-state-file", N_("attempt to write state file on every re-exec"),
+		NULL, NULL, &write_state_file, NULL },
 
 	/* Ignore invalid options */
 	{ '-', "--", NULL, NULL, NULL, NULL, NULL },
@@ -194,6 +214,8 @@ main (int   argc,
 	}
 #endif /* HAVE_SELINUX */
 
+	conf_dirs = NIH_MUST (nih_str_array_new (NULL));
+
 	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
 
 	nih_main_init (args_copy[0]);
@@ -216,8 +238,11 @@ main (int   argc,
 
 	control_handle_bus_type ();
 
+	if (! user_mode)
+		no_inherit_env = TRUE;
+
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 
 		int needs_devtmpfs = 0;
 
@@ -366,7 +391,6 @@ main (int   argc,
 		}
 
 	} else {
-		nih_log_set_priority (NIH_LOG_DEBUG);
 		nih_debug ("Running with UID %d as PID %d (PPID %d)",
 				(int)getuid (), (int)getpid (), (int)getppid ());
 	}
@@ -386,7 +410,7 @@ main (int   argc,
 		nih_signal_reset ();
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Catch fatal errors immediately rather than waiting for a new
 		 * iteration through the main loop.
 		 */
@@ -403,7 +427,7 @@ main (int   argc,
 	nih_signal_set_handler (SIGALRM, nih_signal_handler);
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Ask the kernel to send us SIGINT when control-alt-delete is
 		 * pressed; generate an event with the same name.
 		 */
@@ -424,19 +448,20 @@ main (int   argc,
 		nih_signal_set_handler (SIGPWR, nih_signal_handler);
 		NIH_MUST (nih_signal_add_handler (NULL, SIGPWR, pwr_handler, NULL));
 
-		/* SIGHUP instructs us to re-load our configuration */
-		nih_signal_set_handler (SIGHUP, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
-
-		/* SIGUSR1 instructs us to reconnect to D-Bus */
-		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
-		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
-
 	}
 
-	/* SIGTERM instructs us to re-exec ourselves; this should be the
-	 * last in the list to ensure that all other signals are handled
-	 * before a SIGTERM.
+	/* SIGHUP instructs us to re-load our configuration */
+	nih_signal_set_handler (SIGHUP, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
+
+	/* SIGUSR1 instructs us to reconnect to D-Bus */
+	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+
+	/* SIGTERM instructs us to re-exec ourselves when running as PID
+	 * 1, or to exit when running as a Session Init; this signal should
+	 * be the last in the list to ensure that all other signals are
+	 * handled before a SIGTERM.
 	 */
 	nih_signal_set_handler (SIGTERM, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGTERM, term_handler, NULL));
@@ -490,7 +515,6 @@ main (int   argc,
 			nih_warn ("%s",
 				_("Stateful re-exec supported but stateless re-exec requested"));
 		} else if (state_read (state_fd) < 0) {
-			nih_local char *arg = NULL;
 
 			/* Stateful re-exec has failed so try once more by
 			 * degrading to stateless re-exec, which even in
@@ -528,8 +552,39 @@ main (int   argc,
 	}
 
 	/* Read configuration */
-	NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
-	NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+	if (! user_mode) {
+		char   *conf_dir;
+		int     len = 0;
+
+		nih_assert (conf_dirs[0]);
+
+		/* Count entries */
+		for (char **d = conf_dirs; d && *d; d++, len++)
+			;
+
+		nih_assert (len);
+
+		/* Use last value specified */
+		conf_dir = conf_dirs[len-1];
+
+		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+
+		nih_debug ("Using configuration directory %s", conf_dir);
+		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+	} else {
+		nih_local char **dirs = NULL;
+
+		dirs = NIH_MUST (get_user_upstart_dirs ());
+
+		for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
+			nih_debug ("Using configuration directory %s", *d);
+			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		}
+	}
+
+	nih_free (conf_dirs);
+
+	job_class_environment_init ();
 
 	conf_reload ();
 
@@ -566,7 +621,7 @@ main (int   argc,
 	}
 
 #ifndef DEBUG
-	if (use_session_bus == FALSE) {
+	if (use_session_bus == FALSE && user_mode == FALSE) {
 		/* Now that the startup is complete, send all further logging output
 		 * to kmsg instead of to the console.
 		 */
@@ -686,10 +741,28 @@ main (int   argc,
 		 * disabled by the term_handler */
 		sigemptyset (&mask);
 		sigprocmask (SIG_SETMASK, &mask, NULL);
+
+		/* Emit the Restarted signal so that any listening Instance Init
+		 * knows that it needs to restart too.
+		 */
+		control_notify_restarted();
 	}
 
 	if (disable_sessions)
-		nih_debug ("Sessions disabled");
+		nih_debug ("Chroot Sessions disabled");
+
+	/* Set us as the child subreaper.
+	 * This ensures that even when init doesn't run as PID 1, it'll always be
+	 * the ultimate parent of everything it spawns. */
+
+#ifdef HAVE_SYS_PRCTL_H
+	if (getpid () > 1 && prctl (PR_SET_CHILD_SUBREAPER, 1) < 0) {
+		nih_warn ("%s: %s", _("Unable to register as subreaper"),
+				  strerror (errno));
+
+		NIH_MUST (event_new (NULL, "child-subreaper-failed", NULL));
+	}
+#endif
 
 	/* Run through the loop at least once to deal with signals that were
 	 * delivered to the previous process while the mask was set or to
@@ -697,6 +770,11 @@ main (int   argc,
 	 */
 	nih_main_loop_interrupt ();
 	ret = nih_main_loop ();
+
+	/* Cleanup */
+	conf_destroy ();
+	session_destroy ();
+	control_cleanup ();
 
 	return ret;
 }
@@ -845,7 +923,8 @@ crash_handler (int signum)
  * @signal: signal caught.
  *
  * This is called when we receive the TERM signal, which instructs us
- * to reexec ourselves.
+ * to reexec ourselves when running as PID 1, or to perform a controlled
+ * exit when running as a Session Init.
  **/
 static void
 term_handler (void      *data,
@@ -854,8 +933,12 @@ term_handler (void      *data,
 	nih_assert (args_copy[0] != NULL);
 	nih_assert (signal != NULL);
 
-	nih_warn (_("Re-executing %s"), args_copy[0]);
+	if (user_mode) {
+		quiesce (QUIESCE_REQUESTER_SYSTEM);
+		return;
+	}
 
+	nih_warn (_("Re-executing %s"), args_copy[0]);
 	stateful_reexec ();
 }
 
@@ -866,7 +949,7 @@ term_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGINT signal, sent to us when somebody
+ * Handle having received the SIGINT signal, sent to us when somebody
  * presses Ctrl-Alt-Delete on the console.  We just generate a
  * ctrlaltdel event.
  **/
@@ -882,7 +965,7 @@ cad_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGWINCH signal, sent to us when somebody
+ * Handle having received the SIGWINCH signal, sent to us when somebody
  * presses Alt-UpArrow on the console.  We just generate a
  * kbdrequest event.
  **/
@@ -898,7 +981,7 @@ kbd_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGPWR signal, sent to us when powstatd
+ * Handle having received the SIGPWR signal, sent to us when powstatd
  * changes the /etc/powerstatus file.  We just generate a
  * power-status-changed event and jobs read the file.
  **/
@@ -914,7 +997,7 @@ pwr_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGHUP signal, which we use to instruct us to
+ * Handle having received the SIGHUP signal, which we use to instruct us to
  * reload our configuration.
  **/
 static void
@@ -930,7 +1013,7 @@ hup_handler (void      *data,
  * @data: unused,
  * @signal: signal that called this handler.
  *
- * Handle having recieved the SIGUSR signal, which we use to instruct us to
+ * Handle having received the SIGUSR signal, which we use to instruct us to
  * reconnect to D-Bus.
  **/
 static void
@@ -955,28 +1038,26 @@ usr1_handler (void      *data,
 /**
  * handle_confdir:
  *
- * Determine where system configuration files should be loaded from.
+ * Determine where system configuration files should be loaded from
+ * if not specified on the command-line.
  **/
 static void
 handle_confdir (void)
 {
-	char *dir;
+	char  *dir;
+
+	nih_assert (conf_dirs);
 
 	/* user has already specified directory on command-line */
-	if (conf_dir)
-		goto out;
-
-	conf_dir = CONFDIR;
-
-	dir = getenv (CONFDIR_ENV);
-	if (! dir)
+	if (conf_dirs[0])
 		return;
 
-	conf_dir = dir;
+	if (user_mode)
+		return;
 
-out:
-	nih_debug ("Using alternate configuration directory %s",
-			conf_dir);
+	dir = getenv (CONFDIR_ENV);
+
+	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, dir ? dir : CONFDIR));
 }
 
 /**
@@ -992,6 +1073,11 @@ handle_logdir (void)
 	/* user has already specified directory on command-line */
 	if (log_dir)
 		goto out;
+
+	if (user_mode) {
+		log_dir = get_user_log_dir ();
+		return;
+	}
 
 	log_dir = JOB_LOGDIR;
 
@@ -1027,3 +1113,19 @@ console_type_setter (NihOption *option, const char *arg)
 	 return 0;
 }
 
+/**  
+ * NihOption setter function to handle selection of configuration file
+ * directories.
+ *
+ * Returns: 0 on success, -1 on invalid console type.
+ **/
+static int
+conf_dir_setter (NihOption *option, const char *arg)
+{
+	nih_assert (conf_dirs);
+	nih_assert (option);
+
+	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, arg));
+
+	return 0;
+}

@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.6.1], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2012 Scott James Remnant, Canonical Ltd.]])
+AC_INIT([upstart], [1.10], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -16,7 +16,7 @@ LT_PREREQ(2.2.4)
 LT_INIT
 
 AM_GNU_GETTEXT_VERSION([0.17])
-AM_GNU_GETTEXT()
+AM_GNU_GETTEXT([external])
 
 # Checks for programs.
 AC_PROG_CC
@@ -30,7 +30,25 @@ NIH_WITH_LOCAL_LIBNIH
 PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
 PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
+PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.36], [have_gio=yes], [have_gio=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
+PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
+
+AC_ARG_ENABLE([udev-bridge],
+	AS_HELP_STRING([--disable-udev-bridge],
+		[Disable building of upstart-udev-bridge even if required dependencies available]),
+		[udev_bridge=no], [udev_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_UDEV_BRIDGE], [test "$have_udev" = yes && test "$udev_bridge" = yes])
+
+AC_ARG_ENABLE([dconf-bridge],
+	AS_HELP_STRING([--disable-dconf-bridge],
+		[Disable building of upstart-dconf-bridge even if required dependencies available]),
+		[dconf_bridge=no], [dconf_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
+                                test "$have_gio" = yes &&
+				test "$dconf_bridge" = yes])
 
 # Reasons for requiring this library version:
 #
@@ -48,9 +66,20 @@ PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 # 2) New json_tokener_parse_verbose() function required to detect invalid
 #    JSON (!)
 #
-PKG_CHECK_MODULES([JSON], [json >= 0.10])
+PKG_CHECK_MODULES([JSON], [json-c], [],
+	[PKG_CHECK_MODULES([JSON], [json >= 0.10])])
 
-AM_CONDITIONAL([HAVE_UDEV], [test "$have_udev" = yes])
+AC_ARG_ENABLE([abi-check],
+	AS_HELP_STRING([--disable-abi-check],
+		[Disable libupstart ABI check performed if abi-compliance-checker available]),
+		[abi_check=no], [abi_check=yes])
+
+if test x$abi_check = xyes; then
+	AC_CHECK_PROGS([ABI_COMPLIANCE_CHECKER],[abi-compliance-checker])
+	AC_SUBST([ABI_COMPLIANCE_CHECKER])
+fi
+
+AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
 
 AC_ARG_ENABLE(selinux,
 	      AS_HELP_STRING([--enable-selinux], [enable SELinux support]),
@@ -62,7 +91,7 @@ if test "x$enable_selinux" = "xyes" ; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS([valgrind/valgrind.h])
+AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_PROG_CC_C99
@@ -90,7 +119,7 @@ done
 AC_MSG_CHECKING([whether to include sbindir in PATH])
 eval upstart_sbindir=\"$sbindir\"
 case $upstart_sbindir in
-    /sbin|//sbin|/usr/sbin|/usr/local/sbin)
+    /sbin|NONE/sbin|//sbin|/usr/sbin|/usr/local/sbin)
     	AC_MSG_RESULT([no])
 	;;
     *)
@@ -107,9 +136,10 @@ NIH_COMPILER_COVERAGE
 NIH_LINKER_OPTIMISATIONS
 
 
-AC_CONFIG_FILES([ Makefile intl/Makefile
+AC_CONFIG_FILES([ Makefile
 		  dbus/Makefile init/Makefile util/Makefile conf/Makefile
 		  extra/Makefile doc/Makefile contrib/Makefile po/Makefile.in
-		  scripts/Makefile ])
+		  scripts/Makefile scripts/data/Makefile
+		  test/Makefile lib/Makefile lib/libupstart.pc.in ])
 AC_CONFIG_HEADERS([config.h])
 AC_OUTPUT

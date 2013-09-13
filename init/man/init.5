@@ -1,4 +1,4 @@
-.TH init 5 2011-05-12 "Upstart"
+.TH init 5 2013-01-25 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -9,8 +9,13 @@ init \- Upstart init daemon job configuration
 Default location of system job configuration files.
 .\"
 .TP
+.B $XDG_CONFIG_HOME/upstart/, $XDG_CONFIG_DIRS/upstart/
+Default locations of user session job configuration files.
+.\"
+.TP
 .B $HOME/.init/
-Default location of user job configuration files.
+Deprecated location of user job configuration files (still
+honoured by User Session Mode).
 .\"
 .SH DESCRIPTION
 On startup, the Upstart
@@ -20,9 +25,9 @@ daemon reads its job configuration from files in the
 directory, and watches for future changes to these files using
 .BR inotify (7).
 
-If D\-Bus has been configured to allow non\-privileged users to invoke all
-Upstart D\-Bus methods, Upstart is also able to manage User Jobs. See
-.B User Jobs
+If Upstart was invoked as a user process with \-\-user option, it will
+run in User Session mode. See
+.B User Session Mode
 for further details.
 
 To be considered by Upstart, files in this directory must have a
@@ -76,33 +81,6 @@ interpreted, they are not named.
 
 Configuration files are plain text and should not be executable.
 .\"
-.SS User Jobs
-
-A User Job is a job configuration file created by a non\-privileged user
-in their
-.B $HOME/.init/
-directory. Job configuration files in this directory have the same
-syntax as system job configuration files.
-Files in this directory will be read and an
-.BR inotify (7)
-watch created the first time a user runs 
-.BR initctl (8) "."
-
-Any user can create user jobs, but that user can control
-.I only
-jobs they create.
-
-Users are able to manage their jobs using the standard
-.BR initctl (8)
-facility.
-
-Note that stanzas which manipulate resources limits may cause a job to
-fail to start should the value provided to such a stanza attempt to
-exceed the maximum value the users privilege level allows.
-
-Note that a user job configuration file cannot have the same name as a
-system job configuration file.
-.\"
 .SS Chroot Support
 
 Upstart is able to manage jobs within a \fBchroot\fP(2). To control jobs
@@ -115,7 +93,46 @@ Note that this facility is distinct from the \fBchroot\fR stanza (see
 .B Process environment
 below).
 
-Note too that User Jobs can be created within a chroot environment.
+.\"
+.SS User Session Mode
+
+Upstart can manage complete User Sessions. In this mode it runs with a
+process id greater than 1 and will read job configuration files from the
+following list of directories in the order shown:
+
+.IP \(bu 4
+.I $XDG_CONFIG_HOME/upstart/
+.IP \(bu 4
+.I $HOME/.init/
+.IP \(bu 4
+.I $XDG_CONFIG_DIRS/upstart/
+.IP \(bu 4
+.I /usr/share/upstart/sessions/
+.P
+
+Note that the first directory to contain a job is considered the owner
+of that job name: any subsequently searched directory that contains a
+job of the same name will be ignored. The same applies for override
+files: only the first override file found in the search order will be
+applied. Note that an override file can be in the same directory or
+earlier to that directory which contains the job file.
+
+Jobs in these locations are expected to launch the user's session.
+Upstart will try to parent all spawned process with the aid of
+.BR prctl (2) "" .
+If successful this will ensure that even double-forking daemons will be
+reparented to the User Session process, and not to the
+.BR init (8)
+daemon running with process id 1.
+
+When running in User Session mode, Upstart will kill all job processes
+on session logout or shutdown.
+
+All log output will be in
+.I $XDG_CACHE_HOME/upstart
+which defaults to
+.I $HOME/.cache/upstart
+.
 
 .\"
 .SS Configuration File Format
@@ -366,26 +383,28 @@ automatically started.  When specified, the only way to start such a job
 is via \fBstart\fP (8).
 
 .SS Job environment
-Each job is run with the environment from the events or commands that
-started it.  In addition, you may define defaults in the job which may
-be overridden later and specify which environment variables are exported
-into the events generated for the job.
-
-The special
-.B UPSTART_EVENTS
-environment variable contains the list of events that started the job,
-it will not be present if the job was started manually.
-
-In addition, the
-.B pre\-stop
+Each job is run with an environment constructed from the
+following categories:
+.\"
+.IP \(bu 4
+A minimal set of standard system variables added by Upstart.
+.sp 1
+All jobs contain the
+.B TERM
 and
-.B post\-stop
-scripts are run with the environment of the events or commands that
-stopped the job.  The
-.B UPSTART_STOP_EVENTS
-environment variable contains the list of events that stopped the job,
-it will not be present if the job was stopped manually.
-
+.B PATH
+variables.
+.\"
+.IP \(bu 4
+Variables set using the 
+.BR initctl (8)
+job environment commands (such as \fIset-env\fP).
+.sp 1
+These commands also allow unsetting of variables.
+.\"
+.IP \(bu 4
+A set of special variables added by Upstart that relate to the job itself.
+.sp 1
 All jobs also contain the
 .B UPSTART_JOB
 and
@@ -394,7 +413,36 @@ environment variables, containing the name of the job and instance.  These
 are mostly used by the
 .BR initctl (8)
 utility to default to acting on the job the commands are called from.
+.\"
+.IP \(bu 4
+Those variables introduced by the events or command that started the
+job.
+.sp 1
+The special
+.B UPSTART_EVENTS
+environment variable contains the list of events that started the job,
+it will not be present if the job was started manually.
 
+The
+.B pre\-stop
+and
+.B post\-stop
+scripts are run with the environment of the events or commands that
+stopped the job.  The
+.B UPSTART_STOP_EVENTS
+environment variable contains the list of events that stopped the job,
+it will not be present if the job was stopped manually.
+.\"
+.IP \(bu 4
+Variables set within the job itself using the
+.B env
+and
+.B export
+stanzas. These provide default values - if the command or event which causes the
+job to start specifies alternative values, those are given priority over
+the defaults.
+.RS
+.\"
 .TP
 .B env \fIKEY\fR[=\fIVALUE\fR]
 Defines a default environment variable, the value of which may be overridden
@@ -417,6 +465,12 @@ events for this job
 and to all resultant events
 .ft
 (not just those relating to the current job).
+.RE
+
+The first two categories above comprise the
+.I job environment table
+which is applied to all jobs. Note that changing the job environment
+table will only affect newly-started jobs.
 .\"
 .SS Services, tasks and respawning
 Jobs are
@@ -611,19 +665,18 @@ Upstart 1.4.
 .B log
 .RS
 .B
-Only applies to system jobs:
-if specified by user jobs, the job will be considered to have specified
-the value
-.BR none "."
-
-For system jobs, if \fBlog\fR is specified, standard input is connected
+If \fBlog\fR is specified, standard input is connected
 to
 .IR /dev/null ","
 and standard output and standard error are connected to a pseudo-tty
 which logs all job output.
 
 Output is logged to file
-.IR /var/log/upstart/<job-log-file> "."
+.IR /var/log/upstart/<job-log-file>
+or
+.IR $XDG_CACHE_HOME/upstart/<job-log-file>
+for system and user session jobs respectively.
+
 If a job has specified \fBinstance\fR,
 .I <job-log-file>
 will equate to
@@ -821,7 +874,7 @@ in the
 block is used for all job processes. If both stanzas are unspecified,
 all job processes will run with its group ID set to 0 in the case of
 system jobs, and as the primary group of the user in the case of User
-Jobs.
+Session jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
@@ -863,6 +916,37 @@ considered.
 .P
 
 .\"
+.SS AppArmor support
+Upstart provides several stanzas for loading and switching to different
+AppArmor profiles. If AppArmor isn't enabled in the currently running
+kernel, the stanzas will be silently ignored.
+
+.TP
+.B apparmor load \fIPROFILE
+This stanza specifies an AppArmor profile to load into the Linux kernel at
+job start. The AppArmor profile will confine a main process automatically
+using path attachment, or manually by using the \fBapparmor switch\fP
+stanza.
+.I PROFILE
+must be an absolute path to a profile and a failure will occur if the file
+doesn't exist.
+
+.nf
+apparmor load /etc/apparmor.d/usr.sbin.cupsd
+.fi
+.\"
+.TP
+.B apparmor switch \fINAME
+This stanza specifies the name of an AppArmor profile name to switch to
+before running the main process.
+.I NAME
+must be the name of a profile already loaded into the running Linux kernel,
+and will result in a failure if not available.
+
+.nf
+apparmor switch /usr/sbin/cupsd
+.fi
+.\"
 .SS Miscellaneous
 .TP
 .B kill signal \fISIGNAL
@@ -873,6 +957,17 @@ running job.
 
 .nf
 kill signal INT
+.fi
+.\"
+.TP
+.B reload signal \fISIGNAL
+Specifies the reload signal,
+.I SIGHUP
+by default, a job's main process will receive when reloading the
+running job.
+
+.nf
+reload signal USR1
 .fi
 .\"
 .TP
@@ -941,11 +1036,12 @@ only evaluated once and state information is then discarded. This can
 lead to jobs with complex \fBstart on\fP or \fPstop on\fP conditions
 not behaving as expected \fIwhen restarted\fP. For example, if a job
 encodes the following condition:
-.ti +4
 .sp 1
+.RS
 .nf
 start on A and (B or C)
 .fi
+.RE
 .P
 When \(aqA\(aq and \(aqB\(aq become true, the condition is satisfied so
 the job will be run. However, if the job ends and subsequently \(aqA\(aq
@@ -965,19 +1061,36 @@ System job override files.
 .
 .TP
 .I $HOME/.init/*.conf
-User job configuration files.
-Note that you may make the directory
-.I $HOME/.init/
-a symbolic link to
-.BR $HOME/.config/upstart/ "."
+User job configuration files
+.BR (deprecated) .
 .
 .TP
 .I $HOME/.init/*.override
 User job override files.
+.BR (deprecated) .
+.
+.TP
+.I $XDG_CONFIG_HOME/upstart/*.conf
+User session job configuration files. See
+.B User Session Mode
+for other locations.
+.
+.TP
+.I $XDG_CONFIG_HOME/upstart/*.override
+User session job override files. See
+.B User Session Mode
+for other locations.
 .
 .TP
 .I /var/log/upstart/*.log
 Default location of system job output logs.
+.
+.TP
+.I $XDG_CACHE_HOME/upstart/*.log
+Default location of user session job output logs.
+.TP
+.I $XDG_RUNTIME_DIR/upstart/sessions/*.session
+Location of session files created when running in User Session mode.
 .RE
 .\"
 .SH AUTHOR
@@ -991,7 +1104,7 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2009-2011 Canonical Ltd.
+Copyright \(co 2009-2013 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -1000,6 +1113,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .SH SEE ALSO
 .BR init (8)
 .BR initctl (8)
+.BR prctl (2)
+.BR pty (7)
 .BR sh (1)
 .BR upstart-events (7)
-.BR pty (7)
+.BR apparmor (7)

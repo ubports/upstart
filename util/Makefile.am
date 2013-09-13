@@ -7,10 +7,11 @@ AM_CFLAGS = \
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
+	-DINITCTL_BUILD \
 	-DSBINDIR="\"$(sbindir)\"" \
 	-I$(top_builddir) -I$(top_srcdir) -iquote$(builddir) -iquote$(srcdir) \
-	-I$(top_srcdir)/intl
-
+	-I$(top_srcdir)/intl \
+	-I$(top_srcdir)/test -iquote $(top_srcdir)/test
 
 dist_man_MANS = \
 	man/initctl.8 \
@@ -20,7 +21,6 @@ dist_man_MANS = \
 	man/telinit.8 \
 	man/runlevel.7
 
-
 sbin_PROGRAMS = \
 	initctl \
 	reboot \
@@ -29,7 +29,8 @@ sbin_PROGRAMS = \
 	telinit
 
 initctl_SOURCES = \
-	initctl.c initctl.h
+	initctl.c initctl.h \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 nodist_initctl_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
@@ -181,7 +182,6 @@ uninstall-hook:
 	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
 	done
 
-
 TESTS = \
 	test_initctl \
 	test_utmp \
@@ -190,11 +190,15 @@ TESTS = \
 
 check_PROGRAMS = $(TESTS)
 
-test_initctl_SOURCES = tests/test_initctl.c initctl.c
+test_initctl_SOURCES = \
+	tests/test_initctl.c \
+	initctl.c \
+	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
 test_initctl_LDADD = \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
@@ -226,7 +230,13 @@ test_telinit_LDADD = \
 
 
 .PHONY: tests
-tests: $(BUILT_SOURCES) $(check_PROGRAMS)
+tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a
+
+FORCE:
+
+$(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a: FORCE
+	(cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) )
+	(cd $(top_builddir)/test && $(MAKE) $(AM_MAKEFLAGS) check)
 
 clean-local:
 	rm -f *.gcno *.gcda

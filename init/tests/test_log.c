@@ -26,14 +26,13 @@
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
 #include <nih/test.h>
 #include <nih/timer.h>
 #include <nih/child.h>
 #include <nih/signal.h>
 #include <nih/main.h>
 #include "job.h"
-#include "test_util.h"
+#include "test_util_common.h"
 
 /*
  * To help with understanding the TEST_ALLOC_FAIL peculiarities

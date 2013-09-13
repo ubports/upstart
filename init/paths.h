@@ -96,6 +96,43 @@
 #define CONFDIR_ENV "UPSTART_CONFDIR"
 #endif
 
+/**
+ * STATE_FILE_ENV:
+ *
+ * If set, write STATE_FILE on any re-exec.
+ **/
+#ifndef STATE_FILE_ENV
+#define STATE_FILE_ENV "UPSTART_WRITE_STATEFILE"
+#endif
+
+/**
+ * INIT_XDG_SUBDIR:
+ *
+ * This is the name of the sub folder we will use when constructing
+ * config source dirs with XDG compliant folders.
+ **/
+#ifndef INIT_XDG_SUBDIR
+#define INIT_XDG_SUBDIR "upstart"
+#endif
+
+/**
+ * SYSTEM_USERCONFDIR:
+ *
+ * This is the path to system-wide user session jobs.
+ **/
+#ifndef SYSTEM_USERCONFDIR
+#define SYSTEM_USERCONFDIR "/usr/share/upstart/sessions"
+#endif
+
+/**
+ * INIT_XDG_SESSION_SUBDIR:
+ *
+ * Directory below XDG_RUNTIME_DIR/INIT_XDG_SUBDIR used to
+ * store session details.
+ **/
+#ifndef INIT_XDG_SESSION_SUBDIR
+#define INIT_XDG_SESSION_SUBDIR "sessions"
+#endif
 
 /**
  * SHELL:
@@ -148,13 +185,25 @@
 #define LOGDIR_ENV "UPSTART_LOGDIR" 
 #endif
 
+/**
+ * SESSION_ENV:
+ *
+ * Environment variable that is set when running as a Session Init.
+ **/
+#ifndef SESSION_ENV
+#define SESSION_ENV "UPSTART_SESSION"
+#endif
 
 /**
+ * CONF_EXT_STD:
+ *
  * File extension for standard configuration files.
  **/
 #define CONF_EXT_STD ".conf"
 
 /**
+ * CONF_EXT_OVERRIDE:
+ *
  * File extension for override files.
  *
  * Note that override files are not stored in the ConfSource 'files' hash:
@@ -162,6 +211,15 @@
  * the corresponding (CONF_EXT_STD) object.
  **/
 #define CONF_EXT_OVERRIDE ".override"
+
+/**
+ * SESSION_EXT:
+ *
+ * File extension for session files.
+ **/
+#ifndef SESSION_EXT
+#define SESSION_EXT ".session"
+#endif
 
 /**
  * Determine if specified path extension representes a standard

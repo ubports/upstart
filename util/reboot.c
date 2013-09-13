@@ -22,7 +22,9 @@
 #endif /* HAVE_CONFIG_H */
 
 
+#include <linux/reboot.h>
 #include <sys/reboot.h>
+#include <sys/syscall.h>
 
 #include <errno.h>
 #include <stdlib.h>
@@ -71,7 +73,8 @@
 enum {
 	REBOOT,
 	HALT,
-	POWEROFF
+	POWEROFF,
+	REBOOTCOMMAND,
 };
 
 
@@ -135,6 +138,7 @@ main (int   argc,
 	char **args;
 	int    mode;
 	int    runlevel;
+	char  *rebootcommand=NULL;
 
 	nih_main_init (argv[0]);
 
@@ -161,7 +165,9 @@ main (int   argc,
 		exit (1);
 
 	/* Check we're root */
-	setuid (geteuid ());
+	if (setuid (geteuid ()) < 0)
+	    nih_warn (_("Couldn't set uid."));
+
 	if (getuid ()) {
 		nih_fatal (_("Need to be root"));
 		exit (1);
@@ -180,6 +186,12 @@ main (int   argc,
 	/* Check for -p if halt */
 	if ((mode == HALT) && poweroff)
 		mode = POWEROFF;
+
+	/* Check for rebootcommand to pass in the syscall */
+	if ((mode == REBOOT) && args && *args) {
+		mode = REBOOTCOMMAND;
+		rebootcommand = *args;
+	}
 
 	/* Normally we just exec shutdown, which notifies everyone and
 	 * signals init.
@@ -242,6 +254,13 @@ main (int   argc,
 		nih_info (_("Powering off"));
 		reboot (RB_POWER_OFF);
 		break;
+	case REBOOTCOMMAND:
+		nih_info (_("Rebooting with %s"), rebootcommand);
+		syscall (SYS_reboot,
+	                 LINUX_REBOOT_MAGIC1,
+			 LINUX_REBOOT_MAGIC2,
+			 LINUX_REBOOT_CMD_RESTART2,
+			 rebootcommand);
 	}
 
 	/* Shouldn't get here, but if we do, carry on */

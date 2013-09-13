@@ -1047,7 +1047,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_PRE_START] = 0;
 
 		job->blocker = NULL;
@@ -1113,7 +1113,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_MAIN] = 0;
 
 		job->blocker = NULL;
@@ -1187,7 +1187,7 @@ test_change_state (void)
 		}
 
 		job->goal = JOB_START;
-		job->state = JOB_STARTING;
+		job->state = JOB_SECURITY;
 		job->pid[PROCESS_PRE_START] = 0;
 
 		job->blocker = NULL;
@@ -4000,14 +4000,31 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're starting a starting job is
-	 * pre-start.
+	 * security.
 	 */
 	TEST_FEATURE ("with starting job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
 
+	TEST_EQ (job_next_state (job), JOB_SECURITY);
+
+	/* Check that the next state if we're starting a security job is
+	 * pre-start.
+	 */
+	TEST_FEATURE ("with security job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_SECURITY;
+
 	TEST_EQ (job_next_state (job), JOB_PRE_START);
 
+	/* Check that the next state if we're stopping an security job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with security job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_SECURITY;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
 
 	/* Check that the next state if we're stopping a pre-start job is
 	 * stopping.
@@ -5695,6 +5712,13 @@ test_state_name (void)
 	TEST_EQ_STR (name, "starting");
 
 
+	/* Check that the JOB_SECURITY state returns the right string. */
+	TEST_FEATURE ("with security state");
+	name = job_state_name (JOB_SECURITY);
+
+	TEST_EQ_STR (name, "security");
+
+
 	/* Check that the JOB_PRE_START state returns the right string. */
 	TEST_FEATURE ("with pre-start state");
 	name = job_state_name (JOB_PRE_START);
@@ -5777,6 +5801,13 @@ test_state_from_name (void)
 	state = job_state_from_name ("starting");
 
 	TEST_EQ (state, JOB_STARTING);
+
+
+	/* Check that JOB_SECURITY is returned for the right string. */
+	TEST_FEATURE ("with security state");
+	state = job_state_from_name ("security");
+
+	TEST_EQ (state, JOB_SECURITY);
 
 
 	/* Check that JOB_PRE_START is returned for the right string. */
@@ -6317,6 +6348,153 @@ test_stop (void)
 	dbus_shutdown ();
 
 	event_poll ();
+}
+
+void
+test_reload (void)
+{
+	DBusConnection  *conn, *client_conn;
+	pid_t            dbus_pid;
+	DBusMessage     *method, *reply;
+	NihDBusMessage  *message;
+	dbus_uint32_t    serial;
+	JobClass        *class;
+	Job             *job;
+	int              ret, status;
+
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
+	TEST_DBUS (dbus_pid);
+	TEST_DBUS_OPEN (conn);
+	TEST_DBUS_OPEN (client_conn);
+
+	TEST_FUNCTION ("job_reload");
+	TEST_FEATURE ("with default reload signal");
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+		class->process[PROCESS_MAIN], "sleep 10");
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	TEST_CHILD (job->pid[PROCESS_MAIN]) {
+		pause ();
+	}
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Reload");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_reload (job, message);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGHUP);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+	TEST_FEATURE ("with SIGUSR1 reload signal");
+
+	class = job_class_new (NULL, "test", NULL);
+	class->console = CONSOLE_NONE;
+	class->process[PROCESS_MAIN] = process_new (class);
+	class->process[PROCESS_MAIN]->command = nih_sprintf (
+		class->process[PROCESS_MAIN], "sleep 10");
+	class->reload_signal = SIGUSR1;
+
+	job = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_RUNNING;
+	TEST_CHILD (job->pid[PROCESS_MAIN]) {
+		pause ();
+	}
+
+	method = dbus_message_new_method_call (
+		dbus_bus_get_unique_name (conn),
+		job->path,
+		DBUS_INTERFACE_UPSTART_INSTANCE,
+		"Reload");
+
+	dbus_connection_send (client_conn, method, &serial);
+	dbus_connection_flush (client_conn);
+	dbus_message_unref (method);
+
+	TEST_DBUS_MESSAGE (conn, method);
+	assert (dbus_message_get_serial (method) == serial);
+
+	message = nih_new (NULL, NihDBusMessage);
+	message->connection = conn;
+	message->message = method;
+
+	TEST_FREE_TAG (message);
+
+	ret = job_reload (job, message);
+
+	waitpid (job->pid[PROCESS_MAIN], &status, 0);
+	TEST_TRUE (WIFSIGNALED (status));
+	TEST_EQ (WTERMSIG (status), SIGUSR1);
+
+	TEST_EQ (ret, 0);
+
+	nih_discard (message);
+	TEST_FREE (message);
+
+	dbus_message_unref (method);
+
+	dbus_connection_flush (conn);
+
+	TEST_DBUS_MESSAGE (client_conn, reply);
+
+	TEST_EQ (dbus_message_get_type (reply),
+		 DBUS_MESSAGE_TYPE_METHOD_RETURN);
+	TEST_EQ (dbus_message_get_reply_serial (reply), serial);
+
+	dbus_message_unref (reply);
+
+	nih_free (class);
+
+	TEST_DBUS_CLOSE (conn);
+	TEST_DBUS_CLOSE (client_conn);
+	TEST_DBUS_END (dbus_pid);
+
+	dbus_shutdown ();
 }
 
 void
@@ -7232,42 +7410,62 @@ test_get_processes (void)
 	}
 }
 
-
 void
 test_deserialise_ptrace (void)
 {
-	JobClass *class = NULL;
-	Job      *job = NULL;
-	pid_t     parent_pid, pid;
-	siginfo_t info;
-	char     *child_wait_fd_str;
+	ConfSource  *source = NULL;
+	ConfFile    *file = NULL;
+	JobClass    *class = NULL;
+	Job         *job = NULL;
+	pid_t        parent_pid, pid;
+	siginfo_t    info;
+	char        *child_wait_fd_str;
 
 	TEST_FUNCTION_FEATURE ("job_deserialise", "ptrace handling");
 	nih_error_init ();
 	job_class_init ();
 
 	TEST_HASH_EMPTY (job_classes);
+	TEST_LIST_EMPTY (conf_sources);
 
 	TEST_CHILD_WAIT (parent_pid, child_wait_fd) {
-		class = job_class_new (NULL, "test", NULL);
+		/* Manually construct a job and all required associated
+		 * objects.
+		 */
+
+		/* First, create ConfSource, ConfFile and JobClass */
+		source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+		TEST_NE_P (source, NULL);
+		file = conf_file_new (source, "/tmp/test.conf");
+		class = file->job = job_class_new (NULL, "test", NULL);
 		TEST_NE_P (class, NULL);
 		class->console = CONSOLE_OUTPUT;
 		class->expect = EXPECT_FORK;
 		class->chdir = NIH_MUST (nih_strdup (class, "."));
 		class->process[PROCESS_MAIN] = process_new (class);
 		TEST_NE_P (class->process[PROCESS_MAIN], NULL);
-		job_class_add_safe (class);
+		job_class_consider (class);
 
+		/* Fork a process then immediately stop it */
 		TEST_CHILD (pid) {
+			pid_t pid2;
 			assert0 (ptrace (PTRACE_TRACEME, 0, NULL, 0));
 			raise (SIGSTOP);
-			fork ();
+			pid2 = fork ();
+			if (pid2)
+				waitpid (pid2, NULL, 0);
 			exit (0);
 		}
 
+		/* Wait for child to be stopped */
 		assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+		/* Set up a fork+exec trace on the child in the parent.
+		 */
 		assert0 (ptrace (PTRACE_SETOPTIONS, pid, NULL,
 				 PTRACE_O_TRACEFORK | PTRACE_O_TRACEEXEC));
+
+		/* Allow the child to continue */
 		assert0 (ptrace (PTRACE_CONT, pid, NULL, 0));
 
 		job = job_new (class, "");
@@ -7289,7 +7487,6 @@ test_deserialise_ptrace (void)
 					     child_wait_fd_str));
 		NIH_MUST (nih_str_array_add (&args_copy, NULL, NULL,
 					     "--deserialise-ptrace"));
-
 		stateful_reexec ();
 
 		/* Continue in deserialise_ptrace_next */
@@ -7334,6 +7531,8 @@ deserialise_ptrace_next (void)
 	TEST_EQ (job->trace_forks, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WSTOPPED | WNOWAIT));
+
+	/* wait for grand-child */
 	nih_child_poll ();
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
@@ -7399,6 +7598,7 @@ main (int   argc,
 	test_start ();
 	test_stop ();
 	test_restart ();
+	test_reload ();
 
 	test_get_name ();
 	test_get_goal ();

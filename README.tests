@@ -1,0 +1,65 @@
+Unit Tests
+==========
+
+Upstarts unit tests are run via::
+
+  make check
+
+Integration Tests
+=================
+
+Python 3 scripts that make use of the ``pyupstart.py`` test module.
+There are 2 classes of integration tests:
+
+Session-level Integration Tests
+-------------------------------
+
+These can be run as a non-root user or as root. Ideally, run them as
+both users.
+
+To run the tests::
+
+  $ cd scripts/tests && ./test_pyupstart_session_init.py
+
+The tests make use of some of the sample Job Configuration (``.conf``)
+files shipped with Upstart. However, if the
+``UPSTART_TEST_USE_INSTALLED_CONF`` variable is set to any value, if the
+tests find an *installed* session job of the same name, they will use
+those jobs instead. The current sample jobs the tests use are:
+
+- ``re-exec.conf``
+- ``upstart-file-bridge.conf``
+
+System-level Integration Tests
+------------------------------
+
+These tests must be run as ``root`` (the tests will be skipped if called
+by a non-root user) and operate on the PID 1 executable. The tests will
+create a subdirectory below ``/etc/init/`` in an attempt to isolate
+themselves from the rest of the system. However, these tests are
+designed to be run *on test systems only*.
+
+The tests also exercise the chroot abilities of Upstart. If the
+environment variable ``UPSTART_TEST_CHROOT_PATH`` is set and points to a
+valid chroot in which Upstart is installed this chroot will participate
+in the tests.
+
+To run the system-level integration tests::
+
+  $ su
+  # export UPSTART_TEST_CHROOT_PATH=/full/path/to/chroot
+  # cd scripts/tests && ./test_pyupstart_system_init.py
+
+Running All the Tests Together
+------------------------------
+
+WARNING: Running the tests as ``root`` in this way will modify your
+``/etc/init/`` directory. See `System-level Integration Tests`_.
+
+You can make use of python3's unittest module to run all the tests in
+the normal fashion:
+
+  $ cd scripts && python3 -munittest
+  $ su
+  # cd scripts && python3 -munittest
+

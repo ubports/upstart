@@ -1,0 +1,66 @@
+.TH upstart\-dconf\-bridge 8 2013-07-09 upstart
+.\"
+.SH NAME
+upstart\-dconf\-bridge \- Bridge between Upstart and dconf/gsettings
+.\"
+.SH SYNOPSIS
+.B upstart\-dconf\-bridge
+.RI [ OPTIONS ]...
+.\"
+.SH DESCRIPTION
+.B upstart\-dconf\-bridge
+receives information about dconf/gsettings changes
+and creates
+.BR init (8)
+events for them.
+
+With no options (and if there are jobs which have registered an interest
+in the event), monitors dconf changes and emits
+an Upstart event called
+.I dconf
+with details of the dconf change.
+
+See \fBdconf\fP(7) and for further details.
+
+.\"
+.SH OPTIONS
+.\"
+.TP
+.B \-\-always
+Always emit events on receipt of dconf changes regardless of whether jobs
+care about them.
+.TP
+.B \-\-daemon
+Detach and run in the background.
+.\"
+.TP
+.B \-\-debug
+Enable debugging output.
+.\"
+.TP
+.B \-\-help
+Show brief usage summary.
+.\"
+.TP
+.B \-\-verbose
+Enable verbose output.
+.\"
+.SH AUTHOR
+Written by James Hunt
+.RB < james.hunt@canonical.com >
+.\"
+.SH BUGS
+Report bugs at 
+.RB < https://launchpad.net/ubuntu/+source/upstart/+bugs >
+.\"
+.SH COPYRIGHT
+Copyright \(co 2013 Canonical Ltd.
+.PP
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.SH SEE ALSO
+.BR dconf (7)
+.BR dconf\-event (7)
+.BR gsettings (1)
+.BR init (5)
+.BR init (8)

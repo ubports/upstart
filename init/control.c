@@ -2,7 +2,7 @@
  *
  * control.c - D-Bus connections, objects and methods
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,20 +50,31 @@
 #include "environ.h"
 #include "session.h"
 #include "job_class.h"
+#include "job.h"
 #include "blocked.h"
 #include "conf.h"
 #include "control.h"
 #include "errors.h"
 #include "state.h"
+#include "event.h"
+#include "events.h"
+#include "paths.h"
+#include "xdg.h"
 
 #include "com.ubuntu.Upstart.h"
 
 /* Prototypes for static functions */
-static int   control_server_connect (DBusServer *server, DBusConnection *conn);
-static void  control_disconnected   (DBusConnection *conn);
-static void  control_register_all   (DBusConnection *conn);
+static int   control_server_connect      (DBusServer *server, DBusConnection *conn);
+static void  control_disconnected        (DBusConnection *conn);
+static void  control_register_all        (DBusConnection *conn);
 
-static void  control_bus_flush      (void);
+static void  control_bus_flush           (void);
+static int   control_get_origin_uid      (NihDBusMessage *message, uid_t *uid)
+	__attribute__ ((warn_unused_result));
+static int   control_check_permission    (NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+static void  control_session_file_create (void);
+static void  control_session_file_remove (void);
 
 /**
  * use_session_bus:
@@ -79,7 +90,7 @@ int use_session_bus = FALSE;
  *
  * Address on which the control server may be reached.
  **/
-const char *control_server_address = DBUS_ADDRESS_UPSTART;
+char *control_server_address = NULL;
 
 /**
  * control_server:
@@ -104,6 +115,10 @@ DBusConnection *control_bus = NULL;
  **/
 NihList *control_conns = NULL;
 
+/* External definitions */
+extern int      user_mode;
+extern int      disable_respawn;
+extern char    *session_file;
 
 /**
  * control_init:
@@ -115,8 +130,29 @@ control_init (void)
 {
 	if (! control_conns)
 		control_conns = NIH_MUST (nih_list_new (NULL));
+
+	if (! control_server_address) {
+		if (user_mode) {
+			NIH_MUST (nih_strcat_sprintf (&control_server_address, NULL,
+					    "%s-session/%d/%d", DBUS_ADDRESS_UPSTART, getuid (), getpid ()));
+
+			control_session_file_create ();
+		} else {
+			control_server_address = NIH_MUST (nih_strdup (NULL, DBUS_ADDRESS_UPSTART));
+		}
+	}
 }
 
+/**
+ * control_cleanup:
+ *
+ * Perform cleanup operations.
+ **/
+void
+control_cleanup (void)
+{
+	control_session_file_remove ();
+}
 
 /**
  * control_server_open:
@@ -367,6 +403,8 @@ control_register_all (DBusConnection *conn)
  * Called to request that Upstart reloads its configuration from disk,
  * useful when inotify is not available or the user is generally paranoid.
  *
+ * Notes: chroot sessions are permitted to make this call.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
@@ -374,6 +412,13 @@ control_reload_configuration (void           *data,
 			      NihDBusMessage *message)
 {
 	nih_assert (message != NULL);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to reload configuration"));
+		return -1;
+	}
 
 	nih_info (_("Reloading configuration"));
 
@@ -563,12 +608,19 @@ control_emit_event_with_file (void            *data,
 			      int              wait,
 			      int              file)
 {
-	Event   *event;
-	Blocked *blocked;
+	Event    *event;
+	Blocked  *blocked;
 
 	nih_assert (message != NULL);
 	nih_assert (name != NULL);
 	nih_assert (env != NULL);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to emit an event"));
+		return -1;
+	}
 
 	/* Verify that the name is valid */
 	if (! strlen (name)) {
@@ -730,6 +782,13 @@ control_set_log_priority (void *          data,
 	nih_assert (message != NULL);
 	nih_assert (log_priority != NULL);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to set log priority"));
+		return -1;
+	}
+
 	if (! strcmp (log_priority, "debug")) {
 		nih_log_set_priority (NIH_LOG_DEBUG);
 
@@ -782,6 +841,11 @@ control_handle_bus_type (void)
  * Called to flush the job logs for all jobs that ended before the log
  * disk became writeable.
  *
+ * Notes: Session Inits are permitted to make this call. In the common
+ * case of starting a Session Init as a child of a Display Manager this
+ * is somewhat meaningless, but it does mean that if a Session Init were
+ * started from a system job, behaviour would be as expected.
+ *
  * Returns: zero on success, negative value on raised error.
  **/
 int
@@ -793,15 +857,15 @@ control_notify_disk_writeable (void   *data,
 
 	nih_assert (message != NULL);
 
-	/* Get the relevant session */
-	session = session_from_dbus (NULL, message);
-
-	if (session && session->user) {
+	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to notify disk is writeable"));
 		return -1;
 	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
 
 	/* "nop" when run from a chroot */
 	if (session && session->chroot)
@@ -859,7 +923,7 @@ control_prepare_reexec (void)
 /**
  * control_conn_to_index:
  *
- * @event: event.
+ * @connection: D-Bus connection.
  *
  * Convert a control (DBusConnection) connection to an index number
  * the list of control connections.
@@ -967,13 +1031,17 @@ control_get_state (void           *data,
 		   char           **state)
 {
 	Session  *session;
-	uid_t     uid;
 	size_t    len;
 
 	nih_assert (message);
 	nih_assert (state);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request state"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -986,17 +1054,6 @@ control_get_state (void           *data,
 	if (session && session->chroot) {
 		nih_warn (_("Ignoring state query from chroot session"));
 		return 0;
-	}
-
-	/* Disallow users from obtaining state details, unless they
-	 * happen to own this process (which they may do in the test
-	 * scenario and when running Upstart as a non-privileged user).
-	 */
-	if (session && session->user != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request state"));
-		return -1;
 	}
 
 	if (state_to_string (state, &len) < 0)
@@ -1030,11 +1087,15 @@ control_restart (void           *data,
 		 NihDBusMessage *message)
 {
 	Session  *session;
-	uid_t     uid;
 
 	nih_assert (message != NULL);
 
-	uid = getuid ();
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to request restart"));
+		return -1;
+	}
 
 	/* Get the relevant session */
 	session = session_from_dbus (NULL, message);
@@ -1050,20 +1111,686 @@ control_restart (void           *data,
 		return 0;
 	}
 
-	/* Disallow users from restarting Upstart, unless they happen to
-	 * own this process (which they may do in the test scenario and
-	 * when running Upstart as a non-privileged user).
-	 */
-	if (session && session->user != uid) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to request restart"));
-		return -1;
-	}
-
 	nih_info (_("Restarting"));
 
 	stateful_reexec ();
+
+	return 0;
+}
+
+/**
+ * control_notify_event_emitted
+ *
+ * @event: Event.
+ *
+ * Re-emits an event over DBUS using the EventEmitted signal
+ **/
+void
+control_notify_event_emitted (Event *event)
+{
+	nih_assert (event != NULL);
+
+	control_init ();
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+							    event->name, event->env));
+	}
+}
+
+/**
+ * control_notify_restarted
+ *
+ * DBUS signal sent when upstart has re-executed itself.
+ **/
+void
+control_notify_restarted (void)
+{
+	control_init ();
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_restarted (conn, DBUS_PATH_UPSTART));
+	}
+}
+
+/**
+ * control_set_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @var: name[/value] pair of environment variable to set,
+ * @replace: TRUE if @name should be overwritten if already set, else
+ *  FALSE.
+ *
+ * Implements the SetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart store a particular name/value pair.
+ *
+ * If @job_details is empty, change will be applied to all job
+ * environments, else only apply changes to specific job environment
+ * encoded within @job_details.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_set_env (void            *data,
+		 NihDBusMessage  *message,
+		 char * const    *job_details,
+		 const char      *var,
+		 int              replace)
+{
+	Session         *session;
+	Job             *job = NULL;
+	char            *job_name = NULL;
+	char            *instance = NULL;
+	nih_local char  *envvar = NULL;
+
+	nih_assert (message);
+	nih_assert (job_details);
+	nih_assert (var);
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	} else if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring set env request from chroot session"));
+		return 0;
+	}
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+	/* If variable does not contain a delimiter, add one to ensure
+	 * it gets entered into the job environment table. Without the
+	 * delimiter, the variable will be silently ignored unless it's
+	 * already set in inits environment. But in that case there is
+	 * no point in setting such a variable to its already existing
+	 * value.
+	 */
+	if (! strchr (var, '='))
+		envvar = NIH_MUST (nih_sprintf (NULL, "%s=", var));
+	else
+		envvar = NIH_MUST (nih_strdup (NULL, var));
+
+	if (job) {
+		/* Modify job-specific environment */
+
+		nih_assert (job->env);
+
+		NIH_MUST (environ_add (&job->env, job, NULL, replace, envvar));
+		return 0;
+	}
+
+	if (job_class_environment_set (envvar, replace) < 0)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_unset_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @name: variable to clear from the job environment array.
+ *
+ * Implements the UnsetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart remove a particular variable from the job
+ * environment array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_unset_env (void            *data,
+		   NihDBusMessage  *message,
+		   char * const    *job_details,
+		   const char      *name)
+{
+	Session         *session;
+	Job             *job = NULL;
+	char            *job_name = NULL;
+	char            *instance = NULL;
+
+	nih_assert (message);
+	nih_assert (job_details);
+	nih_assert (name);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	} else if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring unset env request from chroot session"));
+		return 0;
+	}
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+	if (job) {
+		/* Modify job-specific environment */
+
+		nih_assert (job->env);
+
+		if (! environ_remove (&job->env, job, NULL, name))
+			return -1;
+
+		return 0;
+	}
+
+	if (job_class_environment_unset (name) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+			"%s: %s",
+			_("No such variable"), name);
+	return -1;
+}
+
+/**
+ * control_get_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @name: name of environment variable to retrieve,
+ * @value: value of @name.
+ *
+ * Implements the GetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain the value of a specified job environment variable.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_get_env (void             *data,
+		 NihDBusMessage   *message,
+		 char * const     *job_details,
+		 const char       *name,
+		 char            **value)
+{
+	Session     *session;
+	const char  *tmp;
+	Job         *job = NULL;
+	char        *job_name = NULL;
+	char        *instance = NULL;
+
+	nih_assert (message != NULL);
+	nih_assert (job_details);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to query job environment"));
+		return -1;
+	}
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring get env request from chroot session"));
+		return 0;
+	}
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+	if (job) {
+		tmp = environ_get (job->env, name);
+		if (! tmp)
+			goto error;
+
+		*value = nih_strdup (message, tmp);
+		if (! *value)
+			nih_return_no_memory_error (-1);
+
+		return 0;
+	}
+
+	tmp = job_class_environment_get (name);
+
+	if (! tmp)
+		goto error;
+
+	*value = nih_strdup (message, tmp);
+	if (! *value)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+
+error:
+	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+			"%s: %s",
+			_("No such variable"), name);
+	return -1;
+}
+
+/**
+ * control_list_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @env: pointer to array of all job environment variables.
+ *
+ * Implements the ListEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to obtain an unsorted array of all environment variables
+ * that will be set in a jobs environment.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_list_env (void             *data,
+		 NihDBusMessage    *message,
+		 char * const      *job_details,
+		 char            ***env)
+{
+	Session   *session;
+	Job       *job = NULL;
+	char      *job_name = NULL;
+	char      *instance = NULL;
+
+	nih_assert (message);
+	nih_assert (job_details);
+	nih_assert (env);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to query job environment"));
+		return -1;
+	}
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+	if (job) {
+		*env = nih_str_array_copy (job, NULL, job->env);
+		if (! *env)
+			nih_return_no_memory_error (-1);
+
+		return 0;
+	}
+
+	*env = job_class_environment_get_all (message);
+	if (! *env)
+		nih_return_no_memory_error (-1);
+
+	return 0;
+}
+
+/**
+ * control_reset_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to.
+ *
+ * Implements the ResetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to reset the environment all subsequent jobs will run in to
+ * the default minimal environment.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_reset_env (void           *data,
+		 NihDBusMessage   *message,
+		 char * const    *job_details)
+{
+	Session    *session;
+	Job        *job = NULL;
+	char       *job_name = NULL;
+	char       *instance = NULL;
+
+	nih_assert (message);
+	nih_assert (job_details);
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	} else if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring reset env request from chroot session"));
+		return 0;
+	}
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+
+	if (job) {
+		size_t len;
+		if (job->env) {
+			nih_free (job->env);
+			job->env = NULL;
+		}
+
+		job->env = job_class_environment (job, job->class, &len);
+		if (! job->env)
+			nih_return_system_error (-1);
+
+		return 0;
+	}
+
+	job_class_environment_reset ();
+
+	return 0;
+}
+
+/**
+ * control_get_origin_uid:
+ * @message: D-Bus connection and message received,
+ * @uid: returned uid value.
+ *
+ * Returns TRUE: if @uid now contains uid corresponding to @message,
+ * else FALSE.
+ **/
+static int
+control_get_origin_uid (NihDBusMessage *message, uid_t *uid)
+{
+	DBusError       dbus_error;
+	unsigned long   unix_user = 0;
+	const char     *sender;
+
+	nih_assert (message);
+	nih_assert (uid);
+
+	dbus_error_init (&dbus_error);
+
+	if (! message->message || ! message->connection)
+		return FALSE;
+
+	sender = dbus_message_get_sender (message->message);
+	if (sender) {
+		unix_user = dbus_bus_get_unix_user (message->connection, sender,
+						    &dbus_error);
+		if (unix_user == (unsigned long)-1) {
+			dbus_error_free (&dbus_error);
+			return FALSE;
+		}
+	} else {
+		if (! dbus_connection_get_unix_user (message->connection,
+						     &unix_user)) {
+			return FALSE;
+		}
+	}
+
+	*uid = (uid_t)unix_user;
+
+	return TRUE;
+}
+
+/**
+ * control_check_permission:
+ *
+ * @message: D-Bus connection and message received.
+ *
+ * Determine if caller should be allowed to make a control request.
+ *
+ * Note that these permission checks rely on D-Bus to limit
+ * session bus access to the same user.
+ *
+ * Returns: TRUE if permission is granted, else FALSE.
+ **/
+static int
+control_check_permission (NihDBusMessage *message)
+{
+	int    ret;
+	uid_t  uid;
+	pid_t  pid;
+	uid_t  origin_uid = 0;
+
+	nih_assert (message);
+
+	uid = getuid ();
+	pid = getpid ();
+
+	ret = control_get_origin_uid (message, &origin_uid);
+
+	/* Its possible that D-Bus might be unable to determine the user
+	 * making the request. In this case, deny the request unless
+	 * we're running as a Session Init or via the test harness.
+	 */
+	if ((ret && origin_uid == uid) || user_mode || (uid && pid != 1))
+		return TRUE;
+
+	return FALSE;
+}
+
+/**
+ * control_session_file_create:
+ *
+ * Create session file if possible.
+ *
+ * Errors are not fatal - the file is just not created.
+ **/
+static void
+control_session_file_create (void)
+{
+	nih_local char *session_dir = NULL;
+	FILE           *f;
+	int             ret;
+
+	nih_assert (control_server_address);
+
+	session_dir = get_session_dir ();
+
+	if (! session_dir)
+		return;
+
+	NIH_MUST (nih_strcat_sprintf (&session_file, NULL, "%s/%d%s",
+				session_dir, (int)getpid (), SESSION_EXT));
+
+	f = fopen (session_file, "w");
+	if (! f) {
+		nih_error ("%s: %s", _("unable to create session file"), session_file);
+		return;
+	}
+
+	ret = fprintf (f, SESSION_ENV "=%s\n", control_server_address);
+
+	if (ret < 0)
+		nih_error ("%s: %s", _("unable to write session file"), session_file);
+
+	fclose (f);
+}
+
+/**
+ * control_session_file_remove:
+ *
+ * Delete session file.
+ *
+ * Errors are not fatal.
+ **/
+static void
+control_session_file_remove (void)
+{
+	if (session_file)
+		(void)unlink (session_file);
+}
+
+/**
+ * control_session_end:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received.
+ *
+ * Implements the EndSession method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request that Upstart stop all jobs and exit. Only
+ * appropriate when running as a Session Init and user wishes to
+ * 'logout'.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_end_session (void             *data,
+		     NihDBusMessage   *message)
+{
+	Session  *session;
+
+	nih_assert (message);
+
+	/* Not supported at the system level */
+	if (getpid () == 1)
+		return 0;
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to end session"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring session end request from chroot session"));
+		return 0;
+	}
+
+	quiesce (QUIESCE_REQUESTER_SESSION);
 
 	return 0;
 }
