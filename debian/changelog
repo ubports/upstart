@@ -44,6 +44,10 @@ upstart (1.10-1) UNRELEASED; urgency=low
     of error messages which will vary depending on whether /bin/sh is
     dash or bash; and use TEST_STR_MATCH so that in the event of future
     failures, we know why it's failing.
+  * Drop the hard-coded dep on sysv-rc; we already depend on initscripts
+    which depends on sysv-rc | file-rc, and file-rc now has upstart support,
+    so we don't need to force users to choose between upstart and file-rc.
+    Closes: #709483.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
