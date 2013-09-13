@@ -39,8 +39,6 @@ override_dh_fixperms:
 	chmod 755 debian/upstart/lib/init/upstart-job
 	chmod 755 debian/upstart/lib/init/apparmor-profile-load
 	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
-	rm debian/upstart/etc/init/upstart-event-bridge.conf
-	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 override_dh_auto_install:
 	dh_auto_install -- pkgconfigdir=\$${libdir}/pkgconfig
@@ -60,6 +58,8 @@ override_dh_install:
 		debian/upstart/usr/share/apport/package-hooks/upstart.py
 	rm debian/upstart/sbin/upstart-dconf-bridge
 	rm debian/upstart/usr/share/upstart/sessions/upstart-dconf-bridge.conf
+	rm debian/upstart/etc/init/upstart-event-bridge.conf
+	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 # Remove the following man pages from the upstart package; they will be
 # added to the upstart-monitor and upstart-dconf-bridge packages via
