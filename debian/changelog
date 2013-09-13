@@ -28,6 +28,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - disable upstream build-time abi check.
     - don't install upstart-event-bridge or upstart-dconf bridge jobs.
     - install an apport hook.
+    - debian/source/options: Ignore gmo files we rebuild anyway.
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
     as this has side-effects of triggering upstart chroot sessions.
   * Lose the unnecessary postinst boilerplate.
