@@ -33,6 +33,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
       be used in Debian.
     - init/apparmor.c: do not load apparmor if running in a container or a
       live cd.
+    - init/job_process.c: don't fail if the security profile failed to load.
   * For now, do not pull in packaging changes to include upstart user
     sessions.
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
