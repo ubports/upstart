@@ -2,6 +2,9 @@
 
 	* configure.ac:
 	  - correct the copyright notice.
+	* extra/Makefile.am:
+	  - don't pass cflags from unrelated libraries when building, only
+	    pass them to those bridges which use the relevant libraries.
 
 2013-09-05  James Hunt  <james.hunt@ubuntu.com>
 

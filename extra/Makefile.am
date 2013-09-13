@@ -6,9 +6,7 @@ EXTRA_DIST =
 AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
-	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(DCONF_CFLAGS)
+	$(DBUS_CFLAGS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -128,6 +126,11 @@ upstart_dconf_bridge_LDADD = \
 	$(DBUS_LIBS) \
 	$(GIO_LIBS) \
 	$(DCONF_LIBS)
+upstart_dconf_bridge_CFLAGS =
+	$(NIH_CFLAGS) \
+	$(NIH_DBUS_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(DCONF_CFLAGS)
 else
 EXTRA_DIST += \
 	upstart-dconf-bridge.c
@@ -153,7 +156,12 @@ upstart_udev_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS)
-
+upstart_udev_bridge_CFLAGS =
+	$(NIH_CFLAGS) \
+	$(NIH_DBUS_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(UDEV_CFLAGS)
+	
 install-data-hook:
 	src=`echo upstart-udev-bridge| sed '$(transform)'`.8; \
 	for symlink in \
