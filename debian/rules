@@ -43,7 +43,7 @@ override_dh_fixperms:
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 override_dh_auto_install:
-	dh_auto_install -- pkgconfigdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
+	dh_auto_install -- pkgconfigdir=\$${libdir}/pkgconfig
 
 # Remove the appropriate dconf files from the upstart package - they
 # will be added used by the upstart-dconf-bridge.install file.

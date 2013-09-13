@@ -5,7 +5,7 @@ upstart (1.10-0ubuntu2) UNRELEASED; urgency=low
     to add an apport tag. 
 
   [ Steve Langasek ]
-  * Drop spurious include of /usr/share/dpkg/architecture.mk.
+  * Use ${libdir} instead of including /usr/share/dpkg/architecture.mk.
 
  -- James Hunt <james.hunt@ubuntu.com>  Mon, 09 Sep 2013 10:28:17 +0100
 
