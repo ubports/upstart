@@ -29,6 +29,8 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - don't install upstart-event-bridge or upstart-dconf bridge jobs.
     - install an apport hook.
     - debian/source/options: Ignore gmo files we rebuild anyway.
+    - include changes to debian/upstart-job, which in practice should never
+      be used in Debian.
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
     as this has side-effects of triggering upstart chroot sessions.
   * Lose the unnecessary postinst boilerplate.
