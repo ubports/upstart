@@ -40,6 +40,10 @@ upstart (1.10-1) UNRELEASED; urgency=low
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
     as this has side-effects of triggering upstart chroot sessions.
   * Lose the unnecessary postinst boilerplate.
+  * init/tests/test_job_process.c: adjust test case to not key on the text
+    of error messages which will vary depending on whether /bin/sh is
+    dash or bash; and use TEST_STR_MATCH so that in the event of future
+    failures, we know why it's failing.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
