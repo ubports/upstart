@@ -17,6 +17,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - Enable initial autopkgtests, just doing a package build and rerunning
       the test suite.
     - Add upstart-dconf-bridge package.
+    - Silence running-in-container when called from apparmor-profile-load.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
