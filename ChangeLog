@@ -5,6 +5,10 @@
 	* extra/Makefile.am:
 	  - don't pass cflags from unrelated libraries when building, only
 	    pass them to those bridges which use the relevant libraries.
+	* init/tests/test_job_process.c: adjust test case to not key on the
+	  text of error messages which will vary depending on whether
+	  /bin/sh is dash or bash; and use TEST_STR_MATCH so that in the
+	  event of future failures, we know why it's failing.
 
 2013-09-05  James Hunt  <james.hunt@ubuntu.com>
 
