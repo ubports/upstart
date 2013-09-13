@@ -24,6 +24,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
       debianutils for ischroot(1).
     - Add libupstart1 and libupstart1-dev packages.
     - debian/manpages/upstart-events.7: Update for Session Init events.
+    - use verbose build (disable silent rules) by default.
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
     as this has side-effects of triggering upstart chroot sessions.
   * Lose the unnecessary postinst boilerplate.
