@@ -1,7 +1,5 @@
 #!/usr/bin/make -f
 
-include /usr/share/dpkg/architecture.mk
-
 DEB_BUILD_MAINT_OPTIONS  := hardening=+pie,+bindnow
 DEB_LDFLAGS_MAINT_APPEND := -Wl,--as-needed
 DEB_CFLAGS_MAINT_APPEND  := -Wall
