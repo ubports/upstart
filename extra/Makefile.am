@@ -126,7 +126,7 @@ upstart_dconf_bridge_LDADD = \
 	$(DBUS_LIBS) \
 	$(GIO_LIBS) \
 	$(DCONF_LIBS)
-upstart_dconf_bridge_CFLAGS =
+upstart_dconf_bridge_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
