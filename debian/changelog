@@ -6,6 +6,10 @@ upstart (1.10-1) UNRELEASED; urgency=low
       of upstream version.
   * Pull in Ubuntu packaging changes:
     - add INIT_VERBOSE to rc*.conf, overlooked in the previous merge.
+    - call dh-autoreconf, adding build-depends on dh-autoreconf and autopoint.
+    - update debian/copyright.
+    - add upstart-monitor package.
+    - migrate to python3.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 

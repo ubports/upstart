@@ -4,7 +4,8 @@ Priority: extra
 Maintainer: Steve Langasek <vorlon@debian.org>
 Uploaders: Scott James Remnant <scott@netsplit.com>, James Hunt <james.hunt@ubuntu.com>
 Standards-Version: 3.8.4
-Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, libselinux1-dev [linux-any]
+Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3, libselinux1-dev [linux-any]
+X-Python3-Version: 3.3
 Vcs-Bzr: nosmart+http://bzr.debian.org/bzr/collab-maint/upstart/trunk/
 Vcs-Browser: http://anonscm.debian.org/loggerhead/collab-maint/upstart/trunk/
 Homepage: http://upstart.ubuntu.com/
@@ -12,7 +13,7 @@ Homepage: http://upstart.ubuntu.com/
 Package: upstart
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils (>= 2.86.ds1-23), sysv-rc, initscripts, mountall, ifupdown (>= 0.7.3), udev (>= 175-7.1)
-Suggests: python, graphviz, bash-completion
+Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest
 Provides: upstart-job
@@ -22,3 +23,15 @@ Description: event-based init daemon
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
  shutdown and supervising them while the system is running.
+
+Package: upstart-monitor
+Architecture: all
+Section: utils
+Priority: optional
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.7), python3-dbus
+Recommends: python3-gi
+Description: event monitor for upstart
+ This package contains a utility that may be run both as a
+ command-line tool or as a graphical one that displays upstart
+ events as they are emitted. It is useful for observing system
+ changes and for determining appropriate events for new jobs.
