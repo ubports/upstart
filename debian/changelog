@@ -31,6 +31,8 @@ upstart (1.10-1) UNRELEASED; urgency=low
     - debian/source/options: Ignore gmo files we rebuild anyway.
     - include changes to debian/upstart-job, which in practice should never
       be used in Debian.
+    - init/apparmor.c: do not load apparmor if running in a container or a
+      live cd.
   * For now, do not pull in packaging changes to include upstart user
     sessions.
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,

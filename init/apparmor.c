@@ -111,6 +111,18 @@ apparmor_available (void)
 		return FALSE;
 	}
 
+	/* Do not load if running in a container.
+	 * This is a distro-specific patch.
+	 */
+	if (stat ("/run/container_type", &statbuf) == 0)
+		return FALSE;
+
+	/* Do not load if running in a Ubuntu live CD.
+	 * This is a distro-specific patch.
+	 */
+	if (stat ("/rofs/etc/apparmor.d", &statbuf) == 0)
+		return FALSE;
+
 	return TRUE;
 }
 
