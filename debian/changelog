@@ -24,6 +24,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
       debianutils for ischroot(1).
   * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
     as this has side-effects of triggering upstart chroot sessions.
+  * Lose the unnecessary postinst boilerplate.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
