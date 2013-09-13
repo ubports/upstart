@@ -1,0 +1,13 @@
+#!/bin/sh -e
+#---------------------------------------------------------------------
+# Dummy DEP-8 test that does nothing. The reason for having it though
+# is to force auto-package-test to build Upstart and thus run its test
+# suite. This is not strictly necessary (as we already run it on all
+# architectures as part of the package build), running the tests in
+# the the virtualised auto-package-test environment (different to the
+# buildd environment) has shaken out a few bugs in the past.
+#---------------------------------------------------------------------
+
+. $(dirname $0)/test_setup
+
+exit 0

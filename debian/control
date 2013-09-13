@@ -9,6 +9,7 @@ X-Python3-Version: 3.3
 Vcs-Bzr: nosmart+http://bzr.debian.org/bzr/collab-maint/upstart/trunk/
 Vcs-Browser: http://anonscm.debian.org/loggerhead/collab-maint/upstart/trunk/
 Homepage: http://upstart.ubuntu.com/
+XS-Testsuite: autopkgtest
 
 Package: upstart
 Architecture: any

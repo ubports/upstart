@@ -1,0 +1,3 @@
+Tests: force
+Depends: @, dbus
+Restrictions: needs-root build-needed

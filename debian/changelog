@@ -14,6 +14,8 @@ upstart (1.10-1) UNRELEASED; urgency=low
       default "parallel-tests" harness; and build-depend on automake
       (>= 1.12) for this interface.
     - Enable parallel build.
+    - Enable initial autopkgtests, just doing a package build and rerunning
+      the test suite.
 
  -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
 
