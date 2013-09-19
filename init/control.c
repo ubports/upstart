@@ -260,7 +260,7 @@ control_bus_open (void)
 
 	control_handle_bus_type ();
 
-	/* Connect to the D-Bus System Bus and hook everything up into
+	/* Connect to the appropriate D-Bus bus and hook everything up into
 	 * our own main loop automatically.
 	 */
 	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,

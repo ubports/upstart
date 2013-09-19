@@ -1,3 +1,9 @@
+2013-09-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c: Typo.
+	* init/main.c: Add '--no-dbus' command-line option.
+	  init/man/init.8: Added '--no-dbus' option.
+
 2013-09-12  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* configure.ac:

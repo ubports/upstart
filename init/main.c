@@ -120,6 +120,14 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
+/**
+ * disable_dbus:
+ *
+ * If TRUE, do not connect to a D-Bus bus
+ * (only connect to the private socket).
+ **/
+static int disable_dbus = FALSE;
+
 extern int          no_inherit_env;
 extern int          user_mode;
 extern int          disable_sessions;
@@ -141,6 +149,9 @@ static NihOption options[] = {
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
+
+	{ 0, "no-dbus", N_("do not connect to a D-Bus bus"),
+		NULL, NULL, &disable_dbus, NULL },
 
 	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
 		NULL, NULL, &no_inherit_env ,NULL },
@@ -592,16 +603,21 @@ main (int   argc,
 	 * fail (since dbus-daemon probably isn't running yet) and will try again
 	 * later - don't let ENOMEM stop us though.
 	 */
-	while (control_bus_open () < 0) {
-		NihError *err;
-		int       number;
+	if (disable_dbus) {
+		nih_info (_("Not connecting to %s bus"),
+				use_session_bus ? "session" : "system");
+	} else {
+		while (control_bus_open () < 0) {
+			NihError *err;
+			int       number;
 
-		err = nih_error_get ();
-		number = err->number;
-		nih_free (err);
+			err = nih_error_get ();
+			number = err->number;
+			nih_free (err);
 
-		if (number != ENOMEM)
-			break;
+			if (number != ENOMEM)
+				break;
+		}
 	}
 
 #ifndef DEBUG
@@ -932,8 +948,12 @@ static void
 usr1_handler (void      *data,
 	      NihSignal *signal)
 {
+	if (disable_dbus)
+		return;
+
 	if (! control_bus) {
-		nih_info (_("Reconnecting to system bus"));
+		nih_info (_("Reconnecting to %s bus"),
+				use_session_bus ? "session" : "system");
 
 		if (control_bus_open () < 0) {
 			NihError *err;
