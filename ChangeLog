@@ -3,6 +3,8 @@
 	* init/control.c: Typo.
 	* init/main.c: Add '--no-dbus' command-line option.
 	  init/man/init.8: Added '--no-dbus' option.
+	* util/tests/test_initctl.c: test_no_dbus(): New test
+	  to test '--no-dbus' option.
 
 2013-09-12  Steve Langasek  <steve.langasek@ubuntu.com>
 

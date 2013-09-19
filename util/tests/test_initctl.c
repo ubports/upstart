@@ -11121,6 +11121,50 @@ test_list_sessions (void)
 }
 
 void
+test_no_dbus (void)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	size_t           lines;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid = 0;
+	char            *extra[] = { "--no-dbus", NULL };
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure '--no-dbus' disables D-Bus");
+
+	/* First perform a sanity check */
+	start_upstart_common (&upstart_pid, FALSE, NULL, NULL, NULL);
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init*(upstart [0-9]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/* Now, try with dbus disabled */
+	start_upstart_common (&upstart_pid, FALSE, NULL, NULL, extra);
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* No output on stdout expected */
+	TEST_EQ (lines, 0);
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	TEST_DBUS_END (dbus_pid);
+}
+
+void
 test_quiesce (void)
 {
 	char                      confdir[PATH_MAX];
@@ -16684,6 +16728,7 @@ main (int   argc,
 	test_reexec ();
 	test_list_sessions ();
 	test_quiesce ();
+	test_no_dbus ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"
