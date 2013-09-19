@@ -11130,12 +11130,15 @@ test_no_dbus (void)
 	pid_t            dbus_pid = 0;
 	char            *extra[] = { "--no-dbus", NULL };
 
+	TEST_GROUP ("Test '--no-dbus'");
+
 	TEST_DBUS (dbus_pid);
 
 	/*******************************************************************/
-	TEST_FEATURE ("ensure '--no-dbus' disables D-Bus");
-
 	/* First perform a sanity check */
+
+	TEST_FEATURE ("Ensure version can be queried normally");
+
 	start_upstart_common (&upstart_pid, FALSE, NULL, NULL, NULL);
 
 	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
@@ -11147,8 +11150,24 @@ test_no_dbus (void)
 
 	STOP_UPSTART (upstart_pid);
 
+	/*******************************************************************/
 	/* Now, try with dbus disabled */
+
+	TEST_FEATURE ("Ensure '--no-dbus' disables D-Bus");
+
 	start_upstart_common (&upstart_pid, FALSE, NULL, NULL, extra);
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* No output on stdout expected */
+	TEST_EQ (lines, 0);
+
+	/*******************************************************************/
+	TEST_FEATURE ("Ensure D-Bus still disabled on SIGUSR1");
+
+	assert0 (kill (upstart_pid, SIGUSR1));
 
 	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
 	TEST_NE_P (cmd, NULL);
