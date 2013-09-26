@@ -1,3 +1,38 @@
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_pending_handle_jobs(): Force quiesce when all job
+	  instances have finished to speed session shutdown.
+	* init/job_process.c: job_process_jobs_running(): Only consider job
+	  instances with associated pids to avoid abstract jobs confusing the
+	  shutdown.
+	* init/quiesce.c:
+	  - quiesce(): Optimise session shutdown 
+	    - Skip wait phase if no jobs care about the 'session-end' event
+	      (LP: #1227212).
+	    - Stop already running instances if other jobs care about
+	      'session-end' to allow the already-running jobs to shut down in
+	       parallel with the newly-started session-end jobs.
+	  - quiesce_wait_callback():
+	    - Simplify logic.
+	    - Improve wait phase checks to detect earliest time to finalise.
+	  - quiesce_finalise(): Display time to shutdown.
+	  - quiesce_complete(): New function to force final shutdown phase.
+	  - quiesce_event_match(): New function to determine if any jobs
+	    'start on' contains a particular event.
+	  - quiesce_in_progress(): Determine if shutdown is being handled.
+	* test/test_util_common.c:
+	  - _start_upstart(): Call get_upstart_binary() rather than relying on
+	    UPSTART_BINARY define.
+	  - start_upstart_common(): Remove '--no-startup-event' as this is now
+	    needed by a test.
+	  - get_upstart_binary(): Assert that file exists.
+	  - file_exists(): New helper function.
+	* test/test_util_common.h: Typo and prototype.
+	* util/tests/test_initctl.c: test_quiesce():
+	  - New test "session shutdown: one long-running job which starts on
+	    startup".
+	  - Adjusted expected shutdown times.
+
 2013-09-12  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* configure.ac:
