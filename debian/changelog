@@ -3,13 +3,16 @@ upstart (1.10-0ubuntu2) UNRELEASED; urgency=low
   [ James Hunt ]
   * debian/upstart.apport: Check session state file set before attempting
     to add an apport tag. 
+  * debian/user-conf/logrotate.conf: Move sleep from pre-start to main stanza
+    to ensure session shutdown is fast even in the case where it is triggered
+    soon after login.
 
   [ Steve Langasek ]
   * Use ${libdir} instead of including /usr/share/dpkg/architecture.mk.
   * Drop manual symlinking of manpages, the upstream rules do this fine
     for us already.
 
- -- James Hunt <james.hunt@ubuntu.com>  Mon, 09 Sep 2013 10:28:17 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 26 Sep 2013 14:59:06 +0100
 
 upstart (1.10-0ubuntu1) saucy; urgency=low
 
