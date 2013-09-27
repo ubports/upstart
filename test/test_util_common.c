@@ -384,7 +384,7 @@ _start_upstart (pid_t *pid, int user, char * const *args)
 	argv = NIH_MUST (nih_str_array_new (NULL));
 
 	NIH_MUST (nih_str_array_add (&argv, NULL, NULL,
-				UPSTART_BINARY));
+				get_upstart_binary ()));
 
 	if (args)
 		NIH_MUST (nih_str_array_append (&argv, NULL, NULL, args));
@@ -445,9 +445,6 @@ start_upstart_common (pid_t *pid, int user, const char *confdir,
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 					"--session"));
 	}
-
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
-				"--no-startup-event"));
 
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 				"--no-sessions"));
@@ -561,7 +558,11 @@ out:
 const char *
 get_upstart_binary (void)
 {
-	return UPSTART_BINARY;
+	static const char *upstart_binary = UPSTART_BINARY;
+
+	TEST_TRUE (file_exists (upstart_binary));
+
+	return upstart_binary;
 }
 
 const char *
@@ -739,4 +740,22 @@ search_and_replace (void        *parent,
 	}
 
 	return new;
+}
+
+/**
+ * file_exists:
+ * @path: file to check.
+ *
+ * Determine if specified file exists.
+ *
+ * Returns: TRUE if @path exists, else FALSE.
+ **/
+int
+file_exists (const char *path)
+{
+	struct stat  st;
+
+	nih_assert (path);
+
+	return ! stat (path, &st);
 }

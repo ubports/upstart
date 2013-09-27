@@ -10,7 +10,7 @@
 #define BUFFER_SIZE 1024
 
 /**
- * TEST_QUIESCE_WAIT_PHASE:
+ * TEST_EXIT_TIME:
  *
  * Maximum time we expect upstart to wait in the QUIESCE_PHASE_WAIT
  * phase.
@@ -731,6 +731,9 @@ int dbus_configured (void)
 
 char *search_and_replace (void *parent, const char *str,
 			  const char *from, const char *to)
+	__attribute__ ((warn_unused_result));
+
+int file_exists (const char *path)
 	__attribute__ ((warn_unused_result));
 
 #endif /* TEST_UTIL_COMMON_H */

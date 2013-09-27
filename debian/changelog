@@ -6,6 +6,7 @@ upstart (1.10-0ubuntu2) UNRELEASED; urgency=low
   * debian/user-conf/logrotate.conf: Move sleep from pre-start to main stanza
     to ensure session shutdown is fast even in the case where it is triggered
     soon after login.
+  * Optimise and speed-up session logout (LP: #1227212)
 
   [ Steve Langasek ]
   * Use ${libdir} instead of including /usr/share/dpkg/architecture.mk.

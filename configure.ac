@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.10], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
+AC_INIT([upstart], [1.11], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2006-2013 Canonical Ltd., 2011 Scott James Remnant]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 

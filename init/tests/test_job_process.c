@@ -3068,7 +3068,7 @@ test_run (void)
 	TEST_NE_P (output, NULL);
 
 	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
-	TEST_EQ (fnmatch ("*sh*/this/command/does/not/exist*not found*", buffer, 0), 0);
+	TEST_STR_MATCH (buffer, "*sh:*/this/command/does/not/exist:*");
 
 	TEST_FILE_END (output);
 	fclose (output);
@@ -3555,7 +3555,7 @@ test_run (void)
 	TEST_NE_P (output, NULL);
 
 	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
-	TEST_EQ (fnmatch ("/proc/self/fd/9*/this/command/does/not/exist*not found*", buffer, 0), 0);
+	TEST_STR_MATCH (buffer, "/proc/self/fd/9*/this/command/does/not/exist:*");
 
 	TEST_FILE_END (output);
 	fclose (output);
