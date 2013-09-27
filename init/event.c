@@ -436,6 +436,9 @@ event_pending_handle_jobs (Event *event)
 		}
 	}
 
+	if (! quiesce_in_progress ())
+		return;
+
 	/* Determine if any job instances remain */
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
@@ -450,7 +453,7 @@ event_pending_handle_jobs (Event *event)
 	}
 
 	/* If no instances remain, force quiesce to finish */
-	if (empty && quiesce_in_progress ())
+	if (empty)
 		quiesce_complete ();
 }
 
