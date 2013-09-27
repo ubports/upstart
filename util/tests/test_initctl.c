@@ -11590,6 +11590,49 @@ test_quiesce (void)
 	DELETE_FILE (confdir, "long-running.conf");
 
 	/*******************************************************************/
+	TEST_FEATURE ("session shutdown: one long-running job which starts on startup");
+
+	CREATE_FILE (confdir, "startup.conf",
+			"start on startup\n"
+			"exec sleep 999");
+
+	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+
+	upstart = upstart_open (NULL);
+	TEST_NE_P (upstart, NULL);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	job_pid = job_to_pid ("startup");
+	TEST_NE (job_pid, -1);
+
+	/* Force reset */
+	test_user_mode = FALSE;
+
+	/* Trigger session shutdown */
+	assert0 (upstart_end_session_sync (NULL, upstart));
+
+	/* Session Init should end very quickly since there will be no
+	 * wait phase.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+
+	/* Should not now be running */
+	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	DELETE_FILE (confdir, "startup.conf");
+
+	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one long-running job which ignores SIGTERM");
 
 	CREATE_FILE (confdir, "long-running-term.conf",
@@ -11668,7 +11711,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
@@ -11731,7 +11774,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);

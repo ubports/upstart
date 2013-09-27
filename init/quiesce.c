@@ -48,9 +48,16 @@ static QuiesceRequester quiesce_requester = QUIESCE_REQUESTER_INVALID;
 static QuiescePhase quiesce_phase = QUIESCE_PHASE_NOT_QUIESCED;
 
 /**
+ * quiesce_reason:
+ *
+ * Human-readable string denoting what triggered the quiesce.
+ **/
+static char *quiesce_reason = NULL;
+
+/**
  * max_kill_timeout:
  *
- * Maxiumum kill_timout value calculated from all running jobs used to
+ * Maxiumum kill_timeout value calculated from all running jobs used to
  * determine how long to wait before exiting.
  **/
 static time_t max_kill_timeout = 0;
@@ -61,6 +68,24 @@ static time_t max_kill_timeout = 0;
  * Time that a particular phase started.
  **/
 static time_t quiesce_phase_time = 0;
+
+/**
+ * quiesce_start_time:
+ *
+ * Time quiesce commenced.
+ **/
+static time_t quiesce_start_time = 0;
+
+/**
+ * session_end_jobs:
+ *
+ * TRUE if any job specifies a 'start on' including SESSION_END_EVENT.
+ *
+ **/
+static int session_end_jobs = FALSE;
+
+static int quiesce_event_match (Event *event)
+	__attribute__ ((warn_unused_result));
 
 /* External definitions */
 extern int disable_respawn;
@@ -76,7 +101,7 @@ void
 quiesce (QuiesceRequester requester)
 {
 	nih_local char  **env = NULL;
-	const char       *reason;
+	Event            *event;
 
 	job_class_init ();
 
@@ -98,12 +123,12 @@ quiesce (QuiesceRequester requester)
 		? QUIESCE_PHASE_KILL
 		: QUIESCE_PHASE_WAIT;
 
-	reason = (requester == QUIESCE_REQUESTER_SESSION)
+	quiesce_reason = (requester == QUIESCE_REQUESTER_SESSION)
 		? _("logout") : _("shutdown");
 
-	nih_info (_("Quiescing due to %s request"), reason);
+	nih_info (_("Quiescing due to %s request"), quiesce_reason);
 
-	quiesce_phase_time = time (NULL);
+	quiesce_start_time = quiesce_phase_time = time (NULL);
 
 	/* Stop existing jobs from respawning */
 	disable_respawn = TRUE;
@@ -116,11 +141,43 @@ quiesce (QuiesceRequester requester)
 	env = NIH_MUST (nih_str_array_new (NULL));
 
 	NIH_MUST (environ_set (&env, NULL, NULL, TRUE,
-				"TYPE=%s", reason));
+				"TYPE=%s", quiesce_reason));
 
-	NIH_MUST (event_new (NULL, SESSION_END_EVENT, env));
+	event = NIH_MUST (event_new (NULL, SESSION_END_EVENT, env));
 
-	if (requester == QUIESCE_REQUESTER_SYSTEM) {
+	/* Check if any jobs care about the session end event. If not,
+	 * the wait phase can be avoided entirely resulting in a much
+	 * faster shutdown.
+	 *
+	 * Note that simply checking if running instances exist is not
+	 * sufficient since if a job cares about the session end event,
+	 * it won't yet have started but needs to be given a chance to
+	 * run.
+	 */
+	if (quiesce_phase == QUIESCE_PHASE_WAIT) {
+
+		session_end_jobs = quiesce_event_match (event);
+
+		if (session_end_jobs) {
+			/* Some as-yet unscheduled jobs care about the
+			 * session end event. They will be started the
+			 * next time through the main loop and will be
+			 * waited for (hence the quiesce phase is not
+			 * changed).
+			 *
+			 * However, already-running jobs *can* be stopped
+			 * at this time since by definition they do not
+			 * care about the session end event and may just
+			 * as well die now to avoid slowing the shutdown.
+			 */
+			job_process_stop_all ();
+		} else {
+			nih_debug ("Skipping wait phase");
+			quiesce_phase = QUIESCE_PHASE_KILL;
+		}
+	}
+
+	if (quiesce_phase == QUIESCE_PHASE_KILL) {
 		/* We'll attempt to wait for this long, but system
 		 * policy may prevent it such that we just get killed
 		 * and job processes reparented to PID 1.
@@ -153,32 +210,34 @@ quiesce_wait_callback (void *data, NihTimer *timer)
 
 	nih_assert (timer);
 	nih_assert (quiesce_phase_time);
+	nih_assert (quiesce_requester != QUIESCE_REQUESTER_INVALID);
 
 	now = time (NULL);
 
-	nih_assert (quiesce_requester != QUIESCE_REQUESTER_INVALID);
-
-	if (quiesce_requester == QUIESCE_REQUESTER_SYSTEM) {
-		nih_assert (quiesce_phase == QUIESCE_PHASE_KILL);
+	if (quiesce_phase == QUIESCE_PHASE_KILL) {
+		nih_assert (max_kill_timeout);
 
 		if ((now - quiesce_phase_time) > max_kill_timeout)
-			goto out;
+			goto timed_out;
 
 	} else if (quiesce_phase == QUIESCE_PHASE_WAIT) {
+		int  timed_out = 0;
 
-		if ((now - quiesce_phase_time) > QUIESCE_DEFAULT_JOB_RUNTIME) {
+		timed_out = ((now - quiesce_phase_time) >= QUIESCE_DEFAULT_JOB_RUNTIME);
+
+		if (timed_out
+			|| (session_end_jobs && ! job_process_jobs_running ())
+			|| ! job_process_jobs_running ()) {
+
 			quiesce_phase = QUIESCE_PHASE_KILL;
 
 			/* reset for new phase */
 			quiesce_phase_time = time (NULL);
 
 			max_kill_timeout = job_class_max_kill_timeout ();
+
 			job_process_stop_all ();
 		}
-	} else if (quiesce_phase == QUIESCE_PHASE_KILL) {
-
-		if ((now - quiesce_phase_time) > max_kill_timeout)
-			goto out;
 	} else {
 		nih_assert_not_reached ();
 	}
@@ -188,9 +247,10 @@ quiesce_wait_callback (void *data, NihTimer *timer)
 
 	return;
 
-out:
+timed_out:
 	quiesce_show_slow_jobs ();
 
+out:
 	/* Note that we might skip the kill phase for the session
 	 * requestor if no jobs are actually running at this point.
 	 */
@@ -237,7 +297,100 @@ quiesce_show_slow_jobs (void)
 void
 quiesce_finalise (void)
 {
+	static int  finalising = FALSE;
+	time_t      diff;
+
+	nih_assert (quiesce_start_time);
 	nih_assert (quiesce_phase == QUIESCE_PHASE_CLEANUP);
 
+	if (finalising)
+		return;
+
+	finalising = TRUE;
+
+	diff = time (NULL) - quiesce_start_time;
+
+	nih_info (_("Quiesce %s sequence took %s%d second%s"),
+			quiesce_reason,
+			! (int)diff ? "<" : "",
+			(int)diff ? (int)diff : 1,
+			diff <= 1 ? "" : "s");
+
 	nih_main_loop_exit (0);
+
+}
+
+/**
+ * quiesce_complete:
+ *
+ * Force quiesce phase to finish.
+ **/
+void
+quiesce_complete (void)
+{
+	quiesce_phase = QUIESCE_PHASE_CLEANUP;
+
+	quiesce_finalise ();
+}
+
+/**
+ * quiesce_event_match:
+ * @event: event.
+ *
+ * Identify if any jobs _may_ start when the session ends.
+ *
+ * A simple heuristic is used such that there is no guarantee that the
+ * jobs entire start condition will be satisfied at session-end.
+ *
+ * Returns: TRUE if any class specifies @event in its start
+ * condition, else FALSE.
+ **/
+static int
+quiesce_event_match (Event *event)
+{
+	nih_assert (event);
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (! class->start_on)
+			continue;
+
+		/* Note that only the jobs start on condition is
+		 * relevant.
+		 */
+		NIH_TREE_FOREACH_POST (&class->start_on->node, iter) {
+			EventOperator *oper = (EventOperator *)iter;
+
+			switch (oper->type) {
+			case EVENT_OR:
+			case EVENT_AND:
+				break;
+			case EVENT_MATCH:
+				/* Job may attempt to start as the session ends */
+				if (event_operator_match (oper, event, NULL))
+					return TRUE;
+				break;
+			default:
+				nih_assert_not_reached ();
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+/**
+ * quiesce_in_progress:
+ *
+ * Determine if shutdown is in progress.
+ *
+ * Returns: TRUE if quiesce is in progress, else FALSE.
+ **/
+int
+quiesce_in_progress (void)
+{
+	return quiesce_phase != QUIESCE_PHASE_NOT_QUIESCED;
 }

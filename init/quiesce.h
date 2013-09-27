@@ -70,6 +70,9 @@ void    quiesce                (QuiesceRequester requester);
 void    quiesce_wait_callback  (void *data, NihTimer *timer);
 void    quiesce_show_slow_jobs (void);
 void    quiesce_finalise       (void);
+void    quiesce_complete       (void);
+int     quiesce_in_progress    (void)
+	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN
 

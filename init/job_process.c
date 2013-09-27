@@ -1259,7 +1259,9 @@ job_process_kill (Job         *job,
 /**
  * job_process_jobs_running:
  *
- * Determine if any jobs are running.
+ * Determine if any jobs are running. Note that simply checking if class
+ * instances exist is insufficient: since this call is used for shutdown
+ * abstract jobs must not be able to block the shutdown.
  *
  * Returns: TRUE if jobs are still running, else FALSE.
  **/
@@ -1271,8 +1273,17 @@ job_process_jobs_running (void)
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 
-		NIH_HASH_FOREACH (class->instances, job_iter)
-			return TRUE;
+		NIH_HASH_FOREACH (class->instances, job_iter) {
+			Job *job = (Job *)job_iter;
+			nih_local char *cmd = NULL;
+			int i;
+			nih_local char *pids = NULL;
+
+			for (i = 0; i < PROCESS_LAST; i++) {
+				if (job->pid[i])
+					return TRUE;
+			}
+		}
 	}
 
 	return FALSE;
