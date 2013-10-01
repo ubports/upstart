@@ -1,5 +1,10 @@
 2013-09-26  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/event.c: event_pending_handle_jobs(): Don't re-iterate job classes
+	  unless quiescing.
+
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/event.c: event_pending_handle_jobs(): Force quiesce when all job
 	  instances have finished to speed session shutdown.
 	* init/job_process.c: job_process_jobs_running(): Only consider job
