@@ -1275,9 +1275,7 @@ job_process_jobs_running (void)
 
 		NIH_HASH_FOREACH (class->instances, job_iter) {
 			Job *job = (Job *)job_iter;
-			nih_local char *cmd = NULL;
 			int i;
-			nih_local char *pids = NULL;
 
 			for (i = 0; i < PROCESS_LAST; i++) {
 				if (job->pid[i])
