@@ -1,3 +1,10 @@
+2013-10-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - upstart_job_added(): Make quieter in manner consistent with
+	    the other bridges (only display output in debug mode).
+	  - upstart_job_removed(): As above.
+
 2013-09-26  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/event.c: event_pending_handle_jobs(): Don't re-iterate job classes

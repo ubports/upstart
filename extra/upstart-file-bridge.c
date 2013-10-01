@@ -703,7 +703,7 @@ upstart_job_added (void            *data,
 		return;
 	}
 
-	nih_message ("Job got added %s", job_path);
+	nih_debug ("Job got added %s", job_path);
 }
 
 /**
@@ -731,7 +731,7 @@ upstart_job_removed (void            *data,
 	if (! job)
 		return;
 
-	nih_message ("Job went away %s", job_path);
+	nih_debug ("Job went away %s", job_path);
 
 	nih_free (job);
 }
