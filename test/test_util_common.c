@@ -155,7 +155,7 @@ set_upstart_session (pid_t session_init_pid)
 	if (! getenv ("XDG_RUNTIME_DIR"))
 		return FALSE;
 
-	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", INITCTL_BINARY);
+	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", get_initctl_binary ());
 	TEST_NE_P (cmd, NULL);
 
 	/* We expect the list-sessions command to return a valid session
@@ -351,7 +351,7 @@ get_initctl (void)
 	int         ret;
 
 	ret = sprintf (path, "%s %s",
-			INITCTL_BINARY,
+			get_initctl_binary (),
 			test_user_mode
 			? "--user"
 			: "--session");
@@ -568,7 +568,11 @@ get_upstart_binary (void)
 const char *
 get_initctl_binary (void)
 {
-	return INITCTL_BINARY;
+	static const char *initctl_binary = INITCTL_BINARY;
+
+	TEST_TRUE (file_exists (initctl_binary));
+
+	return initctl_binary;
 }
 
 /**

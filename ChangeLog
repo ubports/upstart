@@ -1,3 +1,12 @@
+2013-10-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.c:
+	  - set_upstart_session(): Call get_initctl_binary() rather than using
+	    define value.
+	  - get_initctl(): As above.
+	  - get_initctl_binary(): Check that file exists for parity with
+	    get_upstart_binary().
+
 2013-10-01  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-file-bridge.c:
