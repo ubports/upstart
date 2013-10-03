@@ -1,3 +1,9 @@
+upstart (1.10-0ubuntu3) UNRELEASED; urgency=low
+
+  * Cherry-pick upstream fix for test failure (LP: #1089159).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 03 Oct 2013 13:23:57 +0100
+
 upstart (1.10-0ubuntu2) saucy; urgency=low
 
   [ James Hunt ]
