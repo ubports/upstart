@@ -1626,8 +1626,8 @@ job_process_terminated (Job         *job,
 		 * For services that can be respawned, a zero exit status is
 		 * also a failure unless listed.
 		 */
-		if (status || (job->class->respawn && (! job->class->task)))
-		{
+		if ((status || (job->class->respawn && (! job->class->task)))
+		    && (job->goal == JOB_START)) {
 			failed = TRUE;
 			for (size_t i = 0; i < job->class->normalexit_len; i++) {
 				if (job->class->normalexit[i] == status) {
