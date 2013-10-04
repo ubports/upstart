@@ -1,3 +1,11 @@
+2013-10-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-local-bridge.c:
+	  - socket_reader():
+	    - Handle event emission in new function emit_event().
+	    - Check that data is printable.
+	    - Allow input to be a set of pairs (LP: #1234898).
+
 2013-10-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/tests/test_utmp.c: Update remaining tests to pause
