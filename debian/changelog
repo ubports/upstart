@@ -1,9 +1,9 @@
-upstart (1.10-0ubuntu6) UNRELEASED; urgency=low
+upstart (1.10-0ubuntu6) saucy; urgency=low
 
   * extra/upstart-local-bridge.c: use SOCKET_PATH in our event
     environment, instead of clobbering PATH.  (LP: #1235480)
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 04 Oct 2013 14:37:49 -0700
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 04 Oct 2013 14:45:40 -0700
 
 upstart (1.10-0ubuntu5) saucy; urgency=low
 
