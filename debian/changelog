@@ -1,4 +1,4 @@
-upstart (1.10-0ubuntu4) UNRELEASED; urgency=low
+upstart (1.10-0ubuntu4) saucy; urgency=low
 
   [ James Hunt ]
   * upstart-local-bridge: allow input to be set of pairs (LP: #1234898)
@@ -7,7 +7,7 @@ upstart (1.10-0ubuntu4) UNRELEASED; urgency=low
   * upstart-file-bridge: start session bridge on started dbus. (LP:
     #1234841)
 
- -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Fri, 04 Oct 2013 15:23:50 +0100
+ -- Dmitrijs Ledkovs <dmitrij.ledkov@ubuntu.com>  Fri, 04 Oct 2013 15:25:21 +0100
 
 upstart (1.10-0ubuntu3) saucy; urgency=low
 
