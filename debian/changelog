@@ -1,3 +1,11 @@
+upstart (1.10-0ubuntu5) UNRELEASED; urgency=low
+
+  * extra/conf/upstart-file-bridge.conf: fix the start condition to
+    comply with the intent, that we start the file bridge only once
+    the filesystem is up. (LP: #1235387)
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 04 Oct 2013 11:30:53 -0700
+
 upstart (1.10-0ubuntu4) saucy; urgency=low
 
   [ James Hunt ]
