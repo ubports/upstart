@@ -824,7 +824,7 @@ emit_event (ClientConnection  *client,
 	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_PID=%u", (unsigned int)client->ucred.pid));
 	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
-	var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
+	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_PATH=%s", socket_path));
 	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
 
 	/* Add the name=value pair */
