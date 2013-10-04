@@ -70,7 +70,7 @@ Group ID of connected client.
 CLIENT_PID=\fIPID\fP
 Process ID of connected client.
 .IP \(bu 4
-PATH=\fIPATH\fP
+SOCKET_PATH=\fIPATH\fP
 .P
 .\"
 .SH EXAMPLES
@@ -81,7 +81,7 @@ and when a name=value pair is read, emit an event of the form:
 
 .RS
 .nf
-foo SOCKET_TYPE=unix SOCKET_VARIANT=named PATH=/var/foo/bar name=value
+foo SOCKET_TYPE=unix SOCKET_VARIANT=named SOCKET_PATH=/var/foo/bar name=value
 .fi
 .RE
 .IP "upstart\-local\-bridge \-\-event=bar \-\-path=@/var/foo/bar" 0.4i
@@ -91,7 +91,7 @@ and when a name=value pair is read, emit an event of the form:
 
 .RS
 .nf
-bar SOCKET_TYPE=unix SOCKET_VARIANT=abstract PATH=@/var/foo/bar name=value
+bar SOCKET_TYPE=unix SOCKET_VARIANT=abstract SOCKET_PATH=@/var/foo/bar name=value
 .fi
 .RE
 .\"
