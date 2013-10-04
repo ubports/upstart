@@ -30,6 +30,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -117,6 +118,8 @@ static void socket_reader (ClientConnection *client, NihIo *io,
 static void close_handler (ClientConnection *client, NihIo *io);
 
 static void emit_event_error (void *data, NihDBusMessage *message);
+
+static void emit_event (ClientConnection *client, const char *pair, size_t len);
 
 static void signal_handler (void *data, NihSignal *signal);
 
@@ -589,91 +592,64 @@ socket_reader (ClientConnection  *client,
 	       const char        *buf,
 	       size_t             len)
 {
-	DBusPendingCall    *pending_call;
-	nih_local char    **env = NULL;
-	nih_local char     *var = NULL;
+	nih_local char     *pairs = NULL;
+	char               *pair;
 	size_t              used_len = 0;
-	int                 i;
+	size_t              i;
+
+	/* Ignore messages that are too short.
+	 * (minimum message is of form "a=").
+	 */
+	size_t              min_len = 2;
 
 	nih_assert (sock);
 	nih_assert (client);
 	nih_assert (io);
 	nih_assert (buf);
 
-	/* Ignore messages that are too short */
-	if (len < 2)
+	if (len < min_len)
 		goto error;
 
-	/* Ensure the data is a name=value pair */
-	if (! strchr (buf, '=') || buf[0] == '=')
-		goto error;
+	pairs = nih_strdup (NULL, buf);
+	if (! pairs)
+		return;
 
-	/* Remove line endings */
-	for (i = 0, used_len = len; i < 2; i++) {
-		if (buf[used_len-1] == '\n' || buf[used_len-1] == '\r')
+	for (pair = strsep (&pairs, "\n");
+	     pair;
+	     pair = strsep (&pairs, "\n")) {
+
+		used_len = strlen (pair);
+
+		if (used_len < min_len)
+			continue;
+
+		/* Ensure the data is a 'name=value' pair */
+		if (! strchr (pair, '=') || pair[0] == '=')
+			continue;
+
+		/* Remove extraneous line ending */
+		if (pair[used_len-1] == '\r') {
+			pair[used_len-1] = '\0';
 			used_len--;
-		else
-			break;
-	}
+		}
 
-	/* Second check to ensure overly short messages are ignored */
-	if (used_len < 2)
-		goto error;
+		/* Ignore invalid input */
+		for (i = 0; i < used_len; i++) {
+			if (! isprint (pair[i]) && ! isspace (pair[i]))
+				continue;
+		}
 
-	/* Construct the event environment.
-	 *
-	 * Note that although the client could conceivably specify one
-	 * of the variables below _itself_, if the intent is malicious
-	 * it will be thwarted since although the following example
-	 * event is valid...
-	 *
-	 *    foo BAR=BAZ BAR=MALICIOUS
-	 *
-	 * ... environment variable matching only happens for the first
-	 * occurence of a variable. In summary, a malicious client
-	 * cannot spoof the standard variables we set.
-	 */
-	env = NIH_MUST (nih_str_array_new (NULL));
+		/* Yet another check to ensure overly short messages are ignored
+		 * (required since we may have adjusted used_len
+		 */
+		if (used_len < min_len)
+			continue;
 
-	/* Specify type to allow for other types to be added in the future */
-	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_TYPE=%s", socket_type));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_VARIANT=%s",
-				sock->sun_addr.sun_path[0] ? "named" : "abstract"));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_UID=%u", (unsigned int)client->ucred.uid));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_GID=%u", (unsigned int)client->ucred.gid));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_PID=%u", (unsigned int)client->ucred.pid));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
-	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
-
-	/* Add the name=value pair */
-	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, buf, used_len));
-
-	pending_call = upstart_emit_event (upstart,
-			event_name, env, FALSE,
-			NULL, emit_event_error, NULL,
-			NIH_DBUS_TIMEOUT_NEVER);
-
-	if (! pending_call) {
-		NihError *err;
-		err = nih_error_get ();
-		nih_warn ("%s", err->message);
-		nih_free (err);
+		emit_event (client, pair, used_len);
 	}
 
 	/* Consume the entire length */
 	nih_io_buffer_shrink (io->recv_buf, len);
-
-	dbus_pending_call_unref (pending_call);
 
 	return;
 
@@ -802,4 +778,69 @@ emit_event_error (void           *data,
 	err = nih_error_get ();
 	nih_warn ("%s", err->message);
 	nih_free (err);
+}
+
+static void
+emit_event (ClientConnection  *client,
+	    const char        *pair,
+	    size_t             len)
+{
+	DBusPendingCall    *pending_call;
+	nih_local char    **env = NULL;
+	nih_local char     *var = NULL;
+
+	nih_assert  (client);
+	nih_assert  (pair);
+	nih_assert  (len);
+	/* Construct the event environment.
+	 *
+	 * Note that although the client could conceivably specify one
+	 * of the variables below _itself_, if the intent is malicious
+	 * it will be thwarted since although the following example
+	 * event is valid...
+	 *
+	 *    foo BAR=BAZ BAR=MALICIOUS
+	 *
+	 * ... environment variable matching only happens for the first
+	 * occurence of a variable. In summary, a malicious client
+	 * cannot spoof the standard variables we set.
+	 */
+	env = NIH_MUST (nih_str_array_new (NULL));
+
+	/* Specify type to allow for other types to be added in the future */
+	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_TYPE=%s", socket_type));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "SOCKET_VARIANT=%s",
+				sock->sun_addr.sun_path[0] ? "named" : "abstract"));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_UID=%u", (unsigned int)client->ucred.uid));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_GID=%u", (unsigned int)client->ucred.gid));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "CLIENT_PID=%u", (unsigned int)client->ucred.pid));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	var = NIH_MUST (nih_sprintf (NULL, "PATH=%s", socket_path));
+	NIH_MUST (nih_str_array_addp (&env, NULL, NULL, var));
+
+	/* Add the name=value pair */
+	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, pair, len));
+
+	pending_call = upstart_emit_event (upstart,
+			event_name, env, FALSE,
+			NULL, emit_event_error, NULL,
+			NIH_DBUS_TIMEOUT_NEVER);
+
+	if (! pending_call) {
+		NihError *err;
+		err = nih_error_get ();
+		nih_warn ("%s", err->message);
+		nih_free (err);
+	}
+
+	dbus_pending_call_unref (pending_call);
 }
