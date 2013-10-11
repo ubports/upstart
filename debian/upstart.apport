@@ -51,18 +51,28 @@ def add_info(report, ui):
     # files that are not readable by current user
     unreadable_files = {}
 
-    # Used to determine which details to record. If we are unable to
-    # determine an accurate category of problem, attach all possible
-    # information for a crash or, for other categories of problem
-    # when the user has explicitly agreed.
+    # Used to determine which details to record.
+    #
+    # For crashes, hangs and recoverable problems, attach all possible
+    # information.
+    #
+    # If we are unable to determine a problem category, prompt the user.
     category = 'Unknown'
 
     if 'Package' in report:
         package = report['Package'].split()[0]
 
+    problem_type = report.get('ProblemType', '')
+
     # Determine whether this report relates to a System Init issue,
     # or a Session Init one.
-    if report.get('ProblemType', '') == 'Crash':
+
+    # Crashes and Hangs should be handled automatically without
+    # prompting. Recoverable Problems should also be dealt with in this
+    # way since they are essentially informational reports so prompting
+    # the user is unnecessary and would also only give the user the wrong
+    # impression.
+    if problem_type in ('Crash', 'Hang', 'RecoverableProblem'):
         if 'ProcStatus' in report:
             pid_line = re.search('Pid:\t(.*)\n', report['ProcStatus'])
             if pid_line:
@@ -87,7 +97,7 @@ def add_info(report, ui):
 
     report['UpstartBugCategory'] = category
 
-    if report.get('ProblemType', '') == 'Crash':
+    if problem_type in ('Crash', 'Hang', 'RecoverableProblem'):
         # crash bugs are private by default
         attach_jobs = True
     elif ui and ui.yesno(msg) == True:
@@ -131,21 +141,8 @@ def add_info(report, ui):
 
             # Attach all modified conffiles for all packages which
             # provide Upstart jobs.
-            #
-            # XXX: requires bug 1154536 to be fixed to avoid IOError
-            # attempting to read unreadable conffiles.
             for pkg in set(file_map.values()):
-                try:
-                    attach_conffiles(report, pkg)
-                except IOError:
-                    # package contains conffiles that are unreadable by
-                    # the current user. So, attach all the Upstart
-                    # conffiles for that package for completeness until
-                    # apport allows this sort of query as root by
-                    # default.
-                    for key, value in file_map.items():
-                        if value == pkg:
-                            add_root_file(unreadable_files, key)
+                attach_conffiles(report, pkg)
 
     if category == 'Session' or category == 'Unknown':
         log_dir = os.getenv('XDG_CACHE_HOME', os.path.expanduser('~/.cache/upstart/'))
