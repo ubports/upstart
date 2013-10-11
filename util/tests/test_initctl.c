@@ -10987,6 +10987,109 @@ test_reexec (void)
 
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure 'set-env' persists across session-init re-exec");
+
+	contents = nih_sprintf (NULL, 
+			"start on startup\n"
+			"\n"
+			"pre-start script\n"
+			"initctl set-env foo=bar\n"
+			"\n"
+			"# create flag file\n"
+			"touch \"%s\"\n"
+			"\n"
+			"end script\n"
+			"\n"
+			"# a minimal main process\n"
+			"exec true\n"
+			"\n"
+			"post-stop script\n"
+			"\n"
+			"# wait for upstart to re-exec before moving\n"
+			"# to next job process\n"
+			"while [ -f \"%s\" ]\n"
+			"do\n"
+			"    sleep 0.1\n"
+			"done\n"
+			"\n"
+			"end script\n"
+			"\n"
+			"script\n"
+			"\n"
+			"# query value post-re-exec\n"
+			"initctl get-env foo\n"
+			"\n"
+			"end script\n",
+			flagfile, flagfile);
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "foo.conf", contents);
+
+	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+
+	WAIT_FOR_FILE (flagfile);
+
+	/* check job is running */
+	job_pid = job_to_pid ("foo");
+	TEST_NE (job_pid, -1);
+
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Notify job that upstart has re-exec'd to allow it to move
+	 * out of pre-start.
+	 */
+	assert0 (unlink (flagfile));
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	WAIT_FOR_FILE (logfile);
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+	TEST_FILE_EQ (file, "bar\r\n");
+	fclose (file);
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (logfile));
+	DELETE_FILE (confdir, "foo.conf");
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure 'set-env --global' persists across session-init re-exec");
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Set variable. Use confdir as a random value */
+	cmd = nih_sprintf (NULL, "%s set-env --global path='%s' 2>&1", get_initctl (), confdir);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Check it */
+	cmd = nih_sprintf (NULL, "%s get-env --global path 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], confdir);
+	nih_free (output);
+
+	/* Restart */
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Re-check */
+	cmd = nih_sprintf (NULL, "%s get-env --global path 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], confdir);
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
 	TEST_DBUS_END (dbus_pid);
 
         TEST_EQ (rmdir (confdir), 0);
@@ -16503,7 +16606,6 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	assert0 (unlink (logfile));
 	DELETE_FILE (confdir, "bar.conf");
 
-
 	/*******************************************************************/
 }
 
@@ -16662,6 +16764,8 @@ test_job_env (void)
 	test_modified_job_env (confdir, logdir, upstart_pid, dbus_pid);
 
 	test_global_and_local_job_env (confdir, logdir, upstart_pid, dbus_pid);
+
+	//test_reexec_job_env (confdir, logdir, upstart_pid, dbus_pid);
 
 	/*******************************************************************/
 

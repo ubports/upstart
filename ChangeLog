@@ -11,6 +11,15 @@
 	  - state_from_string(): Deserialise global job environment table.
 	  - _state_deserialise_str_array(): Don't attempt to free array if type
 	    check fails.
+	* test/test_util_common.c:
+	  - session_init_reexec(): New.
+	  - set_upstart_session(): Whitespace.
+	* test/test_util_common.h: REEXEC_UPSTART(): Update to handle Session
+	  Inits too.
+	* util/man/initctl.8: Clarify 'set-env' behaviour.
+	* util/tests/test_initctl.c: New tests:
+	  - "ensure 'set-env' persists across session-init re-exec".
+	  - "ensure 'set-env --global' persists across session-init re-exec".
 
 2013-01-04  Steve Langasek  <steve.langasek@ubuntu.com
 

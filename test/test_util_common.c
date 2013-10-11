@@ -119,6 +119,60 @@ wait_for_upstart (int session_init_pid)
 	TEST_EQ (running, TRUE);
 }
 
+/**
+ * session_init_reexec:
+ *
+ * @pid: pid of Session Init.
+ *
+ * Cause the Session Init running as pid @pid to re-exec.
+ **/
+void
+session_init_reexec (pid_t pid)
+{
+	nih_local NihDBusProxy *upstart = NULL;
+	char                   *address;
+	DBusConnection         *connection;
+	DBusMessage            *method_call;
+	DBusMessageIter         iter;
+	DBusError               error;
+
+	TEST_TRUE (pid);
+
+	TEST_TRUE (set_upstart_session (pid));
+	address = getenv ("UPSTART_SESSION");
+
+	TEST_TRUE (address);
+
+	connection = nih_dbus_connect (address, NULL);
+	TEST_NE_P (connection, NULL);
+
+	upstart = nih_dbus_proxy_new (NULL, connection,
+			NULL,
+			DBUS_PATH_UPSTART,
+			NULL, NULL);
+	TEST_NE_P (upstart, NULL);
+
+	method_call = dbus_message_new_method_call (upstart->name,
+			upstart->path,
+			"com.ubuntu.Upstart0_6", "Restart");
+	TEST_NE_P (method_call, NULL);
+
+	dbus_message_set_auto_start (method_call, upstart->auto_start);
+
+	dbus_message_iter_init_append (method_call, &iter);
+
+	/* Send the message, and wait for the reply. */
+	dbus_error_init (&error);
+
+	/* Don't bother checking reply - Upstart will sever the
+	 * connection anyway.
+	 */
+	(void)dbus_connection_send_with_reply_and_block (upstart->connection, method_call, -1, &error);
+
+	dbus_message_unref (method_call);
+	dbus_connection_unref (connection);
+}
+
 /* TRUE to denote that Upstart is running in user session mode
  * (FALSE to denote it's using the users D-Bus session bus).
  */
@@ -162,44 +216,44 @@ set_upstart_session (pid_t session_init_pid)
 	 * within a reasonable period of time.
 	 */
 	for (i = 0; i < loops; i++) {
-        sleep (1);
+		sleep (1);
 
 		RUN_COMMAND (NULL, cmd, &output, &lines);
 
-        if (lines < 1)
-            continue;
+		if (lines < 1)
+			continue;
 
-        /* Look for the specific session */
-        for (size_t line = 0; line < lines; lines++) {
+		/* Look for the specific session */
+		for (size_t line = 0; line < lines; lines++) {
 
-            /* No pid in output */
-            if (! isdigit(output[line][0]))
-                continue;
+			/* No pid in output */
+			if (! isdigit(output[line][0]))
+				continue;
 
-            pid = (pid_t)atoi(output[line]);
-            nih_assert (pid > 0);
+			pid = (pid_t)atoi(output[line]);
+			nih_assert (pid > 0);
 
-            if (pid != session_init_pid)
-                continue;
+			if (pid != session_init_pid)
+				continue;
 
-            /* look for separator between pid and value of
-             * UPSTART_SESSION.
-             */
-            value = strstr (output[0], " ");
-            if (! value)
-                continue;
+			/* look for separator between pid and value of
+			 * UPSTART_SESSION.
+			 */
+			value = strstr (output[0], " ");
+			if (! value)
+				continue;
 
-            /* jump over space */
-            value  += 1;
-            if (! value)
-                continue;
+			/* jump over space */
+			value  += 1;
+			if (! value)
+				continue;
 
-            /* No socket address */
-            if (strstr (value, "unix:abstract") == value) {
-                got = TRUE;
-                goto out;
-            }
-        }
+			/* No socket address */
+			if (strstr (value, "unix:abstract") == value) {
+				got = TRUE;
+				goto out;
+			}
+		}
 	}
 
 out:
