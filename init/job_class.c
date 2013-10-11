@@ -1802,6 +1802,58 @@ job_class_get_usage (JobClass *      class,
 	return 0;
 }
 
+/**
+ * job_class_serialise_job_environ:
+ *
+ * Serialise the global job environment table.
+ *
+ * Returns: JSON-serialised global job environment table, or NULL on error.
+ **/
+json_object *
+job_class_serialise_job_environ (void)
+{
+	json_object  *json;
+
+	job_class_environment_init ();
+
+	json = state_serialise_str_array (job_environ);
+	if (! json)
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_class_deserialise_job_environ
+ * @json: JSON-serialised global job environment table to deserialise.
+ *
+ * Create the global job environment table from provided JSON.
+ *
+ * Returns: 0 on success, < 0 on error.
+ **/
+int
+job_class_deserialise_job_environ (json_object *json)
+{
+	nih_assert (json);
+
+	nih_assert (! job_environ);
+
+	if (! state_check_json_type (json, array))
+		goto error;
+
+	if (! state_deserialise_str_array (NULL, json, &job_environ))
+		goto error;
+
+	return 0;
+
+error:
+	return -1;
+}
+
 
 /**
  * job_class_serialise:

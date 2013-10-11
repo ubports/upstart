@@ -1,3 +1,17 @@
+2013-10-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_serialise_job_environ(): New function to serialise global
+	    job environment table.
+	  - job_class_deserialise_job_environ(): New function to deserialise global
+	    job environment table.
+	* init/state.c:
+	  - state_to_string(): Serialise global job environment table
+	    (LP: #1238078).
+	  - state_from_string(): Deserialise global job environment table.
+	  - _state_deserialise_str_array(): Don't attempt to free array if type
+	    check fails.
+
 2013-01-04  Steve Langasek  <steve.langasek@ubuntu.com
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event

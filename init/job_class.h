@@ -360,6 +360,12 @@ int job_class_deserialise_all (json_object *json)
 JobClass * job_class_get (const char *name, Session *session)
 	__attribute__ ((warn_unused_result));
 
+json_object * job_class_serialise_job_environ (void)
+	__attribute__ ((warn_unused_result));
+
+int job_class_deserialise_job_environ (json_object *json)
+	__attribute__ ((warn_unused_result));
+
 void job_class_prepare_reexec (void);
 
 time_t     job_class_max_kill_timeout (void)
