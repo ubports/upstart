@@ -4,6 +4,9 @@ upstart (1.10-0ubuntu8) UNRELEASED; urgency=low
     - Handle 'RecoverableProblem' and 'Hang' problem types (LP: #1238058).
     - Cleanup now that lp bug 1154536 is fixed.
 
+  [ Steve Langasek ]
+  * Build-Depend on python3:any for cross-build support.
+
  -- James Hunt <james.hunt@ubuntu.com>  Fri, 11 Oct 2013 09:53:41 +0100
 
 upstart (1.10-0ubuntu7) saucy; urgency=low
