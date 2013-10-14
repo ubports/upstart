@@ -239,6 +239,8 @@ void        job_class_environment_init     (void);
 
 void        job_class_environment_reset    (void);
 
+void        job_class_environment_clear    (void);
+
 int         job_class_environment_set      (const char *var, int replace);
 int         job_class_environment_unset    (const char *name);
 

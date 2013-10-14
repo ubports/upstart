@@ -138,12 +138,22 @@ job_class_environment_init (void)
 void
 job_class_environment_reset (void)
 {
-	if (job_environ)
-		nih_free (job_environ);
-
-	job_environ = NULL;
-
+	job_class_environment_clear ();
 	job_class_environment_init ();
+}
+
+/**
+ * job_class_environment_clear:
+ *
+ * Clear the environment table.
+ **/
+void
+job_class_environment_clear (void)
+{
+	if (job_environ) {
+		nih_free (job_environ);
+		job_environ = NULL;
+	}
 }
 
 /**

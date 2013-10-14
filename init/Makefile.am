@@ -144,7 +144,12 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-session.json \
 	$(TEST_DATA_DIR)/upstart-session2.json \
 	$(TEST_DATA_DIR)/upstart-session-infinity.json \
-	$(TEST_DATA_DIR)/upstart-reload-signal.json
+	$(TEST_DATA_DIR)/upstart-reload-signal.json \
+	$(TEST_DATA_DIR)/upstart-no-job-environ.json \
+	$(TEST_DATA_DIR)/upstart-with-job-environ.json \
+	$(TEST_DATA_DIR)/session-init-no-job-environ.json \
+	$(TEST_DATA_DIR)/session-init-with-job-environ.json \
+	$(TEST_DATA_DIR)/session-init-with-modified-job-environ.json
 
 upstart_test_programs = \
 	test_system \

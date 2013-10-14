@@ -157,6 +157,11 @@ void test_upstart_with_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
 void test_reload_signal_state (const char *path);
+void test_no_job_environ_upgrade (const char *path);
+void test_session_no_job_environ_upgrade (const char *path);
+void test_session_job_environ_upgrade (const char *path);
+void test_session_modified_job_environ_upgrade (const char *path);
+void test_job_environ_upgrade (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -202,6 +207,13 @@ TestDataFile test_data_files[] = {
 	{ "upstart-session2.json", test_session_upgrade_exists },
 	{ "upstart-session-infinity.json", test_session_upgrade_stale },
 	{ "upstart-reload-signal.json", test_reload_signal_state },
+
+	{ "upstart-no-job-environ.json", test_no_job_environ_upgrade },
+	{ "upstart-with-job-environ.json", test_job_environ_upgrade },
+	{ "session-init-no-job-environ.json", test_session_no_job_environ_upgrade },
+	{ "session-init-with-job-environ.json", test_session_job_environ_upgrade },
+	{ "session-init-with-modified-job-environ.json", test_session_modified_job_environ_upgrade },
+
 	{ NULL, NULL }
 };
 
@@ -1451,6 +1463,8 @@ test_blocking (void)
 	TEST_LIST_EMPTY (events);
 	TEST_HASH_EMPTY (job_classes);
 
+	job_class_environment_clear ();
+
 	assert0 (state_from_string (json_string));
 
 	TEST_LIST_NOT_EMPTY (conf_sources);
@@ -1559,6 +1573,8 @@ test_blocking (void)
 	TEST_LIST_EMPTY (events);
 	TEST_HASH_EMPTY (job_classes);
 
+	job_class_environment_clear ();
+
 	assert0 (state_from_string (json_string));
 
 	TEST_LIST_NOT_EMPTY (conf_sources);
@@ -1659,6 +1675,8 @@ test_blocking (void)
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (conf_sources);
 
+	job_class_environment_clear ();
+
 	assert0 (state_from_string (json_string));
 
 	TEST_LIST_NOT_EMPTY (conf_sources);
@@ -1740,6 +1758,8 @@ test_blocking (void)
 	TEST_LIST_EMPTY (events);
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (conf_sources);
+
+	job_class_environment_clear ();
 
 	assert0 (state_from_string (json_string));
 
@@ -1957,6 +1977,8 @@ test_event_serialise (void)
 
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_EMPTY (events);
+
+	job_class_environment_clear ();
 
 	assert0 (state_from_string (json_string));
 
@@ -3304,6 +3326,7 @@ test_upgrade (void)
 		event_init ();
 		control_init ();
 		job_class_init ();
+		job_class_environment_clear ();
 
 		path = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 					TEST_DATA_DIR, datafile->filename));
@@ -4492,6 +4515,369 @@ test_reload_signal_state (const char *path)
 	event_init ();
 	session_init ();
 
+}
+
+/**
+ * test_no_job_environ_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise 1.10-format JSON without
+ * the job_environ data.
+ **/
+void
+test_no_job_environ_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's not there */
+	TEST_FALSE (json_object_object_get_ex (json, "job_environment", &json_value));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_session_no_job_environ_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise 1.10-format Session Init
+ * JSON without the job_environ data.
+ **/
+void
+test_session_no_job_environ_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's not there */
+	TEST_FALSE (json_object_object_get_ex (json, "job_environment", &json_value));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_session_job_environ_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise 1.10-format Session Init
+ * JSON with the job_environ data.
+ **/
+void
+test_session_job_environ_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's there */
+	TEST_TRUE (json_object_object_get_ex (json, "job_environment", &json_value));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_session_modified_job_environ_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise 1.10-format Session Init
+ * JSON with the job_environ data and a number of user-added variables.
+ **/
+void
+test_session_modified_job_environ_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+	const char       *value;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's there */
+	TEST_TRUE (json_object_object_get_ex (json, "job_environment", &json_value));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	value = job_class_environment_get ("foo");
+	TEST_EQ_STR (value, "bar");
+
+	value = job_class_environment_get ("global1");
+	TEST_EQ_STR (value, "value1");
+
+	value = job_class_environment_get ("global2");
+	TEST_EQ_STR (value, "value2");
+
+	value = job_class_environment_get ("global3");
+	TEST_EQ_STR (value, "value3");
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_job_environ_upgrade:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart is able to deserialise 1.10-format JSON with
+ * the job_environ data.
+ **/
+void
+test_job_environ_upgrade (const char *path)
+{
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's there */
+	TEST_TRUE (json_object_object_get_ex (json, "job_environment", &json_value));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
 }
 
 /**

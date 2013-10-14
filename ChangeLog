@@ -1,3 +1,16 @@
+2013-10-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_environment_clear(): Utility function
+	  exposed primarily to allow tests to invalidate job_environ.
+	* init/tests/test_state.c:
+	  - Added appropriate calls to job_class_environment_clear().
+	  - New JSON data tests added:
+	    - upstart-no-job-environ.json
+	    - upstart-with-job-environ.json
+	    - session-init-no-job-environ.json
+	    - session-init-with-job-environ.json
+	    - session-init-with-modified-job-environ.json
+
 2013-10-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c:
