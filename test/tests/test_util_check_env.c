@@ -36,10 +36,10 @@
 /**
  * check_for_overlayfs:
  *
- * Determine if any mount point is using overlayfs.
+ * Determine if the mount point used by the tests for creating temporary
+ * files is using overlayfs.
  *
- *
- * Returns: TRUE if any mount point is using overlayfs, else FALSE.
+ * Returns: TRUE if temporary work area is on overlayfs, else FALSE.
  **/
 int
 check_for_overlayfs (void)
@@ -77,17 +77,17 @@ check_for_overlayfs (void)
 		mount_maj = major (statbuf.st_dev);
 		mount_min = minor (statbuf.st_dev);
 
-		if (! strcmp (mnt->mnt_type, fs)) {
+		if (! strcmp (mnt->mnt_type, fs) && mount_maj == maj && mount_min == min) {
 			found = TRUE;
-			nih_warn ("Mountpoint '%s'%sis an '%s' "
-				"filesystem which does not support inotify.",
-				mnt->mnt_dir,
-				(mount_maj == maj && mount_min == min)
-				? " (needed by the Upstart tests) " : " ",
-				fs);
+			nih_warn ("Mountpoint '%s' (needed by the Upstart tests) is an '%s' "
+					"filesystem which does not support inotify.",
+					mnt->mnt_dir,
+					fs);
+			goto out;
 		}
 	}
 
+out:
 	fclose (mtab);
 	assert0 (unlink (path));
 
@@ -120,7 +120,7 @@ test_checks (void)
 
 int
 main (int   argc,
-		char *argv[])
+      char *argv[])
 {
 	test_checks ();
 

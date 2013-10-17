@@ -1,3 +1,8 @@
+2013-10-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/tests/test_util_check_env.c:
+	  - check_for_overlayfs(): Only consider temporary work area.
+
 2013-10-16  James Hunt  <james.hunt@ubuntu.com>
 
 	* test/tests/test_util_check_env.c: New test to look for
