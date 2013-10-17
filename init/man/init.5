@@ -960,6 +960,17 @@ kill signal INT
 .fi
 .\"
 .TP
+.B reload signal \fISIGNAL
+Specifies the reload signal,
+.I SIGHUP
+by default, a job's main process will receive when reloading the
+running job.
+
+.nf
+reload signal USR1
+.fi
+.\"
+.TP
 .B kill timeout \fIINTERVAL
 Specifies the interval between sending the job's main process the
 "stopping" (see above) and

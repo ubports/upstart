@@ -10,6 +10,216 @@
 	* test/Makefile.am: Added test_util_check_env meta-test.
 	* test/test_util_common.c: Formatting.
 
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com
+
+	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
+	  environment, instead of clobbering PATH.  (LP: #1235480)
+
+2013-10-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-local-bridge.c:
+	  - socket_reader():
+	    - Handle event emission in new function emit_event().
+	    - Check that data is printable.
+	    - Allow input to be a set of pairs (LP: #1234898).
+
+2013-10-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_utmp.c: Update remaining tests to pause
+	  between writing utmp(x) records and reading them back to allow
+	  tests to detect whether the expected new records have replaced
+	  the artificially created original ones (LP: #1089159).
+
+2013-10-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.c:
+	  - set_upstart_session(): Call get_initctl_binary() rather than using
+	    define value.
+	  - get_initctl(): As above.
+	  - get_initctl_binary(): Check that file exists for parity with
+	    get_upstart_binary().
+
+2013-10-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - upstart_job_added(): Make quieter in manner consistent with
+	    the other bridges (only display output in debug mode).
+	  - upstart_job_removed(): As above.
+
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_pending_handle_jobs(): Don't re-iterate job classes
+	  unless quiescing.
+
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_pending_handle_jobs(): Force quiesce when all job
+	  instances have finished to speed session shutdown.
+	* init/job_process.c: job_process_jobs_running(): Only consider job
+	  instances with associated pids to avoid abstract jobs confusing the
+	  shutdown.
+	* init/quiesce.c:
+	  - quiesce(): Optimise session shutdown 
+	    - Skip wait phase if no jobs care about the 'session-end' event
+	      (LP: #1227212).
+	    - Stop already running instances if other jobs care about
+	      'session-end' to allow the already-running jobs to shut down in
+	       parallel with the newly-started session-end jobs.
+	  - quiesce_wait_callback():
+	    - Simplify logic.
+	    - Improve wait phase checks to detect earliest time to finalise.
+	  - quiesce_finalise(): Display time to shutdown.
+	  - quiesce_complete(): New function to force final shutdown phase.
+	  - quiesce_event_match(): New function to determine if any jobs
+	    'start on' contains a particular event.
+	  - quiesce_in_progress(): Determine if shutdown is being handled.
+	* test/test_util_common.c:
+	  - _start_upstart(): Call get_upstart_binary() rather than relying on
+	    UPSTART_BINARY define.
+	  - start_upstart_common(): Remove '--no-startup-event' as this is now
+	    needed by a test.
+	  - get_upstart_binary(): Assert that file exists.
+	  - file_exists(): New helper function.
+	* test/test_util_common.h: Typo and prototype.
+	* util/tests/test_initctl.c: test_quiesce():
+	  - New test "session shutdown: one long-running job which starts on
+	    startup".
+	  - Adjusted expected shutdown times.
+
+2013-09-12  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* configure.ac:
+	  - correct the copyright notice.
+	* extra/Makefile.am:
+	  - don't pass cflags from unrelated libraries when building, only
+	    pass them to those bridges which use the relevant libraries.
+	* init/tests/test_job_process.c: adjust test case to not key on the
+	  text of error messages which will vary depending on whether
+	  /bin/sh is dash or bash; and use TEST_STR_MATCH so that in the
+	  event of future failures, we know why it's failing.
+
+2013-09-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce():
+	  - Improve kill checks on job processes.
+	  - Assert precisely which job processes are expected to be running
+	    after the Session Init has exited (particularly important for jobs
+	    that 'start on session-end' since they may be running in a System
+	    Shutdown scenario).
+
+2013-08-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce(): Clean up any
+	  processes that the Session Init couldn't before it shut down.
+
+2013-08-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.10
+
+2013-08-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* configure.ac:
+	  - Allow udev bridge to be disabled.
+	* extra/Makefile.am:
+	  - Ensure source for upstart-udev-bridge is distributed,
+	    regardless of whether the local system is able to build it,
+	    or has disabled building it.
+	  - Add missing DCONF_CFLAGS.
+	  - Ensure upstart-dconf-bridge sources are always distributed,
+	    regardless of whether the local system is able to build it, or has
+	    disabled building it.
+
+2013-08-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* README.tests: Explanation of the tests and how to run them.
+	* Makefile.am: Ensure README.tests gets distributed.
+	* scripts/tests/__init__.py: Empty file to allow python3's unittest
+	  module to auto-discover tests.
+	* scripts/Makefile.am: Ensure __init__.py gets distributed.
+	* scripts/tests/test_pyupstart_session_init.py: TestSessionUpstart.setUp():
+	  Created XDG_RUNTIME_DIR if necessary (for example if running as root).
+	* scripts/tests/test_pyupstart_system_init.py: TestSystemUpstart.setUp():
+	  Skip test if not running as root rather than asserting.
+
+2013-07-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/quiesce.c: quiesce_finalise(): Move cleanup to main()
+	  since the NIH main loop may be iterated once more before
+	  shutdown.
+
+2013-07-30  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Distribute python module and tests,
+	  but don't install them.
+	* scripts/pyupstart.py:
+	  - Renamed from python-upstart.py.
+	  - Upstart:connect(): Added a force parameter to reconnect even if
+	    already connected.
+	  - Upstart.reconnect(): Utility method.
+	  - Upstart.polling_connect(): Call version() to ensure the connection
+	    is usable.
+	  - New methods to query internal Upstart state.
+	* scripts/tests/test_pyupstart_session_init.py: Session tests extracted
+	  from python-upstart.py.
+	* scripts/tests/test_pyupstart_system_init.py: New PID 1 tests.
+	* extra/man/dconf-event.7: New man page.
+	* extra/man/upstart-dconf-bridge.8: New man page.
+	* extra/upstart-dconf-bridge.c: Bridge will now only emit
+	  events on dconf changes if any jobs care about them
+	  (unless --always is specified).
+	* extra/conf-session/upstart-dconf-bridge.conf: Sample conf
+	  file for dconf bridge.
+	* extra/Makefile.am: Added dconf bridge man pages and sample
+	  conf to distribution.
+
+2013-07-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/Makefile.am: Renamed to upstart-local-bridge.
+	* extra/man/upstart-local-bridge.8: Removed inet type details.
+	* extra/upstart-local-bridge.c:
+	  - Removed inet socket handling.
+	  - General clean-up.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-text-bridge.8: Added extra variables.
+	* extra/upstart-text-bridge.c: socket_reader():
+	  - Fixed assertion failure caused by passing invalid address of fd.
+	  - Added new standard environment variables to event.
+
+2013-07-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dbus-bridge.c: signal_filter(): Use inttype
+	  macros to ensure portability.
+
+2013-07-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-text-bridge.c: New bridge.
+	* extra/Makefile.am: Updated for new bridge.
+	* extra/man/upstart-text-bridge.8: New man page.
+	* extra/Makefile.am: Added man page for text-bridge.
+
+2013-07-19  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/session.c: fix a bug in session_from_index to handle more
+	than one session.
+	* init/tests/test_state.c: add a test_sesion_upgrade_stale with 2
+	stale chroot sessions.
+
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Don't set debug log prioirity when running
+	  as a non-priv user by default (LP: #1201865).
+
+2013-07-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Updates for XDG_RUNTIME_DIR based
+	  on review comments.
+
+2013-07-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/conf-session/: Addition of example jobs for Session Inits.
+
 2013-07-17  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_state.c:
@@ -78,6 +288,32 @@
 	  existing ConfSources relate to chroot sessions, created as
 	  part of the earlier Session deserialisation. (LP: #1199778)
 	* init/state.c: Formatting.
+
+2013-07-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* {configure.ac,Makefile.am}: Allow upstart-dconf-bridge to be
+	  disabled even if dependencies are available (--disable-dconf-bridge).
+	* extra/upstart-dconf-bridge.c: Changed event name to simply 'dconf'
+	  with fixed first argument of 'TYPE=changed' for consistency with
+	  other bridge events and to accommodate future dconf API changes.
+
+2013-07-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c: dconf_changed():
+	  - Simplified logic after desrt clarified 'changed' signal
+	  behaviour.
+
+2013-07-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-dconf-bridge.c:
+	  - Added DCONF_EVENT.
+	  - Reformatted to be more consistent with other bridges.
+	  - main():
+	    - Connect to UPSTART_SESSION rather than D-Bus session bus.
+	    - Handle generation of pidfile name.
+	  - dconf_changed():
+	    - Correct path logic and ensure that if the changes array contains
+	      values that they are separated correctly from the prefix.
 
 2013-07-04  James Hunt  <james.hunt@ubuntu.com>
 
@@ -606,6 +842,28 @@
 	  API and allows test_conf to believe inotify is disabled by
 	  conditionally failing all inotify calls, depending on whether
 	  INOTIFY_DISABLE is set.
+
+2013-04-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py: Update based on review comments.
+
+2013-04-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/python-upstart.py:
+	  - Upstart::polling_connect(): New method used to connect
+	    after a re-exec.
+	  - SystemInit::reexec(): Check proxy connection before
+	    attempting re-exec.
+	  - TestUpstart:test_session_init_reexec(): Re-connect post
+	    re-exec to prove instance still usable.
+	  - TestUpstart:test_session_init_reexec_when_pid1_does():
+	    Re-connect post re-exec to prove instance still usable.
+
+2013-04-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/Makefile.am: Added python-upstart.py.
+	* scripts/python-upstart.py: Python3 Upstart interface
+	  incorporating a minimal set of Python unittest tests.
 
 2013-04-02  James Hunt  <james.hunt@ubuntu.com>
 

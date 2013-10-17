@@ -1034,19 +1034,8 @@ reload_action (NihCommand *  command,
 
 	job->auto_start = FALSE;
 
-	/* Get the process list */
-	if (job_get_processes_sync (NULL, job, &processes) < 0)
-		goto error;
-
-	if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
-		nih_error (_("Not running"));
-		return 1;
-	}
-
-	if (kill (processes[0]->item1, SIGHUP) < 0) {
-		nih_error_raise_system ();
-		goto error;
-	}
+	if (job_reload_sync (NULL, job) < 0)
+	        goto error;
 
 	return 0;
 

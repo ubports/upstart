@@ -1397,6 +1397,54 @@ job_restart (Job            *job,
 
 
 /**
+ * job_reload:
+ * @job: job to reload,
+ * @message: D-Bus connection and message received,
+ *
+ * Implements the Reload method of the com.ubuntu.Upstart.Instance
+ * interface.
+ *
+ * Called on a running instance @job to reload.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+job_reload (Job            *job,
+	    NihDBusMessage *message)
+{
+	Session *session;
+
+	nih_assert (job != NULL);
+	nih_assert (message != NULL);
+
+	/* Don't permit out-of-session modification */
+	session = session_from_dbus (NULL, message);
+	if (session != job->class->session) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job: %s"),
+			job_name (job));
+		return -1;
+	}
+
+	if (job->pid[PROCESS_MAIN] <= 0) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.NotRunning",
+			_("Job is not running: %s"),
+			job_name (job));
+
+		return -1;
+	}
+
+	if (kill (job->pid[PROCESS_MAIN], job->class->reload_signal) < 0)
+		nih_return_system_error (-1);
+
+	NIH_ZERO (job_reload_reply (message));
+	return 0;
+}
+
+
+/**
  * job_get_name:
  * @job: job to obtain name from,
  * @message: D-Bus connection and message received,

@@ -44,6 +44,7 @@
 #include "blocked.h"
 #include "control.h"
 #include "errors.h"
+#include "quiesce.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -299,6 +300,8 @@ event_pending (Event *event)
 static void
 event_pending_handle_jobs (Event *event)
 {
+	int  empty = TRUE;
+
 	nih_assert (event != NULL);
 
 	job_class_init ();
@@ -432,6 +435,26 @@ event_pending_handle_jobs (Event *event)
 			event_operator_reset (class->start_on);
 		}
 	}
+
+	if (! quiesce_in_progress ())
+		return;
+
+	/* Determine if any job instances remain */
+	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		NIH_HASH_FOREACH_SAFE (class->instances, job_iter) {
+			empty = FALSE;
+			break;
+		}
+
+		if (! empty)
+			break;
+	}
+
+	/* If no instances remain, force quiesce to finish */
+	if (empty)
+		quiesce_complete ();
 }
 
 

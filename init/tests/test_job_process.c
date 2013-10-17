@@ -3068,7 +3068,7 @@ test_run (void)
 	TEST_NE_P (output, NULL);
 
 	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
-	TEST_EQ (fnmatch ("*sh*/this/command/does/not/exist*not found*", buffer, 0), 0);
+	TEST_STR_MATCH (buffer, "*sh:*/this/command/does/not/exist:*");
 
 	TEST_FILE_END (output);
 	fclose (output);
@@ -3555,7 +3555,7 @@ test_run (void)
 	TEST_NE_P (output, NULL);
 
 	TEST_TRUE (fgets (buffer, sizeof(buffer), output));
-	TEST_EQ (fnmatch ("/proc/self/fd/9*/this/command/does/not/exist*not found*", buffer, 0), 0);
+	TEST_STR_MATCH (buffer, "/proc/self/fd/9*/this/command/does/not/exist:*");
 
 	TEST_FILE_END (output);
 	fclose (output);
@@ -7770,6 +7770,109 @@ test_handler (void)
 
 	class->respawn = FALSE;
 
+
+	/* Check that we don't respawn the job if the running process exits
+	 * before the pre-stop process finishes if we were going to stop the
+	 * running proecss anyway.
+	 */
+	TEST_FEATURE ("with respawn of to be stopped while pre-stop process");
+	class->respawn = TRUE;
+	class->respawn_limit = 5;
+	class->respawn_interval = 10;
+
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	class->process[PROCESS_PRE_STOP]->command = "echo";
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			job = job_new (class, "");
+
+			blocked = blocked_new (job, BLOCKED_EVENT, event);
+			event_block (event);
+			nih_list_add (&job->blocking, &blocked->entry);
+		}
+
+		job->goal = JOB_STOP;
+		job->state = JOB_PRE_STOP;
+		job->pid[PROCESS_MAIN] = 1;
+		job->pid[PROCESS_PRE_STOP] = 2;
+
+		TEST_FREE_TAG (blocked);
+
+		job->blocker = NULL;
+		event->failed = FALSE;
+
+		job->failed = FALSE;
+		job->failed_process = -1;
+		job->exit_status = 0;
+
+		TEST_DIVERT_STDERR (output) {
+			job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		}
+		rewind (output);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_PRE_STOP);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_PRE_STOP], 2);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_EQ_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		job_process_handler (NULL, 2, NIH_CHILD_EXITED, 0);
+
+		TEST_EQ (job->goal, JOB_STOP);
+		TEST_EQ (job->state, JOB_STOPPING);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_PRE_STOP], 0);
+
+		TEST_EQ (job->respawn_count, 0);
+
+		TEST_EQ (event->blockers, 1);
+		TEST_EQ (event->failed, FALSE);
+
+		TEST_LIST_NOT_EMPTY (&job->blocking);
+		TEST_NOT_FREE (blocked);
+		TEST_EQ_P (blocked->event, event);
+		event_unblock (event);
+
+		TEST_NE_P (job->blocker, NULL);
+
+		TEST_LIST_NOT_EMPTY (&job->blocker->blocking);
+
+		blocked = (Blocked *)job->blocker->blocking.next;
+		TEST_ALLOC_SIZE (blocked, sizeof (Blocked));
+		TEST_ALLOC_PARENT (blocked, job->blocker);
+		TEST_EQ (blocked->type, BLOCKED_JOB);
+		TEST_EQ_P (blocked->job, job);
+		nih_free (blocked);
+
+		TEST_LIST_EMPTY (&job->blocker->blocking);
+
+		TEST_EQ (job->failed, FALSE);
+		TEST_EQ (job->failed_process, (ProcessType)-1);
+		TEST_EQ (job->exit_status, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		nih_free (job);
+	}
+
+	nih_free (class->process[PROCESS_PRE_STOP]);
+	class->process[PROCESS_PRE_STOP] = NULL;
+
+	class->respawn = FALSE;
 
 	/* Check that a running task that exits while we're waiting for
 	 * the stopping event to finish does not change the state or

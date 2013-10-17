@@ -196,6 +196,8 @@ int         job_stop            (Job *job, NihDBusMessage *message, int wait)
 	__attribute__ ((warn_unused_result));
 int         job_restart         (Job *job, NihDBusMessage *message, int wait)
 	__attribute__ ((warn_unused_result));
+int         job_reload          (Job *job, NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
 
 int         job_get_name        (Job *job, NihDBusMessage *message,
 				 char **name)

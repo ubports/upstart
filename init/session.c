@@ -508,7 +508,10 @@ session_from_index (int idx)
 
 		if (i == idx)
 			return session;
+		++i;
 	}
 
+	/* TODO xnox 20130719 shouldn't we return -1 on error, just
+	 * like session_get_index() above? */
 	nih_assert_not_reached ();
 }

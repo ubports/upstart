@@ -8462,20 +8462,12 @@ test_reload_action (void)
 	FILE *          output;
 	FILE *          errors;
 	pid_t           server_pid;
-	pid_t           proc_pid;
 	DBusMessage *   method_call;
 	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
 	const char *    str_value;
-	const char *    interface;
-	const char *    property;
-	DBusMessageIter iter;
-	DBusMessageIter subiter;
-	DBusMessageIter arrayiter;
-	DBusMessageIter structiter;
-	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
 	int             ret = 0;
@@ -8509,10 +8501,6 @@ test_reload_action (void)
 	 */
 	TEST_FEATURE ("with single argument");
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8585,63 +8573,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge.
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/_");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -8681,9 +8630,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
@@ -8698,10 +8644,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 
@@ -8710,10 +8652,6 @@ test_reload_action (void)
 	 */
 	TEST_FEATURE ("with multiple arguments");
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8788,63 +8726,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/_");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -8886,9 +8785,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
@@ -8903,10 +8799,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 
@@ -8920,10 +8812,6 @@ test_reload_action (void)
 	setenv ("UPSTART_INSTANCE", "foo", TRUE);
 
 	TEST_ALLOC_FAIL {
-		TEST_CHILD (proc_pid) {
-			pause ();
-		}
-
 		TEST_CHILD (server_pid) {
 			/* Expect the GetJobByName method call on the
 			 * manager object, make sure the job name is passed
@@ -8995,63 +8883,24 @@ test_reload_action (void)
 			dbus_message_unref (method_call);
 			dbus_message_unref (reply);
 
-			/* Expect the Get call for the processes, reply with
-			 * a main process pid.
+			/* Expect the Reload call against job instance
+			 * and reply with an instance path to
+			 * acknowledge.
 			 */
 			TEST_DBUS_MESSAGE (server_conn, method_call);
 
 			TEST_TRUE (dbus_message_is_method_call (method_call,
-								DBUS_INTERFACE_PROPERTIES,
-								"Get"));
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
 
 			TEST_EQ_STR (dbus_message_get_path (method_call),
 							    DBUS_PATH_UPSTART "/jobs/test/foo");
 
 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
-							  DBUS_TYPE_STRING, &interface,
-							  DBUS_TYPE_STRING, &property,
 							  DBUS_TYPE_INVALID));
-
-			TEST_EQ_STR (interface, DBUS_INTERFACE_UPSTART_INSTANCE);
-			TEST_EQ_STR (property, "processes");
 
 			TEST_ALLOC_SAFE {
 				reply = dbus_message_new_method_return (method_call);
-
-				dbus_message_iter_init_append (reply, &iter);
-
-				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
-								  (DBUS_TYPE_ARRAY_AS_STRING
-								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &subiter);
-
-				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
-								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
-								   DBUS_TYPE_STRING_AS_STRING
-								   DBUS_TYPE_INT32_AS_STRING
-								   DBUS_STRUCT_END_CHAR_AS_STRING),
-								  &arrayiter);
-
-				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
-								  NULL,
-								  &structiter);
-
-				str_value = "main";
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
-								&str_value);
-
-				int32_value = proc_pid;
-				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
-								&int32_value);
-
-				dbus_message_iter_close_container (&arrayiter, &structiter);
-
-				dbus_message_iter_close_container (&subiter, &arrayiter);
-
-				dbus_message_iter_close_container (&iter, &subiter);
 			}
 
 			dbus_connection_send (server_conn, reply, NULL);
@@ -9090,9 +8939,6 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
-
-			kill (proc_pid, SIGTERM);
-			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
@@ -9107,10 +8953,6 @@ test_reload_action (void)
 		waitpid (server_pid, &status, 0);
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
-
-		waitpid (proc_pid, &status, 0);
-		TEST_TRUE (WIFSIGNALED (status));
-		TEST_EQ (WTERMSIG (status), SIGHUP);
 	}
 
 	unsetenv ("UPSTART_JOB");
@@ -11283,6 +11125,7 @@ test_quiesce (void)
 {
 	char                      confdir[PATH_MAX];
 	char                      logdir[PATH_MAX];
+	char                      pid_file[PATH_MAX];
 	char                      sessiondir[PATH_MAX];
 	nih_local char           *cmd = NULL;
 	pid_t                     upstart_pid = 0;
@@ -11293,6 +11136,8 @@ test_quiesce (void)
 	nih_local NihDBusProxy   *upstart = NULL;
 	nih_local char           *orig_xdg_runtime_dir = NULL;
 	nih_local char           *session_file = NULL;
+	nih_local char           *job = NULL;
+	pid_t                     job_pid;
 
 	TEST_GROUP ("Session Init quiesce");
 
@@ -11362,20 +11207,63 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	/* Wait for longer than we expect the Session Init to take to
+	 * shutdown to give it time to send SIGKILL to all job
+	 * processes. This is unrealistic, but safer for the tests since
+	 * the exact behaviour can be checked.
+	 *
+	 * In reality, the following steps either side of the markers *will*
+	 * occur and those within the markers *may* occur:
+	 *
+	 * 1) A System Shutdown is triggered.
+	 * 2) The Display Manager receives SIGTERM.
+	 * 3) The Display Manager sends SIGTERM to all its clients.
+	 *    (including the Session Init).
+	 * 4) The Session Init sends SIGTERM to all running job
+	 *    processes.
+	 *
+	 *  --- :XXX: START MARKER :XXX: ---
+	 *
+	 * 5) The Session Init will attempt to wait for
+	 *    MAX(kill_timeout) seconds.
+	 * 6) The Session Init will send all running job processes
+	 *    SIGKILL.
+	 * 7) The Session Init will wait for all remaining job processes
+	 *    to end.
+	 * 8) The Session Init will exit.
+	 *
+	 *  --- :XXX: END MARKER :XXX: ---
+	 *
+	 * 9) The Display Manager sends SIGKILL to all its clients.
+	 * 10) If still running, the Session Init is killed and exits.
+	 *
+	 * The problem is that the Session Init cannot know when the
+	 * Display Manager will kill *it* so it may be that the Session
+	 * Init cannot send SIGKILL to each job process instead relying
+	 * on the System Init to clean up.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11401,33 +11289,45 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11440,10 +11340,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11460,19 +11361,36 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should be running since Upstart won't have signalled it
+	 * to stop (since it started as a result of session-end being
+	 * emitted _after_ the job pids were sent SIGTERM).
+	 */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end and ignores SIGTERM");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11485,10 +11403,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11505,6 +11424,17 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* kill job pid if not already dead */
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end-term.conf");
 
 	/*******************************************************************/
@@ -11515,17 +11445,20 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running-term.conf",
 			"script\n"
 			"  trap '' TERM\n"
-		        "  sleep 999\n"
+		        "  exec sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11540,20 +11473,38 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* the long-running job pid should no longer exist */
+	kill (job_pid, SIGKILL);
+	TEST_EQ (errno, ESRCH);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* .... but the session-end job pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
@@ -11607,6 +11558,9 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
+
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
 
@@ -11623,12 +11577,60 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
 	DELETE_FILE (confdir, "long-running.conf");
+
+	/*******************************************************************/
+	TEST_FEATURE ("session shutdown: one long-running job which starts on startup");
+
+	CREATE_FILE (confdir, "startup.conf",
+			"start on startup\n"
+			"exec sleep 999");
+
+	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+
+	upstart = upstart_open (NULL);
+	TEST_NE_P (upstart, NULL);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	job_pid = job_to_pid ("startup");
+	TEST_NE (job_pid, -1);
+
+	/* Force reset */
+	test_user_mode = FALSE;
+
+	/* Trigger session shutdown */
+	assert0 (upstart_end_session_sync (NULL, upstart));
+
+	/* Session Init should end very quickly since there will be no
+	 * wait phase.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+
+	/* Should not now be running */
+	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	DELETE_FILE (confdir, "startup.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one long-running job which ignores SIGTERM");
@@ -11642,12 +11644,15 @@ test_quiesce (void)
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
-			get_initctl (), "long-running");
+			get_initctl (), "long-running-term");
 	TEST_NE_P (cmd, NULL);
 
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11665,23 +11670,32 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11697,7 +11711,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
@@ -11713,6 +11727,17 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
+
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
@@ -11722,14 +11747,18 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11745,7 +11774,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
@@ -11760,6 +11789,17 @@ test_quiesce (void)
 	TEST_FILE_END (file);
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
@@ -11778,13 +11818,17 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
+
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
 
 	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
 
@@ -11795,6 +11839,9 @@ test_quiesce (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11816,6 +11863,21 @@ test_quiesce (void)
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");

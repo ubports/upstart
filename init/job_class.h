@@ -148,6 +148,7 @@ typedef enum console_type {
  * @task: start requests are not unblocked until instances have finished,
  * @kill_timeout: time to wait between sending TERM and KILL signals,
  * @kill_signal: first signal to send (usually SIGTERM),
+ * @reload_signal: reload signal to send (usually SIGHUP),
  * @respawn: instances should be restarted if main process fails,
  * @respawn_limit: number of respawns in @respawn_interval that we permit,
  * @respawn_interval: barrier for @respawn_limit,
@@ -198,6 +199,8 @@ typedef struct job_class {
 
 	time_t          kill_timeout;
 	int             kill_signal;
+
+	int             reload_signal;
 
 	int             respawn;
 	int             respawn_limit;
