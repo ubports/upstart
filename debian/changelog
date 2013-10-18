@@ -7,7 +7,11 @@ upstart (1.10-0ubuntu8) UNRELEASED; urgency=low
   [ Steve Langasek ]
   * Build-Depend on python3:any for cross-build support.
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 11 Oct 2013 09:53:41 +0100
+  [ Dmitrijs Ledkovs ]
+  * Remove uevent blacklist now that udevd was fixed not to spam on
+    maguro.
+
+ -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Fri, 18 Oct 2013 16:01:45 +0100
 
 upstart (1.10-0ubuntu7) saucy; urgency=low
 

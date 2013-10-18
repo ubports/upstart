@@ -228,14 +228,6 @@ udev_monitor_watcher (struct udev_monitor *udev_monitor,
 	if (! action)
 		goto out;
 
-	/* Ignore spam http://pad.lv/1235649 */
-	if (
-		action && kernel && subsystem &&
-		(strcmp (action, "change") == 0) &&
-		(strcmp (kernel, "omapfb") == 0) &&
-		(strcmp (subsystem, "platform") == 0))
-		goto out;
-
 	if (! strcmp (action, "add")) {
 		name = NIH_MUST (nih_sprintf (NULL, "%s-device-added",
 					      subsystem));
