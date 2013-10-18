@@ -341,7 +341,7 @@
  * Start an instance of Upstart and return PID in @pid.
  **/
 #define START_UPSTART(pid, user_mode)                                \
-	start_upstart_common (&(pid), user_mode, NULL, NULL, NULL)
+	start_upstart_common (&(pid), user_mode, FALSE, NULL, NULL, NULL)
 
 /**
  * KILL_UPSTART:
@@ -700,8 +700,9 @@ char * get_initctl (void)
 
 void _start_upstart (pid_t *pid, int user, char * const *args);
 
-void start_upstart_common (pid_t *pid, int user, const char *confdir,
-		      const char *logdir, char * const *extra);
+void start_upstart_common (pid_t *pid, int user, int inherit_env,
+		      const char *confdir, const char *logdir,
+		      char * const *extra);
 
 void start_upstart (pid_t *pid);
 

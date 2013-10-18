@@ -1,4 +1,24 @@
-2013-01-04  Steve Langasek  <steve.langasek@ubuntu.com
+2013-10-18  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_new(): Set umask for job to current value for Session
+	    Init by default (LP: #1240686).
+	* init/job_process.c: Comments.
+	* init/main.c: main(): Save current umask.
+	* test/test_util_common.c:
+	  - start_upstart_common(): Add extra param for inheriting environment
+	    rather than hard-coding '--no-inherit-env'.
+	  - start_upstart(: Updated call to start_upstart_common().
+	* init/tests/test_main.c: Updated calls to start_upstart_common().
+	* test/test_util_common.h: START_UPSTART(): Updated call to
+	  start_upstart_common().
+	* util/tests/test_initctl.c:
+	  - Updated calls to start_upstart_common().
+	  - test_umask(): New tests:
+	    - "ensure Session Init inherits umask by default"
+	    - "ensure Session Init defaults umask with '--no-inherit-env'"
+
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)

@@ -126,10 +126,10 @@ int disable_job_logging = 0;
 /**
  * no_inherit_env:
  *
- * If TRUE, do not copy the Session Inits environment to that provided to jobs.
+ * If TRUE, do not copy the Session Inits environment variables or umask
+ * to that provided to jobs.
  **/
 int no_inherit_env = FALSE;
-
 
 /* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
