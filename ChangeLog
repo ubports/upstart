@@ -3,7 +3,7 @@
 	* util/initctl.h: IS_INIT_EVENT(): Ignore session end event when
 	  running in user mode (for 'check-config').
 
-2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)
