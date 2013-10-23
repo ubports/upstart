@@ -123,13 +123,14 @@
  * production versus debug builds (STARTUP_EVENT changes name depending
  * on build type).
  **/
-#define IS_INIT_EVENT(token)                  \
-	(!strcmp (token, STARTUP_EVENT)    || \
-	 !strcmp (token, "debug")          || \
-	 !strcmp (token, "startup")        || \
-	 !strcmp (token, CTRLALTDEL_EVENT) || \
-	 !strcmp (token, KBDREQUEST_EVENT) || \
-	 !strcmp (token, PWRSTATUS_EVENT)  || \
+#define IS_INIT_EVENT(token)                                  \
+	(!strcmp (token, STARTUP_EVENT)                    || \
+	 !strcmp (token, "debug")                          || \
+	 !strcmp (token, "startup")                        || \
+	 !strcmp (token, CTRLALTDEL_EVENT)                 || \
+	 !strcmp (token, KBDREQUEST_EVENT)                 || \
+	 !strcmp (token, PWRSTATUS_EVENT)                  || \
+	 (!strcmp (token, SESSION_END_EVENT) && user_mode) || \
 	 IS_JOB_EVENT (token))
 
 /**
