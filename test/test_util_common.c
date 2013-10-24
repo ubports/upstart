@@ -349,6 +349,16 @@ get_initctl (void)
 {
 	static char path[PATH_MAX + 1024] = { 0 };
 	int         ret;
+	int         env_valid;
+
+	/* Sanity check calling environment */
+	if (test_user_mode) {
+		env_valid = getenv ("UPSTART_SESSION") ? TRUE : FALSE;
+	} else {
+		env_valid = getenv ("DBUS_SESSION_BUS_ADDRESS") ? TRUE : FALSE;
+	}
+
+	nih_assert (env_valid);
 
 	ret = sprintf (path, "%s %s",
 			get_initctl_binary (),

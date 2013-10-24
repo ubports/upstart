@@ -1,3 +1,21 @@
+2013-10-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/environ.c: Comment.
+	* init/job_process.c: Formatting.
+	* init/test_environ.c:
+	  - test_add(): New test:
+	    - "using bare word with no corresponding variable set in environment"
+	  - test_remove(): New function ("the missing test") containing 8 new tests:
+	    - "remove name=value pair with empty table"
+	    - "remove bare name with empty table"
+	    - "remove name=value from table of size 1"
+	    - "remove bare name from table of size 1"
+	    - "remove first name=value entry from table of size 2"
+	    - "remove first bare name entry from table of size 2"
+	    - "remove last name=value entry from table of size 2"
+	    - "remove last bare name entry from table of size 2"
+	* test/test_util_common.c: get_initctl(): Added environment checks.
+
 2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
  	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event

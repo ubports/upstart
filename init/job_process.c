@@ -278,7 +278,7 @@ job_process_run (Job         *job,
 	env = NIH_MUST (nih_str_array_new (NULL));
 
 	if (job->env)
-		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, job->env));
+		NIH_MUST (environ_append (&env, NULL, &envc, TRUE, job->env));
 
 	if (job->stop_env
 	    && ((process == PROCESS_PRE_STOP)
