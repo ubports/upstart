@@ -1,4 +1,4 @@
-upstart (1.10-0ubuntu8) UNRELEASED; urgency=low
+upstart (1.10-0ubuntu8) trusty; urgency=low
 
   * debian/upstart.apport:
     - Handle 'RecoverableProblem' and 'Hang' problem types (LP: #1238058).
@@ -16,7 +16,7 @@ upstart (1.10-0ubuntu8) UNRELEASED; urgency=low
     upstart-socket-bridge to also not clobber PATH, using SOCKET_PATH
     instead.  LP: #1235480.
 
- -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Fri, 18 Oct 2013 16:01:45 +0100
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 23 Oct 2013 23:59:20 -0700
 
 upstart (1.10-0ubuntu7) saucy; urgency=low
 
