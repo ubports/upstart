@@ -4,6 +4,16 @@
 	  tests and renamed some existing data files to reflect the
 	  serialisation format version they encapsulate.
 
+2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+ 	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event
+	  environment, instead of clobbering PATH.  (LP: #1235480)
+
+2013-10-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/initctl.h: IS_INIT_EVENT(): Ignore session end event when
+	  running in user mode (for 'check-config').
+
 2013-10-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c: job_class_environment_clear(): Utility function
@@ -40,7 +50,7 @@
 	  - "ensure 'set-env' persists across session-init re-exec".
 	  - "ensure 'set-env --global' persists across session-init re-exec".
 
-2013-01-04  Steve Langasek  <steve.langasek@ubuntu.com
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)
