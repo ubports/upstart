@@ -11,6 +11,11 @@ upstart (1.10-0ubuntu8) UNRELEASED; urgency=low
   * Remove uevent blacklist now that udevd was fixed not to spam on
     maguro.
 
+  [ Steve Langasek ]
+  * extra/upstart-socket-bridge.c: Cherry-pick fix from upstream for
+    upstart-socket-bridge to also not clobber PATH, using SOCKET_PATH
+    instead.  LP: #1235480.
+
  -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Fri, 18 Oct 2013 16:01:45 +0100
 
 upstart (1.10-0ubuntu7) saucy; urgency=low

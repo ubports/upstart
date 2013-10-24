@@ -326,7 +326,7 @@ epoll_watcher (void *      data,
 			NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
 						     "PROTO=unix"));
 
-			var = NIH_MUST (nih_sprintf (NULL, "PATH=%s",
+			var = NIH_MUST (nih_sprintf (NULL, "SOCKET_PATH=%s",
 						     sock->sun_addr.sun_path));
 			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
 						      var));
