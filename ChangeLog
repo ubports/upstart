@@ -1,3 +1,9 @@
+2013-10-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_state.c: Removed some redundant JSON upgrade
+	  tests and renamed some existing data files to reflect the
+	  serialisation format version they encapsulate.
+
 2013-10-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c: job_class_environment_clear(): Utility function
