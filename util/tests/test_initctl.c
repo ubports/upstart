@@ -16698,6 +16698,215 @@ test_job_env (void)
         TEST_EQ (rmdir (logdir), 0);
 }
 
+void
+test_dbus_connection (void)
+{
+	size_t           lines;
+	pid_t            dbus_pid = 0;
+	pid_t            dbus_pid2 = 0;
+	pid_t            upstart_pid = 0;
+	nih_local char  *cmd = NULL;
+	char           **output;
+	nih_local char  *dbus_session_address = NULL;
+	nih_local char  *dbus_session_address2 = NULL;
+	nih_local char  *upstart_session = NULL;
+	char            *address;
+
+	TEST_GROUP ("D-Bus connection");
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure non-priv non-Session Init connects to D-Bus session bus on startup");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, FALSE);
+
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init does not connect to D-Bus session bus on startup");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Stop initctl using this route */
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	/* Check we can query the version via the private socket */
+	cmd = nih_sprintf (NULL, "%s version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Unset to stop initctl finding upstart via this route */
+	assert0 (unsetenv ("UPSTART_SESSION"));
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* Although there is a D-Bus session bus available, the Session
+	 * Init should not connect to it. Check this by trying to query
+	 * the running version via the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "initctl: Name \"com.ubuntu.Upstart\" does not exist*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init connects to D-Bus session bus when notified");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Pass the D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* It should now be possible to query the running version via
+	 * the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init does not connect to another bus when notified twice");
+
+	/* Start first dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Save its address */
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Start second dbus-daemon */
+	TEST_DBUS (dbus_pid2);
+
+	/* Save its address */
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address2 = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address2, NULL);
+
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Pass the first D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* It should now be possible to query the running version via
+	 * the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Pass the second D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Check that the Session Init still responds on the first address */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Stop the 1st daemon */
+	TEST_DBUS_END (dbus_pid);
+
+	/* Switch to the 2nd daemon */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address2, 1));
+
+	/* Ensure the Session Init isn't responding on this address */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "initctl: Name \"com.ubuntu.Upstart\" does not exist*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/* Stop the 2nd daemon */
+	TEST_DBUS_END (dbus_pid2);
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -16740,6 +16949,8 @@ main (int   argc,
 		test_check_config ();
 		test_notify_disk_writeable ();
 	}
+
+	test_dbus_connection ();
 
 	return 0;
 }

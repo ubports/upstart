@@ -821,7 +821,7 @@ test_bus_close (void)
 
 	TEST_LIST_EMPTY (control_conns);
 
-	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
+	TEST_FILE_EQ (output, "test: Disconnected from D-Bus system bus\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
@@ -879,7 +879,7 @@ test_disconnected (void)
 
 	TEST_LIST_EMPTY (control_conns);
 
-	TEST_FILE_EQ (output, "test: Disconnected from system bus\n");
+	TEST_FILE_EQ (output, "test: Disconnected from D-Bus system bus\n");
 	TEST_FILE_END (output);
 	TEST_FILE_RESET (output);
 
