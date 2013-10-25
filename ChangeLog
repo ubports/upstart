@@ -1,3 +1,8 @@
+2013-10-25  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/main.c, init/system.c, init/system.h: allow mount options
+	  to be passed to system_mount().
+
 2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
  	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event

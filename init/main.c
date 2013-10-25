@@ -280,7 +280,8 @@ main (int   argc,
 			needs_devtmpfs = 1;
 
 		if (needs_devtmpfs) {
-			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			if (system_mount ("devtmpfs", "/dev",
+					  MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 				NihError *err;
 
 				err = nih_error_get ();
@@ -296,7 +297,8 @@ main (int   argc,
 				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
 		}
 
-		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("devpts", "/dev/pts", MS_NOEXEC | MS_NOSUID,
+				  NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -356,7 +358,8 @@ main (int   argc,
 		 * ourselves. Also mount /dev/pts to allow CONSOLE_LOG
 		 * to function if booted in an initramfs-less environment.
 		 */
-		if (system_mount ("proc", "/proc", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("proc", "/proc",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -365,7 +368,8 @@ main (int   argc,
 			nih_free (err);
 		}
 
-		if (system_mount ("sysfs", "/sys", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("sysfs", "/sys",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
