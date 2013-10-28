@@ -12,6 +12,9 @@
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)
+	* extra/conf/upstart-file-bridge.conf: fix the start condition to
+	  comply with the intent, that we start the file bridge only once
+	  the filesystem is up. (LP: #1235387)
 
 2013-10-04  James Hunt  <james.hunt@ubuntu.com>
 
