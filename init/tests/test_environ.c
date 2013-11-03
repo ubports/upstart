@@ -572,6 +572,462 @@ test_add (void)
 	}
 
 	unsetenv ("BAR");
+
+	/* Check that attempting to add a variable by name fails if
+	 * there is no corresponding environment variable set.
+	 */
+	TEST_FEATURE ("using bare word with no corresponding variable set in environment");
+
+	/* Ensure variable not set initially */
+	TEST_EQ_P (getenv ("UPSTART_TEST_VARIABLE"), NULL);
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+			assert (nih_str_array_add (&env, NULL, &len,
+						   "FOO=BAR"));
+		}
+
+		ret = environ_add (&env, NULL, &len, FALSE, "UPSTART_TEST_VARIABLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		/* XXX: Attempting to add an unset variable results in
+		 * no change to the table (it is not an error!)
+		 */
+		TEST_EQ_P (ret, env);
+
+		TEST_EQ (len, 1);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+}
+
+void
+test_remove (void)
+{
+	char   **env = NULL, **ret;
+	size_t   len = 0;
+
+	TEST_FUNCTION ("environ_remove");
+
+	TEST_FEATURE ("remove name=value pair with empty table");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = environ_remove (&env, NULL, &len, "FOO=BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 0);
+			TEST_EQ_P (env[0], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_EQ_P (ret, NULL);
+		TEST_EQ (len, 0);
+		TEST_EQ_P (env[0], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove bare name with empty table");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+		}
+
+		ret = environ_remove (&env, NULL, &len, "FOO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 0);
+			TEST_EQ_P (env[0], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_EQ_P (ret, NULL);
+		TEST_EQ (len, 0);
+		TEST_EQ_P (env[0], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove name=value from table of size 1");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+		}
+
+		ret = environ_remove (&env, NULL, &len, "FOO=BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+
+			TEST_NE_P (env[0], NULL);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_EQ_P (env[1], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 0);
+		TEST_EQ_P (env[0], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove bare name from table of size 1");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+		}
+
+		ret = environ_remove (&env, NULL, &len, "FOO");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+
+			TEST_NE_P (env[0], NULL);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_EQ_P (env[1], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 0);
+		TEST_EQ_P (env[0], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove first name=value entry from table of size 2");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "BAZ=QUX");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+		}
+
+		/* Remove first entry added */
+		ret = environ_remove (&env, NULL, &len, "FOO=BAR");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 1);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "BAZ=QUX");
+
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove first bare name entry from table of size 2");
+
+	/* Set a variable to allow the bare name to be expanded */
+	assert0 (setenv ("UPSTART_TEST_VARIABLE", "foo", 1));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "UPSTART_TEST_VARIABLE");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+
+			/* Should have been expanded */
+			TEST_EQ_STR (env[0], "UPSTART_TEST_VARIABLE=foo");
+
+			TEST_EQ_P (env[1], NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "BAZ=QUX");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "UPSTART_TEST_VARIABLE=foo");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+		}
+
+		/* Remove first entry added */
+		ret = environ_remove (&env, NULL, &len, "UPSTART_TEST_VARIABLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "UPSTART_TEST_VARIABLE=foo");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 1);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "BAZ=QUX");
+
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+	assert0 (unsetenv ("UPSTART_TEST_VARIABLE"));
+
+	TEST_FEATURE ("remove last name=value entry from table of size 2");
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "BAZ=QUX");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+		}
+
+		/* Remove last entry added */
+		ret = environ_remove (&env, NULL, &len, "BAZ=QUX");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "BAZ=QUX");
+
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 1);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+	TEST_FEATURE ("remove last bare name entry from table of size 2");
+
+	/* Set a variable to allow the bare name to be expanded */
+	assert0 (setenv ("UPSTART_TEST_VARIABLE", "foo", 1));
+
+	TEST_ALLOC_FAIL {
+		TEST_ALLOC_SAFE {
+			len = 0;
+			env = nih_str_array_new (NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "FOO=BAR");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 1);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+			TEST_EQ_P (env[1], NULL);
+
+			ret = environ_add (&env, NULL, &len, TRUE, "UPSTART_TEST_VARIABLE");
+			TEST_NE_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+
+			/* Should have been expanded */
+			TEST_EQ_STR (env[1], "UPSTART_TEST_VARIABLE=foo");
+
+			TEST_EQ_P (env[2], NULL);
+		}
+
+		/* Remove last entry added */
+		ret = environ_remove (&env, NULL, &len, "UPSTART_TEST_VARIABLE");
+
+		if (test_alloc_failed) {
+			TEST_EQ_P (ret, NULL);
+
+			TEST_EQ (len, 2);
+			TEST_ALLOC_PARENT (env[0], env);
+			TEST_ALLOC_SIZE (env[0], 8);
+			TEST_EQ_STR (env[0], "FOO=BAR");
+
+			TEST_ALLOC_PARENT (env[1], env);
+			TEST_ALLOC_SIZE (env[1], 8);
+			TEST_EQ_STR (env[1], "UPSTART_TEST_VARIABLE=foo");
+
+			TEST_EQ_P (env[2], NULL);
+
+			nih_free (env);
+			continue;
+		}
+
+		TEST_NE_P (ret, NULL);
+		TEST_EQ (len, 1);
+
+		TEST_ALLOC_PARENT (env[0], env);
+		TEST_ALLOC_SIZE (env[0], 8);
+		TEST_EQ_STR (env[0], "FOO=BAR");
+
+		TEST_EQ_P (env[1], NULL);
+
+		nih_free (env);
+	}
+
+	assert0 (unsetenv ("UPSTART_TEST_VARIABLE"));
 }
 
 void
@@ -1590,6 +2046,7 @@ main (int   argc,
 	setenv ("UPSTART_NO_SESSIONS", "1", 1);
 
 	test_add ();
+	test_remove ();
 	test_append ();
 	test_set ();
 	test_lookup ();
