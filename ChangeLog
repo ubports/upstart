@@ -1,5 +1,25 @@
 2013-11-03  James Hunt  <james.hunt@ubuntu.com>
 
+	* init/job_class.c:
+	  - job_class_new(): Set umask for job to current value for Session
+	    Init by default (LP: #1240686).
+	* init/job_process.c: Comments.
+	* init/main.c: main(): Save current umask.
+	* test/test_util_common.c:
+	  - start_upstart_common(): Add extra param for inheriting environment
+	    rather than hard-coding '--no-inherit-env'.
+	  - start_upstart(: Updated call to start_upstart_common().
+	* init/tests/test_main.c: Updated calls to start_upstart_common().
+	* test/test_util_common.h: START_UPSTART(): Updated call to
+	  start_upstart_common().
+	* util/tests/test_initctl.c:
+	  - Updated calls to start_upstart_common().
+	  - test_umask(): New tests:
+	    - "ensure Session Init inherits umask by default"
+	    - "ensure Session Init defaults umask with '--no-inherit-env'"
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
 	* scripts/pyupstart.py:
 	  - dbus_encode(): Comments.
 	  - Upstart::_idle_create_job_cb(): Pass retain option.

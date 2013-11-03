@@ -128,7 +128,7 @@ extern int          use_session_bus;
 extern int          default_console;
 extern int          write_state_file;
 extern char        *log_dir;
-
+extern mode_t       initial_umask;
 
 /**
  * options:
@@ -143,7 +143,7 @@ static NihOption options[] = {
 		NULL, "VALUE", NULL, console_type_setter },
 
 	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
-		NULL, NULL, &no_inherit_env ,NULL },
+		NULL, NULL, &no_inherit_env , NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
@@ -270,7 +270,7 @@ main (int   argc,
 		/* Allow devices to be created with the actual perms
 		 * specified.
 		 */
-		(void)umask (0);
+		initial_umask = umask (0);
 
 		/* Check if key /dev entries already exist; if they do,
 		 * we should assume we don't need to mount /dev.
@@ -385,6 +385,11 @@ main (int   argc,
 		(int)getuid (), (int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
+	if (user_mode) {
+		/* Save initial value */
+		initial_umask = umask (0);
+		(void)umask (initial_umask);
+	}
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that

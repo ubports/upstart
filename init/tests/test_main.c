@@ -107,7 +107,7 @@ test_confdir (void)
 	CREATE_FILE (xdg_conf_dir, "bar.conf", "exec true");
 	CREATE_FILE (xdg_conf_dir, "baz.conf", "exec true");
 
-	start_upstart_common (&upstart_pid, TRUE, NULL, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -139,7 +139,7 @@ test_confdir (void)
 	CREATE_FILE (xdg_conf_dir, "xdg_dir_job.conf", "exec true");
 	CREATE_FILE (confdir_a, "conf_dir_job.conf", "exec true");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir_a, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir_a, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -177,7 +177,7 @@ test_confdir (void)
 	extra[4] = NULL;
 
 	/* pass 2 confdir directories */
-	start_upstart_common (&upstart_pid, TRUE, NULL, logdir, extra);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -217,7 +217,7 @@ test_confdir (void)
 	extra[4] = NULL;
 
 	/* pass 2 confdir directories */
-	start_upstart_common (&upstart_pid, TRUE, NULL, logdir, extra);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -266,7 +266,7 @@ test_confdir (void)
 	/* Disable user mode */
 	test_user_mode = FALSE;
 
-	start_upstart_common (&upstart_pid, FALSE, NULL, logdir, NULL);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -296,7 +296,7 @@ test_confdir (void)
 	CREATE_FILE (confdir_a, "bar.conf", "exec true");
 	CREATE_FILE (confdir_b, "baz.conf", "exec true");
 
-	start_upstart_common (&upstart_pid, FALSE, confdir_b, logdir, NULL);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, confdir_b, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -333,7 +333,7 @@ test_confdir (void)
 	extra[3] = confdir_b;
 	extra[4] = NULL;
 
-	start_upstart_common (&upstart_pid, FALSE, NULL, logdir, extra);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -376,7 +376,7 @@ test_confdir (void)
 	extra[3] = confdir_b;
 	extra[4] = NULL;
 
-	start_upstart_common (&upstart_pid, FALSE, NULL, logdir, extra);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
