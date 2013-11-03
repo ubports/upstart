@@ -1,3 +1,16 @@
+2013-11-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - create_handler(): Use original_file() for directories
+	    (LP: #1221466, #1222702).
+	  - watched_dir_new(): Additional assert.
+	  - watched_file_new():
+	    - Additional assert.
+	    - Store original directory path in file object to ensure reliable
+	      matching for directories.
+	* scripts/tests/test_pyupstart_session_init.py: Added file bridge tests
+	  for directory creation, modification and deletion.
+
 2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
  	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event
