@@ -1,3 +1,10 @@
+2013-10-25  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/main.c, init/system.c, init/system.h: allow mount options
+	  to be passed to system_mount(), and pass the right options when
+	  mounting /dev/pts to match the permissions set by either
+	  initramfs-tools or mountall.  LP: #1244763.
+
 2013-11-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c:
