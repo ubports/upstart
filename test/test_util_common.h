@@ -692,6 +692,9 @@ int set_upstart_session (pid_t session_init_pid)
 
 void wait_for_upstart (int session_init_pid);
 
+int have_timed_waitpid (void)
+	__attribute__ ((warn_unused_result));
+
 pid_t timed_waitpid (pid_t pid, time_t timeout)
 	__attribute__ ((warn_unused_result));
 

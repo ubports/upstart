@@ -16818,11 +16818,19 @@ main (int   argc,
 	test_job_env ();
 	test_reexec ();
 	test_list_sessions ();
-	test_quiesce ();
+	if (have_timed_waitpid ()) {
+		test_quiesce ();
+	} else {
+		fprintf (stderr, "\n\n"
+				"WARNING: not running quiesce tests, "
+				"as no precise timing information available "
+				"\n\n");
+	}
+
 	test_umask ();
 
 	if (in_chroot () && !dbus_configured ()) {
-		fprintf(stderr, "\n\n"
+		fprintf (stderr, "\n\n"
 				"WARNING: not running show-config, "
 				"check-config & notify-disk-writeable tests within chroot "
 				"as no D-Bus, or D-Bus not configured (lp:#728988)"
