@@ -1,4 +1,25 @@
-2013-11-01  James Hunt  <james.hunt@ubuntu.com>
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/pyupstart.py:
+	  - dbus_encode(): Comments.
+	  - Upstart::_idle_create_job_cb(): Pass retain option.
+	  - Upstart::job_create(): Allow specification of retain option to keep
+	    job configuration file on object destruction.
+	  - Upstart::job_recreate(): New method to vivify a Job object using an
+	    existing job configuration file.
+	  - Job::__init__(): New 'retain' and 'reuse_path' options.
+	  - Job::get_instance(): New method to obtain a Jobs JobInstance.
+	  - Job::get_dbus_instance(): Renamed from get_instance().
+	  - JobInstance::destroy(): NOP for 'retain'ed jobs.
+	* scripts/tests/test_pyupstart_system_init.py:
+	  - test_pid1_reexec():
+	    - Retain the job configuration to allow the object to be recreated
+	      after re-exec.
+	* scripts/tests/test_pyupstart_session_init.py:
+	  - test_session_init_reexec: Add job creation for parity with
+	    test_pid1_reexec().
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/upstart-file-bridge.c:
 	  - create_handler(): Use original_file() for directories

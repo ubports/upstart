@@ -91,8 +91,13 @@ def dbus_encode(str):
     Note that in the special case of the specified string being None
     or the nul string, it is encoded as '_'.
 
-    Example: 'hello-world' would be encoded as 'hello_2dworld' since
-    '-' is 2d in hex.
+    Examples:
+
+    'hello-world' would be encoded as 'hello_2dworld' since
+    '-' is 2d in hex (resulting in '_2d').
+
+    Similarly, '_2f' would be the encoding for '/' since that character
+    has hex value 2f.
 
     """
     if not str:
@@ -244,7 +249,8 @@ class Upstart:
         the main loop starts.
 
         """
-        self.new_job = Job(self, self.test_dir, self.test_dir_name, name, body=body)
+        self.new_job = Job(self, self.test_dir, self.test_dir_name,
+            name, body=body, retain=self.retain)
 
         # deregister
         return False
@@ -377,13 +383,15 @@ class Upstart:
         """
         raise NotImplementedError('method must be implemented by subclass')
 
-    def job_create(self, name, body):
+    def job_create(self, name, body, retain=False):
         """
         Create a Job Configuration File.
 
         @name: Name to give the job.
         @body: String representation of configuration file, or list of
          strings.
+        @retain: if True, don't remove the Job Configuration File when
+         object is cleaned up.
 
         Strategy:
 
@@ -421,6 +429,8 @@ class Upstart:
         self.job_seen = False
         self.new_job = None
 
+        self.retain = retain
+
         # construct the D-Bus path for the new job
         job_path = '{}/{}'.format(self.test_dir_name, name)
 
@@ -452,6 +462,27 @@ class Upstart:
 
         return self.new_job
 
+    def job_recreate(self, name, conf_path):
+        """
+        Create a job object from an existing Job Configuration File.
+
+        @name: Name prefix of existing job configuration file.
+        @conf_path: Full path to *existing* Job Configuration File.
+        """
+
+        assert (name)
+        assert (conf_path)
+
+        job_path = '{}/{}'.format(self.test_dir_name, name)
+        self.job_object_path = '{}/{}/{}'.format(
+            OBJECT_PATH, 'jobs', dbus_encode(job_path)
+        )
+
+        self.new_job = Job(self, self.test_dir, self.test_dir_name,
+                name, body=None, reuse_path=conf_path)
+        self.jobs.append(self.new_job)
+        return self.new_job
+
 
 class Job:
     """
@@ -470,7 +501,8 @@ class Job:
 
     """
 
-    def __init__(self, upstart, dir_name, subdir_name, job_name, body=None):
+    def __init__(self, upstart, dir_name, subdir_name, job_name,
+            body=None, reuse_path=None, retain=False):
         """
         @upstart: Upstart() parent object.
         @dir_name: Full path to job configuration files directory.
@@ -479,6 +511,10 @@ class Job:
         @job_name: Name of job.
         @body: Contents of job configuration file (either a string, or a
          list of strings).
+        @reuse_path: If set and @body is None, (re)create the job object
+         using the existing specified job configuration file path.
+        @retain: If True, don't delete the Job Configuration File on
+         object destruction.
         """
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -491,6 +527,8 @@ class Job:
         self.name = job_name
         self.job_dir = dir_name
         self.body = body
+        self.reuse_path = reuse_path
+        self.retain = retain
 
         self.instance_name = None
 
@@ -499,19 +537,30 @@ class Job:
 
         self.properties = None
 
-        if not self.body:
-            raise UpstartException('No body specified')
+        # need some way to create the job
+        if not self.body and not self.reuse_path:
+            raise UpstartException('No body or reusable path specified')
 
-        self.conffile = os.path.join(self.job_dir, self.name + '.conf')
+        if self.reuse_path:
+            self.conffile = self.reuse_path
+        else:
+            self.conffile = os.path.join(self.job_dir, self.name + '.conf')
 
         if self.body and isinstance(self.body, str):
             # Assume body cannot be a bytes object.
             body = body.splitlines()
 
-        with open(self.conffile, 'w', encoding='utf-8') as fh:
-            for line in body:
-                print(line.strip(), file=fh)
-            print(file=fh)
+        if not self.body and self.reuse_path:
+            # Just check conf file exists
+            if not os.path.exists(self.conffile):
+                raise UpstartException(
+                        'File {} does not exist for reuse'.format(self.conffile))
+        else:
+            # Create conf file
+            with open(self.conffile, 'w', encoding='utf-8') as fh:
+                for line in body:
+                    print(line.strip(), file=fh)
+                print(file=fh)
 
         self.valid = True
 
@@ -533,7 +582,8 @@ class Job:
             for instance in self.instances:
                 instance.destroy()
 
-            os.remove(self.conffile)
+            if not self.retain:
+                os.remove(self.conffile)
         except FileNotFoundError:
             pass
 
@@ -551,6 +601,7 @@ class Job:
         if env is None:
             env = []
         instance_path = self.interface.Start(dbus.Array(env, 's'), wait)
+
         instance_name = instance_path.replace("%s/" % self.object_path, '')
 
         # store the D-Bus encoded instance name ('_' for single-instance jobs)
@@ -561,9 +612,33 @@ class Job:
         self.instances.append(instance)
         return instance
 
-    def _get_instance(self, name):
+    def get_instance(self):
         """
-        Retrieve job instance and its properties.
+        Returns: JobInstance of calling Job.
+        """
+
+        # construct the D-Bus path for the new job
+        job_path = '{}/{}'.format(self.upstart.test_dir_name, self.name)
+
+        instance_path = '{}/{}/{}/{}'.format(
+            OBJECT_PATH, 'jobs', dbus_encode(job_path),
+
+            # XXX: LIMITATION - only support default instance.
+            '_'
+        )
+        instance_name = instance_path.replace("%s/" % self.object_path, '')
+
+        # store the D-Bus encoded instance name ('_' for single-instance jobs)
+        if instance_name not in self.instance_names:
+            self.instance_names.append(instance_name)
+
+        instance = JobInstance(self, instance_name, instance_path)
+        self.instances.append(instance)
+        return instance
+
+    def _get_dbus_instance(self, name):
+        """
+        Retrieve D-Bus job instance and its properties.
 
         @name: D-Bus encoded instance name.
 
@@ -586,7 +661,7 @@ class Job:
         """
 
         for name in self.instance_names:
-            instance = self._get_instance(name)
+            instance = self._get_dbus_instance(name)
             try:
                 instance.Stop(wait)
             except dbus.exceptions.DBusException:
@@ -600,7 +675,7 @@ class Job:
         @wait: if False, stop job instances asynchronously.
         """
         for name in self.instance_names:
-            instance = self._get_instance(name)
+            instance = self._get_dbus_instance(name)
             instance.Restart(wait)
 
     def instance_object_paths(self):
@@ -629,9 +704,13 @@ class Job:
 
         assert(name in self.instance_names)
 
-        instance = self._get_instance(name)
+        instance = self._get_dbus_instance(name)
+        assert (instance)
 
         properties = dbus.Interface(instance, FREEDESKTOP_PROPERTIES)
+        assert (properties)
+
+        # don't assert as there may not be any processes
         procs = properties.Get(INSTANCE_INTERFACE_NAME, 'processes')
 
         pid_map = {}
@@ -845,10 +924,13 @@ class JobInstance:
     def destroy(self):
         """
         Stop the instance and cleanup.
-        """
-        self.stop()
-        self.logfile.destroy()
 
+	Note: If the instance specified retain when created, this will
+	be a NOP.
+        """
+        if not self.job.retain:
+            self.stop()
+            self.logfile.destroy()
 
 class SystemInit(Upstart):
 
