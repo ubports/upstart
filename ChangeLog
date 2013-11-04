@@ -2,6 +2,9 @@
 
 	* test/test_util_common.h: WAIT_FOR_FILE(): Check @path not
 	  logfile.
+	* util/tests/test_initctl.c: test_reexec(): Fixed behaviour and
+	  comments for test "ensure 'set-env --global' persists across
+	  session-init re-exec".
 
 2013-10-24  James Hunt  <james.hunt@ubuntu.com>
 

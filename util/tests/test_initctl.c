@@ -11007,16 +11007,11 @@ test_reexec (void)
 			"\n"
 			"post-stop script\n"
 			"\n"
-			"# wait for upstart to re-exec before moving\n"
-			"# to next job process\n"
+			"# wait for upstart to notify us that it has re-execed\n"
 			"while [ -f \"%s\" ]\n"
 			"do\n"
 			"    sleep 0.1\n"
 			"done\n"
-			"\n"
-			"end script\n"
-			"\n"
-			"script\n"
 			"\n"
 			"# query value post-re-exec\n"
 			"initctl get-env foo\n"
@@ -11037,9 +11032,7 @@ test_reexec (void)
 
 	REEXEC_UPSTART (upstart_pid, TRUE);
 
-	/* Notify job that upstart has re-exec'd to allow it to move
-	 * out of pre-start.
-	 */
+	/* Notify job that upstart has re-exec'd */
 	assert0 (unlink (flagfile));
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
@@ -16764,8 +16757,6 @@ test_job_env (void)
 	test_modified_job_env (confdir, logdir, upstart_pid, dbus_pid);
 
 	test_global_and_local_job_env (confdir, logdir, upstart_pid, dbus_pid);
-
-	//test_reexec_job_env (confdir, logdir, upstart_pid, dbus_pid);
 
 	/*******************************************************************/
 
