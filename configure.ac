@@ -34,12 +34,29 @@ PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.36], [have_gio=yes], [have_gio=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
 
+AC_CHECK_HEADER([sys/epoll.h], [have_epoll=yes], [have_epoll=no])
+
 AC_ARG_ENABLE([udev-bridge],
 	AS_HELP_STRING([--disable-udev-bridge],
 		[Disable building of upstart-udev-bridge even if required dependencies available]),
 		[udev_bridge=no], [udev_bridge=yes])
 
 AM_CONDITIONAL([ENABLE_UDEV_BRIDGE], [test "$have_udev" = yes && test "$udev_bridge" = yes])
+
+AC_ARG_ENABLE([socket-bridge],
+	AS_HELP_STRING([--disable-socket-bridge],
+		[Disable building of upstart-socket-bridge even if required dependencies available]),
+		[socket_bridge=no], [socket_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_SOCKET_BRIDGE], [test "$have_epoll" = yes && test "$socket_bridge" = yes])
+
+AC_ARG_ENABLE([local-bridge],
+	AS_HELP_STRING([--disable-local-bridge],
+		[Disable building of upstart-local-bridge even if required dependencies available]),
+		[local_bridge=no], [local_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_LOCAL_BRIDGE], [test "$local_bridge" = yes])
+
 
 AC_ARG_ENABLE([dconf-bridge],
 	AS_HELP_STRING([--disable-dconf-bridge],

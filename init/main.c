@@ -129,6 +129,7 @@ extern int          default_console;
 extern int          write_state_file;
 extern char        *log_dir;
 extern DBusBusType  dbus_bus_type;
+extern mode_t       initial_umask;
 
 /**
  * options:
@@ -143,7 +144,7 @@ static NihOption options[] = {
 		NULL, "VALUE", NULL, console_type_setter },
 
 	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
-		NULL, NULL, &no_inherit_env ,NULL },
+		NULL, NULL, &no_inherit_env , NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
@@ -271,7 +272,7 @@ main (int   argc,
 		/* Allow devices to be created with the actual perms
 		 * specified.
 		 */
-		(void)umask (0);
+		initial_umask = umask (0);
 
 		/* Check if key /dev entries already exist; if they do,
 		 * we should assume we don't need to mount /dev.
@@ -281,7 +282,8 @@ main (int   argc,
 			needs_devtmpfs = 1;
 
 		if (needs_devtmpfs) {
-			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			if (system_mount ("devtmpfs", "/dev",
+					  MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 				NihError *err;
 
 				err = nih_error_get ();
@@ -297,7 +299,8 @@ main (int   argc,
 				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
 		}
 
-		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("devpts", "/dev/pts", MS_NOEXEC | MS_NOSUID,
+				  "gid=5,mode=0620") < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -357,7 +360,8 @@ main (int   argc,
 		 * ourselves. Also mount /dev/pts to allow CONSOLE_LOG
 		 * to function if booted in an initramfs-less environment.
 		 */
-		if (system_mount ("proc", "/proc", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("proc", "/proc",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -366,7 +370,8 @@ main (int   argc,
 			nih_free (err);
 		}
 
-		if (system_mount ("sysfs", "/sys", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("sysfs", "/sys",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -386,6 +391,11 @@ main (int   argc,
 		(int)getuid (), (int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
+	if (user_mode) {
+		/* Save initial value */
+		initial_umask = umask (0);
+		(void)umask (initial_umask);
+	}
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that

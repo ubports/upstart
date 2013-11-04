@@ -349,6 +349,16 @@ get_initctl (void)
 {
 	static char path[PATH_MAX + 1024] = { 0 };
 	int         ret;
+	int         env_valid;
+
+	/* Sanity check calling environment */
+	if (test_user_mode) {
+		env_valid = getenv ("UPSTART_SESSION") ? TRUE : FALSE;
+	} else {
+		env_valid = getenv ("DBUS_SESSION_BUS_ADDRESS") ? TRUE : FALSE;
+	}
+
+	nih_assert (env_valid);
 
 	ret = sprintf (path, "%s %s",
 			get_initctl_binary (),
@@ -420,6 +430,7 @@ _start_upstart (pid_t *pid, int user, char * const *args)
  * @pid: PID of running instance,
  * @user: TRUE if upstart should run in User Session mode (FALSE to
  * use the users D-Bus session bus),
+ * @inherit_env: if TRUE, inherit parent environment,
  * @confdir: full path to configuration directory,
  * @logdir: full path to log directory,
  * @extra: optional extra arguments.
@@ -427,8 +438,9 @@ _start_upstart (pid_t *pid, int user, char * const *args)
  * Wrapper round _start_upstart() which specifies common options.
  **/
 void
-start_upstart_common (pid_t *pid, int user, const char *confdir,
-		      const char *logdir, char * const *extra)
+start_upstart_common (pid_t *pid, int user, int inherit_env,
+		      const char *confdir, const char *logdir,
+		      char * const *extra)
 {
 	nih_local char  **args = NULL;
 
@@ -449,8 +461,10 @@ start_upstart_common (pid_t *pid, int user, const char *confdir,
 	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 				"--no-sessions"));
 
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
-				"--no-inherit-env"));
+	if (! inherit_env) {
+		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
+					"--no-inherit-env"));
+	}
 
 	if (confdir) {
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
@@ -483,7 +497,7 @@ start_upstart_common (pid_t *pid, int user, const char *confdir,
 void
 start_upstart (pid_t *pid)
 {
-	start_upstart_common (pid, FALSE, NULL, NULL, NULL);
+	start_upstart_common (pid, FALSE, FALSE, NULL, NULL, NULL);
 }
 
 /**

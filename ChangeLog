@@ -1,3 +1,57 @@
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_new(): Set umask for job to current value for Session
+	    Init by default (LP: #1240686).
+	* init/job_process.c: Comments.
+	* init/main.c: main(): Save current umask.
+	* test/test_util_common.c:
+	  - start_upstart_common(): Add extra param for inheriting environment
+	    rather than hard-coding '--no-inherit-env'.
+	  - start_upstart(: Updated call to start_upstart_common().
+	* init/tests/test_main.c: Updated calls to start_upstart_common().
+	* test/test_util_common.h: START_UPSTART(): Updated call to
+	  start_upstart_common().
+	* util/tests/test_initctl.c:
+	  - Updated calls to start_upstart_common().
+	  - test_umask(): New tests:
+	    - "ensure Session Init inherits umask by default"
+	    - "ensure Session Init defaults umask with '--no-inherit-env'"
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/pyupstart.py:
+	  - dbus_encode(): Comments.
+	  - Upstart::_idle_create_job_cb(): Pass retain option.
+	  - Upstart::job_create(): Allow specification of retain option to keep
+	    job configuration file on object destruction.
+	  - Upstart::job_recreate(): New method to vivify a Job object using an
+	    existing job configuration file.
+	  - Job::__init__(): New 'retain' and 'reuse_path' options.
+	  - Job::get_instance(): New method to obtain a Jobs JobInstance.
+	  - Job::get_dbus_instance(): Renamed from get_instance().
+	  - JobInstance::destroy(): NOP for 'retain'ed jobs.
+	* scripts/tests/test_pyupstart_system_init.py:
+	  - test_pid1_reexec():
+	    - Retain the job configuration to allow the object to be recreated
+	      after re-exec.
+	* scripts/tests/test_pyupstart_session_init.py:
+	  - test_session_init_reexec: Add job creation for parity with
+	    test_pid1_reexec().
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - create_handler(): Use original_file() for directories
+	    (LP: #1221466, #1222702).
+	  - watched_dir_new(): Additional assert.
+	  - watched_file_new():
+	    - Additional assert.
+	    - Store original directory path in file object to ensure reliable
+	      matching for directories.
+	* scripts/tests/test_pyupstart_session_init.py: Added file bridge tests
+	  for directory creation, modification and deletion.
+
 2013-10-25  James Hunt  <james.hunt@ubuntu.com>
 
 	* dbus/com.ubuntu.Upstart.xml: Added 'NotifyDBusAddress' method.
@@ -29,6 +83,31 @@
 	  - "ensure Session Init connects to D-Bus session bus when notified".
 	  - "ensure Session Init does not connect to another bus when notified twice".
 
+2013-10-25  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/main.c, init/system.c, init/system.h: allow mount options
+	  to be passed to system_mount(), and pass the right options when
+	  mounting /dev/pts to match the permissions set by either
+	  initramfs-tools or mountall.  LP: #1244763.
+
+2013-10-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/environ.c: Comment.
+	* init/job_process.c: Formatting.
+	* init/test_environ.c:
+	  - test_add(): New test:
+	    - "using bare word with no corresponding variable set in environment"
+	  - test_remove(): New function ("the missing test") containing 8 new tests:
+	    - "remove name=value pair with empty table"
+	    - "remove bare name with empty table"
+	    - "remove name=value from table of size 1"
+	    - "remove bare name from table of size 1"
+	    - "remove first name=value entry from table of size 2"
+	    - "remove first bare name entry from table of size 2"
+	    - "remove last name=value entry from table of size 2"
+	    - "remove last bare name entry from table of size 2"
+	* test/test_util_common.c: get_initctl(): Added environment checks.
+
 2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event
@@ -43,6 +122,9 @@
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)
+	* extra/conf/upstart-file-bridge.conf: fix the start condition to
+	  comply with the intent, that we start the file bridge only once
+	  the filesystem is up. (LP: #1235387)
 
 2013-10-04  James Hunt  <james.hunt@ubuntu.com>
 
