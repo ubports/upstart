@@ -97,6 +97,13 @@ NihHash *job_classes = NULL;
 static char **job_environ = NULL;
 
 /**
+ * initial_umask:
+ *
+ * Value of umask at startup.
+ **/
+mode_t initial_umask;
+
+/**
  * job_class_init:
  *
  * Initialise the job classes hash table.
@@ -363,7 +370,7 @@ job_class_new (const void *parent,
 
 	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
-	class->umask = JOB_DEFAULT_UMASK;
+	class->umask = (user_mode && ! no_inherit_env) ? initial_umask : JOB_DEFAULT_UMASK;
 	class->nice = JOB_NICE_INVALID;
 	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 

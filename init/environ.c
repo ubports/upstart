@@ -202,6 +202,10 @@ environ_remove (char        ***env,
 	for (e = *env; e && *e; e++) {
 		keylen = strcspn (*e, "=");
 
+		/* Found @str in the existing environment (either as a
+		 * name=value pair, or a bare name), so don't copy it to
+		 * the new environment.
+		 */
 		if (! strncmp (str, *e, keylen))
 			continue;
 

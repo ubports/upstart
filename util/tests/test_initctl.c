@@ -10839,7 +10839,7 @@ test_reexec (void)
 	/*******************************************************************/
 	TEST_FEATURE ("single job producing output across a re-exec");
 
-	start_upstart_common (&upstart_pid, FALSE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, confdir, logdir, NULL);
 
 	contents = nih_sprintf (NULL, 
 			"pre-start exec echo pre-start\n"
@@ -11155,7 +11155,7 @@ test_list_sessions (void)
 	/* Reset initctl global from previous tests */
 	dest_name = NULL;
 
-	start_upstart_common (&upstart_pid, TRUE, NULL, NULL, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, NULL, NULL);
 
 	session_file = get_session_file (dirname, upstart_pid);
 
@@ -11264,7 +11264,7 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: no jobs");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11290,7 +11290,7 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running.conf",
 			"exec sleep 999");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11372,7 +11372,7 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11425,7 +11425,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11488,7 +11488,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end-term.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11556,7 +11556,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end-term.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11608,7 +11608,7 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: no jobs");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Further required initctl global resets. Shudder. */
 	user_mode = TRUE;
@@ -11644,7 +11644,7 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running.conf",
 			"exec sleep 999");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
 			get_initctl (), "long-running");
@@ -11692,7 +11692,7 @@ test_quiesce (void)
 			"start on startup\n"
 			"exec sleep 999");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11737,7 +11737,7 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
 			get_initctl (), "long-running-term");
@@ -11793,7 +11793,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11856,7 +11856,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end-term.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11926,7 +11926,7 @@ test_quiesce (void)
 
 	CREATE_FILE (confdir, "session-end-term.conf", job);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
 			get_initctl (), "long-running-term");
@@ -11999,6 +11999,98 @@ test_quiesce (void)
         TEST_EQ (rmdir (sessiondir), 0);
 
 	/*******************************************************************/
+}
+
+void
+test_umask (void)
+{
+	char             confdir[PATH_MAX];
+	char             logdir[PATH_MAX];
+	pid_t            upstart_pid = 0;
+	nih_local char  *logfile = NULL;
+	mode_t           job_umask;
+	nih_local char  *job_umask_str = NULL;
+	size_t           length;
+	int              ret;
+	mode_t           original_umask;
+	mode_t           test_umask = 0111;
+	mode_t           default_umask = 022;
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+        TEST_FILENAME (logdir);
+        TEST_EQ (mkdir (logdir, 0755), 0);
+
+	original_umask = umask (test_umask);
+
+	TEST_GROUP ("Session Init umask value");
+
+	/**********************************************************************/
+	TEST_FEATURE ("ensure Session Init inherits umask by default");
+
+	/* Has to be a script since umask is a shell built-in */
+	CREATE_FILE (confdir, "umask.conf",
+			"start on startup\n"
+			"script\n"
+			"umask\n"
+			"end script");
+
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	job_umask_str = nih_file_read (NULL, logfile, &length);
+
+	ret = sscanf (job_umask_str, "%o", (unsigned int *)&job_umask);
+	TEST_EQ (ret, 1);
+	TEST_EQ (job_umask, test_umask);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
+
+	STOP_UPSTART (upstart_pid);
+
+	/**********************************************************************/
+	TEST_FEATURE ("ensure Session Init defaults umask with '--no-inherit-env'");
+
+	/* Has to be a script since umask is a shell built-in */
+	CREATE_FILE (confdir, "umask.conf",
+			"start on startup\n"
+			"script\n"
+			"umask\n"
+			"end script");
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	job_umask_str = nih_file_read (NULL, logfile, &length);
+
+	ret = sscanf (job_umask_str, "%o", (unsigned int *)&job_umask);
+	TEST_EQ (ret, 1);
+	TEST_EQ (job_umask, default_umask);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
+
+	STOP_UPSTART (upstart_pid);
+
+	/**********************************************************************/
+
+	/* Restore */
+	(void)umask (original_umask);
+
+        assert0 (rmdir (confdir));
+        assert0 (rmdir (logdir));
 }
 
 void
@@ -16614,7 +16706,7 @@ test_no_inherit_job_env (const char *runtimedir, const char *confdir, const char
 	nih_local char  *session_file = NULL;
 	FILE            *fi;
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, extra);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, extra);
 
 	/*******************************************************************/
 	TEST_FEATURE ("ensure list-env in '--user --no-inherit-env' environment gives expected output");
@@ -16728,7 +16820,7 @@ test_job_env (void)
 	}
 
 	TEST_DBUS (dbus_pid);
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", get_initctl_binary ());
 	TEST_NE_P (cmd, NULL);
@@ -16822,6 +16914,7 @@ main (int   argc,
 	test_reexec ();
 	test_list_sessions ();
 	test_quiesce ();
+	test_umask ();
 
 	if (in_chroot () && !dbus_configured ()) {
 		fprintf(stderr, "\n\n"

@@ -27,11 +27,9 @@ dist_sessions_DATA = \
 	conf-session/upstart-dbus-system-bridge.conf
 
 sbin_PROGRAMS = \
-	upstart-socket-bridge \
 	upstart-event-bridge \
 	upstart-file-bridge \
-	upstart-dbus-bridge \
-	upstart-local-bridge
+	upstart-dbus-bridge
 
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
@@ -49,6 +47,10 @@ dist_man_MANS = \
 	man/file-event.7 \
 	man/dbus-event.7
 
+if ENABLE_SOCKET_BRIDGE
+sbin_PROGRAMS += \
+	upstart-socket-bridge
+
 upstart_socket_bridge_SOURCES = \
 	upstart-socket-bridge.c
 nodist_upstart_socket_bridge_SOURCES = \
@@ -59,6 +61,10 @@ upstart_socket_bridge_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
+else
+EXTRA_DIST += \
+	upstart-socket-bridge.c
+endif
 
 upstart_event_bridge_SOURCES = \
 	upstart-event-bridge.c
@@ -93,6 +99,10 @@ upstart_dbus_bridge_LDADD = \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
 
+if ENABLE_LOCAL_BRIDGE
+sbin_PROGRAMS += \
+	upstart-local-bridge
+
 upstart_local_bridge_SOURCES = \
 	upstart-local-bridge.c
 nodist_upstart_local_bridge_SOURCES = \
@@ -103,6 +113,10 @@ upstart_local_bridge_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
+else
+EXTRA_DIST += \
+	upstart-local-bridge.c
+endif
 
 dist_sessions_DATA += \
 	conf-session/upstart-dconf-bridge.conf
