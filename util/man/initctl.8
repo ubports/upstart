@@ -42,14 +42,19 @@ commands.
 .B \-\-user
 User mode. In this mode, initctl will talk to the
 .BR init (8)
-daemon using the D\-Bus private socket defined in the UPSTART_SESSION
+daemon using the D\-Bus private socket defined in the
+.B UPSTART_SESSION
 environment variable.
+
+Note that if the
+.B UPSTART_SESSION
+variable is defined, this option is implied.
 .\"
 .TP
 .B \-\-session
 Connect to
 .BR init (8)
-daemon using the D\-Bus session bus (for testing purposes only).
+daemon using the existing D\-Bus session bus (for testing purposes only).
 .\"
 .TP
 .B \-\-system
@@ -555,6 +560,18 @@ written successfully to disk, the internal cache is deleted.
 .RE
 .\"
 .TP
+.B notify\-dbus\-address
+Notify the
+.BR init (8)
+daemon of the D\-Bus address it should use to connect to.
+
+This command is only permitted when running in
+.B User Session Mode.
+See 
+.BR init (5)
+for further details.
+.\"
+.TP
 .B list\-env
 .RI [ OPTIONS "]
 
@@ -608,7 +625,7 @@ run from within a job.
 Adds or updates a variable in a job environment table. Variables set
 in this way will apply to all subsequently-starting jobs.
 
-This command is only permitted When running in
+This command is only permitted when running in
 .B User Session Mode.
 See 
 .BR init (5)
@@ -640,7 +657,7 @@ for further details.
 Remove the specified variable from a job environment table. If the
 variable does not already exist in the table, no change will be made.
 
-This command is only permitted When running in
+This command is only permitted when running in
 .B User Session Mode.
 See 
 .BR init (5)
@@ -667,12 +684,12 @@ for further details.
 .\"
 .TP
 .B reset\-env
-.R [ OPTIONS ]
+.RI [ OPTIONS ]
 
 Discards all changes make to a job environment table, setting it back
 to its default set of variables and values.
 
-This command is only permitted When running in
+This command is only permitted when running in
 .B User Session Mode.
 See 
 .BR init (5)

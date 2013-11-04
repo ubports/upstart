@@ -128,6 +128,7 @@ extern int          use_session_bus;
 extern int          default_console;
 extern int          write_state_file;
 extern char        *log_dir;
+extern DBusBusType  dbus_bus_type;
 extern mode_t       initial_umask;
 
 /**
@@ -213,7 +214,8 @@ main (int   argc,
 	if (disable_job_logging)
 		nih_debug ("Job logging disabled");
 
-	control_handle_bus_type ();
+	if (getenv (USE_SESSION_BUS_ENV))
+		use_session_bus = TRUE;
 
 	if (! user_mode)
 		no_inherit_env = TRUE;
@@ -447,9 +449,14 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
 
-	/* SIGUSR1 instructs us to reconnect to D-Bus */
-	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+	/* Session Inits only reconnect to D-Bus when notified
+	 * via their private socket.
+	 */
+	if (! user_mode) {
+		/* SIGUSR1 instructs us to reconnect to D-Bus */
+		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+	}
 
 	/* SIGTERM instructs us to re-exec ourselves when running as PID
 	 * 1, or to exit when running as a Session Init; this signal should
@@ -941,15 +948,23 @@ static void
 usr1_handler (void      *data,
 	      NihSignal *signal)
 {
+	nih_assert (! user_mode);
+
 	if (! control_bus) {
-		nih_info (_("Reconnecting to system bus"));
+		char *dbus_bus_name;
+
+		dbus_bus_name = dbus_bus_type == DBUS_BUS_SESSION
+			? "session" : "system";
+
+		nih_info (_("Reconnecting to D-Bus %s bus"),
+				dbus_bus_name);
 
 		if (control_bus_open () < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
-			nih_warn ("%s: %s", _("Unable to connect to the system bus"),
-				  err->message);
+			nih_warn (_("Unable to connect to the D-Bus %s bus: %s"),
+					dbus_bus_name, err->message);
 			nih_free (err);
 		}
 	}

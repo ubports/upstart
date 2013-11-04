@@ -103,6 +103,10 @@
     <method name="NotifyDiskWriteable">
     </method>
 
+    <method name="NotifyDBusAddress">
+      <arg name="address" type="s" direction="in" />
+    </method>
+
     <method name="EndSession"/>
 
     <!-- Basic information about Upstart -->
