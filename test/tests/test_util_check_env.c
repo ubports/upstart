@@ -44,14 +44,9 @@
 int
 check_for_overlayfs (void)
 {
-	struct stat    statbuf;
+	struct statfs  statbuf;
 	char           path[PATH_MAX];
-	const char    *fs = "overlayfs";
-	unsigned int   maj;
-	unsigned int   min;
-	const char    *mounts = "/proc/self/mounts";
-	FILE          *mtab;
-	struct mntent *mnt;
+#define OVERLAYFS_SUPER_MAGIC 0x794c764f
 	int            found = FALSE;
 
 	/* Create a file in the temporary work area */
@@ -59,36 +54,15 @@ check_for_overlayfs (void)
 	fclose (fopen (path, "w"));
 
 	/* Check it exits */
-	assert0 (stat (path, &statbuf));
+	assert0 (statfs (path, &statbuf));
 
-	/* Extract device details */
-	maj = major (statbuf.st_dev);
-	min = minor (statbuf.st_dev);
-
-	mtab = fopen (mounts, "r");
-	TEST_NE_P (mtab, NULL);
-
-	/* Look through mount table */
-	while ((mnt = getmntent (mtab))) {
-		unsigned int mount_maj;
-		unsigned int mount_min;
-
-		assert0 (stat (mnt->mnt_dir, &statbuf));
-		mount_maj = major (statbuf.st_dev);
-		mount_min = minor (statbuf.st_dev);
-
-		if (! strcmp (mnt->mnt_type, fs) && mount_maj == maj && mount_min == min) {
-			found = TRUE;
-			nih_warn ("Mountpoint '%s' (needed by the Upstart tests) is an '%s' "
-					"filesystem which does not support inotify.",
-					mnt->mnt_dir,
-					fs);
-			goto out;
-		}
+	if (statbuf.f_type == OVERLAYFS_SUPER_MAGIC) {
+		nih_warn ("Mountpoint for '%s' (needed by the Upstart tests) is an overlayfs "
+				"filesystem, which does not support inotify.",
+				path);
+		found = TRUE;
 	}
 
-out:
-	fclose (mtab);
 	assert0 (unlink (path));
 
 	return found;
