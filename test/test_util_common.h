@@ -523,7 +523,7 @@
 	ok = FALSE;                                                  \
 	for (int i = 0; i < loops; i++) {                            \
 		sleep (sleep_secs);                                  \
-		if (! stat (logfile, &statbuf)) {                    \
+		if (! stat (path, &statbuf)) {                       \
 			ok = TRUE;                                   \
 			break;                                       \
 		}                                                    \
