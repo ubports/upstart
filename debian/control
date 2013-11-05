@@ -4,7 +4,7 @@ Priority: required
 Maintainer: James Hunt <james.hunt@ubuntu.com>
 Uploaders: Scott James Remnant <scott@ubuntu.com>
 Standards-Version: 3.8.4
-Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3:any, automake (>= 1.12), libdconf-dev
+Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3:any, automake (>= 1.12), libdconf-dev, libselinux1-dev [linux-any]
 X-Python3-Version: 3.3
 XS-Debian-Vcs-Bzr: nosmart+http://bzr.debian.org/bzr/collab-maint/upstart/trunk/
 XS-Debian-Vcs-Browser: http://anonscm.debian.org/loggerhead/collab-maint/upstart/trunk/
