@@ -59,7 +59,7 @@ libupstart_la_LDFLAGS = \
 	$(LIBS) $(NIH_LIBS) $(NIH_DBUS_LIBS) $(DBUS_LIBS) -lrt
 
 # latest ABI
-abi_official = $(srcdir)/abi/libupstart/libupstart_$(LIBUPSTART_VERSION_DOTTED).abi
+abi_official = $(srcdir)/abi/$(host_cpu)-$(host_os)/libupstart_$(LIBUPSTART_VERSION_DOTTED).abi
 
 # disposable ABI descriptor for the currently-built library
 abi_build_XML = libupstart-abi.xml
@@ -80,7 +80,7 @@ EXTRA_DIST = \
 	libupstart.pc.in.in \
 	run_abi_checker.sh.in \
 	libupstart.ver \
-	$(abi_official) \
+	$(wildcard $(srcdir)/abi/*/*.abi) \
 	$(abi_build_XML).in
 
 run_abi_checker.sh: run_abi_checker.sh.in libupstart.la $(abi_build_XML)
