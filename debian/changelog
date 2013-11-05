@@ -3,6 +3,10 @@ upstart (1.10-0ubuntu9) UNRELEASED; urgency=low
   * If check target fails, cat test-suite log files to standard output
     such that they are saved as part of build-log.
 
+  [ Jonathan Davies ]
+  * debian/rules: Set --enable-selinux in configure flags.
+  * debian/control: Set build-dependency on libselinux1-dev.
+
  -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Sun, 03 Nov 2013 02:27:30 +0000
 
 upstart (1.10-0ubuntu8) trusty; urgency=low
