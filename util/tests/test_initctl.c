@@ -16884,10 +16884,22 @@ test_dbus_connection (void)
 	pid_t            upstart_pid = 0;
 	nih_local char  *cmd = NULL;
 	char           **output;
+	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *dbus_session_address = NULL;
 	nih_local char  *dbus_session_address2 = NULL;
 	nih_local char  *upstart_session = NULL;
 	char            *address;
+	char             dirname[PATH_MAX];
+
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring this variable (assuming the tests all pass...).
+	 */
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (orig_xdg_runtime_dir)
+		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
 
 	TEST_GROUP ("D-Bus connection");
 
@@ -17082,6 +17094,14 @@ test_dbus_connection (void)
 
 	/* Stop the 2nd daemon */
 	TEST_DBUS_END (dbus_pid2);
+
+	/* Restore */
+	if (orig_xdg_runtime_dir) {
+		/* restore */
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+	} else {
+		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	}
 }
 
 int
