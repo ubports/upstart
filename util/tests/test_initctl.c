@@ -11972,6 +11972,8 @@ void
 test_umask (void)
 {
 	char             confdir[PATH_MAX];
+	char             dirname[PATH_MAX];
+	nih_local char  *orig_xdg_runtime_dir = NULL;
 	char             logdir[PATH_MAX];
 	pid_t            upstart_pid = 0;
 	nih_local char  *logfile = NULL;
@@ -11980,14 +11982,27 @@ test_umask (void)
 	size_t           length;
 	int              ret;
 	mode_t           original_umask;
-	mode_t           test_umask = 0111;
+	mode_t           test_umask = 0077;
 	mode_t           default_umask = 022;
 
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
 
-        TEST_FILENAME (logdir);
-        TEST_EQ (mkdir (logdir, 0755), 0);
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring this variable (assuming the tests all pass...).
+	 */
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (orig_xdg_runtime_dir)
+		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
+
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+
+	TEST_FILENAME (logdir);
+	TEST_EQ (mkdir (logdir, 0755), 0);
 
 	original_umask = umask (test_umask);
 
@@ -12056,8 +12071,15 @@ test_umask (void)
 	/* Restore */
 	(void)umask (original_umask);
 
-        assert0 (rmdir (confdir));
-        assert0 (rmdir (logdir));
+	if (orig_xdg_runtime_dir) {
+		/* restore */
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+	} else {
+		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
+	}
+
+	assert0 (rmdir (confdir));
+	assert0 (rmdir (logdir));
 }
 
 void
@@ -12073,8 +12095,8 @@ test_show_config (void)
 
 	TEST_GROUP ("show_config");
 
-        TEST_FILENAME (dirname);
-        TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
