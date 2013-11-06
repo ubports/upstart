@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <time.h>
 
 #include <nih-dbus/dbus_error.h>
 #include <nih-dbus/dbus_connection.h>
@@ -266,6 +267,23 @@ selfpipe_setup (void)
     act.sa_handler = selfpipe_write;
 
     sigaction (SIGCHLD, &act, NULL);
+}
+
+/**
+ * have_timed_waitpid
+ *
+ * Return TRUE if precise timing information is available for timing
+ * tests.
+ **/
+int
+have_timed_waitpid (void)
+{
+	struct timespec res;
+
+	if (clock_getres (CLOCK_MONOTONIC_RAW, &res) < 0)
+		return FALSE;
+
+	return TRUE;
 }
 
 /**
