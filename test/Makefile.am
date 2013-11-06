@@ -18,4 +18,17 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 check_LIBRARIES = libtest_util_common.a
-libtest_util_common_a_SOURCES = test_util_common.c test_util_common.h
+libtest_util_common_a_SOURCES = \
+	test_util_common.c \
+	test_util_common.h
+
+TESTS = test_util_check_env
+check_PROGRAMS = $(TESTS)
+
+.PHONY: tests
+tests: $(check_PROGRAMS)
+
+test_util_check_env_SOURCES = tests/test_util_check_env.c
+test_util_check_env_LDADD = \
+	libtest_util_common.a \
+	$(NIH_LIBS)

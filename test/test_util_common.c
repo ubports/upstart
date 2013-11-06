@@ -163,7 +163,7 @@ set_upstart_session (pid_t session_init_pid)
 	 * within a reasonable period of time.
 	 */
 	for (i = 0; i < loops; i++) {
-        sleep (1);
+		sleep (1);
 
 		RUN_COMMAND (NULL, cmd, &output, &lines);
 
