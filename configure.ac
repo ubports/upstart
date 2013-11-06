@@ -96,7 +96,7 @@ if test x$abi_check = xyes; then
 	AC_SUBST([ABI_COMPLIANCE_CHECKER])
 fi
 
-AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
+AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER" && test -e "$srcdir"/lib/abi/"$host_cpu"-"$host_os"/*.abi])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
