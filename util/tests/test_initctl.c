@@ -11022,7 +11022,7 @@ test_reexec (void)
 
 	CREATE_FILE (confdir, "foo.conf", contents);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
 
 	WAIT_FOR_FILE (flagfile);
 
