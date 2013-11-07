@@ -18,7 +18,7 @@ export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 	dh $@ --with bash-completion,autoreconf,python3
 
 override_dh_auto_configure:
-	dh_auto_configure -- --exec-prefix= --disable-silent-rules --disable-abi-check
+	dh_auto_configure -- --exec-prefix= --disable-silent-rules --disable-abi-check --enable-selinux
 
 override_dh_auto_build:
 	dh_auto_build --parallel
