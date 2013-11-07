@@ -232,12 +232,6 @@ test_telinit_LDADD = \
 .PHONY: tests
 tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a
 
-FORCE:
-
-$(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a: FORCE
-	(cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) )
-	(cd $(top_builddir)/test && $(MAKE) $(AM_MAKEFLAGS) check)
-
 clean-local:
 	rm -f *.gcno *.gcda
 
