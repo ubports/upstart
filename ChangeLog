@@ -1,3 +1,11 @@
+2013-11-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.h: WAIT_FOR_FILE(): Check @path not
+	  logfile.
+	* util/tests/test_initctl.c: test_reexec(): Fixed behaviour and
+	  comments for test "ensure 'set-env --global' persists across
+	  session-init re-exec".
+
 2013-11-03  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_class.c:
@@ -106,6 +114,9 @@
 	    - "remove first bare name entry from table of size 2"
 	    - "remove last name=value entry from table of size 2"
 	    - "remove last bare name entry from table of size 2"
+	* init/tests/test_state.c: Removed some redundant JSON upgrade
+	  tests and renamed some existing data files to reflect the
+	  serialisation format version they encapsulate.
 	* test/test_util_common.c: get_initctl(): Added environment checks.
 
 2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
@@ -130,7 +141,43 @@
 	* test/Makefile.am: Added test_util_check_env meta-test.
 	* test/test_util_common.c: Formatting.
 
-2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com
+2013-10-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_environment_clear(): Utility function
+	  exposed primarily to allow tests to invalidate job_environ.
+	* init/tests/test_state.c:
+	  - Added appropriate calls to job_class_environment_clear().
+	  - New JSON data tests added:
+	    - upstart-no-job-environ.json
+	    - upstart-with-job-environ.json
+	    - session-init-no-job-environ.json
+	    - session-init-with-job-environ.json
+	    - session-init-with-modified-job-environ.json
+
+2013-10-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_serialise_job_environ(): New function to serialise global
+	    job environment table.
+	  - job_class_deserialise_job_environ(): New function to deserialise global
+	    job environment table.
+	* init/state.c:
+	  - state_to_string(): Serialise global job environment table
+	    (LP: #1238078).
+	  - state_from_string(): Deserialise global job environment table.
+	  - _state_deserialise_str_array(): Don't attempt to free array if type
+	    check fails.
+	* test/test_util_common.c:
+	  - session_init_reexec(): New.
+	  - set_upstart_session(): Whitespace.
+	* test/test_util_common.h: REEXEC_UPSTART(): Update to handle Session
+	  Inits too.
+	* util/man/initctl.8: Clarify 'set-env' behaviour.
+	* util/tests/test_initctl.c: New tests:
+	  - "ensure 'set-env' persists across session-init re-exec".
+	  - "ensure 'set-env --global' persists across session-init re-exec".
+
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
 	  environment, instead of clobbering PATH.  (LP: #1235480)

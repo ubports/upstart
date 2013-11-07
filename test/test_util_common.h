@@ -389,7 +389,11 @@
  * Force upstart to perform a re-exec.
  **/
 #define REEXEC_UPSTART(pid, user)                                    \
-	KILL_UPSTART (pid, SIGTERM, FALSE);                          \
+	if (user) {                                                  \
+		session_init_reexec (pid);                           \
+	} else {                                                     \
+	    KILL_UPSTART (pid, SIGTERM, FALSE);                      \
+	}                                                            \
 	wait_for_upstart (user ? pid : FALSE)
 
 /**
@@ -519,7 +523,7 @@
 	ok = FALSE;                                                  \
 	for (int i = 0; i < loops; i++) {                            \
 		sleep (sleep_secs);                                  \
-		if (! stat (logfile, &statbuf)) {                    \
+		if (! stat (path, &statbuf)) {                       \
 			ok = TRUE;                                   \
 			break;                                       \
 		}                                                    \
@@ -691,6 +695,7 @@ int set_upstart_session (pid_t session_init_pid)
 	__attribute__ ((warn_unused_result));
 
 void wait_for_upstart (int session_init_pid);
+void session_init_reexec (int session_init_pid);
 
 int have_timed_waitpid (void)
 	__attribute__ ((warn_unused_result));
