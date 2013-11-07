@@ -80,7 +80,7 @@ EXTRA_DIST = \
 	libupstart.pc.in.in \
 	run_abi_checker.sh.in \
 	libupstart.ver \
-	$(wildcard $(srcdir)/abi/*/*.abi) \
+	$(srcdir)/abi \
 	$(abi_build_XML).in
 
 run_abi_checker.sh: run_abi_checker.sh.in libupstart.la $(abi_build_XML)
