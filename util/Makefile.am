@@ -182,6 +182,7 @@ uninstall-hook:
 	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
 	done
 
+AM_TESTS_ENVIRONMENT=unset -v XDG_RUNTIME_DIR HOME DBUS_SESSION_BUS_ADDRESS UPSTART_SESSION UPSTART_INSTANCE UPSTART_EVENTS UPSTART_JOB;
 TESTS = \
 	test_initctl \
 	test_utmp \
