@@ -20,6 +20,8 @@ AM_GNU_GETTEXT([external])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CC_C99
+AM_PROG_CC_C_O
 PKG_PROG_PKG_CONFIG([0.22])
 
 AC_PATH_PROG([NIH_DBUS_TOOL], [nih-dbus-tool])
@@ -67,6 +69,14 @@ AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
                                 test "$have_gio" = yes &&
 				test "$dconf_bridge" = yes])
 
+AC_CHECK_DECL([TEST_PLAN],[
+have_tap=yes
+AC_REQUIRE_AUX_FILE([tap-driver.sh])
+AC_DEFINE([NIH_TAP_OUTPUT], [1], [Do not abort on test failure])
+],[have_tap=no],[[#include <nih/test.h>]])
+AM_CONDITIONAL([ENABLE_TAP_OUTPUT], [test "$have_tap" = "yes"])
+
+
 # Reasons for requiring this library version:
 #
 # 1) RFC 4627, the JSON "memo" (it is *NOT* a standard!) helpfully fails
@@ -102,8 +112,6 @@ AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER" && test 
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_PROG_CC_C99
-AM_PROG_CC_C_O
 NIH_C_THREAD
 
 AC_CHECK_SIZEOF(int)

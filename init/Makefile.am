@@ -166,6 +166,19 @@ upstart_test_programs = \
 	test_control \
 	test_main
 
+if ENABLE_TAP_OUTPUT
+LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+endif
+
+AM_TESTS_ENVIRONMENT= \
+	unset -v \
+		XDG_RUNTIME_DIR \
+		DBUS_SESSION_BUS_ADDRESS \
+		UPSTART_SESSION \
+		UPSTART_INSTANCE \
+		UPSTART_EVENTS \
+		UPSTART_JOB;
+
 TESTS = \
 	$(upstart_test_programs) \
 	test_conf_preload.sh$(EXEEXT)

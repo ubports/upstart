@@ -9371,6 +9371,9 @@ main (int   argc,
 	 */
 	argv0 = argv[0];
 	if (argv0[0] != '/') {
+#ifdef TEST_PLAN
+		TEST_PLAN(153);
+#endif
 		char *path = nih_alloc (NULL, PATH_MAX);
 
 		assert (getcwd (path, PATH_MAX));
