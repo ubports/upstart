@@ -24,6 +24,8 @@ libtest_util_common_a_SOURCES = \
 
 if ENABLE_TAP_OUTPUT
 LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+else
+LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 endif
 
 TESTS = test_util_check_env

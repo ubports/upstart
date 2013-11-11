@@ -96,6 +96,8 @@ run_abi_checker.sh: run_abi_checker.sh.in libupstart.la $(abi_build_XML)
 
 if ENABLE_TAP_OUTPUT
 LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+else
+LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 endif
 
 TESTS = test_libupstart
