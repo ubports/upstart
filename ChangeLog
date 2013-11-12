@@ -1,6 +1,25 @@
 2013-11-12  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: PATH => SOCKET_PATH.
+	* init/Makefile.am:
+	  - Unset DBUS_SYSTEM_BUS_ADDRESS
+	  - Explain unsetting vars.
+	  - test_xdg: link to libtest_util_common.
+	* init/tests/test_main.c:
+	  - Include config.h to avoid local NIH test run failure.
+	  - Remove test-specific XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and
+	    call test_common_setup() and test_common_cleanup() instead.
+	* init/tests/test_xdg.c: Remove test-specific
+	  XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and call test_common_setup()
+	  and test_common_cleanup() instead.
+	* test/test_util_common.c: Added test_common_setup() and
+	  test_common_cleanup().
+	* util/Makefile.am:
+	  - Unset DBUS_SYSTEM_BUS_ADDRESS
+	  - Explain unsetting vars.
+	* util/tests/test_initctl.c: Remove test-specific
+	  XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and call test_common_setup()
+	  and test_common_cleanup() instead.
 
 2013-11-04  James Hunt  <james.hunt@ubuntu.com>
 

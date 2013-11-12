@@ -58,6 +58,18 @@
 #error unable to find initctl binary as INITCTL_BINARY not defined
 #endif /* INITCTL_BINARY */
 
+static char *saved_xdg_config_home = NULL;
+static char *saved_xdg_runtime_dir = NULL;
+static char  test_xdg_config_home[PATH_MAX];
+static char  test_xdg_runtime_dir[PATH_MAX];
+
+/**
+ * test_setup_called:
+ *
+ * Set to TRUE if test_setup() called.
+ **/
+static int test_setup_called = FALSE;
+
 static void selfpipe_write (int n);
 static void selfpipe_setup (void);
 
@@ -848,4 +860,145 @@ file_exists (const char *path)
 	nih_assert (path);
 
 	return ! stat (path, &st);
+}
+
+/**
+ * test_common_setup:
+ *
+ * Perform test setup.
+ *
+ * Currently, only needed for those tests which require unique xdg
+ * directories.
+ *
+ * If called, test must call test_common_cleanup() to cleanup.
+ **/
+void
+test_common_setup (void)
+{
+	char  *xdg_config_home;
+	char  *xdg_runtime_dir;
+
+	/* Take care to avoid disrupting users environment by saving and
+	 * restoring these variable (assuming the tests all pass...).
+	 */
+
+	xdg_config_home = getenv ("XDG_CONFIG_HOME");
+	if (xdg_config_home) {
+		nih_info ("Existing XDG_CONFIG_HOME found ('%s') - "
+				"saving for later restore",
+				xdg_config_home);
+
+		saved_xdg_config_home = NIH_MUST (nih_strdup (NULL, xdg_config_home));
+	}
+
+	TEST_FILENAME (test_xdg_config_home);
+	assert0 (mkdir (test_xdg_config_home, TEST_DIR_MODE));
+	assert0 (setenv ("XDG_CONFIG_HOME", test_xdg_config_home, 1));
+
+	nih_info ("Using test XDG_CONFIG_HOME='%s'", test_xdg_config_home);
+
+	xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	if (xdg_runtime_dir) {
+		nih_info ("Existing XDG_RUNTIME_DIR found ('%s') - "
+				"saving for later restore",
+				xdg_runtime_dir);
+
+		saved_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, xdg_runtime_dir));
+	}
+
+	TEST_FILENAME (test_xdg_runtime_dir);
+	assert0 (mkdir (test_xdg_runtime_dir, TEST_DIR_MODE));
+	assert0 (setenv ("XDG_RUNTIME_DIR", test_xdg_runtime_dir, 1));
+
+	nih_info ("Using test XDG_RUNTIME_DIR='%s'", test_xdg_runtime_dir);
+
+	test_setup_called = TRUE;
+}
+
+/**
+ * test_common_cleanup:
+ *
+ * Perform cleanup of test setup.
+ *
+ * Currently, only needed for those tests which require unique xdg
+ * directories.
+ *
+ * If called, test must already have called test_common_setup().
+ **/
+void
+test_common_cleanup (void)
+{
+	nih_local char  *path = NULL;
+	char            *xdg_config_home;
+	char            *xdg_runtime_dir;
+	struct stat      statbuf;
+
+	if (! test_setup_called) {
+		nih_error ("BUG: Called %s without first calling %s",
+				__func__, "test_common_setup()");
+		abort ();
+	}
+
+	xdg_config_home = getenv ("XDG_CONFIG_HOME");
+	xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+
+	if (saved_xdg_config_home) {
+		nih_assert (test_xdg_config_home[0]);
+		TEST_EQ_STR (test_xdg_config_home, xdg_config_home);
+
+		if (stat (test_xdg_config_home, &statbuf)) {
+			nih_error ("A test has removed XDG_CONFIG_HOME '%s'", test_xdg_config_home);
+			abort ();
+		}
+
+		if (! S_ISDIR (statbuf.st_mode)) {
+			nih_error ("XDG_CONFIG_HOME '%s' no longer a directory", test_xdg_config_home);
+			abort ();
+		}
+
+		assert0 (rmdir (test_xdg_config_home));
+
+		assert0 (setenv ("XDG_CONFIG_HOME", saved_xdg_config_home, 1));
+		nih_info ("Restoring XDG_RUNTIME_DIR='%s'", saved_xdg_config_home);
+		nih_free (saved_xdg_config_home);
+		saved_xdg_config_home = NULL;
+	}
+
+	if (saved_xdg_runtime_dir) {
+		nih_assert (test_xdg_runtime_dir[0]);
+		TEST_EQ_STR (test_xdg_runtime_dir, xdg_runtime_dir);
+
+		if (stat (test_xdg_runtime_dir, &statbuf)) {
+			nih_error ("A test has removed XDG_RUNTIME_DIR '%s'", test_xdg_runtime_dir);
+			abort ();
+		}
+
+		if (! S_ISDIR (statbuf.st_mode)) {
+			nih_error ("XDG_RUNTIME_DIR '%s' no longer a directory", test_xdg_runtime_dir);
+			abort ();
+		}
+
+		path = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", xdg_runtime_dir));
+
+		if (! stat (path, &statbuf)) {
+			nih_local char *cmd = NULL;
+
+			/* Clean up if tests forgot to */
+			cmd = NIH_MUST (nih_sprintf (NULL, "rm %s/*.session 2>/dev/null", path));
+			system (cmd);
+
+			/* Remove the directory tree the first Session Init created */
+			assert0 (rmdir (path));
+			path = NIH_MUST (nih_sprintf (NULL, "%s/upstart", xdg_runtime_dir));
+			assert0 (rmdir (path));
+		}
+
+		assert0 (rmdir (test_xdg_runtime_dir));
+
+		assert0 (setenv ("XDG_RUNTIME_DIR", saved_xdg_runtime_dir, 1));
+		nih_info ("Restoring XDG_RUNTIME_DIR='%s'", saved_xdg_config_home);
+		nih_free (saved_xdg_runtime_dir);
+		saved_xdg_runtime_dir = NULL;
+
+	}
 }

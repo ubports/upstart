@@ -19,6 +19,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <nih/string.h>
 #include <nih/main.h>
 #include <nih/test.h>
@@ -42,22 +46,26 @@ test_confdir (void)
 {
 	char             confdir_a[PATH_MAX];
 	char             confdir_b[PATH_MAX];
-	char             xdg_config_home[PATH_MAX];
-	char             xdg_runtime_dir[PATH_MAX];
+	char            *xdg_config_home;
+	char            *xdg_runtime_dir;
 	char             logdir[PATH_MAX];
 	pid_t            upstart_pid = 0;
 	pid_t            dbus_pid = 0;
 	char           **output;
 	size_t           lines;
 	nih_local char  *cmd = NULL;
-	nih_local char  *orig_xdg_config_home = NULL;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *xdg_conf_dir = NULL;
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 
 	/* space for 2 sets of confdir options and a terminator */
 	char            *extra[5];
+
+	xdg_config_home = getenv ("XDG_CONFIG_HOME");
+	TEST_NE_P (xdg_config_home, NULL);
+
+	xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	TEST_NE_P (xdg_runtime_dir, NULL);
 
 	TEST_GROUP ("--confdir command-line option handling");
 
@@ -67,33 +75,12 @@ test_confdir (void)
 	TEST_FILENAME (confdir_b);
 	assert0 (mkdir (confdir_b, 0755));
 
-	TEST_FILENAME (xdg_config_home);
-	assert0 (mkdir (xdg_config_home, 0755));
-
-	TEST_FILENAME (xdg_runtime_dir);
-	assert0 (mkdir (xdg_runtime_dir, 0755));
-
 	xdg_conf_dir = nih_sprintf (NULL, "%s/%s", xdg_config_home, "upstart");
 	TEST_NE_P (xdg_conf_dir, NULL);
 	assert0 (mkdir (xdg_conf_dir, 0755));
 
 	TEST_FILENAME (logdir);
 	assert0 (mkdir (logdir, 0755));
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring these variable (assuming the tests all pass...).
-	 */
-	orig_xdg_config_home = getenv ("XDG_CONFIG_HOME");
-	if (orig_xdg_config_home)
-		orig_xdg_config_home = NIH_MUST (nih_strdup (NULL, orig_xdg_config_home));
-
-	assert0 (setenv ("XDG_CONFIG_HOME", xdg_config_home, 1));
-
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
-
-	assert0 (setenv ("XDG_RUNTIME_DIR", xdg_runtime_dir, 1));
 
 	/* disable system default job dir */
 	assert0 (setenv ("UPSTART_NO_SYSTEM_USERCONFDIR", "1", 1));
@@ -412,32 +399,9 @@ test_confdir (void)
 
 	TEST_DBUS_END (dbus_pid);
 
-	if (orig_xdg_config_home) {
-		/* restore */
-		setenv ("XDG_CONFIG_HOME", orig_xdg_config_home, 1);
-	} else {
-		assert0 (unsetenv ("XDG_CONFIG_HOME"));
-	}
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
-
 	assert0 (rmdir (confdir_a));
 	assert0 (rmdir (confdir_b));
 	assert0 (rmdir (xdg_conf_dir));
-	assert0 (rmdir (xdg_config_home));
-
-	/* Remove the directory tree the first Session Init created */
-	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", xdg_runtime_dir));
-	TEST_EQ (rmdir (path), 0);
-	path = NIH_MUST (nih_sprintf (NULL, "%s/upstart", xdg_runtime_dir));
-	TEST_EQ (rmdir (path), 0);
-	assert0 (rmdir (xdg_runtime_dir));
-
 	assert0 (rmdir (logdir));
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 }
@@ -446,7 +410,11 @@ int
 main (int   argc,
       char *argv[])
 {
+	test_common_setup ();
+
 	test_confdir ();
+
+	test_common_cleanup ();
 
 	return 0;
 }
