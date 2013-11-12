@@ -172,6 +172,9 @@ else
 LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 endif
 
+# Ensure a clean test environment (that will not touch the running users
+# one). Tests that need the variables listed below are expected to set
+# them to appropriate temporary values as needed.
 AM_TESTS_ENVIRONMENT= \
 	unset -v \
 		XDG_RUNTIME_DIR \
@@ -408,6 +411,10 @@ test_xdg_LDADD = \
 	xdg.o \
 	environ.o \
 	$(NIH_LIBS) \
+	$(top_builddir)/test/libtest_util_common.a \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
 	-lrt
 
 test_control_SOURCES = tests/test_control.c

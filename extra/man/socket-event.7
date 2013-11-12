@@ -52,7 +52,7 @@ start on socket PROTO=inet PORT=80 ADDR=127.0.0.1
 .P
 .RS
 .nf
-start on socket PROTO=unix PATH=/var/run/.s.pgsql.1234
+start on socket PROTO=unix SOCKET_PATH=/var/run/.s.pgsql.1234
 .fi
 .RE
 .\"
@@ -60,7 +60,7 @@ start on socket PROTO=unix PATH=/var/run/.s.pgsql.1234
 .P
 .RS
 .nf
-start on socket PROTO=unix PATH=@/at/upstart/example
+start on socket PROTO=unix SOCKET_PATH=@/at/upstart/example
 .fi
 .RE
 .\"

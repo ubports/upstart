@@ -10988,15 +10988,10 @@ test_reexec (void)
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
 
-
-	if (! getenv ("XDG_RUNTIME_DIR")) {
-		TEST_GROUP ("set-env rexec # TODO fails without XDG_RUNTIME_DIR set");
-		TEST_FAILED ();
-		return;
-	} else {
-
 	/*******************************************************************/
 	TEST_FEATURE ("ensure 'set-env' persists across session-init re-exec");
+
+	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
 
 	contents = nih_sprintf (NULL, 
 			"start on startup\n"
@@ -11056,8 +11051,6 @@ test_reexec (void)
 	assert0 (unlink (logfile));
 	DELETE_FILE (confdir, "foo.conf");
 
-	}
-
 	/*******************************************************************/
 	TEST_FEATURE ("ensure 'set-env --global' persists across session-init re-exec");
 
@@ -11114,7 +11107,6 @@ test_list_sessions (void)
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 	nih_local char  *expected = NULL;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	size_t           len;
 	char            *value;
 
@@ -11125,13 +11117,6 @@ test_list_sessions (void)
 
         TEST_FILENAME (confdir);
         TEST_EQ (mkdir (confdir, 0755), 0);
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
 
 	/*******************************************************************/
 	TEST_FEATURE ("with no instances and XDG_RUNTIME_DIR unset");
@@ -11209,13 +11194,6 @@ test_list_sessions (void)
         TEST_EQ (rmdir (path), 0);
 
 	/*******************************************************************/
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
 
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 
@@ -11302,7 +11280,6 @@ test_quiesce (void)
 	char                    **output;
 	size_t                    lines;
 	nih_local NihDBusProxy   *upstart = NULL;
-	nih_local char           *orig_xdg_runtime_dir = NULL;
 	nih_local char           *session_file = NULL;
 	nih_local char           *job = NULL;
 	pid_t                     job_pid;
@@ -11317,13 +11294,6 @@ test_quiesce (void)
 
         TEST_FILENAME (sessiondir);
         TEST_EQ (mkdir (sessiondir, 0755), 0);
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
@@ -12054,13 +12024,6 @@ test_quiesce (void)
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
 
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
-
         TEST_EQ (rmdir (logdir), 0);
         TEST_EQ (rmdir (confdir), 0);
 
@@ -12078,7 +12041,6 @@ test_umask (void)
 {
 	char             confdir[PATH_MAX];
 	char             dirname[PATH_MAX];
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	char             logdir[PATH_MAX];
 	pid_t            upstart_pid = 0;
 	nih_local char  *logfile = NULL;
@@ -12089,14 +12051,6 @@ test_umask (void)
 	mode_t           original_umask;
 	mode_t           test_umask = 0077;
 	mode_t           default_umask = 022;
-
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
 
 	TEST_FILENAME (dirname);
 	TEST_EQ (mkdir (dirname, 0755), 0);
@@ -12175,13 +12129,6 @@ test_umask (void)
 
 	/* Restore */
 	(void)umask (original_umask);
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
 
 	assert0 (rmdir (confdir));
 	assert0 (rmdir (logdir));
@@ -15794,11 +15741,7 @@ test_usage (void)
 	char            *args[2];
 	int              ret = 0;			  
 
-	if (! getenv ("XDG_RUNTIME_DIR")) {
-		TEST_GROUP ("usage # TODO fails without XDG_RUNTIME_DIR set");
-		TEST_FAILED ();
-		return;
-	}
+	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
 
 	TEST_GROUP ("usage");
 
@@ -16870,15 +16813,17 @@ test_job_env (void)
 {
 	char             confdir[PATH_MAX];
 	char             logdir[PATH_MAX];
-	char             runtimedir[PATH_MAX];
 	size_t           lines;
 	pid_t            dbus_pid = 0;
 	pid_t            upstart_pid = 0;
 	char            *value;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *cmd = NULL;
 	char           **output;
 	nih_local char  *session_file = NULL;
+	char            *xdg_runtime_dir;
+
+	xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	TEST_TRUE (xdg_runtime_dir);
 
 	TEST_GROUP ("job process table commands");
 
@@ -16888,21 +16833,9 @@ test_job_env (void)
         TEST_FILENAME (logdir);
         TEST_EQ (mkdir (logdir, 0755), 0);
 
-        TEST_FILENAME (runtimedir);
-        TEST_EQ (mkdir (runtimedir, 0755), 0);
-
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
-
-	TEST_EQ (setenv ("XDG_RUNTIME_DIR", runtimedir, 1), 0);
 
 	/*******************************************************************/
 	/* Ensure basic variables are set in the current environment */
@@ -16954,12 +16887,12 @@ test_job_env (void)
 
 	STOP_UPSTART (upstart_pid);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
-				runtimedir, (int)upstart_pid));
+				xdg_runtime_dir, (int)upstart_pid));
 	unlink (session_file);
 
 	/*******************************************************************/
 
-	test_no_inherit_job_env (runtimedir, confdir, logdir);
+	test_no_inherit_job_env (xdg_runtime_dir, confdir, logdir);
 
 	/*******************************************************************/
 
@@ -16967,19 +16900,6 @@ test_job_env (void)
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
 	assert0 (unsetenv ("UPSTART_SESSION"));
-
-	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", runtimedir));
-        TEST_EQ (rmdir (session_file), 0);
-	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", runtimedir));
-        TEST_EQ (rmdir (session_file), 0);
-        TEST_EQ (rmdir (runtimedir), 0);
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
 
         TEST_EQ (rmdir (confdir), 0);
         TEST_EQ (rmdir (logdir), 0);
@@ -16994,22 +16914,12 @@ test_dbus_connection (void)
 	pid_t            upstart_pid = 0;
 	nih_local char  *cmd = NULL;
 	char           **output;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *dbus_session_address = NULL;
 	nih_local char  *dbus_session_address2 = NULL;
 	nih_local char  *upstart_session = NULL;
 	char            *address;
-	char             dirname[PATH_MAX];
 
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
-	TEST_FILENAME (dirname);
-	TEST_EQ (mkdir (dirname, 0755), 0);
-	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
+	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
 
 	TEST_GROUP ("D-Bus connection");
 
@@ -17204,14 +17114,6 @@ test_dbus_connection (void)
 
 	/* Stop the 2nd daemon */
 	TEST_DBUS_END (dbus_pid2);
-
-	/* Restore */
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
 }
 
 int
@@ -17224,6 +17126,8 @@ main (int   argc,
 	nih_child_init ();
 	nih_main_loop_init ();
 	program_name = "test";
+
+	test_common_setup ();
 
 	test_upstart_open ();
 	test_job_status ();
@@ -17268,6 +17172,8 @@ main (int   argc,
 	}
 
 	test_dbus_connection ();
+
+	test_common_cleanup ();
 
 	return 0;
 }

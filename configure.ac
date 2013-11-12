@@ -69,11 +69,12 @@ AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
                                 test "$have_gio" = yes &&
 				test "$dconf_bridge" = yes])
 
-AC_CHECK_DECL([TEST_PLAN],[
-have_tap=yes
-AC_REQUIRE_AUX_FILE([tap-driver.sh])
-AC_DEFINE([NIH_TAP_OUTPUT], [1], [Do not abort on test failure])
-],[have_tap=no],[[#include <nih/test.h>]])
+#AC_CHECK_DECL([TEST_PLAN],[
+#have_tap=yes
+#AC_REQUIRE_AUX_FILE([tap-driver.sh])
+#AC_DEFINE([NIH_TAP_OUTPUT], [1], [Do not abort on test failure])
+#],[have_tap=no],[[#include <nih/test.h>]])
+have_tap=no
 AM_CONDITIONAL([ENABLE_TAP_OUTPUT], [test "$have_tap" = "yes"])
 
 

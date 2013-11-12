@@ -182,6 +182,9 @@ uninstall-hook:
 	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
 	done
 
+# Ensure a clean test environment (that will not touch the running users
+# one). Tests that need the variables listed below are expected to set
+# them to appropriate temporary values as needed.
 AM_TESTS_ENVIRONMENT= \
 	unset -v \
 		XDG_RUNTIME_DIR \

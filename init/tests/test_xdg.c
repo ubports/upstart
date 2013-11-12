@@ -30,6 +30,8 @@
 
 #include "xdg.h"
 
+#include "test_util_common.h"
+
 void
 _test_dir_created (char * dirname) {
 	struct stat statbuf;
@@ -438,9 +440,12 @@ test_get_user_log_dir (void)
 void
 test_get_session_dir (void)
 {
-	char dirname[PATH_MAX];
-	char         *expected;
-	char             *path;
+	char   dirname[PATH_MAX];
+	char  *expected;
+	char  *path;
+	char  *orig_xdg_runtime_dir;
+
+	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
 
 	TEST_FUNCTION ("get_session_dir");
 
@@ -463,6 +468,9 @@ test_get_session_dir (void)
 		}
 	}
 
+	if (orig_xdg_runtime_dir)
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
+
 	TEST_FEATURE ("with XDG_RUNTIME_DIR unset");
 	assert0 (unsetenv ("XDG_RUNTIME_DIR"));
 
@@ -476,12 +484,17 @@ test_get_session_dir (void)
 	rmdir (path);
 	nih_free (path);
 	rmdir (dirname);
+
+	if (orig_xdg_runtime_dir)
+		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
 }
 
 int
 main (int   argc,
       char *argv[])
 {
+	test_common_setup ();
+
 	test_get_home_subdir ();
 	test_get_config_home ();
 	test_get_config_dirs ();
@@ -489,6 +502,8 @@ main (int   argc,
 	test_get_cache_home ();
 	test_get_user_log_dir ();
 	test_get_session_dir ();
+
+	test_common_cleanup ();
 
 	return 0;
 }

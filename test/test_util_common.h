@@ -7,6 +7,13 @@
 
 #include <nih-dbus/test_dbus.h>
 
+/**
+ * TEST_DIR_MODE:
+ *
+ * Mode to use when creating test directories.
+ **/
+#define TEST_DIR_MODE 0750
+
 #define BUFFER_SIZE 1024
 
 /**
@@ -744,5 +751,9 @@ char *search_and_replace (void *parent, const char *str,
 
 int file_exists (const char *path)
 	__attribute__ ((warn_unused_result));
+
+void test_common_setup (void);
+
+void test_common_cleanup (void);
 
 #endif /* TEST_UTIL_COMMON_H */
