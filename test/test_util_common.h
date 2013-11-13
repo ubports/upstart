@@ -142,31 +142,6 @@
 	_TEST_WATCH_UPDATE (1, NULL)
 
 /**
- * TEST_FORCE_WATCH_UPDATE_TIMEOUT:
- * @timeout: struct timeval pointer.
- *
- * Force NIH to look for a file event relating to any NihIo objects
- * within time period @timeout.
- **/
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(timeout)                     \
-	_TEST_WATCH_UPDATE (1, timeout)
-
-/**
- * TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS:
- * @timeout: struct timeval pointer.
- *
- * Force NIH to look for a file event relating to any NihIo objects
- * within time period @timeout.
- **/
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS(secs)                   \
-{                                                                    \
-	struct timeval _t;                                           \
-	_t.tv_sec  = secs;                                           \
-	_t.tv_usec = 0;                                              \
-	_TEST_WATCH_UPDATE (1, &_t);                                 \
-}
-
-/**
  * ENSURE_DIRECTORY_EMPTY:
  * @path: Full path to a directory.
  *
@@ -694,6 +669,23 @@
  **/
 #define TEST_STR_ARRAY_NOT_CONTAINS(_array, _pattern)                \
         _TEST_STR_ARRAY_CONTAINS (_array, _pattern, TRUE)
+
+
+/**
+ * TIMED_BLOCK:
+ * @secs: Seconds to run for.
+ *
+ * Run a block of code repeatedly for @secs seconds.
+ * Have the loop call sleep(3) to avoid a busy wait.
+ **/
+#define TIMED_BLOCK(secs)                                                \
+	for (time_t _start_time = 0, _now = 0, _wait_secs = (time_t)secs;\
+		; _now = time (NULL))                                    \
+		if (! _start_time) {                                     \
+			_start_time = _now = time (NULL);                \
+		} else if ((_start_time + _wait_secs) < _now) {          \
+			break;                                           \
+		} else
 
 extern int test_user_mode;
 

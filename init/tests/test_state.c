@@ -2048,12 +2048,15 @@ test_log_serialise (void)
 	struct stat      statbuf;
 	mode_t           old_perms;
 	int              status;
+	int              got;
 
 	conf_init ();
+	nih_io_init ();
 	log_unflushed_init ();
 
 	TEST_TRUE (NIH_LIST_EMPTY (conf_sources));
 	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+	TEST_TRUE (NIH_LIST_EMPTY (nih_io_watches));
 
 	TEST_GROUP ("Log serialisation and deserialisation");
 
@@ -2067,6 +2070,7 @@ test_log_serialise (void)
 
 	log = log_new (NULL, "/foo", pty_master, 0);
 	TEST_NE_P (log, NULL);
+	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
 
 	json = log_serialise (log);
 	TEST_NE_P (json, NULL);
@@ -2086,11 +2090,14 @@ test_log_serialise (void)
 
 	TEST_FILENAME (filename);
 
+	TEST_TRUE (NIH_LIST_EMPTY (nih_io_watches));
+
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
 	/* Provide a log file which is accessible initially */
 	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
+	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
 
 	assert0 (pipe (fds));
 
@@ -2131,10 +2138,19 @@ test_log_serialise (void)
 	close (pty_slave);
 	close (fds[0]);
 
-	/* Slurp the childs initial output */
-	TEST_FORCE_WATCH_UPDATE ();
+	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
 
-	TEST_EQ (stat (filename, &statbuf), 0);
+	got = FALSE;
+	TIMED_BLOCK (5) {
+		TEST_FORCE_WATCH_UPDATE ();
+		if (! stat (filename, &statbuf)) {
+			got = TRUE;
+			break;
+		}
+		sleep (1);
+	}
+
+	TEST_EQ (got, TRUE);
 
 	/* save */
 	old_perms = statbuf.st_mode;
@@ -2181,6 +2197,7 @@ test_log_serialise (void)
 
 	nih_free (log);
 	nih_free (new_log);
+	TEST_TRUE (NIH_LIST_EMPTY (nih_io_watches));
 	TEST_EQ (unlink (filename), 0);
 
 	/*******************************/

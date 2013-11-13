@@ -1,3 +1,15 @@
+2013-11-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_state.c: test_log_serialise():
+	  - Added extra checks on nih_io_watches.
+	  - Need to wait for logfile to be written to handle case where
+	    NIH encounters EAGAIN.
+	* test/test_util_common.h:
+	  - Removed unused macros:
+	    - TEST_FORCE_WATCH_UPDATE_TIMEOUT()
+	    - TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS()
+	  - Added TIMED_BLOCK() macro.
+
 2013-11-12  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: PATH => SOCKET_PATH.
