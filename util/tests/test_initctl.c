@@ -10997,7 +10997,7 @@ test_reexec (void)
 			"start on startup\n"
 			"\n"
 			"pre-start script\n"
-			"initctl set-env foo=bar\n"
+			"%s set-env foo=bar\n"
 			"\n"
 			"# create flag file\n"
 			"touch \"%s\"\n"
@@ -11016,10 +11016,10 @@ test_reexec (void)
 			"done\n"
 			"\n"
 			"# query value post-re-exec\n"
-			"initctl get-env foo\n"
+			"%s get-env foo\n"
 			"\n"
 			"end script\n",
-			flagfile, flagfile);
+			get_initctl_binary(), flagfile, flagfile, get_initctl_binary());
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "foo.conf", contents);
@@ -11107,16 +11107,20 @@ test_list_sessions (void)
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 	nih_local char  *expected = NULL;
+	nih_local char  *original_runtime = NULL;
 	size_t           len;
 	char            *value;
 
 	TEST_GROUP ("list-sessions");
 
-        TEST_FILENAME (dirname);
-        TEST_EQ (mkdir (dirname, 0755), 0);
+	original_runtime = nih_strdup (NULL, getenv("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
 
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
 
 	/*******************************************************************/
 	TEST_FEATURE ("with no instances and XDG_RUNTIME_DIR unset");
@@ -11200,6 +11204,8 @@ test_list_sessions (void)
         TEST_EQ (rmdir (dirname), 0);
         TEST_EQ (rmdir (confdir), 0);
 
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
+
 	/*******************************************************************/
 }
 
@@ -11272,7 +11278,7 @@ test_quiesce (void)
 	char                      confdir[PATH_MAX];
 	char                      logdir[PATH_MAX];
 	char                      pid_file[PATH_MAX];
-	char                      sessiondir[PATH_MAX];
+	nih_local char           *sessiondir;
 	nih_local char           *cmd = NULL;
 	pid_t                     upstart_pid = 0;
 	nih_local char           *logfile = NULL;
@@ -11286,19 +11292,21 @@ test_quiesce (void)
 
 	TEST_GROUP ("Session Init quiesce");
 
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
 
-        TEST_FILENAME (logdir);
-        TEST_EQ (mkdir (logdir, 0755), 0);
+	TEST_FILENAME (logdir);
+	TEST_EQ (mkdir (logdir, 0755), 0);
 
-        TEST_FILENAME (sessiondir);
-        TEST_EQ (mkdir (sessiondir, 0755), 0);
+	sessiondir = nih_strdup (NULL, getenv ("XDG_RUNTIME_DIR"));
+	TEST_NE_P (sessiondir, NULL);
+	
+	cmd = nih_sprintf (NULL, "rm %s/upstart/sessions/*.session 2>/dev/null", sessiondir);
+	system (cmd);
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
-	TEST_EQ (setenv ("XDG_RUNTIME_DIR", sessiondir, 1), 0);
 
 	/* Reset initctl global from previous tests */
 	dest_name = NULL;
@@ -12031,7 +12039,6 @@ test_quiesce (void)
         TEST_EQ (rmdir (session_file), 0);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", sessiondir));
         TEST_EQ (rmdir (session_file), 0);
-        TEST_EQ (rmdir (sessiondir), 0);
 
 	/*******************************************************************/
 }
@@ -12044,6 +12051,7 @@ test_umask (void)
 	char             logdir[PATH_MAX];
 	pid_t            upstart_pid = 0;
 	nih_local char  *logfile = NULL;
+	nih_local char  *original_runtime = NULL;
 	mode_t           job_umask;
 	nih_local char  *job_umask_str = NULL;
 	size_t           length;
@@ -12051,6 +12059,9 @@ test_umask (void)
 	mode_t           original_umask;
 	mode_t           test_umask = 0077;
 	mode_t           default_umask = 022;
+
+	original_runtime = nih_strdup (NULL, getenv ("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
 
 	TEST_FILENAME (dirname);
 	TEST_EQ (mkdir (dirname, 0755), 0);
@@ -12129,6 +12140,7 @@ test_umask (void)
 
 	/* Restore */
 	(void)umask (original_umask);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
 
 	assert0 (rmdir (confdir));
 	assert0 (rmdir (logdir));
@@ -16917,9 +16929,17 @@ test_dbus_connection (void)
 	nih_local char  *dbus_session_address = NULL;
 	nih_local char  *dbus_session_address2 = NULL;
 	nih_local char  *upstart_session = NULL;
+	nih_local char  *original_runtime = NULL;
+	char             dirname[PATH_MAX];
 	char            *address;
 
-	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
+	original_runtime = nih_strdup (NULL, getenv("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
+
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
 
 	TEST_GROUP ("D-Bus connection");
 
@@ -17114,6 +17134,8 @@ test_dbus_connection (void)
 
 	/* Stop the 2nd daemon */
 	TEST_DBUS_END (dbus_pid2);
+
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
 }
 
 int
