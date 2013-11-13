@@ -28,9 +28,9 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 ifeq (0,$(shell id -u))
 	# WARNING: RUNNING TESTS AS ROOT IS KNOWN TO FAIL
 	# WARNING: WILL RUN TESTS, BUT WILL IGNORE FAILURE
-	-dh_auto_build -- check || { RET=$$?; find . -name "test-suite.log" -exec cat {} + ; exit $$RET;}
+	-dh_auto_build -- -k check || { RET=$$?; find . -name "test-suite.log" -exec cat {} + ; exit $$RET;}
 else
-	dh_auto_build -- check || { RET=$$?; find . -name "test-suite.log" -exec cat {} + ; exit $$RET;}
+	dh_auto_build -- -k check || { RET=$$?; find . -name "test-suite.log" -exec cat {} + ; exit $$RET;}
 endif
 endif
 
