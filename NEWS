@@ -1,3 +1,5 @@
+1.12  xxxx-xx-xx ""
+
 1.11  2013-11-14 "Quoi de neuf?"
 
 	* Add '--no-dbus' command-line option for the init(8) daemon (allowing
