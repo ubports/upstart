@@ -182,6 +182,24 @@ uninstall-hook:
 	  rm -f "$(DESTDIR)$(sbindir)/$$file"; \
 	done
 
+# Ensure a clean test environment (that will not touch the running users
+# one). Tests that need the variables listed below are expected to set
+# them to appropriate temporary values as needed.
+AM_TESTS_ENVIRONMENT= \
+	unset -v \
+		XDG_RUNTIME_DIR \
+		DBUS_SESSION_BUS_ADDRESS \
+		UPSTART_SESSION \
+		UPSTART_INSTANCE \
+		UPSTART_EVENTS \
+		UPSTART_JOB;
+
+if ENABLE_TAP_OUTPUT
+LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+else
+LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
+endif
+
 TESTS = \
 	test_initctl \
 	test_utmp \
@@ -231,12 +249,6 @@ test_telinit_LDADD = \
 
 .PHONY: tests
 tests: $(BUILT_SOURCES) $(check_PROGRAMS) $(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a
-
-FORCE:
-
-$(top_builddir)/init/init $(top_builddir)/test/libtest_util_common.a: FORCE
-	(cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) )
-	(cd $(top_builddir)/test && $(MAKE) $(AM_MAKEFLAGS) check)
 
 clean-local:
 	rm -f *.gcno *.gcda

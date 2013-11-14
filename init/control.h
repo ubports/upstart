@@ -134,7 +134,8 @@ int  control_set_log_priority     (void *data, NihDBusMessage *message,
 				   const char *log_priority)
 	__attribute__ ((warn_unused_result));
 
-void control_handle_bus_type      (void);
+DBusBusType control_get_bus_type (void)
+	__attribute__ ((warn_unused_result));
 
 void control_prepare_reexec       (void);
 
@@ -157,7 +158,17 @@ int  control_restart (void *data, NihDBusMessage *message)
 	__attribute__ ((warn_unused_result));
 
 void control_notify_event_emitted (Event *event);
+
 void control_notify_restarted (void);
+
+int control_notify_disk_writeable (void   *data,
+		     NihDBusMessage *message)
+	__attribute__ ((warn_unused_result));
+
+int control_notify_dbus_address (void   *data,
+		     NihDBusMessage *message,
+		     const char *address)
+	__attribute__ ((warn_unused_result));
 
 int control_set_env (void           *data,
 		 NihDBusMessage *message,

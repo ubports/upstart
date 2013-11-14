@@ -7,10 +7,17 @@
 
 #include <nih-dbus/test_dbus.h>
 
+/**
+ * TEST_DIR_MODE:
+ *
+ * Mode to use when creating test directories.
+ **/
+#define TEST_DIR_MODE 0750
+
 #define BUFFER_SIZE 1024
 
 /**
- * TEST_QUIESCE_WAIT_PHASE:
+ * TEST_EXIT_TIME:
  *
  * Maximum time we expect upstart to wait in the QUIESCE_PHASE_WAIT
  * phase.
@@ -133,31 +140,6 @@
  **/
 #define TEST_FORCE_WATCH_UPDATE()                                    \
 	_TEST_WATCH_UPDATE (1, NULL)
-
-/**
- * TEST_FORCE_WATCH_UPDATE_TIMEOUT:
- * @timeout: struct timeval pointer.
- *
- * Force NIH to look for a file event relating to any NihIo objects
- * within time period @timeout.
- **/
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT(timeout)                     \
-	_TEST_WATCH_UPDATE (1, timeout)
-
-/**
- * TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS:
- * @timeout: struct timeval pointer.
- *
- * Force NIH to look for a file event relating to any NihIo objects
- * within time period @timeout.
- **/
-#define TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS(secs)                   \
-{                                                                    \
-	struct timeval _t;                                           \
-	_t.tv_sec  = secs;                                           \
-	_t.tv_usec = 0;                                              \
-	_TEST_WATCH_UPDATE (1, &_t);                                 \
-}
 
 /**
  * ENSURE_DIRECTORY_EMPTY:
@@ -341,7 +323,7 @@
  * Start an instance of Upstart and return PID in @pid.
  **/
 #define START_UPSTART(pid, user_mode)                                \
-	start_upstart_common (&(pid), user_mode, NULL, NULL, NULL)
+	start_upstart_common (&(pid), user_mode, FALSE, NULL, NULL, NULL)
 
 /**
  * KILL_UPSTART:
@@ -389,7 +371,11 @@
  * Force upstart to perform a re-exec.
  **/
 #define REEXEC_UPSTART(pid, user)                                    \
-	KILL_UPSTART (pid, SIGTERM, FALSE);                          \
+	if (user) {                                                  \
+		session_init_reexec (pid);                           \
+	} else {                                                     \
+	    KILL_UPSTART (pid, SIGTERM, FALSE);                      \
+	}                                                            \
 	wait_for_upstart (user ? pid : FALSE)
 
 /**
@@ -519,7 +505,7 @@
 	ok = FALSE;                                                  \
 	for (int i = 0; i < loops; i++) {                            \
 		sleep (sleep_secs);                                  \
-		if (! stat (logfile, &statbuf)) {                    \
+		if (! stat (path, &statbuf)) {                       \
 			ok = TRUE;                                   \
 			break;                                       \
 		}                                                    \
@@ -684,6 +670,23 @@
 #define TEST_STR_ARRAY_NOT_CONTAINS(_array, _pattern)                \
         _TEST_STR_ARRAY_CONTAINS (_array, _pattern, TRUE)
 
+
+/**
+ * TIMED_BLOCK:
+ * @secs: Seconds to run for.
+ *
+ * Run a block of code repeatedly for @secs seconds.
+ * Have the loop call sleep(3) to avoid a busy wait.
+ **/
+#define TIMED_BLOCK(secs)                                                \
+	for (time_t _start_time = 0, _now = 0, _wait_secs = (time_t)secs;\
+		; _now = time (NULL))                                    \
+		if (! _start_time) {                                     \
+			_start_time = _now = time (NULL);                \
+		} else if ((_start_time + _wait_secs) < _now) {          \
+			break;                                           \
+		} else
+
 extern int test_user_mode;
 
 /* Prototypes */
@@ -691,6 +694,10 @@ int set_upstart_session (pid_t session_init_pid)
 	__attribute__ ((warn_unused_result));
 
 void wait_for_upstart (int session_init_pid);
+void session_init_reexec (int session_init_pid);
+
+int have_timed_waitpid (void)
+	__attribute__ ((warn_unused_result));
 
 pid_t timed_waitpid (pid_t pid, time_t timeout)
 	__attribute__ ((warn_unused_result));
@@ -700,8 +707,9 @@ char * get_initctl (void)
 
 void _start_upstart (pid_t *pid, int user, char * const *args);
 
-void start_upstart_common (pid_t *pid, int user, const char *confdir,
-		      const char *logdir, char * const *extra);
+void start_upstart_common (pid_t *pid, int user, int inherit_env,
+		      const char *confdir, const char *logdir,
+		      char * const *extra);
 
 void start_upstart (pid_t *pid);
 
@@ -732,5 +740,12 @@ int dbus_configured (void)
 char *search_and_replace (void *parent, const char *str,
 			  const char *from, const char *to)
 	__attribute__ ((warn_unused_result));
+
+int file_exists (const char *path)
+	__attribute__ ((warn_unused_result));
+
+void test_common_setup (void);
+
+void test_common_cleanup (void);
 
 #endif /* TEST_UTIL_COMMON_H */

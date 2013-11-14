@@ -239,6 +239,8 @@ void        job_class_environment_init     (void);
 
 void        job_class_environment_reset    (void);
 
+void        job_class_environment_clear    (void);
+
 int         job_class_environment_set      (const char *var, int replace);
 int         job_class_environment_unset    (const char *name);
 
@@ -358,6 +360,12 @@ int job_class_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 JobClass * job_class_get (const char *name, Session *session)
+	__attribute__ ((warn_unused_result));
+
+json_object * job_class_serialise_job_environ (void)
+	__attribute__ ((warn_unused_result));
+
+int job_class_deserialise_job_environ (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 void job_class_prepare_reexec (void);

@@ -1,3 +1,334 @@
+2013-11-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.11
+
+2013-11-13  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/test_state.c: test_log_serialise():
+	  - Added extra checks on nih_io_watches.
+	  - Need to wait for logfile to be written to handle case where
+	    NIH encounters EAGAIN.
+	* test/test_util_common.h:
+	  - Removed unused macros:
+	    - TEST_FORCE_WATCH_UPDATE_TIMEOUT()
+	    - TEST_FORCE_WATCH_UPDATE_TIMEOUT_SECS()
+	  - Added TIMED_BLOCK() macro.
+
+2013-11-12  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/socket-event.7: PATH => SOCKET_PATH.
+	* init/Makefile.am:
+	  - Unset DBUS_SYSTEM_BUS_ADDRESS
+	  - Explain unsetting vars.
+	  - test_xdg: link to libtest_util_common.
+	* init/tests/test_main.c:
+	  - Include config.h to avoid local NIH test run failure.
+	  - Remove test-specific XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and
+	    call test_common_setup() and test_common_cleanup() instead.
+	* init/tests/test_xdg.c: Remove test-specific
+	  XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and call test_common_setup()
+	  and test_common_cleanup() instead.
+	* test/test_util_common.c: Added test_common_setup() and
+	  test_common_cleanup().
+	* util/Makefile.am:
+	  - Unset DBUS_SYSTEM_BUS_ADDRESS
+	  - Explain unsetting vars.
+	* util/tests/test_initctl.c: Remove test-specific
+	  XDG_CONFIG_HOME/XDG_RUNTIME_DIR handling and call test_common_setup()
+	  and test_common_cleanup() instead.
+
+2013-11-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.h: WAIT_FOR_FILE(): Check @path not
+	  logfile.
+	* util/tests/test_initctl.c: test_reexec(): Fixed behaviour and
+	  comments for test "ensure 'set-env --global' persists across
+	  session-init re-exec".
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_new(): Set umask for job to current value for Session
+	    Init by default (LP: #1240686).
+	* init/job_process.c: Comments.
+	* init/main.c: main(): Save current umask.
+	* test/test_util_common.c:
+	  - start_upstart_common(): Add extra param for inheriting environment
+	    rather than hard-coding '--no-inherit-env'.
+	  - start_upstart(: Updated call to start_upstart_common().
+	* init/tests/test_main.c: Updated calls to start_upstart_common().
+	* test/test_util_common.h: START_UPSTART(): Updated call to
+	  start_upstart_common().
+	* util/tests/test_initctl.c:
+	  - Updated calls to start_upstart_common().
+	  - test_umask(): New tests:
+	    - "ensure Session Init inherits umask by default"
+	    - "ensure Session Init defaults umask with '--no-inherit-env'"
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* scripts/pyupstart.py:
+	  - dbus_encode(): Comments.
+	  - Upstart::_idle_create_job_cb(): Pass retain option.
+	  - Upstart::job_create(): Allow specification of retain option to keep
+	    job configuration file on object destruction.
+	  - Upstart::job_recreate(): New method to vivify a Job object using an
+	    existing job configuration file.
+	  - Job::__init__(): New 'retain' and 'reuse_path' options.
+	  - Job::get_instance(): New method to obtain a Jobs JobInstance.
+	  - Job::get_dbus_instance(): Renamed from get_instance().
+	  - JobInstance::destroy(): NOP for 'retain'ed jobs.
+	* scripts/tests/test_pyupstart_system_init.py:
+	  - test_pid1_reexec():
+	    - Retain the job configuration to allow the object to be recreated
+	      after re-exec.
+	* scripts/tests/test_pyupstart_session_init.py:
+	  - test_session_init_reexec: Add job creation for parity with
+	    test_pid1_reexec().
+
+2013-11-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - create_handler(): Use original_file() for directories
+	    (LP: #1221466, #1222702).
+	  - watched_dir_new(): Additional assert.
+	  - watched_file_new():
+	    - Additional assert.
+	    - Store original directory path in file object to ensure reliable
+	      matching for directories.
+	* scripts/tests/test_pyupstart_session_init.py: Added file bridge tests
+	  for directory creation, modification and deletion.
+
+2013-10-25  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml: Added 'NotifyDBusAddress' method.
+	* init/control.c:
+	  - control_bus_open(): Connect to the D-Bus bus specified
+	    by control_bus_address when running as a Session Init (LP: #1203595, #1235649).
+	  - control_disconnected(): Display calculated bus type rather than hard-coding.
+	  - control_handle_bus_type(): Removed.
+	  - control_get_bus_type(): Determine type of D-Bus bus that will be used.
+	  - control_notify_dbus_address(): Implementation of D-Bus 'NotifyDBusAddress' method
+	    that sets control_bus_address.
+	* init/main.c:
+	  - main():
+	    - Just check USE_SESSION_BUS_ENV variable rather than calling
+	      control_handle_bus_type().
+	    - Don't register SIGUSR1 handler for Session Init.
+	  - usr1_handler(): Display calculated bus type rather than hard-coding.
+	* init/test_control.c: Updated strings used by tests which check error
+	  messages to include 'D-Bus'.
+	* util/initctl.c: Added new 'notify-dbus-address' command.
+	* util/man/initctl.8:
+	  - Documentation for new 'notify-dbus-address' command.
+	  - reset-env: Troff fix.
+	  - Explain '--user' implicit in user mode.
+	* util/tests/test_initctl.c: test_dbus_connection(): New function providing
+	  the following new tests:
+	  - "ensure non-priv non-Session Init connects to D-Bus session bus on startup".
+	  - "ensure Session Init does not connect to D-Bus session bus on startup".
+	  - "ensure Session Init connects to D-Bus session bus when notified".
+	  - "ensure Session Init does not connect to another bus when notified twice".
+
+2013-10-25  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/main.c, init/system.c, init/system.h: allow mount options
+	  to be passed to system_mount(), and pass the right options when
+	  mounting /dev/pts to match the permissions set by either
+	  initramfs-tools or mountall.  LP: #1244763.
+
+2013-10-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/environ.c: Comment.
+	* init/job_process.c: Formatting.
+	* init/test_environ.c:
+	  - test_add(): New test:
+	    - "using bare word with no corresponding variable set in environment"
+	  - test_remove(): New function ("the missing test") containing 8 new tests:
+	    - "remove name=value pair with empty table"
+	    - "remove bare name with empty table"
+	    - "remove name=value from table of size 1"
+	    - "remove bare name from table of size 1"
+	    - "remove first name=value entry from table of size 2"
+	    - "remove first bare name entry from table of size 2"
+	    - "remove last name=value entry from table of size 2"
+	    - "remove last bare name entry from table of size 2"
+	* init/tests/test_state.c: Removed some redundant JSON upgrade
+	  tests and renamed some existing data files to reflect the
+	  serialisation format version they encapsulate.
+	* test/test_util_common.c: get_initctl(): Added environment checks.
+
+2013-10-23  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* extra/upstart-socket-bridge.c: use SOCKET_PATH in our event
+	  environment, instead of clobbering PATH.  (LP: #1235480)
+
+2013-10-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/initctl.h: IS_INIT_EVENT(): Ignore session end event when
+	  running in user mode (for 'check-config').
+
+2013-10-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/tests/test_util_check_env.c:
+	  - check_for_overlayfs(): Only consider temporary work area.
+
+2013-10-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/tests/test_util_check_env.c: New test to look for
+	  overlayfs filesystems which could cause tests to fail.
+	* test/Makefile.am: Added test_util_check_env meta-test.
+	* test/test_util_common.c: Formatting.
+
+2013-10-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_environment_clear(): Utility function
+	  exposed primarily to allow tests to invalidate job_environ.
+	* init/tests/test_state.c:
+	  - Added appropriate calls to job_class_environment_clear().
+	  - New JSON data tests added:
+	    - upstart-no-job-environ.json
+	    - upstart-with-job-environ.json
+	    - session-init-no-job-environ.json
+	    - session-init-with-job-environ.json
+	    - session-init-with-modified-job-environ.json
+
+2013-10-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c:
+	  - job_class_serialise_job_environ(): New function to serialise global
+	    job environment table.
+	  - job_class_deserialise_job_environ(): New function to deserialise global
+	    job environment table.
+	* init/state.c:
+	  - state_to_string(): Serialise global job environment table
+	    (LP: #1238078).
+	  - state_from_string(): Deserialise global job environment table.
+	  - _state_deserialise_str_array(): Don't attempt to free array if type
+	    check fails.
+	* test/test_util_common.c:
+	  - session_init_reexec(): New.
+	  - set_upstart_session(): Whitespace.
+	* test/test_util_common.h: REEXEC_UPSTART(): Update to handle Session
+	  Inits too.
+	* util/man/initctl.8: Clarify 'set-env' behaviour.
+	* util/tests/test_initctl.c: New tests:
+	  - "ensure 'set-env' persists across session-init re-exec".
+	  - "ensure 'set-env --global' persists across session-init re-exec".
+
+2013-10-04  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* extra/upstart-local-bridge.c: use SOCKET_PATH in our event
+	  environment, instead of clobbering PATH.  (LP: #1235480)
+	* extra/conf/upstart-file-bridge.conf: fix the start condition to
+	  comply with the intent, that we start the file bridge only once
+	  the filesystem is up. (LP: #1235387)
+
+2013-10-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-local-bridge.c:
+	  - socket_reader():
+	    - Handle event emission in new function emit_event().
+	    - Check that data is printable.
+	    - Allow input to be a set of pairs (LP: #1234898).
+
+2013-10-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_utmp.c: Update remaining tests to pause
+	  between writing utmp(x) records and reading them back to allow
+	  tests to detect whether the expected new records have replaced
+	  the artificially created original ones (LP: #1089159).
+
+2013-10-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.c:
+	  - set_upstart_session(): Call get_initctl_binary() rather than using
+	    define value.
+	  - get_initctl(): As above.
+	  - get_initctl_binary(): Check that file exists for parity with
+	    get_upstart_binary().
+
+2013-10-01  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/upstart-file-bridge.c:
+	  - upstart_job_added(): Make quieter in manner consistent with
+	    the other bridges (only display output in debug mode).
+	  - upstart_job_removed(): As above.
+
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_pending_handle_jobs(): Don't re-iterate job classes
+	  unless quiescing.
+
+2013-09-26  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/event.c: event_pending_handle_jobs(): Force quiesce when all job
+	  instances have finished to speed session shutdown.
+	* init/job_process.c: job_process_jobs_running(): Only consider job
+	  instances with associated pids to avoid abstract jobs confusing the
+	  shutdown.
+	* init/quiesce.c:
+	  - quiesce(): Optimise session shutdown 
+	    - Skip wait phase if no jobs care about the 'session-end' event
+	      (LP: #1227212).
+	    - Stop already running instances if other jobs care about
+	      'session-end' to allow the already-running jobs to shut down in
+	       parallel with the newly-started session-end jobs.
+	  - quiesce_wait_callback():
+	    - Simplify logic.
+	    - Improve wait phase checks to detect earliest time to finalise.
+	  - quiesce_finalise(): Display time to shutdown.
+	  - quiesce_complete(): New function to force final shutdown phase.
+	  - quiesce_event_match(): New function to determine if any jobs
+	    'start on' contains a particular event.
+	  - quiesce_in_progress(): Determine if shutdown is being handled.
+	* test/test_util_common.c:
+	  - _start_upstart(): Call get_upstart_binary() rather than relying on
+	    UPSTART_BINARY define.
+	  - start_upstart_common(): Remove '--no-startup-event' as this is now
+	    needed by a test.
+	  - get_upstart_binary(): Assert that file exists.
+	  - file_exists(): New helper function.
+	* test/test_util_common.h: Typo and prototype.
+	* util/tests/test_initctl.c: test_quiesce():
+	  - New test "session shutdown: one long-running job which starts on
+	    startup".
+	  - Adjusted expected shutdown times.
+
+2013-09-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c: Typo.
+	* init/main.c: Add '--no-dbus' command-line option.
+	  init/man/init.8: Added '--no-dbus' option.
+	* util/tests/test_initctl.c: test_no_dbus(): New test
+	  to test '--no-dbus' option.
+
+2013-09-12  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* configure.ac:
+	  - correct the copyright notice.
+	* extra/Makefile.am:
+	  - don't pass cflags from unrelated libraries when building, only
+	    pass them to those bridges which use the relevant libraries.
+	* init/tests/test_job_process.c: adjust test case to not key on the
+	  text of error messages which will vary depending on whether
+	  /bin/sh is dash or bash; and use TEST_STR_MATCH so that in the
+	  event of future failures, we know why it's failing.
+
+2013-09-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce():
+	  - Improve kill checks on job processes.
+	  - Assert precisely which job processes are expected to be running
+	    after the Session Init has exited (particularly important for jobs
+	    that 'start on session-end' since they may be running in a System
+	    Shutdown scenario).
+
+2013-08-28  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/tests/test_initctl.c: test_quiesce(): Clean up any
+	  processes that the Session Init couldn't before it shut down.
+
 2013-08-23  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.10

@@ -1,8 +1,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.10], [upstart-devel@lists.ubuntu.com])
-NIH_COPYRIGHT([[Copyright © 2013 Scott James Remnant, Canonical Ltd.]])
+AC_INIT([upstart], [1.11], [upstart-devel@lists.ubuntu.com])
+NIH_COPYRIGHT([[Copyright © 2006-2013 Canonical Ltd., 2011 Scott James Remnant]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -20,6 +20,8 @@ AM_GNU_GETTEXT([external])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CC_C99
+AM_PROG_CC_C_O
 PKG_PROG_PKG_CONFIG([0.22])
 
 AC_PATH_PROG([NIH_DBUS_TOOL], [nih-dbus-tool])
@@ -34,12 +36,29 @@ PKG_CHECK_MODULES([GIO], [gio-2.0 >= 2.36], [have_gio=yes], [have_gio=no])
 PKG_CHECK_MODULES([UDEV], [libudev >= 146], [have_udev=yes], [have_udev=no])
 PKG_CHECK_MODULES([DCONF], [dconf >= 0.14], [have_dconf=yes], [have_dconf=no])
 
+AC_CHECK_HEADER([sys/epoll.h], [have_epoll=yes], [have_epoll=no])
+
 AC_ARG_ENABLE([udev-bridge],
 	AS_HELP_STRING([--disable-udev-bridge],
 		[Disable building of upstart-udev-bridge even if required dependencies available]),
 		[udev_bridge=no], [udev_bridge=yes])
 
 AM_CONDITIONAL([ENABLE_UDEV_BRIDGE], [test "$have_udev" = yes && test "$udev_bridge" = yes])
+
+AC_ARG_ENABLE([socket-bridge],
+	AS_HELP_STRING([--disable-socket-bridge],
+		[Disable building of upstart-socket-bridge even if required dependencies available]),
+		[socket_bridge=no], [socket_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_SOCKET_BRIDGE], [test "$have_epoll" = yes && test "$socket_bridge" = yes])
+
+AC_ARG_ENABLE([local-bridge],
+	AS_HELP_STRING([--disable-local-bridge],
+		[Disable building of upstart-local-bridge even if required dependencies available]),
+		[local_bridge=no], [local_bridge=yes])
+
+AM_CONDITIONAL([ENABLE_LOCAL_BRIDGE], [test "$local_bridge" = yes])
+
 
 AC_ARG_ENABLE([dconf-bridge],
 	AS_HELP_STRING([--disable-dconf-bridge],
@@ -49,6 +68,15 @@ AC_ARG_ENABLE([dconf-bridge],
 AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
                                 test "$have_gio" = yes &&
 				test "$dconf_bridge" = yes])
+
+#AC_CHECK_DECL([TEST_PLAN],[
+#have_tap=yes
+#AC_REQUIRE_AUX_FILE([tap-driver.sh])
+#AC_DEFINE([NIH_TAP_OUTPUT], [1], [Do not abort on test failure])
+#],[have_tap=no],[[#include <nih/test.h>]])
+have_tap=no
+AM_CONDITIONAL([ENABLE_TAP_OUTPUT], [test "$have_tap" = "yes"])
+
 
 # Reasons for requiring this library version:
 #
@@ -79,14 +107,12 @@ if test x$abi_check = xyes; then
 	AC_SUBST([ABI_COMPLIANCE_CHECKER])
 fi
 
-AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER"])
+AM_CONDITIONAL([HAVE_ABI_CHECKER], [test ! -z "$ABI_COMPLIANCE_CHECKER" && test -e "$srcdir"/lib/abi/"$host_cpu"-"$host_os"/*.abi])
 
 # Checks for header files.
 AC_CHECK_HEADERS([valgrind/valgrind.h, sys/prctl.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_PROG_CC_C99
-AM_PROG_CC_C_O
 NIH_C_THREAD
 
 AC_CHECK_SIZEOF(int)

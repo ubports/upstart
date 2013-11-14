@@ -339,6 +339,7 @@ int
 state_to_string (char **json_string, size_t *len)
 {
 	json_object  *json;
+	json_object  *json_job_environ;
 	const char   *value;
 
 	nih_assert (json_string);
@@ -364,6 +365,16 @@ state_to_string (char **json_string, size_t *len)
 	}
 
 	json_object_object_add (json, "events", json_events);
+
+	json_job_environ = job_class_serialise_job_environ ();
+
+	if (! json_job_environ) {
+		nih_error ("%s global job environment",
+				_("Failed to serialise"));
+		goto error;
+	}
+
+	json_object_object_add (json, "job_environment", json_job_environ);
 
 	json_classes = job_class_serialise_all ();
 
@@ -415,6 +426,7 @@ state_from_string (const char *state)
 {
 	int                       ret = -1;
 	json_object              *json;
+	json_object              *json_job_environ;
 	enum json_tokener_error   error;
 
 	nih_assert (state);
@@ -456,6 +468,18 @@ state_from_string (const char *state)
 		}
 	} else {
 		nih_warn ("%s", _("No ConfSources present in state data"));
+	}
+
+	json_job_environ = json_object_object_get (json, "job_environment");
+
+	if (json_job_environ) {
+		if (job_class_deserialise_job_environ (json_job_environ) < 0) {
+			nih_error ("%s global job environment",
+					_("Failed to deserialise"));
+			goto out;
+		}
+	} else {
+		nih_warn ("%s", _("No global job environment data present in state data"));
 	}
 
 	if (job_class_deserialise_all (json) < 0) {
@@ -610,7 +634,7 @@ _state_deserialise_str_array (void           *parent,
 	nih_assert (len);
 
 	if (! state_check_json_type (json, array))
-		goto error;
+		return -1;
 
 	*len = json_object_array_length (json);
 

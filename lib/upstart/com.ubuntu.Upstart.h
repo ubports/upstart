@@ -53,6 +53,8 @@ typedef void (*UpstartEmitEventWithFileReply) (void *data, NihDBusMessage *messa
 
 typedef void (*UpstartNotifyDiskWriteableReply) (void *data, NihDBusMessage *message);
 
+typedef void (*UpstartNotifyDbusAddressReply) (void *data, NihDBusMessage *message);
+
 typedef void (*UpstartEndSessionReply) (void *data, NihDBusMessage *message);
 
 typedef void (*UpstartJobAddedHandler) (void *data, NihDBusMessage *message, const char *job);
@@ -129,6 +131,10 @@ int              upstart_emit_event_with_file_sync  (const void *parent, NihDBus
 DBusPendingCall *upstart_notify_disk_writeable      (NihDBusProxy *proxy, UpstartNotifyDiskWriteableReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
 	__attribute__ ((warn_unused_result));
 int              upstart_notify_disk_writeable_sync (const void *parent, NihDBusProxy *proxy)
+	__attribute__ ((warn_unused_result));
+DBusPendingCall *upstart_notify_dbus_address        (NihDBusProxy *proxy, const char *address, UpstartNotifyDbusAddressReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
+	__attribute__ ((warn_unused_result));
+int              upstart_notify_dbus_address_sync   (const void *parent, NihDBusProxy *proxy, const char *address)
 	__attribute__ ((warn_unused_result));
 DBusPendingCall *upstart_end_session                (NihDBusProxy *proxy, UpstartEndSessionReply handler, NihDBusErrorHandler error_handler, void *data, int timeout)
 	__attribute__ ((warn_unused_result));

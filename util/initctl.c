@@ -342,8 +342,7 @@ upstart_open (const void *parent)
 			use_dbus = getuid () ? TRUE : FALSE;
 		if (use_dbus >= 0 && dbus_bus_type < 0)
 			dbus_bus_type = DBUS_BUS_SYSTEM;
-	}
-	else {
+	} else {
 		if (! user_addr) {
 			nih_error ("UPSTART_SESSION isn't set in the environment. "
 				       "Unable to locate the Upstart instance.");
@@ -352,7 +351,6 @@ upstart_open (const void *parent)
 		dest_address = user_addr;
 		use_dbus = FALSE;
 	}
-
 
 	dbus_error_init (&dbus_error);
 	if (use_dbus) {
@@ -387,6 +385,7 @@ upstart_open (const void *parent)
 			return NULL;
 		}
 	}
+
 	dbus_error_free (&dbus_error);
 
 	upstart = nih_dbus_proxy_new (parent, connection,
@@ -1987,6 +1986,51 @@ error:
 
 
 /**
+ * notify_dbus_address_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "notify-dbus-address" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+notify_dbus_address_action (NihCommand    *command,
+			    char * const  *args)
+{
+	nih_local NihDBusProxy   *upstart = NULL;
+	NihError                 *err;
+	char                     *address = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (! args[0]) {
+		fprintf (stderr, _("%s: missing D-Bus address\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	address = args[0];
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_notify_dbus_address_sync (NULL, upstart, address) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
  * list_sessions_action:
  * @command: NihCommand invoked,
  * @args: command-line arguments.
@@ -2827,7 +2871,7 @@ get_job_details (void)
  * Command-line options accepted for all arguments.
  **/
 static NihOption options[] = {
-	{ 0, "session", N_("use D-Bus session bus to connect to init daemon (for testing)"),
+	{ 0, "session", N_("use existing D-Bus session bus to connect to init daemon (for testing)"),
 	  NULL, NULL, NULL, dbus_bus_type_setter },
 	{ 0, "system", N_("use D-Bus system bus to connect to init daemon"),
 	  NULL, NULL, NULL, dbus_bus_type_setter },
@@ -3192,6 +3236,11 @@ static NihCommand commands[] = {
 	  N_("Show job usage message if available."),
 	  N_("JOB is the name of the job which usage is to be shown.\n" ),
 	  NULL, usage_options, usage_action },
+
+	{ "notify-dbus-address", NULL,
+	  N_("Inform Upstart of D-Bus address to connect to."),
+	  N_("Run to allow Upstart to provide services over D-Bus."),
+	  NULL, NULL, notify_dbus_address_action},
 
 	{ "notify-disk-writeable", NULL,
 	  N_("Inform Upstart that disk is now writeable."),

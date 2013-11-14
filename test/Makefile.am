@@ -18,4 +18,23 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/intl
 
 check_LIBRARIES = libtest_util_common.a
-libtest_util_common_a_SOURCES = test_util_common.c test_util_common.h
+libtest_util_common_a_SOURCES = \
+	test_util_common.c \
+	test_util_common.h
+
+if ENABLE_TAP_OUTPUT
+LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+else
+LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
+endif
+
+TESTS = test_util_check_env
+check_PROGRAMS = $(TESTS)
+
+.PHONY: tests
+tests: $(check_PROGRAMS)
+
+test_util_check_env_SOURCES = tests/test_util_check_env.c
+test_util_check_env_LDADD = \
+	libtest_util_common.a \
+	$(NIH_LIBS)

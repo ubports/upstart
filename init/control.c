@@ -81,9 +81,17 @@ static void  control_session_file_remove (void);
  *
  * If TRUE, connect to the D-Bus session bus rather than the system bus.
  *
- * Used for testing.
+ * Used for testing to simulate (as far as possible) a system-like init
+ * when running as a non-priv user (but not as a Session Init).
  **/
 int use_session_bus = FALSE;
+
+/**
+ * dbus_bus_type:
+ *
+ * Type of D-Bus bus to connect to.
+ **/
+DBusBusType dbus_bus_type;
 
 /**
  * control_server_address:
@@ -98,6 +106,13 @@ char *control_server_address = NULL;
  * D-Bus server listening for new direct connections.
  **/
 DBusServer *control_server = NULL;
+
+/**
+ * control_bus_address:
+ *
+ * Address on which the control bus may be reached.
+ **/
+char *control_bus_address = NULL;
 
 /**
  * control_bus:
@@ -236,7 +251,6 @@ control_server_close (void)
 	control_server = NULL;
 }
 
-
 /**
  * control_bus_open:
  *
@@ -256,17 +270,37 @@ control_bus_open (void)
 
 	nih_assert (control_bus == NULL);
 
+	dbus_error_init (&error);
+
 	control_init ();
 
-	control_handle_bus_type ();
+	dbus_bus_type = control_get_bus_type ();
 
-	/* Connect to the D-Bus System Bus and hook everything up into
+	/* Connect to the appropriate D-Bus bus and hook everything up into
 	 * our own main loop automatically.
 	 */
-	conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
-			     control_disconnected);
-	if (! conn)
-		return -1;
+	if (user_mode && control_bus_address) {
+		conn = nih_dbus_connect (control_bus_address, control_disconnected);
+		if (! conn)
+			return -1;
+
+		if (! dbus_bus_register (conn, &error)) {
+			nih_dbus_error_raise (error.name, error.message);
+			dbus_error_free (&error);
+			return -1;
+		}
+
+		nih_debug ("Connected to notified D-Bus bus");
+	} else {
+		conn = nih_dbus_bus (use_session_bus ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM,
+				control_disconnected);
+		if (! conn)
+			return -1;
+
+		nih_debug ("Connected to D-Bus %s bus",
+				dbus_bus_type == DBUS_BUS_SESSION
+				? "session" : "system");
+	}
 
 	/* Register objects on the bus. */
 	control_register_all (conn);
@@ -275,7 +309,6 @@ control_bus_open (void)
 	 * appears on the bus, clients can assume we're ready to talk to
 	 * them.
 	 */
-	dbus_error_init (&error);
 	ret = dbus_bus_request_name (conn, DBUS_SERVICE_UPSTART,
 				     DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
 	if (ret < 0) {
@@ -345,7 +378,13 @@ control_disconnected (DBusConnection *conn)
 
 		dbus_error_init (&error);
 
-		nih_warn (_("Disconnected from system bus"));
+		if (user_mode && control_bus_address) {
+			nih_warn (_("Disconnected from notified D-Bus bus"));
+		} else {
+			nih_warn (_("Disconnected from D-Bus %s bus"),
+					dbus_bus_type == DBUS_BUS_SESSION
+					? "session" : "system");
+		}
 
 		control_bus = NULL;
 	}
@@ -817,19 +856,20 @@ control_set_log_priority (void *          data,
 }
 
 /**
- * control_handle_bus_type:
+ * control_get_bus_type:
  *
  * Determine D-Bus bus type to connect to.
+ *
+ * Returns: Type of D-Bus bus to connect to.
  **/
-void
-control_handle_bus_type (void)
+DBusBusType
+control_get_bus_type (void)
 {
-	if (getenv (USE_SESSION_BUS_ENV))
-		use_session_bus = TRUE;
-
-	if (use_session_bus)
-		nih_debug ("Using session bus");
+	return (use_session_bus || user_mode) 
+		? DBUS_BUS_SESSION
+		: DBUS_BUS_SYSTEM;
 }
+
 /**
  * control_notify_disk_writeable:
  * @data: not used,
@@ -877,6 +917,59 @@ control_notify_disk_writeable (void   *data,
 		nih_error_raise_system ();
 		return -1;
 	}
+
+	return 0;
+}
+
+/**
+ * control_notify_dbus_address:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @address: Address of D-Bus to connect to.
+ *
+ * Implements the NotifyDBusAddress method of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to allow the Session Init to connect to the D-Bus
+ * Session Bus when available.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_notify_dbus_address (void            *data,
+			     NihDBusMessage  *message,
+			     const char      *address)
+{
+	nih_assert (message);
+	nih_assert (address);
+
+	if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to notify D-Bus address for PID 1"));
+		return -1;
+	}
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to notify D-Bus address"));
+		return -1;
+	}
+
+	/* Ignore as already connected */
+	if (control_bus)
+		return 0;
+
+	control_bus_address = nih_strdup (NULL, address);
+	if (! control_bus_address) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+				_("Out of Memory"));
+		return -1;
+	}
+
+	if (control_bus_open () < 0)
+		return -1;
 
 	return 0;
 }

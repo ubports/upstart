@@ -36,7 +36,7 @@ int system_setup_console (ConsoleType type, int reset)
 	__attribute__ ((warn_unused_result));
 
 int system_mount         (const char *type, const char *dir,
-			  unsigned long flags)
+			  unsigned long flags, const char *options)
 	__attribute__ ((warn_unused_result));
 
 void system_mknod        (const char *path, mode_t mode, dev_t dev);

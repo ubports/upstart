@@ -10839,7 +10839,7 @@ test_reexec (void)
 	/*******************************************************************/
 	TEST_FEATURE ("single job producing output across a re-exec");
 
-	start_upstart_common (&upstart_pid, FALSE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, FALSE, FALSE, confdir, logdir, NULL);
 
 	contents = nih_sprintf (NULL, 
 			"pre-start exec echo pre-start\n"
@@ -10987,6 +10987,104 @@ test_reexec (void)
 
 	TEST_EQ (unsetenv ("UPSTART_CONFDIR"), 0);
 	TEST_EQ (unsetenv ("UPSTART_LOGDIR"), 0);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure 'set-env' persists across session-init re-exec");
+
+	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
+
+	contents = nih_sprintf (NULL, 
+			"start on startup\n"
+			"\n"
+			"pre-start script\n"
+			"%s set-env foo=bar\n"
+			"\n"
+			"# create flag file\n"
+			"touch \"%s\"\n"
+			"\n"
+			"end script\n"
+			"\n"
+			"# a minimal main process\n"
+			"exec true\n"
+			"\n"
+			"post-stop script\n"
+			"\n"
+			"# wait for upstart to notify us that it has re-execed\n"
+			"while [ -f \"%s\" ]\n"
+			"do\n"
+			"    sleep 0.1\n"
+			"done\n"
+			"\n"
+			"# query value post-re-exec\n"
+			"%s get-env foo\n"
+			"\n"
+			"end script\n",
+			get_initctl_binary(), flagfile, flagfile, get_initctl_binary());
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "foo.conf", contents);
+
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
+
+	WAIT_FOR_FILE (flagfile);
+
+	/* check job is running */
+	job_pid = job_to_pid ("foo");
+	TEST_NE (job_pid, -1);
+
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Notify job that upstart has re-exec'd */
+	assert0 (unlink (flagfile));
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"foo.log"));
+
+	WAIT_FOR_FILE (logfile);
+	file = fopen (logfile, "r");
+	TEST_NE_P (file, NULL);
+	TEST_FILE_EQ (file, "bar\r\n");
+	fclose (file);
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (logfile));
+	DELETE_FILE (confdir, "foo.conf");
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure 'set-env --global' persists across session-init re-exec");
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Set variable. Use confdir as a random value */
+	cmd = nih_sprintf (NULL, "%s set-env --global path='%s' 2>&1", get_initctl (), confdir);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Check it */
+	cmd = nih_sprintf (NULL, "%s get-env --global path 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], confdir);
+	nih_free (output);
+
+	/* Restart */
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Re-check */
+	cmd = nih_sprintf (NULL, "%s get-env --global path 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], confdir);
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
 	TEST_DBUS_END (dbus_pid);
 
         TEST_EQ (rmdir (confdir), 0);
@@ -11009,24 +11107,20 @@ test_list_sessions (void)
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 	nih_local char  *expected = NULL;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
+	nih_local char  *original_runtime = NULL;
 	size_t           len;
 	char            *value;
 
 	TEST_GROUP ("list-sessions");
 
-        TEST_FILENAME (dirname);
-        TEST_EQ (mkdir (dirname, 0755), 0);
+	original_runtime = nih_strdup (NULL, getenv("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
 
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
 
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
 
 	/*******************************************************************/
 	TEST_FEATURE ("with no instances and XDG_RUNTIME_DIR unset");
@@ -11059,7 +11153,7 @@ test_list_sessions (void)
 	/* Reset initctl global from previous tests */
 	dest_name = NULL;
 
-	start_upstart_common (&upstart_pid, TRUE, NULL, NULL, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, NULL, NULL);
 
 	session_file = get_session_file (dirname, upstart_pid);
 
@@ -11105,19 +11199,77 @@ test_list_sessions (void)
 
 	/*******************************************************************/
 
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
-
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 
         TEST_EQ (rmdir (dirname), 0);
         TEST_EQ (rmdir (confdir), 0);
 
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
+
 	/*******************************************************************/
+}
+
+void
+test_no_dbus (void)
+{
+	nih_local char  *cmd = NULL;
+	char           **output;
+	size_t           lines;
+	pid_t            upstart_pid = 0;
+	pid_t            dbus_pid = 0;
+	char            *extra[] = { "--no-dbus", NULL };
+
+	TEST_GROUP ("Test '--no-dbus'");
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	/* First perform a sanity check */
+
+	TEST_FEATURE ("Ensure version can be queried normally");
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, NULL, NULL);
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init*(upstart [0-9]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+	/* Now, try with dbus disabled */
+
+	TEST_FEATURE ("Ensure '--no-dbus' disables D-Bus");
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, NULL, extra);
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* No output on stdout expected */
+	TEST_EQ (lines, 0);
+
+	/*******************************************************************/
+	TEST_FEATURE ("Ensure D-Bus still disabled on SIGUSR1");
+
+	assert0 (kill (upstart_pid, SIGUSR1));
+
+	cmd = nih_sprintf (NULL, "%s version 2>/dev/null", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* No output on stdout expected */
+	TEST_EQ (lines, 0);
+
+	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+
+	TEST_DBUS_END (dbus_pid);
 }
 
 void
@@ -11125,7 +11277,8 @@ test_quiesce (void)
 {
 	char                      confdir[PATH_MAX];
 	char                      logdir[PATH_MAX];
-	char                      sessiondir[PATH_MAX];
+	char                      pid_file[PATH_MAX];
+	nih_local char           *sessiondir;
 	nih_local char           *cmd = NULL;
 	pid_t                     upstart_pid = 0;
 	nih_local char           *logfile = NULL;
@@ -11133,31 +11286,27 @@ test_quiesce (void)
 	char                    **output;
 	size_t                    lines;
 	nih_local NihDBusProxy   *upstart = NULL;
-	nih_local char           *orig_xdg_runtime_dir = NULL;
 	nih_local char           *session_file = NULL;
+	nih_local char           *job = NULL;
+	pid_t                     job_pid;
 
 	TEST_GROUP ("Session Init quiesce");
 
-        TEST_FILENAME (confdir);
-        TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
 
-        TEST_FILENAME (logdir);
-        TEST_EQ (mkdir (logdir, 0755), 0);
+	TEST_FILENAME (logdir);
+	TEST_EQ (mkdir (logdir, 0755), 0);
 
-        TEST_FILENAME (sessiondir);
-        TEST_EQ (mkdir (sessiondir, 0755), 0);
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
+	sessiondir = nih_strdup (NULL, getenv ("XDG_RUNTIME_DIR"));
+	TEST_NE_P (sessiondir, NULL);
+	
+	cmd = nih_sprintf (NULL, "rm %s/upstart/sessions/*.session 2>/dev/null", sessiondir);
+	system (cmd);
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
-	TEST_EQ (setenv ("XDG_RUNTIME_DIR", sessiondir, 1), 0);
 
 	/* Reset initctl global from previous tests */
 	dest_name = NULL;
@@ -11165,7 +11314,7 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: no jobs");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11191,7 +11340,7 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running.conf",
 			"exec sleep 999");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11204,20 +11353,63 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	/* Wait for longer than we expect the Session Init to take to
+	 * shutdown to give it time to send SIGKILL to all job
+	 * processes. This is unrealistic, but safer for the tests since
+	 * the exact behaviour can be checked.
+	 *
+	 * In reality, the following steps either side of the markers *will*
+	 * occur and those within the markers *may* occur:
+	 *
+	 * 1) A System Shutdown is triggered.
+	 * 2) The Display Manager receives SIGTERM.
+	 * 3) The Display Manager sends SIGTERM to all its clients.
+	 *    (including the Session Init).
+	 * 4) The Session Init sends SIGTERM to all running job
+	 *    processes.
+	 *
+	 *  --- :XXX: START MARKER :XXX: ---
+	 *
+	 * 5) The Session Init will attempt to wait for
+	 *    MAX(kill_timeout) seconds.
+	 * 6) The Session Init will send all running job processes
+	 *    SIGKILL.
+	 * 7) The Session Init will wait for all remaining job processes
+	 *    to end.
+	 * 8) The Session Init will exit.
+	 *
+	 *  --- :XXX: END MARKER :XXX: ---
+	 *
+	 * 9) The Display Manager sends SIGKILL to all its clients.
+	 * 10) If still running, the Session Init is killed and exits.
+	 *
+	 * The problem is that the Session Init cannot know when the
+	 * Display Manager will kill *it* so it may be that the Session
+	 * Init cannot send SIGKILL to each job process instead relying
+	 * on the System Init to clean up.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running.conf");
 
@@ -11230,7 +11422,7 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11243,35 +11435,47 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11282,10 +11486,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11302,21 +11507,38 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should be running since Upstart won't have signalled it
+	 * to stop (since it started as a result of session-end being
+	 * emitted _after_ the job pids were sent SIGTERM).
+	 */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("system shutdown: one job which starts on session-end and ignores SIGTERM");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11327,10 +11549,11 @@ test_quiesce (void)
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
 				logdir,
@@ -11347,6 +11570,17 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* kill job pid if not already dead */
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "session-end-term.conf");
 
 	/*******************************************************************/
@@ -11357,19 +11591,22 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running-term.conf",
 			"script\n"
 			"  trap '' TERM\n"
-		        "  sleep 999\n"
+		        "  exec sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	CREATE_FILE (confdir, "session-end-term.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Should be running */
 	assert0 (kill (upstart_pid, 0));
@@ -11382,20 +11619,38 @@ test_quiesce (void)
 	TEST_EQ (lines, 1);
 	nih_free (output);
 
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
+
 	/* Trigger shutdown */
 	assert0 (kill (upstart_pid, SIGTERM));
 
 	/* Force reset */
 	test_user_mode = FALSE;
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, 1+TEST_QUIESCE_KILL_PHASE), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* the long-running job pid should no longer exist */
+	kill (job_pid, SIGKILL);
+	TEST_EQ (errno, ESRCH);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* .... but the session-end job pid should still be running */
+	TEST_EQ (kill (job_pid, SIGKILL), 0);
+
+	assert0 (unlink (pid_file));
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
@@ -11403,7 +11658,7 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: no jobs");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	/* Further required initctl global resets. Shudder. */
 	user_mode = TRUE;
@@ -11439,7 +11694,7 @@ test_quiesce (void)
 	CREATE_FILE (confdir, "long-running.conf",
 			"exec sleep 999");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
 			get_initctl (), "long-running");
@@ -11448,6 +11703,9 @@ test_quiesce (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11465,12 +11723,60 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
 	DELETE_FILE (confdir, "long-running.conf");
+
+	/*******************************************************************/
+	TEST_FEATURE ("session shutdown: one long-running job which starts on startup");
+
+	CREATE_FILE (confdir, "startup.conf",
+			"start on startup\n"
+			"exec sleep 999");
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
+
+	upstart = upstart_open (NULL);
+	TEST_NE_P (upstart, NULL);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	job_pid = job_to_pid ("startup");
+	TEST_NE (job_pid, -1);
+
+	/* Force reset */
+	test_user_mode = FALSE;
+
+	/* Trigger session shutdown */
+	assert0 (upstart_end_session_sync (NULL, upstart));
+
+	/* Session Init should end very quickly since there will be no
+	 * wait phase.
+	 */
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+
+	/* Should not now be running */
+	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
+
+	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
+				sessiondir, (int)upstart_pid));
+	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	DELETE_FILE (confdir, "startup.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one long-running job which ignores SIGTERM");
@@ -11481,15 +11787,18 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
-			get_initctl (), "long-running");
+			get_initctl (), "long-running-term");
 	TEST_NE_P (cmd, NULL);
 
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11507,25 +11816,34 @@ test_quiesce (void)
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
+	TEST_EQ (errno, ESRCH);
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
 
 	DELETE_FILE (confdir, "long-running-term.conf");
 
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11539,7 +11857,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
@@ -11555,6 +11873,17 @@ test_quiesce (void)
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
 
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
+
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
@@ -11564,16 +11893,20 @@ test_quiesce (void)
 	/*******************************************************************/
 	TEST_FEATURE ("session shutdown: one job which starts on session-end");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  echo hello\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo hello\n"
+				"  echo $$ >\"%s\"\n"
+				"  exec sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11587,7 +11920,7 @@ test_quiesce (void)
 	/* Trigger session shutdown */
 	assert0 (upstart_end_session_sync (NULL, upstart));
 
-	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_KILL_PHASE), upstart_pid);
+	TEST_EQ (timed_waitpid (upstart_pid, TEST_QUIESCE_TOTAL_WAIT_TIME), upstart_pid);
 
 	/* Should not now be running */
 	TEST_EQ (kill (upstart_pid, 0), -1);
@@ -11602,6 +11935,17 @@ test_quiesce (void)
 	TEST_FILE_END (file);
 	TEST_EQ (fclose (file), 0);
 	assert0 (unlink (logfile));
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
 
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
 				sessiondir, (int)upstart_pid));
@@ -11620,15 +11964,19 @@ test_quiesce (void)
 		        "  sleep 999\n"
 			"end script");
 
-	CREATE_FILE (confdir, "session-end-term.conf",
-			"start on session-end\n"
-			"\n"
-			"script\n"
-			"  trap '' TERM\n"
-			"  sleep 999\n"
-			"end script");
+	TEST_FILENAME (pid_file);
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	job = NIH_MUST (nih_sprintf (NULL, "start on session-end\n"
+				"\n"
+				"script\n"
+				"  trap '' TERM\n"
+				"  echo $$ >\"%s\"\n"
+				"  sleep 999\n"
+				"end script", pid_file));
+
+	CREATE_FILE (confdir, "session-end-term.conf", job);
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s start %s 2>&1",
 			get_initctl (), "long-running-term");
@@ -11637,6 +11985,9 @@ test_quiesce (void)
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
 	nih_free (output);
+
+	job_pid = job_to_pid ("long-running-term");
+	TEST_NE (job_pid, -1);
 
 	upstart = upstart_open (NULL);
 	TEST_NE_P (upstart, NULL);
@@ -11659,19 +12010,27 @@ test_quiesce (void)
 				sessiondir, (int)upstart_pid));
 	unlink (session_file);
 
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	file = fopen (pid_file, "r");
+	TEST_NE_P (file, NULL);
+	TEST_EQ (fscanf (file, "%d", &job_pid), 1);
+	fclose (file);
+
+	/* pid should no longer exist */
+	TEST_EQ (kill (job_pid, SIGKILL), -1);
+	TEST_EQ (errno, ESRCH);
+
+	assert0 (unlink (pid_file));
+
 	DELETE_FILE (confdir, "long-running-term.conf");
 	DELETE_FILE (confdir, "session-end-term.conf");
 
 	/*******************************************************************/
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
 
         TEST_EQ (rmdir (logdir), 0);
         TEST_EQ (rmdir (confdir), 0);
@@ -11680,9 +12039,111 @@ test_quiesce (void)
         TEST_EQ (rmdir (session_file), 0);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", sessiondir));
         TEST_EQ (rmdir (session_file), 0);
-        TEST_EQ (rmdir (sessiondir), 0);
 
 	/*******************************************************************/
+}
+
+void
+test_umask (void)
+{
+	char             confdir[PATH_MAX];
+	char             dirname[PATH_MAX];
+	char             logdir[PATH_MAX];
+	pid_t            upstart_pid = 0;
+	nih_local char  *logfile = NULL;
+	nih_local char  *original_runtime = NULL;
+	mode_t           job_umask;
+	nih_local char  *job_umask_str = NULL;
+	size_t           length;
+	int              ret;
+	mode_t           original_umask;
+	mode_t           test_umask = 0077;
+	mode_t           default_umask = 022;
+
+	original_runtime = nih_strdup (NULL, getenv ("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
+
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
+
+	TEST_FILENAME (confdir);
+	TEST_EQ (mkdir (confdir, 0755), 0);
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+
+	TEST_FILENAME (logdir);
+	TEST_EQ (mkdir (logdir, 0755), 0);
+
+	original_umask = umask (test_umask);
+
+	TEST_GROUP ("Session Init umask value");
+
+	/**********************************************************************/
+	TEST_FEATURE ("ensure Session Init inherits umask by default");
+
+	/* Has to be a script since umask is a shell built-in */
+	CREATE_FILE (confdir, "umask.conf",
+			"start on startup\n"
+			"script\n"
+			"umask\n"
+			"end script");
+
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	job_umask_str = nih_file_read (NULL, logfile, &length);
+
+	ret = sscanf (job_umask_str, "%o", (unsigned int *)&job_umask);
+	TEST_EQ (ret, 1);
+	TEST_EQ (job_umask, test_umask);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
+
+	STOP_UPSTART (upstart_pid);
+
+	/**********************************************************************/
+	TEST_FEATURE ("ensure Session Init defaults umask with '--no-inherit-env'");
+
+	/* Has to be a script since umask is a shell built-in */
+	CREATE_FILE (confdir, "umask.conf",
+			"start on startup\n"
+			"script\n"
+			"umask\n"
+			"end script");
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	WAIT_FOR_FILE (logfile);
+
+	job_umask_str = nih_file_read (NULL, logfile, &length);
+
+	ret = sscanf (job_umask_str, "%o", (unsigned int *)&job_umask);
+	TEST_EQ (ret, 1);
+	TEST_EQ (job_umask, default_umask);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
+
+	STOP_UPSTART (upstart_pid);
+
+	/**********************************************************************/
+
+	/* Restore */
+	(void)umask (original_umask);
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
+
+	assert0 (rmdir (confdir));
+	assert0 (rmdir (logdir));
 }
 
 void
@@ -11698,8 +12159,8 @@ test_show_config (void)
 
 	TEST_GROUP ("show_config");
 
-        TEST_FILENAME (dirname);
-        TEST_EQ (mkdir (dirname, 0755), 0);
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", dirname, 1), 0);
@@ -15290,7 +15751,9 @@ test_usage (void)
 	FILE            *err;
 	NihCommand       command;
 	char            *args[2];
-	int              ret = 0;
+	int              ret = 0;			  
+
+	TEST_TRUE (getenv ("XDG_RUNTIME_DIR"));
 
 	TEST_GROUP ("usage");
 
@@ -16283,7 +16746,6 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	assert0 (unlink (logfile));
 	DELETE_FILE (confdir, "bar.conf");
 
-
 	/*******************************************************************/
 }
 
@@ -16299,7 +16761,7 @@ test_no_inherit_job_env (const char *runtimedir, const char *confdir, const char
 	nih_local char  *session_file = NULL;
 	FILE            *fi;
 
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, extra);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, extra);
 
 	/*******************************************************************/
 	TEST_FEATURE ("ensure list-env in '--user --no-inherit-env' environment gives expected output");
@@ -16363,15 +16825,17 @@ test_job_env (void)
 {
 	char             confdir[PATH_MAX];
 	char             logdir[PATH_MAX];
-	char             runtimedir[PATH_MAX];
 	size_t           lines;
 	pid_t            dbus_pid = 0;
 	pid_t            upstart_pid = 0;
 	char            *value;
-	nih_local char  *orig_xdg_runtime_dir = NULL;
 	nih_local char  *cmd = NULL;
 	char           **output;
 	nih_local char  *session_file = NULL;
+	char            *xdg_runtime_dir;
+
+	xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
+	TEST_TRUE (xdg_runtime_dir);
 
 	TEST_GROUP ("job process table commands");
 
@@ -16381,21 +16845,9 @@ test_job_env (void)
         TEST_FILENAME (logdir);
         TEST_EQ (mkdir (logdir, 0755), 0);
 
-        TEST_FILENAME (runtimedir);
-        TEST_EQ (mkdir (runtimedir, 0755), 0);
-
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
-
-	/* Take care to avoid disrupting users environment by saving and
-	 * restoring this variable (assuming the tests all pass...).
-	 */
-	orig_xdg_runtime_dir = getenv ("XDG_RUNTIME_DIR");
-	if (orig_xdg_runtime_dir)
-		orig_xdg_runtime_dir = NIH_MUST (nih_strdup (NULL, orig_xdg_runtime_dir));
-
-	TEST_EQ (setenv ("XDG_RUNTIME_DIR", runtimedir, 1), 0);
 
 	/*******************************************************************/
 	/* Ensure basic variables are set in the current environment */
@@ -16413,7 +16865,7 @@ test_job_env (void)
 	}
 
 	TEST_DBUS (dbus_pid);
-	start_upstart_common (&upstart_pid, TRUE, confdir, logdir, NULL);
+	start_upstart_common (&upstart_pid, TRUE, FALSE, confdir, logdir, NULL);
 
 	cmd = nih_sprintf (NULL, "%s list-sessions 2>&1", get_initctl_binary ());
 	TEST_NE_P (cmd, NULL);
@@ -16447,12 +16899,12 @@ test_job_env (void)
 
 	STOP_UPSTART (upstart_pid);
 	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions/%d.session",
-				runtimedir, (int)upstart_pid));
+				xdg_runtime_dir, (int)upstart_pid));
 	unlink (session_file);
 
 	/*******************************************************************/
 
-	test_no_inherit_job_env (runtimedir, confdir, logdir);
+	test_no_inherit_job_env (xdg_runtime_dir, confdir, logdir);
 
 	/*******************************************************************/
 
@@ -16461,21 +16913,229 @@ test_job_env (void)
 	assert0 (unsetenv ("UPSTART_LOGDIR"));
 	assert0 (unsetenv ("UPSTART_SESSION"));
 
-	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart/sessions", runtimedir));
-        TEST_EQ (rmdir (session_file), 0);
-	session_file = NIH_MUST (nih_sprintf (NULL, "%s/upstart", runtimedir));
-        TEST_EQ (rmdir (session_file), 0);
-        TEST_EQ (rmdir (runtimedir), 0);
-
-	if (orig_xdg_runtime_dir) {
-		/* restore */
-		setenv ("XDG_RUNTIME_DIR", orig_xdg_runtime_dir, 1);
-	} else {
-		assert0 (unsetenv ("XDG_RUNTIME_DIR"));
-	}
-
         TEST_EQ (rmdir (confdir), 0);
         TEST_EQ (rmdir (logdir), 0);
+}
+
+void
+test_dbus_connection (void)
+{
+	size_t           lines;
+	pid_t            dbus_pid = 0;
+	pid_t            dbus_pid2 = 0;
+	pid_t            upstart_pid = 0;
+	nih_local char  *cmd = NULL;
+	char           **output;
+	nih_local char  *dbus_session_address = NULL;
+	nih_local char  *dbus_session_address2 = NULL;
+	nih_local char  *upstart_session = NULL;
+	nih_local char  *original_runtime = NULL;
+	char             dirname[PATH_MAX];
+	char            *address;
+
+	original_runtime = nih_strdup (NULL, getenv("XDG_RUNTIME_DIR"));
+	TEST_NE_P (original_runtime, NULL);
+
+	TEST_FILENAME (dirname);
+	TEST_EQ (mkdir (dirname, 0755), 0);
+
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", dirname, 1), 0);
+
+	TEST_GROUP ("D-Bus connection");
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure non-priv non-Session Init connects to D-Bus session bus on startup");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, FALSE);
+
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init does not connect to D-Bus session bus on startup");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+
+	TEST_TRUE (getenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Stop initctl using this route */
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	/* Check we can query the version via the private socket */
+	cmd = nih_sprintf (NULL, "%s version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Unset to stop initctl finding upstart via this route */
+	assert0 (unsetenv ("UPSTART_SESSION"));
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* Although there is a D-Bus session bus available, the Session
+	 * Init should not connect to it. Check this by trying to query
+	 * the running version via the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "initctl: Name \"com.ubuntu.Upstart\" does not exist*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init connects to D-Bus session bus when notified");
+
+	/* Start a dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Not required */
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Pass the D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* It should now be possible to query the running version via
+	 * the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init does not connect to another bus when notified twice");
+
+	/* Start first dbus-daemon */
+	TEST_DBUS (dbus_pid);
+
+	/* Save its address */
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address, NULL);
+
+	/* Start second dbus-daemon */
+	TEST_DBUS (dbus_pid2);
+
+	/* Save its address */
+	address = getenv ("DBUS_SESSION_BUS_ADDRESS");
+	TEST_NE_P (address, NULL);
+	dbus_session_address2 = nih_strdup (NULL, address);
+	TEST_NE_P (dbus_session_address2, NULL);
+
+	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	START_UPSTART (upstart_pid, TRUE);
+
+	/* Pass the first D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* It should now be possible to query the running version via
+	 * the D-Bus session bus.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Pass the second D-Bus session bus address to the Session Init */
+	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
+			get_initctl_binary (), dbus_session_address2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	/* Check that the Session Init still responds on the first address */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
+	/* Stop the 1st daemon */
+	TEST_DBUS_END (dbus_pid);
+
+	/* Switch to the 2nd daemon */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address2, 1));
+
+	/* Ensure the Session Init isn't responding on this address */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "initctl: Name \"com.ubuntu.Upstart\" does not exist*");
+	nih_free (output);
+
+	STOP_UPSTART (upstart_pid);
+
+	/* Stop the 2nd daemon */
+	TEST_DBUS_END (dbus_pid2);
+
+	TEST_EQ (setenv ("XDG_RUNTIME_DIR", original_runtime, 1), 0);
 }
 
 int
@@ -16488,6 +17148,8 @@ main (int   argc,
 	nih_child_init ();
 	nih_main_loop_init ();
 	program_name = "test";
+
+	test_common_setup ();
 
 	test_upstart_open ();
 	test_job_status ();
@@ -16506,10 +17168,20 @@ main (int   argc,
 	test_job_env ();
 	test_reexec ();
 	test_list_sessions ();
-	test_quiesce ();
+	if (have_timed_waitpid ()) {
+		test_quiesce ();
+	} else {
+		fprintf (stderr, "\n\n"
+				"WARNING: not running quiesce tests, "
+				"as no precise timing information available "
+				"\n\n");
+	}
+
+	test_umask ();
+	test_no_dbus ();
 
 	if (in_chroot () && !dbus_configured ()) {
-		fprintf(stderr, "\n\n"
+		fprintf (stderr, "\n\n"
 				"WARNING: not running show-config, "
 				"check-config & notify-disk-writeable tests within chroot "
 				"as no D-Bus, or D-Bus not configured (lp:#728988)"
@@ -16520,6 +17192,10 @@ main (int   argc,
 		test_check_config ();
 		test_notify_disk_writeable ();
 	}
+
+	test_dbus_connection ();
+
+	test_common_cleanup ();
 
 	return 0;
 }

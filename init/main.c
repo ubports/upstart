@@ -120,6 +120,14 @@ static char *initial_event = NULL;
  **/
 static int disable_startup_event = FALSE;
 
+/**
+ * disable_dbus:
+ *
+ * If TRUE, do not connect to a D-Bus bus
+ * (only connect to the private socket).
+ **/
+static int disable_dbus = FALSE;
+
 extern int          no_inherit_env;
 extern int          user_mode;
 extern int          disable_sessions;
@@ -128,7 +136,8 @@ extern int          use_session_bus;
 extern int          default_console;
 extern int          write_state_file;
 extern char        *log_dir;
-
+extern DBusBusType  dbus_bus_type;
+extern mode_t       initial_umask;
 
 /**
  * options:
@@ -142,8 +151,11 @@ static NihOption options[] = {
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
 
+	{ 0, "no-dbus", N_("do not connect to a D-Bus bus"),
+		NULL, NULL, &disable_dbus, NULL },
+
 	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
-		NULL, NULL, &no_inherit_env ,NULL },
+		NULL, NULL, &no_inherit_env , NULL },
 
 	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
 		NULL, "DIR", &log_dir, NULL },
@@ -213,7 +225,8 @@ main (int   argc,
 	if (disable_job_logging)
 		nih_debug ("Job logging disabled");
 
-	control_handle_bus_type ();
+	if (getenv (USE_SESSION_BUS_ENV))
+		use_session_bus = TRUE;
 
 	if (! user_mode)
 		no_inherit_env = TRUE;
@@ -270,7 +283,7 @@ main (int   argc,
 		/* Allow devices to be created with the actual perms
 		 * specified.
 		 */
-		(void)umask (0);
+		initial_umask = umask (0);
 
 		/* Check if key /dev entries already exist; if they do,
 		 * we should assume we don't need to mount /dev.
@@ -280,7 +293,8 @@ main (int   argc,
 			needs_devtmpfs = 1;
 
 		if (needs_devtmpfs) {
-			if (system_mount ("devtmpfs", "/dev", (MS_NOEXEC | MS_NOSUID)) < 0) {
+			if (system_mount ("devtmpfs", "/dev",
+					  MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 				NihError *err;
 
 				err = nih_error_get ();
@@ -296,7 +310,8 @@ main (int   argc,
 				nih_error ("%s: %s", _("Cannot create directory"), "/dev/pts");
 		}
 
-		if (system_mount ("devpts", "/dev/pts", (MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("devpts", "/dev/pts", MS_NOEXEC | MS_NOSUID,
+				  "gid=5,mode=0620") < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -356,7 +371,8 @@ main (int   argc,
 		 * ourselves. Also mount /dev/pts to allow CONSOLE_LOG
 		 * to function if booted in an initramfs-less environment.
 		 */
-		if (system_mount ("proc", "/proc", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("proc", "/proc",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -365,7 +381,8 @@ main (int   argc,
 			nih_free (err);
 		}
 
-		if (system_mount ("sysfs", "/sys", (MS_NODEV | MS_NOEXEC | MS_NOSUID)) < 0) {
+		if (system_mount ("sysfs", "/sys",
+				  MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
@@ -385,6 +402,11 @@ main (int   argc,
 		(int)getuid (), (int)getpid (), (int)getppid ());
 #endif /* DEBUG */
 
+	if (user_mode) {
+		/* Save initial value */
+		initial_umask = umask (0);
+		(void)umask (initial_umask);
+	}
 
 	/* Reset the signal state and install the signal handler for those
 	 * signals we actually want to catch; this also sets those that
@@ -438,9 +460,14 @@ main (int   argc,
 	nih_signal_set_handler (SIGHUP, nih_signal_handler);
 	NIH_MUST (nih_signal_add_handler (NULL, SIGHUP, hup_handler, NULL));
 
-	/* SIGUSR1 instructs us to reconnect to D-Bus */
-	nih_signal_set_handler (SIGUSR1, nih_signal_handler);
-	NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+	/* Session Inits only reconnect to D-Bus when notified
+	 * via their private socket.
+	 */
+	if (! user_mode) {
+		/* SIGUSR1 instructs us to reconnect to D-Bus */
+		nih_signal_set_handler (SIGUSR1, nih_signal_handler);
+		NIH_MUST (nih_signal_add_handler (NULL, SIGUSR1, usr1_handler, NULL));
+	}
 
 	/* SIGTERM instructs us to re-exec ourselves when running as PID
 	 * 1, or to exit when running as a Session Init; this signal should
@@ -592,16 +619,21 @@ main (int   argc,
 	 * fail (since dbus-daemon probably isn't running yet) and will try again
 	 * later - don't let ENOMEM stop us though.
 	 */
-	while (control_bus_open () < 0) {
-		NihError *err;
-		int       number;
+	if (disable_dbus) {
+		nih_info (_("Not connecting to %s bus"),
+				use_session_bus ? "session" : "system");
+	} else {
+		while (control_bus_open () < 0) {
+			NihError *err;
+			int       number;
 
-		err = nih_error_get ();
-		number = err->number;
-		nih_free (err);
+			err = nih_error_get ();
+			number = err->number;
+			nih_free (err);
 
-		if (number != ENOMEM)
-			break;
+			if (number != ENOMEM)
+				break;
+		}
 	}
 
 #ifndef DEBUG
@@ -932,15 +964,26 @@ static void
 usr1_handler (void      *data,
 	      NihSignal *signal)
 {
+	nih_assert (! user_mode);
+
+	if (disable_dbus)
+		return;
+
 	if (! control_bus) {
-		nih_info (_("Reconnecting to system bus"));
+		char *dbus_bus_name;
+
+		dbus_bus_name = dbus_bus_type == DBUS_BUS_SESSION
+			? "session" : "system";
+
+		nih_info (_("Reconnecting to D-Bus %s bus"),
+				dbus_bus_name);
 
 		if (control_bus_open () < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
-			nih_warn ("%s: %s", _("Unable to connect to the system bus"),
-				  err->message);
+			nih_warn (_("Unable to connect to the D-Bus %s bus: %s"),
+					dbus_bus_name, err->message);
 			nih_free (err);
 		}
 	}

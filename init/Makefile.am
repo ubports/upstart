@@ -144,7 +144,8 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-session.json \
 	$(TEST_DATA_DIR)/upstart-session2.json \
 	$(TEST_DATA_DIR)/upstart-session-infinity.json \
-	$(TEST_DATA_DIR)/upstart-reload-signal.json
+	$(TEST_DATA_DIR)/upstart-1.9.json \
+	$(TEST_DATA_DIR)/upstart-1.11.json
 
 upstart_test_programs = \
 	test_system \
@@ -164,6 +165,24 @@ upstart_test_programs = \
 	test_xdg \
 	test_control \
 	test_main
+
+if ENABLE_TAP_OUTPUT
+LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
+else
+LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
+endif
+
+# Ensure a clean test environment (that will not touch the running users
+# one). Tests that need the variables listed below are expected to set
+# them to appropriate temporary values as needed.
+AM_TESTS_ENVIRONMENT= \
+	unset -v \
+		XDG_RUNTIME_DIR \
+		DBUS_SESSION_BUS_ADDRESS \
+		UPSTART_SESSION \
+		UPSTART_INSTANCE \
+		UPSTART_EVENTS \
+		UPSTART_JOB;
 
 TESTS = \
 	$(upstart_test_programs) \
@@ -392,6 +411,10 @@ test_xdg_LDADD = \
 	xdg.o \
 	environ.o \
 	$(NIH_LIBS) \
+	$(top_builddir)/test/libtest_util_common.a \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
 	-lrt
 
 test_control_SOURCES = tests/test_control.c

@@ -97,6 +97,13 @@ NihHash *job_classes = NULL;
 static char **job_environ = NULL;
 
 /**
+ * initial_umask:
+ *
+ * Value of umask at startup.
+ **/
+mode_t initial_umask;
+
+/**
  * job_class_init:
  *
  * Initialise the job classes hash table.
@@ -138,12 +145,22 @@ job_class_environment_init (void)
 void
 job_class_environment_reset (void)
 {
-	if (job_environ)
-		nih_free (job_environ);
-
-	job_environ = NULL;
-
+	job_class_environment_clear ();
 	job_class_environment_init ();
+}
+
+/**
+ * job_class_environment_clear:
+ *
+ * Clear the environment table.
+ **/
+void
+job_class_environment_clear (void)
+{
+	if (job_environ) {
+		nih_free (job_environ);
+		job_environ = NULL;
+	}
 }
 
 /**
@@ -353,7 +370,7 @@ job_class_new (const void *parent,
 
 	class->console = default_console >= 0 ? default_console : CONSOLE_LOG;
 
-	class->umask = JOB_DEFAULT_UMASK;
+	class->umask = (user_mode && ! no_inherit_env) ? initial_umask : JOB_DEFAULT_UMASK;
 	class->nice = JOB_NICE_INVALID;
 	class->oom_score_adj = JOB_DEFAULT_OOM_SCORE_ADJ;
 
@@ -1800,6 +1817,58 @@ job_class_get_usage (JobClass *      class,
 	}
 
 	return 0;
+}
+
+/**
+ * job_class_serialise_job_environ:
+ *
+ * Serialise the global job environment table.
+ *
+ * Returns: JSON-serialised global job environment table, or NULL on error.
+ **/
+json_object *
+job_class_serialise_job_environ (void)
+{
+	json_object  *json;
+
+	job_class_environment_init ();
+
+	json = state_serialise_str_array (job_environ);
+	if (! json)
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_class_deserialise_job_environ
+ * @json: JSON-serialised global job environment table to deserialise.
+ *
+ * Create the global job environment table from provided JSON.
+ *
+ * Returns: 0 on success, < 0 on error.
+ **/
+int
+job_class_deserialise_job_environ (json_object *json)
+{
+	nih_assert (json);
+
+	nih_assert (! job_environ);
+
+	if (! state_check_json_type (json, array))
+		goto error;
+
+	if (! state_deserialise_str_array (NULL, json, &job_environ))
+		goto error;
+
+	return 0;
+
+error:
+	return -1;
 }
 
 
