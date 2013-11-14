@@ -1,4 +1,23 @@
-1.11  xxxx-xx-xx ""
+1.11  2013-11-14 "Quoi de neuf?"
+
+	* Add '--no-dbus' command-line option for the init(8) daemon (allowing
+	  event propagation to the Session Init via the upstart-event-bridge(8) to
+	  be disabled).
+	* Serialise Session Init job environment table on re-exec (LP: #1238078).
+	* upstart-{dbus,socket}-bridge(8): Don't clobber existing PATH (LP: #1234898).
+	* upstart-file-bridge(8):
+	  - Allow watching for directory creation (LP: #1221466).
+	  - Reduce default output.
+	* upstart-local-bridge(8): Handle arbitrary numbers of pairs and additional
+	  checks on input validity (LP: #1234898).
+	* Improved Session Init shutdown speed (LP: #1227212).
+	* New configure options: '--disable-local-bridge', '--disable-socket-bridge'.
+	* Added upstart-file-bridge(8) and Session Init re-exec integration tests.
+	* Retain umask for Session Init (LP: #1240686).
+	* Make Session Init connect to D-Bus Session Bus on request
+	  (LP: #1203595, #1235649)
+	* Improved build-time ABI compliance checking.
+	* Doc updates and lots of test refinements.
 
 1.10  2013-08-23 "Swim to the buoy"
 
