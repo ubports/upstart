@@ -2,7 +2,7 @@
  *
  * job_process.c - job process handling
  *
- * Copyright © 2011 Canonical Ltd.
+ * Copyright  2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -126,10 +126,10 @@ int disable_job_logging = 0;
 /**
  * no_inherit_env:
  *
- * If TRUE, do not copy the Session Inits environment to that provided to jobs.
+ * If TRUE, do not copy the Session Inits environment variables or umask
+ * to that provided to jobs.
  **/
 int no_inherit_env = FALSE;
-
 
 /* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
@@ -278,7 +278,7 @@ job_process_run (Job         *job,
 	env = NIH_MUST (nih_str_array_new (NULL));
 
 	if (job->env)
-		NIH_MUST(environ_append (&env, NULL, &envc, TRUE, job->env));
+		NIH_MUST (environ_append (&env, NULL, &envc, TRUE, job->env));
 
 	if (job->stop_env
 	    && ((process == PROCESS_PRE_STOP)
@@ -1275,9 +1275,7 @@ job_process_jobs_running (void)
 
 		NIH_HASH_FOREACH (class->instances, job_iter) {
 			Job *job = (Job *)job_iter;
-			nih_local char *cmd = NULL;
 			int i;
-			nih_local char *pids = NULL;
 
 			for (i = 0; i < PROCESS_LAST; i++) {
 				if (job->pid[i])
@@ -1628,8 +1626,8 @@ job_process_terminated (Job         *job,
 		 * For services that can be respawned, a zero exit status is
 		 * also a failure unless listed.
 		 */
-		if (status || (job->class->respawn && (! job->class->task)))
-		{
+		if ((status || (job->class->respawn && (! job->class->task)))
+		    && (job->goal == JOB_START)) {
 			failed = TRUE;
 			for (size_t i = 0; i < job->class->normalexit_len; i++) {
 				if (job->class->normalexit[i] == status) {

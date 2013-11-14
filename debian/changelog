@@ -1,8 +1,12 @@
-upstart (1.10-0ubuntu10) UNRELEASED; urgency=low
+upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
 
+  [ Dmitrijs Ledkovs ]
   * Run as much test-suites as possible, before exiting with failure.
 
- -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Wed, 13 Nov 2013 02:57:22 +0000
+  [ James Hunt ]
+  * New upstream release (LP: #1238078, #1221466, #1240686, #1203595, #1235649).
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 14 Nov 2013 17:37:05 +0000
 
 upstart (1.10-0ubuntu9) trusty; urgency=low
 
