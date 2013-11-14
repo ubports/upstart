@@ -2,7 +2,7 @@
  *
  * test_util_common.c - common test utilities
  *
- * Copyright  2012-2013 Canonical Ltd.
+ * Copyright © 2012-2013 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>
  *
  * This program is free software; you can redistribute it and/or modify
