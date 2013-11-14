@@ -2,7 +2,7 @@
  *
  * test_util_common.c - common test utilities
  *
- * Copyright © 2012-2013 Canonical Ltd.
+ * Copyright  2012-2013 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -489,8 +489,11 @@ _start_upstart (pid_t *pid, int user, char * const *args)
 	TEST_NE (*pid = fork (), -1);
 
 	if (! *pid) {
-		int fd;
+		char  *argv0;
+		int    fd;
+
 		nih_signal_reset ();
+
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
 		if (! getenv ("UPSTART_TEST_VERBOSE")) {
@@ -501,7 +504,14 @@ _start_upstart (pid_t *pid, int user, char * const *args)
 			assert (dup2 (fd, STDERR_FILENO) != -1);
 		}
 
-		assert (execv (argv[0], argv) != -1);
+		argv0 = argv[0];
+
+		/* Make the process stand out from existing non-test
+		 * Session Init processes.
+		 */
+		argv[0] = "test_init";
+
+		assert (execvp (argv0, argv) != -1);
 	}
 
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
