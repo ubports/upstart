@@ -4,7 +4,14 @@ upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
   * Run as much test-suites as possible, before exiting with failure.
 
   [ James Hunt ]
-  * New upstream release (LP: #1238078, #1221466, #1240686, #1203595, #1235649).
+  * New upstream release.
+    - the global environment is now serialized on re-exec. LP: #1238078.
+    - fixes support for upstart-file-bridge detecting directory creation.
+      LP: #1221466.
+    - Fixes upstart user session to not override the user's configured
+      umask.  LP: #1240686.
+    - Makes the session init available on the session dbus.
+      LP: #1203595, #1235649.
 
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 14 Nov 2013 17:37:05 +0000
 
