@@ -2044,7 +2044,7 @@ test_log_serialise (void)
 	char             filename[PATH_MAX];
 	pid_t            pid;
 	int              wait_fd;
-	int              fds[2] = { -1 };
+	int              fd;
 	struct stat      statbuf;
 	mode_t           old_perms;
 	int              status;
@@ -2094,32 +2094,22 @@ test_log_serialise (void)
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	/* Provide a log file which is accessible initially */
+	/* Make file inaccessible to ensure data cannot be written
+	 * and will thus be added to the unflushed buffer.
+	 */
+	fd = open (filename, O_CREAT | O_EXCL, 0);
+	TEST_NE (fd, -1);
+	close (fd);
+
+	/* Set up logging that we know won't go anywhere yet */
 	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
 
-	assert0 (pipe (fds));
-
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		char   *str = "hello\n";
 		char    buf[1];
-		size_t  str_len;
 
-		str_len = strlen (str);
-
-		close (fds[1]);
 		close (pty_master);
-
-		/* Write initial data */
-		ret = write (pty_slave, str, str_len);
-		TEST_EQ ((size_t)ret, str_len);
-
-		/* let parent continue */
-		TEST_CHILD_RELEASE (wait_fd);
-
-		/* now wait for parent */
-		assert (read (fds[0], buf, 1) == 1);
 
 		len = TEST_ARRAY_SIZE (test_data);
 		errno = 0;
@@ -2127,6 +2117,9 @@ test_log_serialise (void)
 		/* Now write some data with embedded nulls */
 		ret = write (pty_slave, test_data, len);
 		TEST_EQ ((size_t)ret, len);
+
+		/* let parent continue */
+		TEST_CHILD_RELEASE (wait_fd);
 
 		/* keep child running until the parent is ready (to
 		 * simulate a job which continues to run across
@@ -2136,38 +2129,8 @@ test_log_serialise (void)
 	}
 
 	close (pty_slave);
-	close (fds[0]);
 
 	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
-
-	got = FALSE;
-	TIMED_BLOCK (5) {
-		TEST_FORCE_WATCH_UPDATE ();
-		if (! stat (filename, &statbuf)) {
-			got = TRUE;
-			break;
-		}
-		sleep (1);
-	}
-
-	TEST_EQ (got, TRUE);
-
-	/* save */
-	old_perms = statbuf.st_mode;
-
-	/* Make file inaccessible to ensure data cannot be written
-	 * and will thus be added to the unflushed buffer.
-	 */
-	TEST_EQ (chmod (filename, 0x0), 0);
-
-	/* Artificially stop us writing to the already open log file with
-	 * perms 000.
-	 */
-	close (log->fd);
-	log->fd = -1;
-
-	/* release child */
-	assert (write (fds[1], "\n", 1) == 1);
 
 	/* Ensure that unflushed buffer contains data */
 	TEST_WATCH_UPDATE ();
@@ -2193,7 +2156,7 @@ test_log_serialise (void)
 	TEST_EQ (waitpid (pid, &status, 0), pid);
 
 	/* Restore access to allow log to be written on destruction */
-	TEST_EQ (chmod (filename, old_perms), 0);
+	TEST_EQ (chmod (filename, 0644), 0);
 
 	nih_free (log);
 	nih_free (new_log);
