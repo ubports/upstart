@@ -1,4 +1,4 @@
-upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
+upstart (1.11-0ubuntu1) trusty; urgency=low
 
   [ Dmitrijs Ledkovs ]
   * Run as much test-suites as possible, before exiting with failure.
@@ -17,7 +17,7 @@ upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
   * Document the authoritative Vcs branch in debian/control.
   * Update Standards-Version to 3.9.5, no changes required.
 
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 14 Nov 2013 17:37:05 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 15 Nov 2013 13:16:56 +0000
 
 upstart (1.10-0ubuntu9) trusty; urgency=low
 
