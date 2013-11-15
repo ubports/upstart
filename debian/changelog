@@ -15,6 +15,7 @@ upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
 
   [ Steve Langasek ]
   * Document the authoritative Vcs branch in debian/control.
+  * Update Standards-Version to 3.9.4, no changes required.
 
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 14 Nov 2013 17:37:05 +0000
 
