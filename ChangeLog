@@ -7,6 +7,7 @@
 	    non-empty log buffer.
 	  - drop a spurious check of nih_io_watches at a point where its
 	    content cannot possibly have changed.
+	* test/test_util_common.h: drop TIMED_BLOCK() macro, no longer used.
 
 2013-11-14  James Hunt  <james.hunt@ubuntu.com>
 
