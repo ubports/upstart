@@ -2130,8 +2130,6 @@ test_log_serialise (void)
 
 	close (pty_slave);
 
-	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
-
 	/* Ensure that unflushed buffer contains data */
 	TEST_WATCH_UPDATE ();
 
