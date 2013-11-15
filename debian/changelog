@@ -13,6 +13,9 @@ upstart (1.11-0ubuntu1) UNRELEASED; urgency=low
     - Makes the session init available on the session dbus.
       LP: #1203595, #1235649.
 
+  [ Steve Langasek ]
+  * Document the authoritative Vcs branch in debian/control.
+
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 14 Nov 2013 17:37:05 +0000
 
 upstart (1.10-0ubuntu9) trusty; urgency=low
