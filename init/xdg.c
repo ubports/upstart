@@ -34,26 +34,6 @@
 #include "paths.h"
 #include "xdg.h"
 
-#ifndef INITCTL_BUILD
-
-/**
- * user_mode:
- *
- * If TRUE, upstart runs in user session mode.
- **/
-int user_mode = FALSE;
-
-/**
- * session_file:
- *
- * Full path to file containing UPSTART_SESSION details (only set when
- * user_mode in operation).
- *
- * File is created on startup and removed on clean shutdown.
- **/
-const char *session_file = NULL;
-
-#endif /* INITCTL_BUILD */
 
 /**
  * get_subdir:
