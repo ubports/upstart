@@ -2045,10 +2045,7 @@ test_log_serialise (void)
 	pid_t            pid;
 	int              wait_fd;
 	int              fd;
-	struct stat      statbuf;
-	mode_t           old_perms;
 	int              status;
-	int              got;
 
 	conf_init ();
 	nih_io_init ();
@@ -2107,7 +2104,6 @@ test_log_serialise (void)
 	TEST_FALSE (NIH_LIST_EMPTY (nih_io_watches));
 
 	TEST_CHILD_WAIT (pid, wait_fd) {
-		char    buf[1];
 
 		close (pty_master);
 
