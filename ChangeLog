@@ -1,3 +1,11 @@
+2013-11-16  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/xdg.c, util/Makefile.am, test/Makefile.am, init/conf.c:
+	  - juggle user_mode & session_file from xdg.c to conf.c
+	  - remove INITCTL_BUILD conditional compilation
+	  - make it possible to use the same xdg.o in both init & initctl
+	  - this is in preparation to handle subdir-objects automake option
+
 2013-11-15  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* init/tests/test_state.c: test_log_serialise():
