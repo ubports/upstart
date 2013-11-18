@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright  2009-2011 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,7 @@
  **/
 #define control_get_job(session, job, job_name, instance)             \
 {                                                                     \
-	if (job_name != NULL ) {                                      \
+	if (job_name) {                                               \
 		JobClass *class;                                      \
                                                                       \
 		class = job_class_get_registered (job_name, session); \
@@ -73,13 +73,14 @@
 			return -1;                                    \
 		}                                                     \
 								      \
-		job = job_find (session, class, NULL, instance);      \
-		if (job == NULL) {                                    \
+		job = job_find (session, class, job_name, instance);  \
+		if (! job) {                                          \
 			nih_dbus_error_raise_printf (                 \
 				DBUS_INTERFACE_UPSTART                \
 				".Error.UnknownJobInstance",          \
 				_("Unknown instance: %s of job %s"),  \
-				instance, job_name);                  \
+				instance ? instance : "(null)",       \
+				job_name);                            \
 			return -1;                                    \
 		}                                                     \
 	}                                                             \
