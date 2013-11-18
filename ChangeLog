@@ -22,6 +22,25 @@
 	    - test_reset_env().
 	* init/tests/test_job.c: test_job_find(): New function.
 
+2013-11-16  Dmitrijs Ledkovs  <xnox@ubuntu.com>
+
+	* init/xdg.c, util/Makefile.am, test/Makefile.am, init/conf.c:
+	  - juggle user_mode & session_file from xdg.c to conf.c
+	  - remove INITCTL_BUILD conditional compilation
+	  - make it possible to use the same xdg.o in both init & initctl
+	  - this is in preparation to handle subdir-objects automake option
+
+2013-11-15  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/tests/test_state.c: test_log_serialise():
+	  - simplify the test for unflushed logs; there's no need
+	    to let any writes to the logfile succeed before serializing,
+	    we only need one synchronization point to make sure we have a
+	    non-empty log buffer.
+	  - drop a spurious check of nih_io_watches at a point where its
+	    content cannot possibly have changed.
+	* test/test_util_common.h: drop TIMED_BLOCK() macro, no longer used.
+
 2013-11-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.11
