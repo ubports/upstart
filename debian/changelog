@@ -1,3 +1,13 @@
+upstart (1.10-1ubuntu1) UNRELEASED; urgency=low
+
+  * init/tests/test_state.c: fix test case to not assume SIGUSR1 == 10;
+    the numeric value may vary between platforms, what we actually care
+    about is making sure that the deserialization output matches what was in
+    the json - so check the numeric value, NOT the symbolic signal name.
+    LP: #1254326.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sat, 23 Nov 2013 11:28:57 -0800
+
 upstart (1.10-1) unstable; urgency=low
 
   * New upstream release.
