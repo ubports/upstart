@@ -1136,6 +1136,8 @@ test_log_destroy (void)
 	int   pty_master;
 	int   pty_slave;
 	int   found_fd;
+	char  filename[1024];
+	int   fd;
 
 	TEST_FUNCTION ("log_destroy");
 
@@ -1179,7 +1181,16 @@ test_log_destroy (void)
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, "/bar", pty_master, 0);
+	TEST_FILENAME (filename);
+
+	/* Make file inaccessible to ensure data cannot be written
+	 * and will thus be added to the unflushed buffer.
+	 */
+	fd = open (filename, O_CREAT | O_EXCL, 0);
+	TEST_NE (fd, -1);
+	close (fd);
+
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
 	ret = write (pty_slave, str, strlen (str));
@@ -1200,7 +1211,7 @@ test_log_destroy (void)
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
-	log = log_new (NULL, "/bar", pty_master, 0);
+	log = log_new (NULL, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
 
 	found_fd = 0;
@@ -1237,6 +1248,8 @@ test_log_destroy (void)
 			break;
 		}
 	}
+
+	TEST_EQ (unlink (filename), 0);
 
 	/* Freeing the log object should have removed the watch */
 	TEST_EQ (found_fd, 0);
