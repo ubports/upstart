@@ -4460,7 +4460,7 @@ test_reload_signal_state (const char *path)
 	NIH_HASH_FOREACH (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
 		if (strcmp (class->name, "whoopsie") == 0) {
-			TEST_EQ (class->reload_signal, SIGUSR1);
+			TEST_EQ (class->reload_signal, 10);
 		} else
 			TEST_EQ (class->reload_signal, SIGHUP);
 	}
