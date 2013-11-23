@@ -5,6 +5,10 @@ upstart (1.10-2) UNRELEASED; urgency=low
     about is making sure that the deserialization output matches what was in
     the json - so check the numeric value, NOT the symbolic signal name.
     LP: #1254326.
+  * init/tests/test_log.c: don't assume the root filesystem is not writable.
+    If we want to make sure log data stays in the buffer instead of being
+    flushed to disk, create a log file that we control and know can't be
+    written to.
 
  -- Steve Langasek <vorlon@debian.org>  Sat, 23 Nov 2013 11:28:57 -0800
 
