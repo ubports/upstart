@@ -1,4 +1,4 @@
-upstart (1.10-1) UNRELEASED; urgency=low
+upstart (1.10-1) unstable; urgency=low
 
   * New upstream release.
     - fixes racy test utmp test case.  Closes: #722572.
@@ -49,7 +49,7 @@ upstart (1.10-1) UNRELEASED; urgency=low
     so we don't need to force users to choose between upstart and file-rc.
     Closes: #709483.
 
- -- Steve Langasek <vorlon@debian.org>  Thu, 12 Sep 2013 15:22:18 -0700
+ -- Steve Langasek <vorlon@debian.org>  Thu, 21 Nov 2013 21:43:26 +0000
 
 upstart (1.6.1-1) unstable; urgency=low
 
