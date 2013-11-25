@@ -5,6 +5,10 @@
 	  about is making sure that the deserialization output matches what
 	  was in the json - so check the numeric value, NOT the symbolic
 	  signal name.
+	* init/tests/test_log.c: don't assume the root filesystem is not
+	  writable.  If we want to make sure log data stays in the buffer
+	  instead of being flushed to disk, create a log file that we
+	  control and know can't be written to.
 
 2013-11-16  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
