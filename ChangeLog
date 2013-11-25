@@ -1,3 +1,11 @@
+2013-11-23  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/tests/test_state.c: fix test case to not assume SIGUSR1 == 10;
+	  the numeric value may vary between platforms, what we actually care
+	  about is making sure that the deserialization output matches what
+	  was in the json - so check the numeric value, NOT the symbolic
+	  signal name.
+
 2013-11-16  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/xdg.c, util/Makefile.am, test/Makefile.am, init/conf.c:
