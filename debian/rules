@@ -15,10 +15,11 @@ endif
 export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
 %:
-	dh $@ --with bash-completion,autoreconf,python3
+	dh $@ --with bash-completion,autoreconf,python3 --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -- --exec-prefix= --disable-silent-rules --disable-abi-check --enable-selinux
+	dh_auto_configure -- --exec-prefix= --enable-selinux \
+		--disable-silent-rules --disable-abi-check
 
 override_dh_auto_build:
 	dh_auto_build --parallel

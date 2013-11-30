@@ -1,3 +1,76 @@
+upstart (1.11-0ubuntu2) UNRELEASED; urgency=low
+
+  * Merge Debian packaging changes from 1.10-2.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sat, 30 Nov 2013 00:44:40 -0600
+
+upstart (1.10-2) unstable; urgency=low
+
+  * init/tests/test_state.c: fix test case to not assume SIGUSR1 == 10;
+    the numeric value may vary between platforms, what we actually care
+    about is making sure that the deserialization output matches what was in
+    the json - so check the numeric value, NOT the symbolic signal name.
+    LP: #1254326.
+  * init/tests/test_log.c: don't assume the root filesystem is not writable.
+    If we want to make sure log data stays in the buffer instead of being
+    flushed to disk, create a log file that we control and know can't be
+    written to.
+
+ -- Steve Langasek <vorlon@debian.org>  Sat, 23 Nov 2013 22:17:35 +0000
+
+upstart (1.10-1) unstable; urgency=low
+
+  * New upstream release.
+    - fixes racy test utmp test case.  Closes: #722572.
+    - drop changes to init/job_class.[ch] process priority handling in favor
+      of upstream version.
+  * Pull in Ubuntu packaging changes:
+    - add INIT_VERBOSE to rc*.conf, overlooked in the previous merge.
+    - call dh-autoreconf, adding build-depends on dh-autoreconf and autopoint.
+    - update debian/copyright.
+    - add upstart-monitor package.
+    - migrate to python3.
+    - use "serial-tests" harness during build, instead of automake1.13's
+      default "parallel-tests" harness; and build-depend on automake
+      (>= 1.12) for this interface.
+    - Enable parallel build.
+    - Enable initial autopkgtests, just doing a package build and rerunning
+      the test suite.
+    - Add upstart-dconf-bridge package.
+    - Silence running-in-container when called from apparmor-profile-load.
+    - Hard-code a dependency on libjson0 (>= 0.10-1.2), the first version of
+      the package that installs to /lib instead of /usr/lib.
+    - Add postinst to handle stateful reexec on upgrade, and depend on
+      debianutils for ischroot(1).
+    - Add libupstart1 and libupstart1-dev packages.
+    - debian/manpages/upstart-events.7: Update for Session Init events.
+    - use verbose build (disable silent rules) by default.
+    - disable upstream build-time abi check.
+    - don't install upstart-event-bridge or upstart-dconf bridge jobs.
+    - install an apport hook.
+    - debian/source/options: Ignore gmo files we rebuild anyway.
+    - include changes to debian/upstart-job, which in practice should never
+      be used in Debian.
+    - init/apparmor.c: do not load apparmor if running in a container or a
+      live cd.
+    - init/job_process.c: don't fail if the security profile failed to load.
+    - drop no longer used util/tests/test_user_sessions.sh.
+  * For now, do not pull in packaging changes to include upstart user
+    sessions.
+  * Reorder the postinst to avoid calling initctl from a chroot on upgrade,
+    as this has side-effects of triggering upstart chroot sessions.
+  * Lose the unnecessary postinst boilerplate.
+  * init/tests/test_job_process.c: adjust test case to not key on the text
+    of error messages which will vary depending on whether /bin/sh is
+    dash or bash; and use TEST_STR_MATCH so that in the event of future
+    failures, we know why it's failing.
+  * Drop the hard-coded dep on sysv-rc; we already depend on initscripts
+    which depends on sysv-rc | file-rc, and file-rc now has upstart support,
+    so we don't need to force users to choose between upstart and file-rc.
+    Closes: #709483.
+
+ -- Steve Langasek <vorlon@debian.org>  Thu, 21 Nov 2013 21:43:26 +0000
+
 upstart (1.11-0ubuntu1) trusty; urgency=low
 
   [ Dmitrijs Ledkovs ]
@@ -1287,6 +1360,16 @@ upstart (0.6.3-1) karmic; urgency=low
 
  -- Scott James Remnant <scott@ubuntu.com>  Mon, 03 Aug 2009 23:58:47 +0100
 
+upstart (0.6.2-2) unstable; urgency=low
+
+  * debian/patches/10-ptrace_include_cleanup.patch
+    - Cleanup header includes. Only include ptrace.h in files that actually
+      need it. This also fixes a build failure on ia64.
+  * debian/rules
+    - Run dh_install with --list-missing.
+
+ -- Michael Biebl <biebl@debian.org>  Tue, 28 Jul 2009 15:50:20 +0200
+
 upstart (0.6.2-1) karmic; urgency=low
 
   * New upstream release:
@@ -1515,6 +1598,14 @@ upstart (0.3.5-1) feisty; urgency=low
 
  -- Scott James Remnant <scott@ubuntu.com>  Mon, 12 Feb 2007 13:51:40 +0000
 
+upstart (0.3.2-1) experimental; urgency=low
+
+  * New upstream release.
+  * debian/upstart.docs
+    - Install the NEWS, AUTHORS, TODO, HACKING and ChangeLog.nih file.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 10 Feb 2007 18:25:10 +0100
+
 upstart (0.3.1-1) feisty; urgency=low
 
   * New upstream release:
@@ -1619,6 +1710,15 @@ upstart (0.2.6-1) edgy; urgency=low
     - halt now behaves as "shutdown -h now".  Ubuntu: #59720.
 
  -- Scott James Remnant <scott@ubuntu.com>  Wed, 13 Sep 2006 22:16:17 +0100
+
+upstart (0.2.5-1debian1) unstable; urgency=low
+
+  * upstart-compat-sysv: Depend on sysvinit-utils instead of sysvutils.
+  * Set myself as maintainer with approval from martin f. krafft.
+  * Changed section from base to admin.
+  * Added a patch to make it compile against glibc 2.3.
+
+ -- Michael Biebl <biebl@teco.edu>  Tue, 12 Sep 2006 16:29:12 +0200
 
 upstart (0.2.5-1) edgy; urgency=low
 
