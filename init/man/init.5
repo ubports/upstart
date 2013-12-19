@@ -852,8 +852,22 @@ Changes to the user
 .I USERNAME
 before running any job process.
 
-If this stanza is unspecified, all job processes will run as root in the
-case of system jobs, and as the user in the case of user jobs.
+The job process will run with the primary group of user
+.I USERNAME
+unless the
+.B setgid
+stanza is also specified in which case that group will be used instead.
+
+For system jobs
+.BR initgroups (3)
+will be called to setup supplementary group access.
+
+Failure to determine and/or set user and group details will result in
+the overall job failing to start.
+
+If this stanza is unspecified, all job processes will run with user ID 0
+(root) in the case of system jobs, and as the user in the case of user
+jobs.
 
 Note that system jobs using the
 .B setuid
@@ -868,13 +882,18 @@ Changes to the group
 .I GROUPNAME
 before running any job process.
 
+For system jobs
+.BR initgroups (3)
+will be called to setup supplementary group access.
+
 If this stanza is unspecified, the primary group of the user specified
 in the
 .B setuid
-block is used for all job processes. If both stanzas are unspecified,
-all job processes will run with its group ID set to 0 in the case of
-system jobs, and as the primary group of the user in the case of User
-Session jobs.
+block is used for all job processes. If both this and the
+.B setuid
+stanza are unspecified, all job processes will run with their group ID set
+to 0 (root) in the case of system jobs, and as the primary group of the
+user in the case of User Session jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying

@@ -1,3 +1,8 @@
+2013-12-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Provide more detail on setuid and setgid stanzas
+	  (debian bug#732127).
+
 2013-11-23  Steve Langasek  <steve.langasek@ubuntu.com>
 
 	* init/tests/test_state.c: fix test case to not assume SIGUSR1 == 10;
