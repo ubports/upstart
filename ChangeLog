@@ -1,3 +1,14 @@
+2013-12-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.8:
+	  - Added Job States and Job Lifecycle sections (taken from
+	    Ubuntu+Debian specific upstart-events(7) since this information
+	    is distro-agnostic) (debian bug#732125).
+	  - Updated date+copyright.
+	* util/man/initctl.8:
+	  - Added reference to Job States section in init(8).
+	  - Updated date+copyright.
+
 2013-12-19  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Provide more detail on setuid and setgid stanzas
