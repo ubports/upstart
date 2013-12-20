@@ -8,6 +8,9 @@
 	* util/man/initctl.8:
 	  - Added reference to Job States section in init(8).
 	  - Updated date+copyright.
+	* init/man/init.5: Provide additional detail on start/stop on
+	  stanzas with respect to how Upstart deals with complex
+	  conditions containing multiple events (debian bug#732122).
 
 2013-12-19  James Hunt  <james.hunt@ubuntu.com>
 

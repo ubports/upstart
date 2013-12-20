@@ -319,8 +319,8 @@ is given by its name.  Multiple events are permitted using the
 .B and
 &
 .B or
-operators, and complex expressions may be performed with parentheses (within
-which line breaks are permitted).
+logical operators, and complex expressions may be performed with
+parentheses (within which line breaks are permitted).
 
 You may also match on the environment variables contained within the event
 by specifying the
@@ -345,13 +345,60 @@ between the
 and
 .IR VALUE .
 
+If an event is emitted for which no jobs have registered interest
+(via either
+.B start on
+or
+.BR "stop on" "),"
+the event is destroyed.
+
+If a job specifies a single event in its start condition and that event
+is emitted and matches any specifies event environment variables, the
+overall condition becomes true, the job is started and -- assuming no
+other job has registered an interest in it -- the event is destroyed.
+
+However, if an event is emitted which matches
+.I part
+of a jobs start condition, the job is said to be blocking the event
+(since the event is unable to change state until the job has started)
+and will both cause the event to persist and the job start condition to
+be marked as partially completed. Once all events in the start condition
+have been emitted, the overall job start condition becomes true and the
+job will be started. If no other jobs have registered interest in the
+events in the start condition, they will then be destroyed.
+
+Note that no job processes are started until the overall expression
+evaluates to true.
+
+Note that if a new job is created which specifies that it starts on one
+or more events
+.IR "that have already been destroyed" ","
+that job will not start automatically until those events are emitted
+again. Depending on the event, this may not happen until the next time
+the system is booted.
+
+Although complex expressions are supported, it should be possible
+to specify the start condition for the majority of jobs with very
+simple expressions (between one and four events as a very approximate
+guide). A large number or complex combination of events is often
+an indication that the condition should be refactored.
+
+Examples of
+.B start on
+conditions:
+
 .nf
 start on started gdm or started kdm
+
+start on stopped JOB=foo RESULT=failed PROCESS=pre-start
 
 start on device\-added SUBSYSTEM=tty DEVPATH=ttyS*
 
 start on net\-device\-added INTERFACE!=lo
+
+start on (A and B C=D and E F=G)
 .fi
+
 .TP
 .B stop on \fIEVENT \fR[[\fIKEY=\fR]\fIVALUE\fR]... [\fBand\fR|\fBor\fR...]
 The
@@ -365,7 +412,15 @@ stopped.  It has the same syntax as
 may additionally expand the value of any variable that came from the
 job's start environment (either the event or the command that started it).
 
+Examples of
+.B stop on
+conditions:
+
 .nf
+stop on A
+
+stop on starting B and stopped JOB=C
+
 stop on stopping gdm or stopping kdm
 
 stop on device\-removed DEVPATH=$DEVPATH
