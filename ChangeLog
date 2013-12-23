@@ -1,3 +1,8 @@
+2013-12-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Comma-separate and sort SEE ALSO entries.
+	* init/man/init.8: Expand SEE ALSO section (debian bug#732128).
+
 2013-12-20  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.8:
