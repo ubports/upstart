@@ -1,4 +1,4 @@
-upstart (1.11-0ubuntu3) UNRELEASED; urgency=low
+upstart (1.11-0ubuntu4) UNRELEASED; urgency=low
 
   [ Steve Langasek ]
   * Merge Debian packaging changes from 1.10-2.
@@ -6,8 +6,12 @@ upstart (1.11-0ubuntu3) UNRELEASED; urgency=low
   [ James Hunt ]
   * debian/manpages/upstart-events.7: Remove Job States and Job Lifecycle
     sections since they have been added to init.8 upstream (closes: bug#732125).
+  * debian/manpages/upstart-events.7:
+    - Added missing dbus and dconf events.
+    - Added all inline events to SEE ALSO section for quick reference.
+      (when coupled with latest upstream doc changes, closes: bug#732128).
 
- -- James Hunt <james.hunt@ubuntu.com>  Fri, 20 Dec 2013 15:23:20 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Mon, 23 Dec 2013 15:59:34 +0000
 
 upstart (1.10-2) unstable; urgency=low
 
