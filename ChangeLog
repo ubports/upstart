@@ -1,3 +1,8 @@
+2014-01-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8: Corrected example event
+	  name (LP: #1265359).
+
 2013-12-23  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Comma-separate and sort SEE ALSO entries.
