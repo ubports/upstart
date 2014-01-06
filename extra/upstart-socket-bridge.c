@@ -67,9 +67,10 @@ typedef struct socket {
 	NihList entry;
 
 	union {
-		struct sockaddr        addr;
-        struct sockaddr_in sin_addr;
-        struct sockaddr_un sun_addr;
+        struct sockaddr         addr;
+        struct sockaddr_in  sin_addr;
+        struct sockaddr_in6 sin6_addr;
+        struct sockaddr_un  sun_addr;
 	};
 	socklen_t addrlen;
 
@@ -307,14 +308,8 @@ epoll_watcher (void *      data,
 
 		switch (sock->addr.sa_family) {
 		case AF_INET:
-        case AF_INET6:
-            if(sock->addrlen.sa_family == AF_INET) {
-                NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
+            NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
                                              "PROTO=inet"));
-            } else {
-                NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
-                                             "PROTO=inet6"));
-            }
 
             var = NIH_MUST (nih_sprintf (NULL, "PORT=%d",
                              ntohs (sock->sin_addr.sin_port)));
@@ -324,6 +319,23 @@ epoll_watcher (void *      data,
 
             var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
                              inet_ntoa (sock->sin_addr.sin_addr)));
+            NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
+                              var));
+            nih_discard (var);
+        case AF_INET6:
+           NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
+                                             "PROTO=inet6"));
+
+            var = NIH_MUST (nih_sprintf (NULL, "PORT=%d",
+                             ntohs (sock->sin6_addr.sin6_port)));
+            NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
+                              var));
+            nih_discard (var);
+
+            char buffer[100];
+            var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
+                                         inet_ntop(AF_INET6, &sock->sin6_addr.sin6_addr, buffer, sizeof(buffer))));
+
             NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
                               var));
             nih_discard (var);
@@ -510,9 +522,9 @@ job_add_socket (Job *  job,
 				sock->sin_addr.sin_addr.s_addr = INADDR_ANY;
 				components = 1;
             } else if (! strcmp (val, "inet6")) {
-                sock->addrlen = sizeof sock->sin_addr6;
-                sock->sin_addr.sin_family = AF_INET6;
-                sock->sin_addr.sin6_addr.s_addr = IN6ADDR_ANY;
+                sock->addrlen = sizeof sock->sin6_addr;
+                sock->sin6_addr.sin6_family = AF_INET6;
+                sock->sin6_addr.sin6_addr = in6addr_any;
                 components = 1;
 			} else if (! strcmp (val, "unix")) {
 				sock->addrlen = sizeof sock->sun_addr;
