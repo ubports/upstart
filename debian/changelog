@@ -10,8 +10,9 @@ upstart (1.11-0ubuntu4) UNRELEASED; urgency=low
     - Added missing dbus and dconf events.
     - Added all inline events to SEE ALSO section for quick reference.
       (when coupled with latest upstream doc changes, closes: bug#732128).
+  * debian/control: add Build-Depends on libtool for test_conf_preload.sh.
 
- -- James Hunt <james.hunt@ubuntu.com>  Mon, 23 Dec 2013 15:59:34 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 08 Jan 2014 16:56:14 +0000
 
 upstart (1.11-0ubuntu2) UNRELEASED; urgency=low
 
