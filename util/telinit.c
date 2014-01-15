@@ -123,7 +123,7 @@ upstart_open (const void *parent)
 
 	dbus_error_init (&dbus_error);
 
-	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &dbus_error);
+	connection = dbus_connection_open (DBUS_ADDRESS_UPSTART, &dbus_error);
 	if (! connection) {
 		nih_dbus_error_raise (dbus_error.name, dbus_error.message);
 		dbus_error_free (&dbus_error);
@@ -134,7 +134,7 @@ upstart_open (const void *parent)
 	dbus_error_free (&dbus_error);
 
 	upstart = nih_dbus_proxy_new (parent, connection,
-				      DBUS_SERVICE_UPSTART,
+				      NULL,
 				      DBUS_PATH_UPSTART,
 				      NULL, NULL);
 	if (! upstart) {
