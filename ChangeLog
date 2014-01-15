@@ -1,3 +1,8 @@
+2014-01-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/telinit.c: upstart_open(): Connect using private socket
+	  for systems without D-Bus.
+
 2014-01-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5: Explain valid syntax for stanzas
