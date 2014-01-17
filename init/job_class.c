@@ -2429,6 +2429,9 @@ job_class_deserialise_all (json_object *json)
 		if (! state_check_json_type (json_class, object))
 			goto error;
 
+		/* Responsible for associating a JobClass with its
+		 * parent ConfFile.
+		 */
 		class = job_class_deserialise (json_class);
 
 		/* Either memory is low or -- more likely -- a JobClass
