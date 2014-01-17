@@ -9,6 +9,17 @@
 	* init/tests/test_conf.c: test_source_reload_file(): Add new tests:
 	  - "Invalid .conf file does not stop ConfFile being serialised".
 	  - "ConfFile with no JobClass can be deserialised".
+	* scripts/pyupstart.py:
+	  - JobInstance:destroy(): Whitespace.
+	  - SessionInit::reexec(): Add a log message.
+	* scripts/tests/test_pyupstart_session_init.py:
+	  - TestSessionUpstart: Add pid to ps output.
+	  - TestSessionInitReExec::test_session_init_reexec():
+	    - Create an invalid job to ensure re-exec can handle it.
+	    - Use 'with' for handling re-exec exception.
+	* scripts/tests/test_pyupstart_system_init.py:
+	  - TestSystemInitReExec::test_pid1_reexec():
+	    - Create an invalid job to ensure re-exec can handle it.
 
 2014-01-15  James Hunt  <james.hunt@ubuntu.com>
 
