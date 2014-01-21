@@ -925,8 +925,8 @@ class JobInstance:
         """
         Stop the instance and cleanup.
 
-	Note: If the instance specified retain when created, this will
-	be a NOP.
+        Note: If the instance specified retain when created, this will
+        be a NOP.
         """
         if not self.job.retain:
             self.stop()
@@ -1119,4 +1119,5 @@ class SessionInit(Upstart):
         if not self.proxy:
             raise UpstartException('Not yet connected')
 
+        self.logger.debug("Restarting Session Init")
         self.proxy.Restart()
