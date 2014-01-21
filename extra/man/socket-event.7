@@ -48,6 +48,15 @@ start on socket PROTO=inet PORT=80 ADDR=127.0.0.1
 .fi
 .RE
 .\"
+.SS Internet (inet6) socket
+What this does:
+.RS
+.nf
+
+start on socket PROTO=inet6 PORT=80 ADDR=N
+.fi
+.RE
+.\"
 .SS Local socket
 .P
 .RS
