@@ -1,4 +1,4 @@
-upstart (1.11-0ubuntu2) UNRELEASED; urgency=low
+upstart (1.11-0ubuntu2) trusty; urgency=low
 
   [ Steve Langasek ]
   * Merge Debian packaging changes from 1.10-2.
@@ -13,7 +13,7 @@ upstart (1.11-0ubuntu2) UNRELEASED; urgency=low
   * debian/control: add Build-Depends on libtool for test_conf_preload.sh.
   * Cherry-pick fix for handling re-exec if job is invalid (LP: #1269731).
 
- -- James Hunt <james.hunt@ubuntu.com>  Tue, 21 Jan 2014 11:19:15 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 21 Jan 2014 11:50:09 +0000
 
 upstart (1.10-2) unstable; urgency=low
 
