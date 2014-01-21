@@ -11,8 +11,9 @@ upstart (1.11-0ubuntu2) UNRELEASED; urgency=low
     - Added all inline events to SEE ALSO section for quick reference.
       (when coupled with latest upstream doc changes, closes: bug#732128).
   * debian/control: add Build-Depends on libtool for test_conf_preload.sh.
+  * Cherry-pick fix for handling re-exec if job is invalid (LP: #1269731).
 
- -- James Hunt <james.hunt@ubuntu.com>  Wed, 15 Jan 2014 16:52:05 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 21 Jan 2014 11:19:15 +0000
 
 upstart (1.10-2) unstable; urgency=low
 
