@@ -2,8 +2,18 @@
 	* extra/upstart-socket-bridge: Fixed indentation, used nih_local
 	* extra/man/socket-event.7: Added inet6 example
 
-2014-01-06  Kai Mast <mail@kai-mast.de>
+2014-01-19  Kai Mast <mail@kai-mast.de>
 	* extra/upstart-socket-bridge: Added IPv6 support
+
+2014-01-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/telinit.c: upstart_open(): Connect using private socket
+	  for systems without D-Bus.
+
+2014-01-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Explain valid syntax for stanzas
+	  accepting a signal (such as 'kill signal').
 
 2014-01-02  James Hunt  <james.hunt@ubuntu.com>
 

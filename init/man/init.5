@@ -579,10 +579,12 @@ command.
 .B normal exit \fISTATUS\fR|\fISIGNAL\fR...
 Additional exit statuses or even signals may be added, if the job
 process terminates with any of these it will not be considered to have
-failed and will not be respawned.
+failed and will not be respawned. A signal can be specified either
+as a full name (for example "\fISIGTERM\fP") or a partial name
+(for example "\fITERM\fP").
 
 .nf
-normal exit 0 1 TERM HUP
+normal exit 0 1 TERM SIGHUP
 .fi
 .\"
 .SS Instances
@@ -1027,7 +1029,11 @@ apparmor switch /usr/sbin/cupsd
 Specifies the stopping signal, 
 .I SIGTERM
 by default, a job's main process will receive when stopping the
-running job.
+running job. The signal should be specified as a full name (for example
+"\fISIGTERM\fP") or a partial name (for example "\fITERM\fP"). Note
+that it is possible to specify the signal as a number (for example
+"\fI15\fP") although this should be avoided if at all possible since
+signal numbers may differ between systems.
 
 .nf
 kill signal INT
@@ -1038,7 +1044,11 @@ kill signal INT
 Specifies the reload signal,
 .I SIGHUP
 by default, a job's main process will receive when reloading the
-running job.
+running job. The signal should be specified as a full name (for example
+"\fISIGHUP\fP") or a partial name (for example "\fIHUP\fP"). Note
+that it is possible to specify the signal as a number (for example
+"\fI1\fP") although this should be avoided if at all possible since
+signal numbers may differ between systems.
 
 .nf
 reload signal USR1
