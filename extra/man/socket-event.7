@@ -39,7 +39,7 @@ listening socket.
 .\"
 .SH EXAMPLES
 .\"
-.SS Internet socket
+.SS Internet (IPv4) socket
 Start web server when first client connects from localhost:
 .RS
 .nf
@@ -48,12 +48,12 @@ start on socket PROTO=inet PORT=80 ADDR=127.0.0.1
 .fi
 .RE
 .\"
-.SS Internet (inet6) socket
-What this does:
+.SS Internet (IPv6) socket
+Start job when a client connects from localhost:
 .RS
 .nf
 
-start on socket PROTO=inet6 PORT=80 ADDR=N
+start on socket PROTO=inet6 PORT=80 ADDR=::1
 .fi
 .RE
 .\"

@@ -332,7 +332,7 @@ epoll_watcher (void *      data,
 							var));
 			nih_discard (var);
 
-			char buffer[INET6_ADDRSTRLEN];
+			nih_local char buffer[INET6_ADDRSTRLEN];
 			var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
 							inet_ntop(AF_INET6, &sock->sin6_addr.sin6_addr, buffer, INET6_ADDRSTRLEN)));
 
@@ -537,25 +537,25 @@ job_add_socket (Job *  job,
 			}
 
 		} else if (! strncmp (*env, "PORT", name_len)
-               && (sock->sin_addr.sin_family == AF_INET)) {
+		           && (sock->sin_addr.sin_family == AF_INET)) {
 			sock->sin_addr.sin_port = htons (atoi (val));
 			components--;
 		} else if (! strncmp (*env, "PORT", name_len)
-               && (sock->sin6_addr.sin6_family == AF_INET6)) {
+		           && (sock->sin6_addr.sin6_family == AF_INET6)) {
 			sock->sin6_addr.sin6_port = htons (atoi (val));
 			components--;
 		} else if (! strncmp (*env, "ADDR", name_len)
-			   && (sock->sin_addr.sin_family == AF_INET)) {
+		           && (sock->sin_addr.sin_family == AF_INET)) {
 			if (inet_aton (val, &(sock->sin_addr.sin_addr)) == 0) {
 				nih_warn ("Ignored socket event with invalid ADDR=%s in %s",
-					  val, job->path);
+				          val, job->path);
 				goto error;
 			}
 
 		} else if (! strncmp (*env, "PATH", name_len)
-			   && (sock->sun_addr.sun_family == AF_UNIX)) {
+		           && (sock->sun_addr.sun_family == AF_UNIX)) {
 			strncpy (sock->sun_addr.sun_path, val,
-				 sizeof sock->sun_addr.sun_path);
+			         sizeof sock->sun_addr.sun_path);
 
 			if (sock->sun_addr.sun_path[0] == '@')
 				sock->sun_addr.sun_path[0] = '\0';
