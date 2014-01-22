@@ -745,6 +745,7 @@ logger_kmsg (NihLogLevel priority,
 	ssize_t         ret;
 	size_t          remaining = -1;
 	nih_local char *buffer = NULL;
+	char           *p;
 
 	nih_assert (message != NULL);
 
@@ -779,13 +780,16 @@ logger_kmsg (NihLogLevel priority,
 	if (! buffer)
 		goto out;
 
-	remaining = strlen (buffer);
+	p = buffer;
+
+	remaining = strlen (p);
 
 	do {
-		ret = write (fd, buffer, remaining);
-		if (ret > 0)
+		ret = write (fd, p, remaining);
+		if (ret > 0) {
+			p += ret;
 			remaining -= ret;
-		else if (ret < 0 && errno != EINTR) {
+		} else if (! ret || (ret < 0 && errno != EINTR)) {
 			close (fd);
 			return -1;
 		}
