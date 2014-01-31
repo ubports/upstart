@@ -1,3 +1,11 @@
+2014-01-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: job_process_spawn(): Comments.
+	* init/main.c: main(): Enable the debug stanza when booting with
+	  '--debug' (switching log-level will not work).
+	* init/parse_job.c: stanza_debug(): Conditionally disable the debug
+	  stanza.
+
 2014-01-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
