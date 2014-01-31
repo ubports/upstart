@@ -1,3 +1,10 @@
+2014-01-31  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_class.c: job_class_stop(): Copy env rather than
+	  referencing a local variable (LP: #1222705).
+	* init/tests/test_job_class.c: test_start(), test_stop(),
+	  test_restart(): Check job->env, job->start_env and job->stop-env.
+
 2014-01-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
