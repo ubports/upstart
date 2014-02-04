@@ -1,9 +1,9 @@
-upstart (1.11-0ubuntu3) UNRELEASED; urgency=medium
+upstart (1.11-0ubuntu3) trusty; urgency=medium
 
   * If present, wait for plymouth to come up in shut-down mode before
     changing runlevel at shutdown. (LP: #967229)
 
- -- Dimitri John Ledkov <xnox@ubuntu.com>  Tue, 04 Feb 2014 10:33:52 +0000
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Tue, 04 Feb 2014 15:01:47 +0000
 
 upstart (1.11-0ubuntu2) trusty; urgency=low
 
