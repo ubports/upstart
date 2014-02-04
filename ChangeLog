@@ -1,3 +1,8 @@
+2014-02-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/socket-event.7: Environment variable is
+	  UPSTART_EVENTS, not UPSTART_JOB (LP: #1275308).
+
 2014-01-22  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
