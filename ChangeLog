@@ -1,8 +1,7 @@
 2014-01-22  James Hunt  <james.hunt@ubuntu.com>
 
-        * init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
-          stealing the console in an container: fopen(3) may not specify
-          O_NOCTTY and Upstart should not own the console (LP: #1263738).
+	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoidl	  stealing the console in an container: fopen(3) may not specify
+	  O_NOCTTY and Upstart should not own the console (LP: #1263738).
 
 2014-01-20  Cameron Norman <camerontnorman@gmail.com>
 
@@ -12,12 +11,6 @@
 2014-01-19  Kai Mast <mail@kai-mast.de>
 
 	* extra/upstart-socket-bridge: Added IPv6 support (LP: #942955).
-
-2014-01-22  James Hunt  <james.hunt@ubuntu.com>
-
-	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
-	  stealing the console in an container: fopen(3) may not specify
-	  O_NOCTTY and Upstart should not own the console (LP: #1263738).
 
 2014-01-17  James Hunt  <james.hunt@ubuntu.com>
 
@@ -42,7 +35,6 @@
 	  - TestSystemInitReExec::test_pid1_reexec():
 	    - Create an invalid job to ensure re-exec can handle it.
 
->>>>>>> MERGE-SOURCE
 2014-01-15  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/telinit.c: upstart_open(): Connect using private socket
