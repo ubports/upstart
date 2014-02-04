@@ -740,8 +740,12 @@ static int
 logger_kmsg (NihLogLevel priority,
 	     const char *message)
 {
-	int   tag;
-	FILE *kmsg;
+	int             tag;
+	int             fd;
+	ssize_t         ret;
+	size_t          remaining = -1;
+	nih_local char *buffer = NULL;
+	char           *p;
 
 	nih_assert (message != NULL);
 
@@ -768,18 +772,31 @@ logger_kmsg (NihLogLevel priority,
 		tag = 'd';
 	}
 
-	kmsg = fopen ("/dev/kmsg", "w");
-	if (! kmsg)
+	fd = open ("/dev/kmsg", O_WRONLY | O_NOCTTY);
+	if (fd < 0)
 		return -1;
 
-	if (fprintf (kmsg, "<%c>%s: %s\n", tag, program_name, message) < 0) {
-		int saved_errno = errno;
-		fclose (kmsg);
-		errno = saved_errno;
-		return -1;
-	}
+	buffer = nih_sprintf (NULL, "<%c>%s: %s\n", tag, program_name, message);
+	if (! buffer)
+		goto out;
 
-	if (fclose (kmsg) < 0)
+	p = buffer;
+
+	remaining = strlen (p);
+
+	do {
+		ret = write (fd, p, remaining);
+		if (ret > 0) {
+			p += ret;
+			remaining -= ret;
+		} else if (! ret || (ret < 0 && errno != EINTR)) {
+			close (fd);
+			return -1;
+		}
+	} while (remaining);
+
+out:
+	if (close (fd) < 0)
 		return -1;
 
 	return 0;

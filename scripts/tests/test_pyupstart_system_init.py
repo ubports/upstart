@@ -61,6 +61,16 @@ class TestSystemInitReExec(TestSystemUpstart):
       version = self.upstart.version()
       self.assertTrue(version)
 
+      # Create an invalid job to ensure this causes no problems for
+      # the re-exec. Note that we cannot use job_create() since
+      # that validates the syntax of the .conf file).
+      #
+      # We create this file before any other to allow time for Upstart
+      # to _attempt to parse it_ by the time the re-exec is initiated.
+      invalid_conf = "{}/invalid.conf".format(self.upstart.test_dir)
+      with open(invalid_conf, 'w', encoding='utf-8') as fh:
+          print("invalid", file=fh)
+
       # create a job and start it, marking it such that the .conf file
       # will be retained when object becomes unusable (after re-exec).
       job = self.upstart.job_create('sleeper', 'exec sleep 123', retain=True)
@@ -117,6 +127,8 @@ class TestSystemInitReExec(TestSystemUpstart):
       # Ensure the pid has gone
       with self.assertRaises(ProcessLookupError):
           os.kill(pid, 0)
+
+      os.remove(invalid_conf)
 
       # Clean up
       self.upstart.destroy()

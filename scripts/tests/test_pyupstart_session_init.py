@@ -51,7 +51,7 @@ class TestSessionUpstart(unittest.TestCase):
     FILE_BRIDGE_CONF = 'upstart-file-bridge.conf'
     REEXEC_CONF = 're-exec.conf'
 
-    PSCMD_FMT = 'ps --no-headers -p %d -o comm,args'
+    PSCMD_FMT = 'ps --no-headers -p %d -o pid,comm,args'
 
     def setUp(self):
 
@@ -343,6 +343,16 @@ class TestSessionInitReExec(TestSessionUpstart):
         version = self.upstart.version()
         self.assertTrue(version)
 
+        # Create an invalid job to ensure this causes no problems for
+        # the re-exec. Note that we cannot use job_create() since
+        # that validates the syntax of the .conf file).
+        #
+        # We create this file before any other to allow time for Upstart
+        # to _attempt to parse it_ by the time the re-exec is initiated.
+        invalid_conf = "{}/invalid.conf".format(self.upstart.test_dir)
+        with open(invalid_conf, 'w', encoding='utf-8') as fh:
+            print("invalid", file=fh)
+
         # create a job and start it, marking it such that the .conf file
         # will be retained when object becomes unusable (after re-exec).
         job = self.upstart.job_create('sleeper', 'exec sleep 123', retain=True)
@@ -360,7 +370,8 @@ class TestSessionInitReExec(TestSessionUpstart):
         # Trigger re-exec and catch the D-Bus exception resulting
         # from disconnection from Session Init when it severs client
         # connections.
-        self.assertRaises(dbus.exceptions.DBusException, self.upstart.reexec)
+        with self.assertRaises(dbus.exceptions.DBusException):
+            self.upstart.reexec()
 
         os.kill(self.upstart.pid, 0)
 
@@ -410,6 +421,8 @@ class TestSessionInitReExec(TestSessionUpstart):
         # Ensure the pid has gone
         with self.assertRaises(ProcessLookupError):
             os.kill(pid, 0)
+
+        os.remove(invalid_conf)
 
         self.stop_session_init()
 
