@@ -296,6 +296,7 @@ epoll_watcher (void *      data,
 		size_t env_len = 0;
 		char *var;
 		DBusPendingCall *pending_call;
+		char buffer[INET6_ADDRSTRLEN];
 
 		if (event[i].events & EPOLLIN)
 			nih_debug ("%p EPOLLIN", sock);
@@ -322,6 +323,7 @@ epoll_watcher (void *      data,
 			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
 							var));
 			nih_discard (var);
+			break;
  		case AF_INET6:
 			NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
 							"PROTO=inet6"));
@@ -332,13 +334,13 @@ epoll_watcher (void *      data,
 							var));
 			nih_discard (var);
 
-			nih_local char buffer[INET6_ADDRSTRLEN];
 			var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
 							inet_ntop(AF_INET6, &sock->sin6_addr.sin6_addr, buffer, INET6_ADDRSTRLEN)));
 
 			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
 							var));
 			nih_discard (var);
+			break;
 		case AF_UNIX:
 			NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
 						     "PROTO=unix"));
@@ -551,7 +553,13 @@ job_add_socket (Job *  job,
 				          val, job->path);
 				goto error;
 			}
-
+		} else if (! strncmp (*env, "ADDR", name_len)
+		           && (sock->sin6_addr.sin6_family == AF_INET6)) {
+			if (inet_pton (AF_INET6, val, &(sock->sin6_addr.sin6_addr)) == 0) {
+				nih_warn ("Ignored socket event with invalid ADDR=%s in %s",
+				          val, job->path);
+				goto error;
+			}
 		} else if (! strncmp (*env, "PATH", name_len)
 		           && (sock->sun_addr.sun_family == AF_UNIX)) {
 			strncpy (sock->sun_addr.sun_path, val,

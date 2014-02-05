@@ -30,7 +30,7 @@ When an incoming connection is detected, the file descriptor
 representing the socket is passed to the job in question to allow it to
 .BR accept (2)
 the connection. Additionally, the environment variable
-.B UPSTART_JOB
+.B UPSTART_EVENTS
 will contain the name of the event ("socket") and the environment
 variable
 .B UPSTART_FDS
