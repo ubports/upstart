@@ -555,7 +555,7 @@ job_add_socket (Job *  job,
 			}
 		} else if (! strncmp (*env, "ADDR", name_len)
 		           && (sock->sin6_addr.sin6_family == AF_INET6)) {
-			if (inet_pton (AF_INET6, val, &(sock->sin6_addr.sin6_addr)) == 1) {
+			if (inet_pton (AF_INET6, val, &(sock->sin6_addr.sin6_addr)) != 1) {
 				nih_warn ("Ignored socket event with invalid ADDR=%s in %s",
 				          val, job->path);
 				goto error;
