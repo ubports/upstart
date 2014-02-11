@@ -560,8 +560,6 @@ job_add_socket (Job *  job,
 				          val, job->path);
 				goto error;
 			}
-			int i = 1;
-			setsockopt (sock, SOL_IPV6, IPV6_V6ONLY, &i, sizeof i);
 		} else if (! strncmp (*env, "PATH", name_len)
 		           && (sock->sun_addr.sun_family == AF_UNIX)) {
 			strncpy (sock->sun_addr.sun_path, val,
@@ -599,6 +597,15 @@ job_add_socket (Job *  job,
 			&opt, sizeof opt) < 0) {
 		nih_warn ("Failed to set socket reuse in %s: %s",
 			  job->path, strerror (errno));
+		goto error;
+	}
+
+	/* If socket is ipv6, need to set IPV6_V6ONLY option */
+	if (sock->sin6_addr.sin6_family == AF_INET6 && 
+	    setsockopt (sock->sock, SOL_IPV6, IPV6_V6ONLY,
+	                &opt, sizeof opt) < 0) {
+		nih_warn ("Failed to set IPV6 only option in %s: %s",
+		          job->path, strerror (errno));
 		goto error;
 	}
 
