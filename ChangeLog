@@ -1,3 +1,10 @@
+2014-02-04   Cameron Norman  <camerontnorman@gmail.com>
+
+	* extra/upstart-socket-bridge.c:
+	  - epoll_watcher(): Fix missing breaks in a switch, move buffer and
+	                     remove its nih_local usage.
+	  - job_add_socket(): added case for name_len being a AF_INET6 address.
+
 2014-02-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* extra/man/socket-event.7: Environment variable is
@@ -8,6 +15,15 @@
 	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
 	  stealing the console in an container: fopen(3) may not specify
 	  O_NOCTTY and Upstart should not own the console (LP: #1263738).
+
+2014-01-20  Cameron Norman  <camerontnorman@gmail.com>
+
+	* extra/upstart-socket-bridge.c: Fixed indentation, used nih_local.
+	* extra/man/socket-event.7: Added inet6 example.
+
+2014-01-19  Kai Mast <mail@kai-mast.de>
+
+	* extra/upstart-socket-bridge.c: Added IPv6 support (LP: #942955).
 
 2014-01-17  James Hunt  <james.hunt@ubuntu.com>
 

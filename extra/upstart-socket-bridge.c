@@ -67,9 +67,10 @@ typedef struct socket {
 	NihList entry;
 
 	union {
-		struct sockaddr        addr;
-		struct sockaddr_in sin_addr;
-		struct sockaddr_un sun_addr;
+		struct sockaddr         addr;
+		struct sockaddr_in  sin_addr;
+		struct sockaddr_in6 sin6_addr;
+		struct sockaddr_un  sun_addr;
 	};
 	socklen_t addrlen;
 
@@ -295,6 +296,7 @@ epoll_watcher (void *      data,
 		size_t env_len = 0;
 		char *var;
 		DBusPendingCall *pending_call;
+		char buffer[INET6_ADDRSTRLEN];
 
 		if (event[i].events & EPOLLIN)
 			nih_debug ("%p EPOLLIN", sock);
@@ -308,18 +310,35 @@ epoll_watcher (void *      data,
 		switch (sock->addr.sa_family) {
 		case AF_INET:
 			NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
-						     "PROTO=inet"));
+							"PROTO=inet"));
 
 			var = NIH_MUST (nih_sprintf (NULL, "PORT=%d",
-						     ntohs (sock->sin_addr.sin_port)));
+							ntohs (sock->sin_addr.sin_port)));
 			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
-						      var));
+							var));
 			nih_discard (var);
 
 			var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
-						     inet_ntoa (sock->sin_addr.sin_addr)));
+							inet_ntoa (sock->sin_addr.sin_addr)));
 			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
-						      var));
+							var));
+			nih_discard (var);
+			break;
+ 		case AF_INET6:
+			NIH_MUST (nih_str_array_add (&env, NULL, &env_len,
+							"PROTO=inet6"));
+
+			var = NIH_MUST (nih_sprintf (NULL, "PORT=%d",
+							ntohs (sock->sin6_addr.sin6_port)));
+			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
+							var));
+			nih_discard (var);
+
+			var = NIH_MUST (nih_sprintf (NULL, "ADDR=%s",
+							inet_ntop(AF_INET6, &sock->sin6_addr.sin6_addr, buffer, INET6_ADDRSTRLEN)));
+
+			NIH_MUST (nih_str_array_addp (&env, NULL, &env_len,
+							var));
 			nih_discard (var);
 			break;
 		case AF_UNIX:
@@ -504,6 +523,11 @@ job_add_socket (Job *  job,
 				sock->sin_addr.sin_family = AF_INET;
 				sock->sin_addr.sin_addr.s_addr = INADDR_ANY;
 				components = 1;
+			} else if (! strcmp (val, "inet6")) {
+				sock->addrlen = sizeof sock->sin6_addr;
+				sock->sin6_addr.sin6_family = AF_INET6;
+				sock->sin6_addr.sin6_addr = in6addr_any;
+				components = 1;
 			} else if (! strcmp (val, "unix")) {
 				sock->addrlen = sizeof sock->sun_addr;
 				sock->sun_addr.sun_family = AF_UNIX;
@@ -515,22 +539,31 @@ job_add_socket (Job *  job,
 			}
 
 		} else if (! strncmp (*env, "PORT", name_len)
-			   && (sock->sin_addr.sin_family == AF_INET)) {
+		           && (sock->sin_addr.sin_family == AF_INET)) {
 			sock->sin_addr.sin_port = htons (atoi (val));
 			components--;
-
+		} else if (! strncmp (*env, "PORT", name_len)
+		           && (sock->sin6_addr.sin6_family == AF_INET6)) {
+			sock->sin6_addr.sin6_port = htons (atoi (val));
+			components--;
 		} else if (! strncmp (*env, "ADDR", name_len)
-			   && (sock->sin_addr.sin_family == AF_INET)) {
+		           && (sock->sin_addr.sin_family == AF_INET)) {
 			if (inet_aton (val, &(sock->sin_addr.sin_addr)) == 0) {
 				nih_warn ("Ignored socket event with invalid ADDR=%s in %s",
-					  val, job->path);
+				          val, job->path);
 				goto error;
 			}
-
+		} else if (! strncmp (*env, "ADDR", name_len)
+		           && (sock->sin6_addr.sin6_family == AF_INET6)) {
+			if (inet_pton (AF_INET6, val, &(sock->sin6_addr.sin6_addr)) != 1) {
+				nih_warn ("Ignored socket event with invalid ADDR=%s in %s",
+				          val, job->path);
+				goto error;
+			}
 		} else if (! strncmp (*env, "PATH", name_len)
-			   && (sock->sun_addr.sun_family == AF_UNIX)) {
+		           && (sock->sun_addr.sun_family == AF_UNIX)) {
 			strncpy (sock->sun_addr.sun_path, val,
-				 sizeof sock->sun_addr.sun_path);
+			         sizeof sock->sun_addr.sun_path);
 
 			if (sock->sun_addr.sun_path[0] == '@')
 				sock->sun_addr.sun_path[0] = '\0';
@@ -564,6 +597,15 @@ job_add_socket (Job *  job,
 			&opt, sizeof opt) < 0) {
 		nih_warn ("Failed to set socket reuse in %s: %s",
 			  job->path, strerror (errno));
+		goto error;
+	}
+
+	/* If socket is ipv6, need to set IPV6_V6ONLY option */
+	if (sock->sin6_addr.sin6_family == AF_INET6 && 
+	    setsockopt (sock->sock, SOL_IPV6, IPV6_V6ONLY,
+	                &opt, sizeof opt) < 0) {
+		nih_warn ("Failed to set IPV6 only option in %s: %s",
+		          job->path, strerror (errno));
 		goto error;
 	}
 
