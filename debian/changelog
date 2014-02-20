@@ -1,8 +1,20 @@
-upstart (1.11-0ubuntu4) UNRELEASED; urgency=medium
+upstart (1.11-0ubuntu6) UNRELEASED; urgency=medium
 
   * Adjust wait-for-state job to also check .override for "manual" flag.
 
  -- Dimitri John Ledkov <xnox@ubuntu.com>  Tue, 04 Feb 2014 17:31:02 +0000
+
+upstart (1.11-0ubuntu5) trusty; urgency=medium
+
+  * Do not require a specific python3 version.
+
+ -- Matthias Klose <doko@ubuntu.com>  Thu, 20 Feb 2014 11:54:22 +0100
+
+upstart (1.11-0ubuntu4) trusty; urgency=medium
+
+  * No-change rebuild for Python 3.4.
+
+ -- Matthias Klose <doko@ubuntu.com>  Wed, 19 Feb 2014 20:31:46 +0100
 
 upstart (1.11-0ubuntu3) trusty; urgency=medium
 
