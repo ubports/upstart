@@ -25,6 +25,7 @@ digraph {
 
 	waiting [shape=diamond];
 	starting [label="starting\n(emit starting)"];
+	security [label="security"];
 	pre_start [label="pre-start"];
 	spawned [label="spawned\n(wait for pid)"];
 	post_start [label="post-start"];
@@ -37,7 +38,9 @@ digraph {
 	emit_stopped [shape=rectangle,label="emit stopped"];
 
 	waiting -> starting [color=green];
-	starting -> pre_start [color=green];
+	starting -> security [color=green];
+	security -> pre_start [color=green];
+	security -> stopping [color=red];
 	starting -> stopping [color=red];
 	pre_start -> spawned [color=green];
 	pre_start -> stopping [color=red];
