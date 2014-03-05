@@ -1288,7 +1288,13 @@ control_set_env (void            *data,
 
 	nih_assert (message);
 	nih_assert (job_details);
-	nih_assert (var);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
 
 	if (job_details[0]) {
 		job_name = job_details[0];
@@ -1302,10 +1308,9 @@ control_set_env (void            *data,
 		return -1;
 	}
 
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
+	if (! var || ! *var) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1386,12 +1391,17 @@ control_unset_env (void            *data,
 
 	nih_assert (message);
 	nih_assert (job_details);
-	nih_assert (name);
 
 	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	if (! name || ! *name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1487,6 +1497,12 @@ control_get_env (void             *data,
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to query job environment"));
+		return -1;
+	}
+
+	if (! name || ! *name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1649,6 +1665,13 @@ control_reset_env (void           *data,
 	nih_assert (message);
 	nih_assert (job_details);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
@@ -1658,13 +1681,6 @@ control_reset_env (void           *data,
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("Not permissible to modify PID 1 job environment"));
-		return -1;
-	}
-
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
 		return -1;
 	}
 

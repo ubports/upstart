@@ -1,6 +1,27 @@
 2014-03-05  James Hunt  <james.hunt@ubuntu.com>
 
 	* doc/states.dot: Added missing security state.
+	* init/control.c:
+	  - control_set_env():
+	    - Check permissions before anything else.
+	    - Explicit check on @var rather than an assert.
+	  - control_unset_env(): Explicit check on @name rather than an assert.
+	  - control_get_env(): Explicit check on @name.
+	  - control_reset_env(): Check permissions before anything else.
+	* init/control.h: control_get_job():
+	  - Pass @job_name to job_find() rather than hard-coded NULL.
+	  - Handle instance being NULL when raising NIH D-Bus error.
+	* init/job.c: job_find(): Handle NULL job_name.
+	* init/tests/test_control.c:
+	  - Typo.
+	  - New functions:
+	    - test_list_env().
+	    - test_list_env().
+	    - test_get_env().
+	    - test_set_env().
+	    - test_unset_env().
+	    - test_reset_env().
+	* init/tests/test_job.c: test_job_find(): New function.
 
 2014-02-04   Cameron Norman  <camerontnorman@gmail.com>
 
