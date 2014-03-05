@@ -16960,7 +16960,7 @@ test_dbus_connection (void)
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	TEST_STR_MATCH (output[0], "test_init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
 	STOP_UPSTART (upstart_pid);
@@ -16992,7 +16992,7 @@ test_dbus_connection (void)
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	TEST_STR_MATCH (output[0], "test_init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
 	/* Unset to stop initctl finding upstart via this route */
@@ -17049,7 +17049,7 @@ test_dbus_connection (void)
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	TEST_STR_MATCH (output[0], "test_init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
 	STOP_UPSTART (upstart_pid);
@@ -17098,7 +17098,7 @@ test_dbus_connection (void)
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	TEST_STR_MATCH (output[0], "test_init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
 	/* Pass the second D-Bus session bus address to the Session Init */
@@ -17113,7 +17113,7 @@ test_dbus_connection (void)
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
 	TEST_EQ (lines, 1);
-	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	TEST_STR_MATCH (output[0], "test_init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
 	/* Stop the 1st daemon */
