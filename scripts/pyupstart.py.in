@@ -15,7 +15,6 @@ Upstart test module.
 """
 
 import os
-import sys
 import logging
 import tempfile
 import pyinotify
