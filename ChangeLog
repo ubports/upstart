@@ -22,6 +22,10 @@
 	    - test_unset_env().
 	    - test_reset_env().
 	* init/tests/test_job.c: test_job_find(): New function.
+	* scripts/init-checkconf.sh:
+	  - Don't rely on D-Bus any more: spawn a Session Init instead since
+	    this is simpler and allows the two major limitations to be dropped.
+	* scripts/man/init-checkconf.8: Updated date and limitations section.
 
 2014-02-04   Cameron Norman  <camerontnorman@gmail.com>
 
