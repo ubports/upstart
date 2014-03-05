@@ -30,7 +30,6 @@
 import os
 import sys
 import re
-import json
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 module_dir = os.path.normpath(os.path.realpath(base_dir + os.sep + '..'))
@@ -81,7 +80,7 @@ class TestSessionUpstart(unittest.TestCase):
             tmp = '{}{}{}'.format(DEFAULT_SESSION_INSTALL_PATH, os.sep, self.REEXEC_CONF)
             if os.path.exists(tmp):
                 print('INFO: UPSTART_TEST_USE_INSTALLED_CONF set - using {} rather than {}'.format(tmp, self.reexec_conf))
-                reexec_conf = tmp
+                self.reexec_conf = tmp
 
         self.assertTrue(os.path.exists(self.file_bridge_conf))
         self.assertTrue(os.path.exists(self.reexec_conf))
