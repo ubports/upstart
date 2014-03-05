@@ -128,6 +128,13 @@
 
 2013-11-14  James Hunt  <james.hunt@ubuntu.com>
 
+	* test/test_util_common.c: _start_upstart(): Set name to
+	  "test_init" for consistency with TEST_DBUS() and to make it
+	  easier to avoid killing non-test Session Inits when developing
+	  new tests.
+
+2013-11-14  James Hunt  <james.hunt@ubuntu.com>
+
 	* NEWS: Release 1.11
 
 2013-11-13  James Hunt  <james.hunt@ubuntu.com>
