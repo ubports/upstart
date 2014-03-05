@@ -1241,8 +1241,9 @@ job_class_stop (JobClass       *class,
 	if (job->stop_env)
 		nih_unref (job->stop_env, job);
 
-	job->stop_env = (char **)env;
-	nih_ref (job->stop_env, job);
+	job->stop_env = nih_str_array_copy (job, NULL, env);
+	if (! job->stop_env)
+		nih_return_system_error (-1);
 
 	job_finished (job, FALSE);
 	if (blocked)
