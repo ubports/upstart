@@ -146,7 +146,7 @@ class TestSystemInitChrootSession(TestSystemUpstart):
         self.assertTrue(os.path.exists(chroot_path))
 
         # Ensure Upstart is installed in the chroot
-        chroot_initctl = '{}{}{}'.format(chroot_path, os.sep, INITCTL)
+        chroot_initctl = '{}{}{}'.format(chroot_path, os.sep, get_initctl())
         self.assertTrue(os.path.exists(chroot_initctl))
 
         # No sessions should exist before the test starts
@@ -154,7 +154,7 @@ class TestSystemInitChrootSession(TestSystemUpstart):
 
         # Create an Upstart chroot session by talking from the chroot
         # back to PID 1.
-        ret = subprocess.call(['chroot', chroot_path, INITCTL, 'list'])
+        ret = subprocess.call(['chroot', chroot_path, get_initctl(), 'list'])
         self.assertEqual(0, ret)
 
         # Ensure a session now exists

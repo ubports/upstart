@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #---------------------------------------------------------------------
-# Copyright © 2013 Canonical Ltd.
+# Copyright  2013 Canonical Ltd.
 #
 # Author: James Hunt <james.hunt@canonical.com>
 #
@@ -89,7 +89,7 @@ class TestSessionUpstart(unittest.TestCase):
         self.upstart = None
 
         self.logger = logging.getLogger(self.__class__.__name__)
-        for cmd in UPSTART, INITCTL:
+        for cmd in get_init(), get_initctl():
             if not os.path.exists(cmd):
                 raise UpstartException('Command %s not found' % cmd)
 
@@ -141,10 +141,23 @@ class TestFileBridge(TestSessionUpstart):
     def test_init_start_file_bridge(self):
         self.start_session_init()
 
-        # Create the file-bridge job in the correct test location by copying
-        # the session job from the source package.
-        with open(self.file_bridge_conf, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        # Create upstart-file-bridge.conf
+        #
+        # Note that we do not use the bundled user job due to our
+        # requirement for a different start condition and different
+        # command options.
+        cmd = '{} --daemon --user --debug'.format(get_file_bridge())
+        lines = """
+        start on startup
+        stop on session-end
+
+        emits file
+
+        expect daemon
+        respawn
+        exec {}
+        """.format(cmd)
+
         file_bridge = self.upstart.job_create('upstart-file-bridge', lines)
         self.assertTrue(file_bridge)
         file_bridge.start()
