@@ -7,6 +7,11 @@
 	  tests (LP: #1288243).
 	* util/tests/test_initctl.c: Revert to looking for "init' rather than
 	  'test_init'.
+	* init/job_process.c: job_process_spawn(): Comments.
+	* init/main.c: main(): Enable the debug stanza when booting with
+	  '--debug' (switching log-level will not work).
+	* init/parse_job.c: stanza_debug(): Conditionally disable the debug
+	  stanza.
 
 2014-03-06  James Hunt  <james.hunt@ubuntu.com>
 

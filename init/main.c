@@ -138,6 +138,7 @@ extern int          write_state_file;
 extern char        *log_dir;
 extern DBusBusType  dbus_bus_type;
 extern mode_t       initial_umask;
+extern int          debug_stanza_enabled;
 
 /**
  * options:
@@ -218,6 +219,9 @@ main (int   argc,
 	args = nih_option_parser (NULL, argc, argv, options, FALSE);
 	if (! args)
 		exit (1);
+
+	if (nih_log_priority == NIH_LOG_DEBUG)
+		debug_stanza_enabled = TRUE;
 
 	handle_confdir ();
 	handle_logdir ();
