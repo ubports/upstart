@@ -133,7 +133,7 @@ test_libupstart (void)
 	TEST_EQ (ret, 0);
 
 	nih_message ("Running instance version: '%s'", version);
-	assert0 (fnmatch ("test_init (upstart*)", version, 0x0));
+	assert0 (fnmatch ("init (upstart*)", version, 0x0));
 
 	STOP_UPSTART (upstart_pid);
 	TEST_DBUS_END (dbus_pid);
