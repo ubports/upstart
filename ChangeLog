@@ -1,5 +1,15 @@
 2014-03-06  James Hunt  <james.hunt@ubuntu.com>
 
+	* lib/tests/test_libupstart.c: Revert to looking for 'init'
+	  rather than 'test_init'.
+	* test/test_util_common.c: _start_upstart(): Don't modify argv[0] to
+	  make the tests inits appear as "test_init" since it breaks the re-exec
+	  tests (LP: #1288243).
+	* util/tests/test_initctl.c: Revert to looking for "init' rather than
+	  'test_init'.
+
+2014-03-06  James Hunt  <james.hunt@ubuntu.com>
+
 	* lib/tests/test_libupstart.c: test_libupstart(): Another
 	  init => test_init fix.
 
