@@ -17052,6 +17052,27 @@ test_dbus_connection (void)
 	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
 	nih_free (output);
 
+	/*********************************************************************/
+	TEST_FEATURE ("ensure Session Init retains D-Bus address across a re-exec");
+
+	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
+
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Re-apply in the test environment */
+	assert0 (setenv ("DBUS_SESSION_BUS_ADDRESS", dbus_session_address, 1));
+
+	/* It should still be possible to query the running version via
+	 * the D-Bus session bus since Upstart should have reconnected
+	 * since it was previously notified of the D-Bus address.
+	 */
+	cmd = nih_sprintf (NULL, "%s --session version 2>&1", get_initctl_binary ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "init (upstart [0-9.][0-9.]*");
+	nih_free (output);
+
 	STOP_UPSTART (upstart_pid);
 	TEST_DBUS_END (dbus_pid);
 

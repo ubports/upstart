@@ -12,6 +12,16 @@
 	  '--debug' (switching log-level will not work).
 	* init/parse_job.c: stanza_debug(): Conditionally disable the debug
 	  stanza.
+	* init/control.c:
+	  - control_serialise_bus_address(), control_deserialise_bus_address():
+	    New functions to handle carrying the control bus address across a
+	    re-exec (LP: #1258098).
+	* init/state.c:
+	  - state_to_string(): Handle control bus address serialisation.
+	  - state_from_string(): Handle control bus address
+	deserialisation.
+	* util/tests/test_initctl.c: test_dbus_connection(): New test:
+	  - "ensure Session Init retains D-Bus address across a re-exec"
 
 2014-03-06  James Hunt  <james.hunt@ubuntu.com>
 
