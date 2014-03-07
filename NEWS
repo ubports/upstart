@@ -1,4 +1,22 @@
-1.12  xxxx-xx-xx ""
+1.12  2014-03-07 "Water Table"
+
+	* Stop Upstart indirectly stealing console ownership (most noticeably when
+	  run in a container).
+	* Fixed bug that could result in incorrect output from initctl(8)
+	  environment commands.
+	* Fixed incorrect variable usage which could result in a crash
+	  (LP: #1222705).
+	* Fixed stateful re-exec issue triggered by invalid jobs
+	  (LP: #1269731).
+	* Stateful re-exec fix to serialise the D-Bus session bus
+	  (LP: #1258098).
+	* init-checkconf(8) now uses a Session Init and can also now be
+	  run as root.
+	* upstart-socket-bridge(8) now supports IPv6 (thanks to Kai Mast and
+	  Cameron Norman).
+	* Allow telinit(8) to work on systems with no D-Bus system bus.
+	* Numerous test improvements.
+	* Lots of man-page improvements.
 
 1.11  2013-11-14 "Quoi de neuf?"
 

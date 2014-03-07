@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.11\n"
+"Project-Id-Version: upstart 1.12\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2013-11-14 14:18+0000\n"
+"POT-Creation-Date: 2014-03-07 11:07+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,33 +17,33 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: init/conf.c:488 init/session.c:254
+#: init/conf.c:505 init/session.c:254
 msgid "Unable to load configuration"
 msgstr ""
 
-#: init/conf.c:521
+#: init/conf.c:538
 #, c-format
 msgid "Loading configuration from %s"
 msgstr ""
 
-#: init/conf.c:558
+#: init/conf.c:575
 #, c-format
 msgid "Handling deletion of %s"
 msgstr ""
 
-#: init/conf.c:635
+#: init/conf.c:652
 msgid "Unable to watch configuration file"
 msgstr ""
 
-#: init/conf.c:730
+#: init/conf.c:747
 msgid "Unable to watch configuration directory"
 msgstr ""
 
-#: init/conf.c:854
+#: init/conf.c:871
 msgid "Error while loading configuration file"
 msgstr ""
 
-#: init/conf.c:968
+#: init/conf.c:985
 msgid "Configuration directory deleted"
 msgstr ""
 
@@ -64,7 +64,7 @@ msgstr ""
 msgid "You do not have permission to reload configuration"
 msgstr ""
 
-#: init/control.c:462 init/main.c:951
+#: init/control.c:462 init/main.c:972
 msgid "Reloading configuration"
 msgstr ""
 
@@ -82,7 +82,7 @@ msgid "You do not have permission to emit an event"
 msgstr ""
 
 #: init/control.c:675 init/job_class.c:835 init/job_class.c:1045
-#: init/job_class.c:1185 init/job_class.c:1320
+#: init/job_class.c:1185 init/job_class.c:1321
 msgid "Env must be KEY=VALUE pairs"
 msgstr ""
 
@@ -130,56 +130,60 @@ msgstr ""
 msgid "Restarting"
 msgstr ""
 
-#: init/control.c:1301 init/control.c:1406 init/control.c:1660
-msgid "Not permissible to modify PID 1 job environment"
-msgstr ""
-
-#: init/control.c:1308 init/control.c:1394 init/control.c:1667
+#: init/control.c:1295 init/control.c:1398 init/control.c:1671
 msgid "You do not have permission to modify job environment"
 msgstr ""
 
-#: init/control.c:1315 init/control.c:1413 init/control.c:1503
-#: init/control.c:1599 init/control.c:1674
+#: init/control.c:1307 init/control.c:1416 init/control.c:1683
+msgid "Not permissible to modify PID 1 job environment"
+msgstr ""
+
+#: init/control.c:1313 init/control.c:1404 init/control.c:1505
+msgid "Variable may not be empty string"
+msgstr ""
+
+#: init/control.c:1320 init/control.c:1423 init/control.c:1519
+#: init/control.c:1615 init/control.c:1690
 msgid "Job may not be empty string"
 msgstr ""
 
-#: init/control.c:1326
+#: init/control.c:1331
 msgid "Ignoring set env request from chroot session"
 msgstr ""
 
-#: init/control.c:1424
+#: init/control.c:1434
 msgid "Ignoring unset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1450 init/control.c:1547
+#: init/control.c:1460 init/control.c:1563
 msgid "No such variable"
 msgstr ""
 
-#: init/control.c:1489 init/control.c:1585
+#: init/control.c:1499 init/control.c:1601
 msgid "You do not have permission to query job environment"
 msgstr ""
 
-#: init/control.c:1514
+#: init/control.c:1530
 msgid "Ignoring get env request from chroot session"
 msgstr ""
 
-#: init/control.c:1685
+#: init/control.c:1701
 msgid "Ignoring reset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1818
+#: init/control.c:1834
 msgid "unable to create session file"
 msgstr ""
 
-#: init/control.c:1825
+#: init/control.c:1841
 msgid "unable to write session file"
 msgstr ""
 
-#: init/control.c:1874
+#: init/control.c:1890
 msgid "You do not have permission to end session"
 msgstr ""
 
-#: init/control.c:1882
+#: init/control.c:1898
 msgid "Ignoring session end request from chroot session"
 msgstr ""
 
@@ -348,7 +352,7 @@ msgid "post-stop"
 msgstr ""
 
 #: init/job.c:1205 init/job.c:1280 init/job.c:1356 init/job.c:1425
-#: init/job_class.c:1037 init/job_class.c:1177 init/job_class.c:1312
+#: init/job_class.c:1037 init/job_class.c:1177 init/job_class.c:1313
 #, c-format
 msgid "You do not have permission to modify job: %s"
 msgstr ""
@@ -358,7 +362,7 @@ msgstr ""
 msgid "Job is already running: %s"
 msgstr ""
 
-#: init/job.c:1288 init/job.c:1364 init/job_class.c:1231 init/job_class.c:1365
+#: init/job.c:1288 init/job.c:1364 init/job_class.c:1231 init/job_class.c:1366
 #, c-format
 msgid "Job has already been stopped: %s"
 msgstr ""
@@ -368,7 +372,7 @@ msgstr ""
 msgid "Job is not running: %s"
 msgstr ""
 
-#: init/job.c:1911 init/job_class.c:2231 init/job_class.c:2266
+#: init/job.c:1911 init/job_class.c:2232 init/job_class.c:2267
 msgid "BUG"
 msgstr ""
 
@@ -381,20 +385,20 @@ msgid "Usage"
 msgstr ""
 
 #: init/job_class.c:883 init/job_class.c:928 init/job_class.c:1223
-#: init/job_class.c:1357
+#: init/job_class.c:1358
 #, c-format
 msgid "Unknown instance: %s"
 msgstr ""
 
-#: init/job_class.c:2232
+#: init/job_class.c:2233
 msgid "'start on' parse error"
 msgstr ""
 
-#: init/job_class.c:2267
+#: init/job_class.c:2268
 msgid "'stop on' parse error"
 msgstr ""
 
-#: init/job_class.c:2602
+#: init/job_class.c:2606
 msgid "unable to clear CLOEXEC bit on log fd"
 msgstr ""
 
@@ -426,229 +430,229 @@ msgstr ""
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:1034
+#: init/job_process.c:1040
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:1039
+#: init/job_process.c:1045
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:1094
+#: init/job_process.c:1100
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:1099
+#: init/job_process.c:1105
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:1104
+#: init/job_process.c:1110
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:1109
+#: init/job_process.c:1115
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:1114
+#: init/job_process.c:1120
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:1119
+#: init/job_process.c:1125
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:1124
+#: init/job_process.c:1130
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:1129
+#: init/job_process.c:1135
 #, c-format
 msgid "unable to getpwnam: %s"
 msgstr ""
 
-#: init/job_process.c:1134
+#: init/job_process.c:1140
 #, c-format
 msgid "unable to getgrnam: %s"
 msgstr ""
 
-#: init/job_process.c:1139
+#: init/job_process.c:1145
 #, c-format
 msgid "unable to getpwuid: %s"
 msgstr ""
 
-#: init/job_process.c:1144
+#: init/job_process.c:1150
 #, c-format
 msgid "unable to getgrgid: %s"
 msgstr ""
 
-#: init/job_process.c:1149
+#: init/job_process.c:1155
 msgid "unable to find setuid user"
 msgstr ""
 
-#: init/job_process.c:1153
+#: init/job_process.c:1159
 msgid "unable to find setgid group"
 msgstr ""
 
-#: init/job_process.c:1157
+#: init/job_process.c:1163
 #, c-format
 msgid "unable to setuid: %s"
 msgstr ""
 
-#: init/job_process.c:1162
+#: init/job_process.c:1168
 #, c-format
 msgid "unable to setgid: %s"
 msgstr ""
 
-#: init/job_process.c:1167
+#: init/job_process.c:1173
 #, c-format
 msgid "unable to chown: %s"
 msgstr ""
 
-#: init/job_process.c:1172
+#: init/job_process.c:1178
 #, c-format
 msgid "unable to unlockpt: %s"
 msgstr ""
 
-#: init/job_process.c:1177
+#: init/job_process.c:1183
 #, c-format
 msgid "unable to granpt: %s"
 msgstr ""
 
-#: init/job_process.c:1182
+#: init/job_process.c:1188
 #, c-format
 msgid "unable to get ptsname: %s"
 msgstr ""
 
-#: init/job_process.c:1187
+#: init/job_process.c:1193
 #, c-format
 msgid "unable to open pty slave: %s"
 msgstr ""
 
-#: init/job_process.c:1192
+#: init/job_process.c:1198
 #, c-format
 msgid "unable to modify signal handler: %s"
 msgstr ""
 
-#: init/job_process.c:1197
+#: init/job_process.c:1203
 #, c-format
 msgid "unable to allocate memory: %s"
 msgstr ""
 
-#: init/job_process.c:1202
+#: init/job_process.c:1208
 #, c-format
 msgid "unable to initgroups: %s"
 msgstr ""
 
-#: init/job_process.c:1207
+#: init/job_process.c:1213
 #, c-format
 msgid "unable to switch security profile: %s"
 msgstr ""
 
-#: init/job_process.c:1238 init/job_process.c:1380
+#: init/job_process.c:1244 init/job_process.c:1386
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1247 init/job_process.c:1389
+#: init/job_process.c:1253 init/job_process.c:1395
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1450
+#: init/job_process.c:1456
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1455
+#: init/job_process.c:1461
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1470
+#: init/job_process.c:1476
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1474
+#: init/job_process.c:1480
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1488
+#: init/job_process.c:1494
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1492
+#: init/job_process.c:1498
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1506
+#: init/job_process.c:1512
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1510
+#: init/job_process.c:1516
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1645
+#: init/job_process.c:1651
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1651
+#: init/job_process.c:1657
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1762
+#: init/job_process.c:1768
 msgid "Failed to add log to unflushed queue"
 msgstr ""
 
-#: init/job_process.c:1928
+#: init/job_process.c:1934
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1941 init/job_process.c:2136
+#: init/job_process.c:1947 init/job_process.c:2142
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1981 init/job_process.c:2072 init/job_process.c:2127
+#: init/job_process.c:1987 init/job_process.c:2078 init/job_process.c:2133
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2021
+#: init/job_process.c:2027
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2056
+#: init/job_process.c:2062
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2063
+#: init/job_process.c:2069
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:2122
+#: init/job_process.c:2128
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
@@ -657,176 +661,176 @@ msgstr ""
 msgid "Failed to write to log file"
 msgstr ""
 
-#: init/main.c:148
+#: init/main.c:149
 msgid "specify alternative directory to load configuration files from"
 msgstr ""
 
-#: init/main.c:151
+#: init/main.c:152
 msgid "default value for console stanza"
 msgstr ""
 
-#: init/main.c:154
+#: init/main.c:155
 msgid "do not connect to a D-Bus bus"
 msgstr ""
 
-#: init/main.c:157
+#: init/main.c:158
 msgid "jobs will not inherit environment of init"
 msgstr ""
 
-#: init/main.c:160
+#: init/main.c:161
 msgid "specify alternative directory to store job output logs in"
 msgstr ""
 
-#: init/main.c:163
+#: init/main.c:164
 msgid "disable job logging"
 msgstr ""
 
-#: init/main.c:166
+#: init/main.c:167
 msgid "disable chroot sessions"
 msgstr ""
 
-#: init/main.c:169
+#: init/main.c:170
 msgid "do not emit any startup event (for testing)"
 msgstr ""
 
-#: init/main.c:173
+#: init/main.c:174
 msgid "flag a re-exec has occurred"
 msgstr ""
 
-#: init/main.c:177
+#: init/main.c:178
 msgid "specify file descriptor to read serialisation data from"
 msgstr ""
 
-#: init/main.c:180
+#: init/main.c:181
 msgid "use D-Bus session bus rather than system bus (for testing)"
 msgstr ""
 
-#: init/main.c:183
+#: init/main.c:184
 msgid "specify an alternative initial event (for testing)"
 msgstr ""
 
-#: init/main.c:186
+#: init/main.c:187
 msgid "start in user mode (as used for user sessions)"
 msgstr ""
 
-#: init/main.c:189
+#: init/main.c:190
 msgid "attempt to write state file on every re-exec"
 msgstr ""
 
-#: init/main.c:212
+#: init/main.c:213
 msgid "Process management daemon."
 msgstr ""
 
-#: init/main.c:214
+#: init/main.c:215
 msgid ""
 "This daemon is normally executed by the kernel and given process id 1 to "
 "denote its special status.  When executed by a user process, it will "
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:241 util/reboot.c:172 util/shutdown.c:373 util/telinit.c:250
+#: init/main.c:245 util/reboot.c:172 util/shutdown.c:373 util/telinit.c:250
 msgid "Need to be root"
 msgstr ""
 
-#: init/main.c:250
+#: init/main.c:254
 msgid "Not being executed as init"
 msgstr ""
 
-#: init/main.c:301
+#: init/main.c:305
 msgid "Unable to mount /dev filesystem"
 msgstr ""
 
-#: init/main.c:310
+#: init/main.c:314
 msgid "Cannot create directory"
 msgstr ""
 
-#: init/main.c:318
+#: init/main.c:322
 msgid "Unable to mount /dev/pts filesystem"
 msgstr ""
 
-#: init/main.c:344
+#: init/main.c:348
 msgid "Unable to initialize console, will try /dev/null"
 msgstr ""
 
-#: init/main.c:350
+#: init/main.c:354
 msgid "Unable to initialize console as /dev/null"
 msgstr ""
 
-#: init/main.c:366 init/main.c:833
+#: init/main.c:370 init/main.c:854
 msgid "Unable to set root directory"
 msgstr ""
 
-#: init/main.c:379
+#: init/main.c:383
 msgid "Unable to mount /proc filesystem"
 msgstr ""
 
-#: init/main.c:389
+#: init/main.c:393
 msgid "Unable to mount /sys filesystem"
 msgstr ""
 
-#: init/main.c:512 init/main.c:518
+#: init/main.c:516 init/main.c:522
 msgid "Unable to set default oom score"
 msgstr ""
 
-#: init/main.c:527
+#: init/main.c:531
 msgid "Stateful re-exec supported but stateless re-exec requested"
 msgstr ""
 
-#: init/main.c:541
+#: init/main.c:545
 msgid "Failed to read serialisation data"
 msgstr ""
 
-#: init/main.c:542 init/state.c:1989
+#: init/main.c:546 init/state.c:2020
 msgid "reverting to stateless re-exec"
 msgstr ""
 
-#: init/main.c:554
+#: init/main.c:558
 msgid "Both stateful and stateless re-execs failed"
 msgstr ""
 
-#: init/main.c:609
+#: init/main.c:613
 msgid "Unable to listen for private connections"
 msgstr ""
 
-#: init/main.c:623
+#: init/main.c:627
 #, c-format
 msgid "Not connecting to %s bus"
 msgstr ""
 
-#: init/main.c:648
+#: init/main.c:652
 msgid "Unable to setup standard file descriptors"
 msgstr ""
 
-#: init/main.c:704
+#: init/main.c:708
 msgid "Unable to register as subreaper"
 msgstr ""
 
-#: init/main.c:850
+#: init/main.c:871
 #, c-format
 msgid "Caught %s, core dumped"
 msgstr ""
 
-#: init/main.c:854
+#: init/main.c:875
 #, c-format
 msgid "Caught %s, unable to dump core"
 msgstr ""
 
-#: init/main.c:885
+#: init/main.c:906
 #, c-format
 msgid "Re-executing %s"
 msgstr ""
 
-#: init/main.c:978
+#: init/main.c:999
 #, c-format
 msgid "Reconnecting to D-Bus %s bus"
 msgstr ""
 
-#: init/main.c:985
+#: init/main.c:1006
 #, c-format
 msgid "Unable to connect to the D-Bus %s bus: %s"
 msgstr ""
 
-#: init/main.c:1064
+#: init/main.c:1085
 msgid "invalid console type specified"
 msgstr ""
 
@@ -852,60 +856,68 @@ msgstr ""
 msgid "Quiesce %s sequence took %s%d second%s"
 msgstr ""
 
-#: init/state.c:355 init/state.c:363 init/state.c:373 init/state.c:382
-#: init/state.c:391
+#: init/state.c:357 init/state.c:365 init/state.c:378 init/state.c:389
+#: init/state.c:398 init/state.c:407
 msgid "Failed to serialise"
 msgstr ""
 
-#: init/state.c:443
+#: init/state.c:379
+msgid "control bus address"
+msgstr ""
+
+#: init/state.c:460
 msgid "Detected invalid serialisation data"
 msgstr ""
 
-#: init/state.c:452 init/state.c:457 init/state.c:466 init/state.c:478
-#: init/state.c:486
+#: init/state.c:469 init/state.c:474 init/state.c:482 init/state.c:497
+#: init/state.c:509 init/state.c:517
 msgid "Failed to deserialise"
 msgstr ""
 
-#: init/state.c:470
+#: init/state.c:489
+msgid "No control details present in state data"
+msgstr ""
+
+#: init/state.c:501
 msgid "No ConfSources present in state data"
 msgstr ""
 
-#: init/state.c:482
+#: init/state.c:513
 msgid "No global job environment data present in state data"
 msgstr ""
 
-#: init/state.c:491
+#: init/state.c:522
 msgid "Failed to resolve deserialisation dependencies"
 msgstr ""
 
-#: init/state.c:1684
+#: init/state.c:1715
 msgid "failed to demarshal D-Bus message"
 msgstr ""
 
-#: init/state.c:1949
+#: init/state.c:1980
 #, c-format
 msgid "Failed to re-execute %s: %s"
 msgstr ""
 
-#: init/state.c:1988
+#: init/state.c:2019
 msgid "Failed to generate serialisation data"
 msgstr ""
 
-#: init/state.c:1996
+#: init/state.c:2027
 msgid "Performing stateful re-exec"
 msgstr ""
 
-#: init/state.c:2036
+#: init/state.c:2067
 #, c-format
 msgid "Passing state from PID %d to parent"
 msgstr ""
 
-#: init/state.c:2045
+#: init/state.c:2076
 #, c-format
 msgid "Failed to release D-Bus name: %s"
 msgstr ""
 
-#: init/state.c:2054
+#: init/state.c:2085
 msgid "Failed to write serialisation data"
 msgstr ""
 
@@ -1520,7 +1532,7 @@ msgstr ""
 msgid "%s: illegal runlevel: %s\n"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:85 extra/upstart-socket-bridge.c:130
+#: extra/upstart-udev-bridge.c:85 extra/upstart-socket-bridge.c:131
 msgid "Detach and run in the background"
 msgstr ""
 
@@ -1538,144 +1550,144 @@ msgid ""
 "in the foreground.  Use the --daemon option to have it detach."
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:122 extra/upstart-socket-bridge.c:180
+#: extra/upstart-udev-bridge.c:122 extra/upstart-socket-bridge.c:181
 msgid "Could not connect to Upstart"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:136 extra/upstart-socket-bridge.c:194
+#: extra/upstart-udev-bridge.c:136 extra/upstart-socket-bridge.c:195
 msgid "Could not create Upstart proxy"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:160 extra/upstart-socket-bridge.c:250
+#: extra/upstart-udev-bridge.c:160 extra/upstart-socket-bridge.c:251
 msgid "Unable to become daemon"
 msgstr ""
 
-#: extra/upstart-udev-bridge.c:336 extra/upstart-socket-bridge.c:623
+#: extra/upstart-udev-bridge.c:336 extra/upstart-socket-bridge.c:665
 msgid "Disconnected from Upstart"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:148
+#: extra/upstart-socket-bridge.c:149
 msgid "Bridge socket events into upstart"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:150
+#: extra/upstart-socket-bridge.c:151
 msgid ""
 "By default, upstart-socket-bridge does not detach from the console and "
 "remains in the foreground.  Use the --daemon option to have it detach."
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:163
+#: extra/upstart-socket-bridge.c:164
 msgid "Could not create epoll descriptor"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:207
+#: extra/upstart-socket-bridge.c:208
 msgid "Could not create JobAdded signal connection"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:219
+#: extra/upstart-socket-bridge.c:220
 msgid "Could not create JobRemoved signal connection"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:231
+#: extra/upstart-socket-bridge.c:232
 msgid "Could not obtain job list"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:287
+#: extra/upstart-socket-bridge.c:288
 msgid "Error from epoll"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:350
+#: extra/upstart-socket-bridge.c:369
 msgid "Could not send socket event"
 msgstr ""
 
-#: extra/upstart-socket-bridge.c:642
+#: extra/upstart-socket-bridge.c:684
 msgid "Error emitting socket event"
 msgstr ""
 
-#: scripts/upstart-monitor.py:64
+#: scripts/upstart-monitor.py:65
 msgid "WARNING"
 msgstr ""
 
-#: scripts/upstart-monitor.py:64
+#: scripts/upstart-monitor.py:65
 msgid "GUI modules not available - falling back to CLI"
 msgstr ""
 
-#: scripts/upstart-monitor.py:286
+#: scripts/upstart-monitor.py:287
 msgid "Version"
 msgstr ""
 
-#: scripts/upstart-monitor.py:333
+#: scripts/upstart-monitor.py:334
 msgid "Error saving file"
 msgstr ""
 
-#: scripts/upstart-monitor.py:350
+#: scripts/upstart-monitor.py:351
 msgid "No events to save"
 msgstr ""
 
-#: scripts/upstart-monitor.py:358
+#: scripts/upstart-monitor.py:359
 msgid "Save File"
 msgstr ""
 
-#: scripts/upstart-monitor.py:486
+#: scripts/upstart-monitor.py:487
 msgid "Clear events"
 msgstr ""
 
-#: scripts/upstart-monitor.py:488
+#: scripts/upstart-monitor.py:489
 msgid "Save events to default file"
 msgstr ""
 
-#: scripts/upstart-monitor.py:490
+#: scripts/upstart-monitor.py:491
 msgid "Save events to specified file"
 msgstr ""
 
-#: scripts/upstart-monitor.py:492
+#: scripts/upstart-monitor.py:493
 msgid "Exit application"
 msgstr ""
 
-#: scripts/upstart-monitor.py:496
+#: scripts/upstart-monitor.py:497
 msgid "Application details"
 msgstr ""
 
-#: scripts/upstart-monitor.py:501
+#: scripts/upstart-monitor.py:502
 msgid "Copy"
 msgstr ""
 
-#: scripts/upstart-monitor.py:558
+#: scripts/upstart-monitor.py:559
 msgid "Index"
 msgstr ""
 
-#: scripts/upstart-monitor.py:562
+#: scripts/upstart-monitor.py:563
 msgid "Time"
 msgstr ""
 
-#: scripts/upstart-monitor.py:566
+#: scripts/upstart-monitor.py:567
 msgid "Event and environment"
 msgstr ""
 
-#: scripts/upstart-monitor.py:591 scripts/upstart-monitor.py:673
+#: scripts/upstart-monitor.py:592 scripts/upstart-monitor.py:674
 msgid "Connected to"
 msgstr ""
 
-#: scripts/upstart-monitor.py:622
+#: scripts/upstart-monitor.py:623
 msgid "Upstart Event Monitor"
 msgstr ""
 
-#: scripts/upstart-monitor.py:626
+#: scripts/upstart-monitor.py:627
 msgid "run in command-line mode"
 msgstr ""
 
-#: scripts/upstart-monitor.py:629
+#: scripts/upstart-monitor.py:630
 msgid "field separator to use for command-line output"
 msgstr ""
 
-#: scripts/upstart-monitor.py:633
+#: scripts/upstart-monitor.py:634
 msgid "connect to Upstart via specified D-Bus route"
 msgstr ""
 
-#: scripts/upstart-monitor.py:671
+#: scripts/upstart-monitor.py:672
 msgid "console mode"
 msgstr ""
 
-#: scripts/upstart-monitor.py:675
+#: scripts/upstart-monitor.py:676
 msgid "Columns: time, event and environment"
 msgstr ""

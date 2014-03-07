@@ -1,3 +1,7 @@
+2014-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.12
+
 2014-03-06  James Hunt  <james.hunt@ubuntu.com>
 
 	* lib/tests/test_libupstart.c: Revert to looking for 'init'
