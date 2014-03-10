@@ -174,6 +174,7 @@ restart_upstart (void)
 	 * Upstart has severed all connections to perform the re-exec.
 	 */
 	ret = upstart_restart (upstart, NULL, NULL, NULL, 0);
+	dbus_connection_flush(upstart->connection);
 
 	/* We don't care about the return code, but we have to keep
 	 * the compiler happy.
