@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.12\n"
+"Project-Id-Version: upstart 1.12.1\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2014-03-07 11:07+0000\n"
+"POT-Creation-Date: 2014-03-11 14:33+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -728,7 +728,7 @@ msgid ""
 "actually run /sbin/telinit."
 msgstr ""
 
-#: init/main.c:245 util/reboot.c:172 util/shutdown.c:373 util/telinit.c:250
+#: init/main.c:245 util/reboot.c:172 util/shutdown.c:373 util/telinit.c:251
 msgid "Need to be root"
 msgstr ""
 
@@ -1327,7 +1327,7 @@ msgid ""
 "than 0 or 6, it will actually execute /sbin/shutdown.\n"
 msgstr ""
 
-#: util/reboot.c:169 util/shutdown.c:370 util/telinit.c:247
+#: util/reboot.c:169 util/shutdown.c:370 util/telinit.c:248
 msgid "Couldn't set uid."
 msgstr ""
 
@@ -1500,15 +1500,15 @@ msgstr ""
 msgid "(%s) at %d:%02d ..."
 msgstr ""
 
-#: util/telinit.c:194
+#: util/telinit.c:195
 msgid "set environment variable in the runlevel event"
 msgstr ""
 
-#: util/telinit.c:215
+#: util/telinit.c:216
 msgid "Change runlevel."
 msgstr ""
 
-#: util/telinit.c:217
+#: util/telinit.c:218
 msgid ""
 "RUNLEVEL should be one of 0123456sS, where s and S are considered "
 "identical.\n"
@@ -1522,12 +1522,12 @@ msgid ""
 "state.\n"
 msgstr ""
 
-#: util/telinit.c:234
+#: util/telinit.c:235
 #, c-format
 msgid "%s: missing runlevel\n"
 msgstr ""
 
-#: util/telinit.c:239
+#: util/telinit.c:240
 #, c-format
 msgid "%s: illegal runlevel: %s\n"
 msgstr ""

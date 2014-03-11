@@ -1,4 +1,7 @@
-1.13  xxxx-xx-xx ""
+1.12.1  2014-03-11 "Standing Room Only"
+
+	* Fixed re-exec breakage caused by incorrect D-Bus API usage.
+	* Tests updated to catch this issue.
 
 1.12  2014-03-07 "Water Table"
 
