@@ -1,3 +1,7 @@
+1.13  xxxx-xx-xx ""
+
+	* NEWS: Begin new release.
+
 1.12.1  2014-03-11 "Standing Room Only"
 
 	* Fixed re-exec breakage caused by incorrect D-Bus API usage.
