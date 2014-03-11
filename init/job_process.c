@@ -915,6 +915,12 @@ job_process_spawn (Job          *job,
 	 *   fail. Note that closing the pipe means from this point onwards,
 	 *   the parent cannot know the true outcome of the spawn: that
 	 *   responsibility lies with the debugger.
+	 *
+	 * - note that running with the debug stanza enabled will
+	 *   unavoidably stop stateful re-exec from working correctly
+	 *   since the stopped debug child process will hold copies of
+	 *   the parents file descriptors open until it continues to
+	 *   call exec below.
 	 */
 	if (class->debug) {
 		close (fds[1]);

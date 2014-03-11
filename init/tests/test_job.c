@@ -7493,6 +7493,123 @@ test_deserialise_ptrace (void)
 	}
 }
 
+void
+test_job_find (void)
+{
+	ConfFile    *file;
+	ConfSource  *source;
+	Job         *job, *ret;
+	JobClass    *class;
+	Session     *session;
+
+	TEST_FUNCTION ("job_find");
+	nih_error_init ();
+	conf_init ();
+	job_class_init ();
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/test");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	/***********************************************************/
+	TEST_FEATURE ("JobClass, no job name or Session");
+
+	ret = job_find (NULL, class, NULL, NULL);
+	TEST_EQ_P (ret, NULL);
+
+	/***********************************************************/
+	TEST_FEATURE ("job class name, no job name or Session");
+
+	ret = job_find (NULL, NULL, "test", NULL);
+	TEST_EQ_P (ret, NULL);
+
+	/***********************************************************/
+	TEST_FEATURE ("JobClass+job name, no Session");
+
+	ret = job_find (NULL, class, NULL, "");
+	TEST_EQ (ret, job);
+
+	/***********************************************************/
+	TEST_FEATURE ("job class name+job name, no Session");
+
+	ret = job_find (NULL, NULL, "test", "");
+	TEST_EQ (ret, job);
+
+	/***********************************************************/
+	/* recreate env */
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+
+	conf_init ();
+	job_class_init ();
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	session = session_new (NULL, "/abc");
+	TEST_NE_P (session, NULL);
+	session->conf_path = NIH_MUST (nih_strdup (session, "/def/ghi"));
+
+	source->session = session;
+
+	file = conf_file_new (source, "/tmp/test");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "test", session);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	/***********************************************************/
+	TEST_FEATURE ("JobClass+Session, no job name");
+
+	ret = job_find (session, class, NULL, NULL);
+	TEST_EQ_P (ret, NULL);
+
+	/***********************************************************/
+	TEST_FEATURE ("job class name+Session, no job name");
+
+	ret = job_find (session, NULL, "test", NULL);
+	TEST_EQ_P (ret, NULL);
+
+	/***********************************************************/
+	/* clean up */
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (session);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+
+	conf_init ();
+	job_class_init ();
+}
+
 
 void
 deserialise_ptrace_next (void)
@@ -7607,6 +7724,8 @@ main (int   argc,
 	test_get_processes ();
 
 	test_deserialise_ptrace ();
+
+	test_job_find ();
 
 	return 0;
 }

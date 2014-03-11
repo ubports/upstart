@@ -1,8 +1,12 @@
-upstart (1.11-0ubuntu6) UNRELEASED; urgency=medium
+upstart (1.12.1-0ubuntu1) UNRELEASED; urgency=medium
 
+  [ Dimitri John Ledkov ]
   * Adjust wait-for-state job to also check .override for "manual" flag.
 
- -- Dimitri John Ledkov <xnox@ubuntu.com>  Tue, 04 Feb 2014 17:31:02 +0000
+  [ James Hunt ]
+  * New upstream release.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 11 Mar 2014 15:23:10 +0000
 
 upstart (1.11-0ubuntu5) trusty; urgency=medium
 

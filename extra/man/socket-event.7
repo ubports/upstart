@@ -30,7 +30,7 @@ When an incoming connection is detected, the file descriptor
 representing the socket is passed to the job in question to allow it to
 .BR accept (2)
 the connection. Additionally, the environment variable
-.B UPSTART_JOB
+.B UPSTART_EVENTS
 will contain the name of the event ("socket") and the environment
 variable
 .B UPSTART_FDS
@@ -39,12 +39,21 @@ listening socket.
 .\"
 .SH EXAMPLES
 .\"
-.SS Internet socket
+.SS Internet (IPv4) socket
 Start web server when first client connects from localhost:
 .RS
 .nf
 
 start on socket PROTO=inet PORT=80 ADDR=127.0.0.1
+.fi
+.RE
+.\"
+.SS Internet (IPv6) socket
+Start job when a client connects from localhost:
+.RS
+.nf
+
+start on socket PROTO=inet6 PORT=80 ADDR=::1
 .fi
 .RE
 .\"

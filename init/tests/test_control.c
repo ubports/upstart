@@ -61,9 +61,10 @@
 #include "control.h"
 #include "errors.h"
 
+#include "test_util_common.h"
 
 extern const char *control_server_address;
-
+extern int no_inherit_env;
 
 void
 test_server_open (void)
@@ -933,7 +934,7 @@ test_reload_configuration (void)
 	strcat (filename, "/baz");
 
 	/* XXX: note that this will generate an error message when this
-	 * test runs sine "/baz" does not exist as a directory.
+	 * test runs since "/baz" does not exist as a directory.
 	 */
 	source3 = conf_source_new (NULL, filename, CONF_DIR);
 
@@ -2176,6 +2177,524 @@ test_set_log_priority (void)
 	nih_log_priority = NIH_LOG_UNKNOWN;
 }
 
+void
+test_list_env (void)
+{
+	NihDBusMessage   *message = NULL;
+	int               ret;
+	nih_local char  **env = NULL;
+	nih_local char  **job_details = NULL;
+	nih_local char  **job_details2 = NULL;
+	JobClass         *class;
+	Job              *job;
+	NihError         *error;
+
+	TEST_FUNCTION ("control_list_env");
+
+	nih_error_init ();
+	job_class_init ();
+	job_class_environment_init ();
+
+	no_inherit_env = TRUE;
+
+	message = nih_new (NULL, NihDBusMessage);
+	TEST_NE_P (message, NULL);
+	message->connection = NULL;
+	message->message = NULL;
+
+	job_details = nih_str_array_new (NULL);
+	nih_assert (job_details);
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	nih_hash_add (job_classes, &class->entry);
+
+	assert0 (job_class_environment_set ("hello=world", TRUE));
+
+	/************************************************************/
+	TEST_FEATURE ("with empty array");
+
+	ret = control_list_env (NULL, message, job_details, &env);
+	TEST_EQ (ret, 0);
+
+	/* Default variables that Upstart adds */
+	TEST_STR_MATCH (env[0], "PATH=*");
+	TEST_STR_MATCH (env[1], "TERM=*");
+
+	TEST_EQ_STR (env[2], "hello=world");
+	TEST_EQ_P (env[3], NULL);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty job class name");
+
+	job_details2 = nih_str_array_copy (NULL, NULL, job_details);
+	TEST_NE_P (job_details2, NULL);
+
+	nih_assert (nih_str_array_add (&job_details2,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_list_env (NULL, message, job_details2, &env);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with missing instance name");
+
+	/* add name */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				"foo"));
+
+	ret = control_list_env (NULL, message, job_details, &env);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	/* We can't wrap this in a TEST_ALLOC_FAIL() block since the
+	 * nih_dbus_*() calls such as nih_dbus_error_raise_printf() use
+	 * NIH_MUST() which defeats the fail macro
+	 */
+	TEST_FEATURE ("with correct job details");
+
+	/* add instance */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_list_env (NULL, message, job_details, &env);
+	TEST_EQ (ret, 0);
+
+	nih_free (message);
+}
+
+void
+test_get_env (void)
+{
+	NihDBusMessage   *message = NULL;
+	int               ret;
+	char             *value = NULL;
+	nih_local char  **job_details = NULL;
+	nih_local char  **job_details2 = NULL;
+	JobClass         *class;
+	Job              *job;
+	NihError         *error;
+
+	TEST_FUNCTION ("control_get_env");
+
+	nih_error_init ();
+	job_class_init ();
+	job_class_environment_init ();
+
+	no_inherit_env = TRUE;
+
+	message = nih_new (NULL, NihDBusMessage);
+	TEST_NE_P (message, NULL);
+	message->connection = NULL;
+	message->message = NULL;
+
+	job_details = nih_str_array_new (NULL);
+	nih_assert (job_details);
+
+	job_details2 = nih_str_array_copy (NULL, NULL, job_details);
+	TEST_NE_P (job_details2, NULL);
+
+	nih_assert (nih_str_array_add (&job_details2,
+				NULL,
+				NULL,
+				""));
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	nih_hash_add (job_classes, &class->entry);
+
+	assert0 (job_class_environment_set ("hello=world", TRUE));
+
+	/************************************************************/
+	TEST_FEATURE ("with NULL variable name");
+
+	ret = control_get_env (NULL, message, job_details2, NULL, &value);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty variable name");
+
+	ret = control_get_env (NULL, message, job_details2, "", &value);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty job class name");
+
+	ret = control_get_env (NULL, message, job_details2, "hello", &value);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with missing instance name");
+
+	/* add name */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				"foo"));
+
+	ret = control_get_env (NULL, message, job_details, "hello", &value);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with correct job details");
+
+	/* add instance */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_get_env (NULL, message, job_details, "hello", &value);
+	TEST_EQ (ret, 0);
+	TEST_EQ_STR (value, "world");
+
+	/************************************************************/
+	/* tidy up */
+
+	nih_free (value);
+	nih_free (message);
+}
+
+void
+test_set_env (void)
+{
+	NihDBusMessage   *message = NULL;
+	int               ret;
+	nih_local char  **job_details = NULL;
+	nih_local char  **job_details2 = NULL;
+	JobClass         *class;
+	Job              *job;
+	NihError         *error;
+
+	TEST_FUNCTION ("control_set_env");
+
+	nih_error_init ();
+	job_class_init ();
+	job_class_environment_init ();
+
+	no_inherit_env = TRUE;
+
+	message = nih_new (NULL, NihDBusMessage);
+	TEST_NE_P (message, NULL);
+	message->connection = NULL;
+	message->message = NULL;
+
+	job_details = nih_str_array_new (NULL);
+	nih_assert (job_details);
+
+	job_details2 = nih_str_array_copy (NULL, NULL, job_details);
+	TEST_NE_P (job_details2, NULL);
+
+	nih_assert (nih_str_array_add (&job_details2,
+				NULL,
+				NULL,
+				""));
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	nih_hash_add (job_classes, &class->entry);
+
+	/************************************************************/
+	TEST_FEATURE ("with NULL variable name");
+
+	ret = control_set_env (NULL, message, job_details2, NULL, TRUE);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty variable name");
+
+	ret = control_set_env (NULL, message, job_details2, "", TRUE);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty job class name");
+
+	ret = control_set_env (NULL, message, job_details2, "hello=world", TRUE);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with missing instance name");
+
+	/* add name */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				"foo"));
+
+	ret = control_set_env (NULL, message, job_details, "hello=world", TRUE);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with correct job details");
+
+	/* add instance */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_set_env (NULL, message, job_details, "hello=world", TRUE);
+	TEST_EQ (ret, 0);
+
+	/************************************************************/
+	/* tidy up */
+
+	nih_free (message);
+}
+
+void
+test_unset_env (void)
+{
+	NihDBusMessage   *message = NULL;
+	int               ret;
+	nih_local char  **job_details = NULL;
+	nih_local char  **job_details2 = NULL;
+	JobClass         *class;
+	Job              *job;
+	NihError         *error;
+
+	TEST_FUNCTION ("control_unset_env");
+
+	nih_error_init ();
+	job_class_init ();
+	job_class_environment_init ();
+
+	no_inherit_env = TRUE;
+
+	message = nih_new (NULL, NihDBusMessage);
+	TEST_NE_P (message, NULL);
+	message->connection = NULL;
+	message->message = NULL;
+
+	job_details = nih_str_array_new (NULL);
+	nih_assert (job_details);
+
+	job_details2 = nih_str_array_copy (NULL, NULL, job_details);
+	TEST_NE_P (job_details2, NULL);
+
+	nih_assert (nih_str_array_add (&job_details2,
+				NULL,
+				NULL,
+				""));
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	nih_hash_add (job_classes, &class->entry);
+
+	assert0 (job_class_environment_set ("hello=world", TRUE));
+
+	/************************************************************/
+	TEST_FEATURE ("with NULL variable name");
+
+	ret = control_unset_env (NULL, message, job_details2, NULL);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty variable name");
+
+	ret = control_unset_env (NULL, message, job_details2, "");
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty job class name");
+
+	ret = control_unset_env (NULL, message, job_details2, "hello");
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with missing instance name");
+
+	/* add name */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				"foo"));
+
+	ret = control_unset_env (NULL, message, job_details, "hello");
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with correct job details");
+
+	/* add instance */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_unset_env (NULL, message, job_details, "hello");
+	TEST_EQ (ret, 0);
+
+	/************************************************************/
+	/* tidy up */
+
+	nih_free (message);
+}
+
+void
+test_reset_env (void)
+{
+	NihDBusMessage   *message = NULL;
+	int               ret;
+	nih_local char  **job_details = NULL;
+	nih_local char  **job_details2 = NULL;
+	JobClass         *class;
+	Job              *job;
+	NihError         *error;
+
+	TEST_FUNCTION ("control_reset_env");
+
+	nih_error_init ();
+	job_class_init ();
+	job_class_environment_init ();
+
+	no_inherit_env = TRUE;
+
+	message = nih_new (NULL, NihDBusMessage);
+	TEST_NE_P (message, NULL);
+	message->connection = NULL;
+	message->message = NULL;
+
+	job_details = nih_str_array_new (NULL);
+	nih_assert (job_details);
+
+	class = job_class_new (NULL, "foo", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	nih_hash_add (job_classes, &class->entry);
+
+	/************************************************************/
+	TEST_FEATURE ("with empty job class name");
+
+	job_details2 = nih_str_array_copy (NULL, NULL, job_details);
+	TEST_NE_P (job_details2, NULL);
+
+	nih_assert (nih_str_array_add (&job_details2,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_reset_env (NULL, message, job_details2);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with missing instance name");
+
+	/* add name */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				"foo"));
+
+	ret = control_reset_env (NULL, message, job_details);
+	TEST_LT (ret, 0);
+
+	error = nih_error_get ();
+	TEST_EQ (error->number, NIH_DBUS_ERROR);
+	nih_free (error);
+
+	/************************************************************/
+	TEST_FEATURE ("with correct job details");
+
+	/* add instance */
+	nih_assert (nih_str_array_add (&job_details,
+				NULL,
+				NULL,
+				""));
+
+	ret = control_reset_env (NULL, message, job_details);
+	TEST_EQ (ret, 0);
+
+	/************************************************************/
+	/* tidy up */
+
+	nih_free (message);
+}
 
 int
 main (int   argc,
@@ -2204,6 +2723,12 @@ main (int   argc,
 
 	test_get_log_priority ();
 	test_set_log_priority ();
+
+	test_list_env ();
+	test_get_env ();
+	test_set_env ();
+	test_unset_env ();
+	test_reset_env ();
 
 	return 0;
 }

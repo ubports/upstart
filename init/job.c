@@ -2350,6 +2350,9 @@ job_find (const Session  *session,
 	nih_assert (class || job_class);
 	nih_assert (job_classes);
 
+	if (! job_name)
+		goto error;
+
 	if (! class)
 		class = job_class_get_registered (job_class, session);
 

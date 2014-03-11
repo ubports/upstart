@@ -40,6 +40,7 @@
 import os
 import sys
 import gettext
+from gettext import gettext as _
 import argparse
 import signal
 import dbus
@@ -58,7 +59,7 @@ WEBSITE = 'http://upstart.ubuntu.com'
 cli = False
 
 try:
-    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+    from gi.repository import Gtk, Gdk, GLib
 except ImportError:
     gettext.install(NAME)
     print("%s: %s" % (_('WARNING'), _('GUI modules not available - falling back to CLI')), file=sys.stderr)

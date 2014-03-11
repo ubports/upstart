@@ -96,6 +96,23 @@ static char * conf_get_best_override   (const char *name,
 	__attribute__ ((warn_unused_result));
 
 /**
+ * user_mode:
+ *
+ * If TRUE, upstart runs in user session mode.
+ **/
+int user_mode = FALSE;
+
+/**
+ * session_file:
+ *
+ * Full path to file containing UPSTART_SESSION details (only set when
+ * user_mode in operation).
+ *
+ * File is created on startup and removed on clean shutdown.
+ **/
+const char *session_file = NULL;
+
+/**
  * conf_sources:
  *
  * This list holds the list of known sources of configuration; each item
