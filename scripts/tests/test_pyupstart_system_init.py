@@ -73,7 +73,7 @@ class TestSystemInitReExec(TestSystemUpstart):
 
       # create a job and start it, marking it such that the .conf file
       # will be retained when object becomes unusable (after re-exec).
-      job = self.upstart.job_create('sleeper', 'exec sleep 123', retain=True)
+      job = self.upstart.job_create('connected-job', ['exec upstart-udev-bridge', 'respawn'], retain=True)
       self.assertTrue(job)
 
       # Used when recreating the job
@@ -103,11 +103,11 @@ class TestSystemInitReExec(TestSystemUpstart):
       self.assertEqual(version, version_postexec)
 
       # Ensure the job is still running with the same PID
-      os.kill(pid, 0)
+      self.assertRaises(ProcessLookupError, os.kill, pid, 0)
 
       # XXX: The re-exec will have severed the D-Bus connection to
       # Upstart. Hence, revivify the job with some magic.
-      job = self.upstart.job_recreate('sleeper', conf_path)
+      job = self.upstart.job_recreate('connected-job', conf_path)
       self.assertTrue(job)
 
       # Recreate the instance
@@ -119,8 +119,8 @@ class TestSystemInitReExec(TestSystemUpstart):
       self.assertEqual(len(pids), 1)
       self.assertTrue(pids['main'])
 
-      # The pid should not have changed after a restart
-      self.assertEqual(pid, pids['main'])
+      # The pid _must_ have changed after a restart
+      self.assertNotEqual(pid, pids['main'])
 
       job.stop()
 
