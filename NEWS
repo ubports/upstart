@@ -1,3 +1,28 @@
+1.12.1  2014-03-11 "Standing Room Only"
+
+	* Fixed re-exec breakage caused by incorrect D-Bus API usage.
+	* Tests updated to catch this issue.
+
+1.12  2014-03-07 "Water Table"
+
+	* Stop Upstart indirectly stealing console ownership (most noticeably when
+	  run in a container).
+	* Fixed bug that could result in incorrect output from initctl(8)
+	  environment commands.
+	* Fixed incorrect variable usage which could result in a crash
+	  (LP: #1222705).
+	* Fixed stateful re-exec issue triggered by invalid jobs
+	  (LP: #1269731).
+	* Stateful re-exec fix to serialise the D-Bus session bus
+	  (LP: #1258098).
+	* init-checkconf(8) now uses a Session Init and can also now be
+	  run as root.
+	* upstart-socket-bridge(8) now supports IPv6 (thanks to Kai Mast and
+	  Cameron Norman).
+	* Allow telinit(8) to work on systems with no D-Bus system bus.
+	* Numerous test improvements.
+	* Lots of man-page improvements.
+
 1.11  2013-11-14 "Quoi de neuf?"
 
 	* Add '--no-dbus' command-line option for the init(8) daemon (allowing
@@ -17,7 +42,6 @@
 	* Make Session Init connect to D-Bus Session Bus on request
 	  (LP: #1203595, #1235649)
 	* Improved build-time ABI compliance checking.
-	* Make unit tests produce TAP-format test output (more verbose).
 	* Doc updates and lots of test refinements.
 
 1.10  2013-08-23 "Swim to the buoy"

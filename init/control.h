@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright  2009-2011 Canonical Ltd.
+ * Copyright © 2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,7 @@
  **/
 #define control_get_job(session, job, job_name, instance)             \
 {                                                                     \
-	if (job_name != NULL ) {                                      \
+	if (job_name) {                                               \
 		JobClass *class;                                      \
                                                                       \
 		class = job_class_get_registered (job_name, session); \
@@ -73,13 +73,14 @@
 			return -1;                                    \
 		}                                                     \
 								      \
-		job = job_find (session, class, NULL, instance);      \
-		if (job == NULL) {                                    \
+		job = job_find (session, class, job_name, instance);  \
+		if (! job) {                                          \
 			nih_dbus_error_raise_printf (                 \
 				DBUS_INTERFACE_UPSTART                \
 				".Error.UnknownJobInstance",          \
 				_("Unknown instance: %s of job %s"),  \
-				instance, job_name);                  \
+				instance ? instance : "(null)",       \
+				job_name);                            \
 			return -1;                                    \
 		}                                                     \
 	}                                                             \
@@ -142,8 +143,7 @@ void control_prepare_reexec       (void);
 int control_conn_to_index (const DBusConnection *connection)
 	__attribute__ ((warn_unused_result));
 
-DBusConnection *
-control_conn_from_index (int conn_index)
+DBusConnection *control_conn_from_index (int conn_index)
 	__attribute__ ((warn_unused_result));
 
 int control_bus_release_name (void)
@@ -184,24 +184,27 @@ int control_get_env (void             *data,
 		 char            **value)
 	__attribute__ ((warn_unused_result));
 
-int
-control_list_env (void             *data,
+int control_list_env (void             *data,
 		 NihDBusMessage   *message,
 		 char * const     *job_details,
 		 char           ***env)
 	__attribute__ ((warn_unused_result));
 
-int
-control_reset_env (void           *data,
+int control_reset_env (void           *data,
 		 NihDBusMessage   *message,
 		 char * const    *job_details)
 	__attribute__ ((warn_unused_result));
 
-int
-control_unset_env (void            *data,
+int control_unset_env (void            *data,
 		   NihDBusMessage  *message,
 		   char * const    *job_details,
 		   const char      *name)
+	__attribute__ ((warn_unused_result));
+
+json_object *control_serialise_bus_address (void)
+	__attribute__ ((warn_unused_result));
+
+int control_deserialise_bus_address (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

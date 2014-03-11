@@ -96,6 +96,23 @@ static char * conf_get_best_override   (const char *name,
 	__attribute__ ((warn_unused_result));
 
 /**
+ * user_mode:
+ *
+ * If TRUE, upstart runs in user session mode.
+ **/
+int user_mode = FALSE;
+
+/**
+ * session_file:
+ *
+ * Full path to file containing UPSTART_SESSION details (only set when
+ * user_mode in operation).
+ *
+ * File is created on startup and removed on clean shutdown.
+ **/
+const char *session_file = NULL;
+
+/**
  * conf_sources:
  *
  * This list holds the list of known sources of configuration; each item
@@ -1619,6 +1636,19 @@ conf_file_serialise (const ConfFile *file)
 	if (! state_set_json_int_var_from_obj (json, file, flag))
 		goto error;
 
+	if (! file->job) {
+		/* File exists on disk but contains invalid
+		 * (unparseable) syntax, and hence no associated JobClass.
+		 * Thus, simply encode the ConfFile without a class.
+		 *
+		 * Deserialisation is handled automatically since
+		 * JobClasses are deserialised by directly iterating
+		 * through all JobClass'es found in the JSON. Here,
+		 * there simply won't be a JobClass to deserialise.
+		 */
+		goto out;
+	}
+
 	/*
 	 * Ignore the "best" JobClass associated with this ConfFile
 	 * (file->job) since it won't be serialised.
@@ -1664,6 +1694,7 @@ conf_file_serialise (const ConfFile *file)
 
 	json_object_object_add (json, "job_class", json_job_class);
 
+out:
 	return json;
 
 error:
@@ -1700,8 +1731,8 @@ conf_file_deserialise (ConfSource *source, json_object *json)
 		goto error;
 
 	/* Note that the associated JobClass is not handled at this
-	 * stage: it can't be the JobClasses haven't been deserialised
-	 * yet. As such, the ConfFile->JobClass link is dealt with by
+	 * stage: it can't be since the JobClasses haven't been deserialised
+	 * yet. As such, the ConfFile->JobClass link is dealt with in
 	 * job_class_deserialise_all().
 	 */
 	file->job = NULL;

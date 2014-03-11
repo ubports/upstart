@@ -1,4 +1,5 @@
-.TH init 8 2012-12-18 "Upstart"
+'\" t
+.TH init 8 2013-12-20 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -48,6 +49,194 @@ Other useful events are the
 and
 .BR stopped (7)
 events emitted as jobs change state.
+.\"
+.SS Job States
+.P
+\fBTable 1: Job Goals and State Transitions.\fP
+.TS
+box,tab(@);
+c | c s
+c | c s
+c | c | c
+c | l l.
+              @Goal
+              @_
+Current State @start @ stop
+=
+waiting       @ starting    @ n/a
+starting      @ pre\-start  @ stopping
+pre\-start    @ spawned     @ stopping
+spawned       @ post\-start @ stopping
+post\-start   @ running     @ stopping
+running       @ stopping    @ pre\-stop / stopping (*)
+pre\-stop     @ running     @ stopping
+stopping      @ killed      @ killed
+killed        @ post\-stop  @ post\-stop
+post\-stop    @ starting    @ waiting
+.TE
+.po \n[old_po]
+.in \n[old_in]
+.P
+Key:
+  (*) If there is a \fBscript\fP or \fBexec\fP section and this process is running,
+  state will be \(aqpre\-stop\(aq, else it will be \(aqstopping\(aq.
+
+.\" ------------------------------------------------------------
+.SS Job Lifecycle
+.\"
+.IP "Starting a Job"
+.nr step 1 1
+.IP \n[step] 3
+Initially the job is "at rest" with a goal of \(aqstop\(aq
+and a state of \(aqwaiting\(aq (shown as \(aqstop/waiting\(aq by the
+.BR initctl (8)
+.B list
+and
+.B status
+commands).
+.\"
+.IP \n+[step] 3
+The goal is changed from \(aqstop\(aq to
+\(aqstart\(aq indicating the job is attempting to start.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqwaiting\(aq to
+\(aqstarting\(aq.
+.\"
+.IP \n+[step] 3
+The \fBstarting\fP(7) event is emitted denoting the job is
+"about to start".
+.\"
+.IP \n+[step] 3
+Any jobs whose \(aqstart on\(aq (or \(aqstop on\(aq) condition would be satisfied
+by this job starting are started (or stopped respectively).
+.\"
+.IP \n+[step] 3
+The \fBstarting\fP(7) event completes.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqstarting\(aq to \(aqpre\-start\(aq.
+.\"
+.IP \n+[step] 3
+If the \fBpre\-start\fP stanza exists, the pre\-start process is
+spawned.
+.\"
+.IP \n+[step] 3
+If the pre\-start process fails, the goal is changed from
+\(aqstart\(aq to \(aqstop\(aq, and the
+.BR stopping(7)
+and
+.BR stopped(7)
+events are emitted with appropriate variables set denoting the error.
+.\"
+.IP \n+[step] 3
+Assuming the pre\-start did not fail or did not call "stop", the main
+process is spawned.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqpre\-start\(aq to \(aqspawned\(aq.
+.\"
+.IP \n+[step] 3
+Upstart then ascertains the \fIfinal\fP PID for the job which may be a
+descendent of the immediate child process if \fBexpect fork\fP or
+\fBexpect daemon\fP has been specified.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqspawned\(aq to \(aqpost\-start\(aq.
+.\"
+.IP \n+[step] 3
+If the \fBpost\-start\fP stanza exists, the post\-start process is
+spawned.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqpost\-start\(aq to \(aqrunning\(aq.
+.\"
+.IP \n+[step] 3
+The \fBstarted\fP(7) event is emitted.
+.sp 1
+For services, when this event completes the main process will now be fully
+running. If the job refers to a task, it will now have completed
+(successfully or otherwise).
+.\"
+.IP \n+[step] 3
+Any jobs whose \(aqstart on\(aq (or \(aqstop on\(aq) condition would be satisfied
+by this job being started are started (or stopped respectively).
+.\"
+.IP "Stopping a Job"
+.nr step 1 1
+.IP \n[step] 3
+Assuming the job is fully running, it will have a goal of \(aqstart\(aq
+and a state of \(aqrunning\(aq (shown as \(aqstart/running\(aq by the
+.BR initctl (8)
+.B list
+and
+.B status
+commands).
+.\"
+.IP \n+[step] 3
+The goal is changed from \(aqstart\(aq to \(aqstop\(aq indicating the
+job is attempting to stop.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqrunning\(aq to
+\(aqpre\-stop\(aq.
+.\"
+.IP \n+[step] 3
+If the \fBpre\-stop\fP stanza exists, the pre\-stop process is
+spawned.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqpre\-stop\(aq to \(aqstopping\(aq.
+.\"
+.IP \n+[step] 3
+The \fBstopping\fP(7) event is emitted.
+.\"
+.IP \n+[step] 3
+Any jobs whose \(aqstart on\(aq (or \(aqstop on\(aq) condition would be satisfied by this
+job stopping are started (or stopped respectively).
+.\"
+.IP \n+[step] 3
+The main process is stopped:
+.RS
+.nr step2 1 1
+.af step2 i
+.IP \n[step2] 3
+The signal specified by the
+.B kill signal
+stanza is sent to the process group of the main process
+(such that all processes belonging to the jobs main process are killed).
+By default this signal is
+.BR SIGTERM "."
+.sp 1
+See \fBsignal\fP(7) and \fBinit\fP(5).
+.IP \n+[step2] 3
+Upstart waits for up to "kill timeout" seconds (default 5 seconds) for
+the process to end.
+.IP \n+[step2] 3
+If the process is still running after the timeout, a
+.B SIGKILL
+signal is sent to the process which cannot be ignored and will forcibly
+stop the processes in the process group.
+.RE
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqkilled\(aq to \(aqpost\-stop\(aq.
+.\"
+.IP \n+[step] 3
+If the \fBpost\-stop\fP stanza exists, the post\-stop process is
+spawned.
+.\"
+.IP \n+[step] 3
+The state is changed from \(aqpost\-stop\(aq to \(aqwaiting\(aq.
+.\"
+.IP \n+[step] 3
+The \fBstopped\fP(7) event is emitted.
+.sp 1
+When this event completes, the job is fully stopped.
+.\"
+.IP \n+[step] 3
+Any jobs whose \(aqstart on\(aq (or \(aqstop on\(aq) condition would be satisfied
+by this job being stopped are started (or stopped respectively).
 .\"
 .SS System V compatibility
 The Upstart
@@ -215,19 +404,45 @@ Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2009\-2012 Canonical Ltd.
+Copyright \(co 2009\-2013 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
-.BR control\-alt\-delete (7)
-.BR init (5)
-.BR initctl (8)
-.BR runlevel (7)
-.BR startup (7)
-.BR starting (7)
-.BR started (7)
-.BR stopping (7)
-.BR stopped (7)
-.BR telinit (8)
+
+.BR all\-swaps (7),
+.BR control\-alt\-delete (7),
+.BR dbus\-daemon (1),
+.BR dbus\-event (7),
+.BR dconf\-event (7),
+.BR file\-event (7),
+.BR filesystem (7),
+.BR init (5),
+.BR init (8),
+.BR initctl (8),
+.BR keyboard\-request (7),
+.BR local\-filesystems (7),
+.BR mountall (8),
+.BR mounted (7),
+.BR mounting (7),
+.BR power\-status\-changed (7),
+.BR remote\-filesystems (7),
+.BR runlevel (7),
+.BR shutdown (8),
+.BR socket\-event (7),
+.BR started (7),
+.BR starting (7),
+.BR startup (7),
+.BR stopped (7),
+.BR stopping (7),
+.BR telinit (8),
+.BR upstart\-dbus\-bridge (8),
+.BR upstart\-dconf\-bridge (8),
+.BR upstart\-event\-bridge (8),
+.BR upstart\-events (7),
+.BR upstart\-file\-bridge (8),
+.BR upstart\-local\-bridge (8),
+.BR upstart\-socket\-bridge (8),
+.BR upstart\-udev\-bridge (8),
+.BR virtual\-filesystems (7).

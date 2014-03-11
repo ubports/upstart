@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #---------------------------------------------------------------------
-# Copyright © 2013 Canonical Ltd.
+# Copyright  2013 Canonical Ltd.
 #
 # Author: James Hunt <james.hunt@canonical.com>
 #
@@ -30,7 +30,6 @@
 import os
 import sys
 import re
-import json
 
 base_dir = os.path.abspath(os.path.dirname(__file__))
 module_dir = os.path.normpath(os.path.realpath(base_dir + os.sep + '..'))
@@ -51,7 +50,7 @@ class TestSessionUpstart(unittest.TestCase):
     FILE_BRIDGE_CONF = 'upstart-file-bridge.conf'
     REEXEC_CONF = 're-exec.conf'
 
-    PSCMD_FMT = 'ps --no-headers -p %d -o comm,args'
+    PSCMD_FMT = 'ps --no-headers -p %d -o pid,comm,args'
 
     def setUp(self):
 
@@ -81,7 +80,7 @@ class TestSessionUpstart(unittest.TestCase):
             tmp = '{}{}{}'.format(DEFAULT_SESSION_INSTALL_PATH, os.sep, self.REEXEC_CONF)
             if os.path.exists(tmp):
                 print('INFO: UPSTART_TEST_USE_INSTALLED_CONF set - using {} rather than {}'.format(tmp, self.reexec_conf))
-                reexec_conf = tmp
+                self.reexec_conf = tmp
 
         self.assertTrue(os.path.exists(self.file_bridge_conf))
         self.assertTrue(os.path.exists(self.reexec_conf))
@@ -89,7 +88,7 @@ class TestSessionUpstart(unittest.TestCase):
         self.upstart = None
 
         self.logger = logging.getLogger(self.__class__.__name__)
-        for cmd in UPSTART, INITCTL:
+        for cmd in get_init(), get_initctl():
             if not os.path.exists(cmd):
                 raise UpstartException('Command %s not found' % cmd)
 
@@ -141,10 +140,23 @@ class TestFileBridge(TestSessionUpstart):
     def test_init_start_file_bridge(self):
         self.start_session_init()
 
-        # Create the file-bridge job in the correct test location by copying
-        # the session job from the source package.
-        with open(self.file_bridge_conf, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        # Create upstart-file-bridge.conf
+        #
+        # Note that we do not use the bundled user job due to our
+        # requirement for a different start condition and different
+        # command options.
+        cmd = '{} --daemon --user --debug'.format(get_file_bridge())
+        lines = """
+        start on startup
+        stop on session-end
+
+        emits file
+
+        expect daemon
+        respawn
+        exec {}
+        """.format(cmd)
+
         file_bridge = self.upstart.job_create('upstart-file-bridge', lines)
         self.assertTrue(file_bridge)
         file_bridge.start()
@@ -343,6 +355,16 @@ class TestSessionInitReExec(TestSessionUpstart):
         version = self.upstart.version()
         self.assertTrue(version)
 
+        # Create an invalid job to ensure this causes no problems for
+        # the re-exec. Note that we cannot use job_create() since
+        # that validates the syntax of the .conf file).
+        #
+        # We create this file before any other to allow time for Upstart
+        # to _attempt to parse it_ by the time the re-exec is initiated.
+        invalid_conf = "{}/invalid.conf".format(self.upstart.test_dir)
+        with open(invalid_conf, 'w', encoding='utf-8') as fh:
+            print("invalid", file=fh)
+
         # create a job and start it, marking it such that the .conf file
         # will be retained when object becomes unusable (after re-exec).
         job = self.upstart.job_create('sleeper', 'exec sleep 123', retain=True)
@@ -360,7 +382,8 @@ class TestSessionInitReExec(TestSessionUpstart):
         # Trigger re-exec and catch the D-Bus exception resulting
         # from disconnection from Session Init when it severs client
         # connections.
-        self.assertRaises(dbus.exceptions.DBusException, self.upstart.reexec)
+        with self.assertRaises(dbus.exceptions.DBusException):
+            self.upstart.reexec()
 
         os.kill(self.upstart.pid, 0)
 
@@ -410,6 +433,8 @@ class TestSessionInitReExec(TestSessionUpstart):
         # Ensure the pid has gone
         with self.assertRaises(ProcessLookupError):
             os.kill(pid, 0)
+
+        os.remove(invalid_conf)
 
         self.stop_session_init()
 

@@ -670,23 +670,6 @@
 #define TEST_STR_ARRAY_NOT_CONTAINS(_array, _pattern)                \
         _TEST_STR_ARRAY_CONTAINS (_array, _pattern, TRUE)
 
-
-/**
- * TIMED_BLOCK:
- * @secs: Seconds to run for.
- *
- * Run a block of code repeatedly for @secs seconds.
- * Have the loop call sleep(3) to avoid a busy wait.
- **/
-#define TIMED_BLOCK(secs)                                                \
-	for (time_t _start_time = 0, _now = 0, _wait_secs = (time_t)secs;\
-		; _now = time (NULL))                                    \
-		if (! _start_time) {                                     \
-			_start_time = _now = time (NULL);                \
-		} else if ((_start_time + _wait_secs) < _now) {          \
-			break;                                           \
-		} else
-
 extern int test_user_mode;
 
 /* Prototypes */
