@@ -1,3 +1,12 @@
+upstart (1.12.1-0ubuntu2) UNRELEASED; urgency=medium
+
+  * debian/upstart.cron.hourly: hourly cron job to emit the 'rotate-logs'
+    event.
+  * debian/user-conf/logrotate.conf: Run 1 minute after session startup
+    and whenever the 'rotate-logs' event is emitted.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Tue, 25 Mar 2014 09:47:16 +0000
+
 upstart (1.12.1-0ubuntu1) trusty; urgency=medium
 
   [ Dimitri John Ledkov ]
