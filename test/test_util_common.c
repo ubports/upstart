@@ -1002,3 +1002,222 @@ test_common_cleanup (void)
 
 	}
 }
+
+/**
+ * test_list_handler_generic:
+ *
+ * Generic handler.
+ *
+ * Put a break point on this function in gdb to allow you to cast entry
+ * as desired.
+ **/
+int
+test_list_handler_generic (NihList *entry, void *data)
+{
+  nih_assert (entry);
+
+  /* XXX: stop compiler optimising this function away */
+  asm ("");
+
+  return 1;
+}
+
+
+/**
+ * test_list_foreach:
+ * @list: list,
+ * @len: optional output parameter that will contain length of list,
+ * @handler: optional function called for each list entry,
+ * @data: optional data to pass to handler along with list entry.
+ *
+ * Iterate over specified list.
+ *
+ * One of @len or @handler may be NULL.
+ * If @handler is NULL, list length will still be returned in @len.
+ * If @handler returns 1, @len will be set to the number of list entries
+ * processed successfully up to that point.
+ *
+ * Returns 0 on success (and when both @len and @handler are NULL),
+ * or -1 if handler returns an error.
+ **/
+int
+test_list_foreach (const NihList *list, size_t *len,
+	NihListHandler handler, void *data)
+{
+	int ret;
+
+	nih_assert (list);
+
+	if (len) *len = 0;
+
+	if (!len && !handler) return 0;
+
+	NIH_LIST_FOREACH (list, iter) {
+		if (handler) {
+			ret = handler (iter, data);
+			if (ret == FALSE) return -1;
+		}
+		if (len) ++*len;
+	}
+
+	return 0;
+}
+
+/**
+ * test_list_count:
+ * @list: list.
+ * 
+ * Returns count of number of entries in @list.
+ **/
+size_t
+test_list_count (const NihList *list)
+{
+	size_t len = 0;
+	int ret;
+
+	nih_assert (list);
+
+	ret = test_list_foreach (list, &len, NULL, NULL);
+
+	return (ret == -1 ? 0 : len);
+}
+
+NihList *
+test_list_get_index (NihList *list, size_t count)
+{
+	size_t i = 0;
+
+	nih_assert (list);
+
+	NIH_LIST_FOREACH (list, iter) {
+		if (i == count)
+			return iter;
+		i++;
+	}
+
+	return NULL;
+}
+
+/**
+ * test_hash_foreach:
+ *
+ * @hash: hash,
+ * @len: optional output parameter that will contain count of hash entries,
+ * @handler: optional function called for each hash entry,
+ * @data: optional data to pass to handler along with hash entry.
+ *
+ * Iterate over specified hash.
+ *
+ * One of @len or @handler may be NULL.
+ * If @handler is NULL, count of hash entries will still be returned in @len.
+ * If @handler returns 1, @len will be set to the number of hash entries
+ * processed successfully up to that point.
+ *
+ * Returns 0 on success (and when both @len and @handler are NULL),
+ * or -1 if handler returns an error.
+ **/
+int
+test_hash_foreach (const NihHash *hash, size_t *len,
+	NihListHandler handler, void *data)
+{
+	int ret;
+
+	nih_assert (hash);
+
+	if (len) *len = 0;
+
+	if (!len && !handler) return 0;
+
+	NIH_HASH_FOREACH (hash, iter) {
+		if (handler) {
+			ret = handler (iter, data);
+			if (ret == FALSE) return -1;
+		}
+		if (len) ++*len;
+	}
+
+	return 0;
+}
+
+/**
+ * test_hash_count:
+ *
+ * @hash: hash.
+ * 
+ * Returns count of number of entries in @hash.
+ **/
+size_t
+test_hash_count (const NihHash *hash)
+{
+	size_t len = 0;
+	int ret;
+
+	nih_assert (hash);
+
+	ret = test_hash_foreach (hash, &len, NULL, NULL);
+
+	return (ret == -1 ? 0 : len);
+}
+
+
+/**
+ * test_tree_foreach:
+ *
+ * @tree: tree,
+ * @len: optional output parameter that will contain count of tree nodes,
+ * @handler: optional function called for each tree node,
+ * @data: optional data to pass to handler along with tree node.
+ *
+ * Iterate over specified tree.
+ *
+ * One of @len or @handler may be NULL.
+ * If @handler is NULL and @len is non-NULL, count of tree nodes will
+ * still be returned in @len.
+ * If @handler returns 1, @len will be set to the number of tree nodes
+ * processed successfully up to that point.
+ *
+ * Returns 0 on success (and when both @len and @handler are NULL),
+ * or -1 if handler returns an error.
+ **/
+int
+test_tree_foreach (NihTree *tree, size_t *len,
+	NihTreeHandler handler, void *data)
+{
+	int ret;
+
+	nih_assert (tree);
+
+	if (len) *len = 0;
+
+	if (!len && !handler) return 0;
+
+	NIH_TREE_FOREACH_FULL (tree, iter, NULL, data) {
+		if (handler) {
+			ret = handler (iter, data);
+			if (!ret) return -1;
+		}
+		if (len) ++*len;
+	}
+
+	return 0;
+}
+
+/**
+ * test_tree_count:
+ *
+ * @tree: tree.
+ * 
+ * Returns count of number of entries in @tree.
+ **/
+size_t
+test_tree_count (NihTree *tree)
+{
+	size_t len = 0;
+	int ret;
+
+	nih_assert (tree);
+
+	ret = test_tree_foreach (tree, &len, NULL, NULL);
+
+	return (ret == -1 ? 0 : len);
+}

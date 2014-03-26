@@ -46,6 +46,7 @@
 #include "job_class.h"
 #include "job.h"
 #include "log.h"
+#include "cgroup.h"
 #include "blocked.h"
 #include "control.h"
 #include "test_util_common.h"
@@ -168,6 +169,9 @@ int conf_source_diff (const ConfSource *a, const ConfSource *b, AlreadySeen seen
 	__attribute__ ((warn_unused_result));
 
 int conf_file_diff (const ConfFile *a, const ConfFile *b, AlreadySeen seen)
+	__attribute__ ((warn_unused_result));
+
+int cgroup_path_diff (const CGroupPath *a, const CGroupPath *b)
 	__attribute__ ((warn_unused_result));
 
 /**
@@ -971,6 +975,36 @@ conf_file_diff (const ConfFile *a, const ConfFile *b, AlreadySeen seen)
 		goto fail;
 
 	if (job_class_diff (a->job, b->job, seen, TRUE))
+		goto fail;
+
+	return 0;
+
+fail:
+	return 1;
+}
+
+/**
+ * cgroup_path_diff:
+ * @a: first CGroupPath,
+ * @b: second CGroupPath.
+ *
+ * Compare two CGroupPath objects for equivalence.
+ *
+ * Returns: 0 if @a and @b are identical, else 1.
+ **/
+int
+cgroup_path_diff (const CGroupPath *a, const CGroupPath *b)
+{
+	if ((a == b) && !a)
+		return 0;
+
+	if (!a || !b)
+		fail;
+
+	if (obj_string_check (a, b, path))
+		goto fail;
+
+	if (obj_num_check (a, b, blockers))
 		goto fail;
 
 	return 0;

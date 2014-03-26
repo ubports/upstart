@@ -45,6 +45,7 @@
 #include "control.h"
 #include "errors.h"
 #include "quiesce.h"
+#include "cgroup.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -364,6 +365,42 @@ event_pending_handle_jobs (Event *event)
 			}
 
 		}
+
+		/* FIXME */
+#if 0
+		/* If the job has specified a cgroup stanza, do not
+		 * start it until the cgroup manager is available. Also,
+		 * block any events that the job requires such that when
+		 * the cgroup manager is available, the job may be
+		 * started.
+		 */
+		if (class->start_on && ! NIH_LIST_EMPTY (&class->cgroups)) {
+			if (cgroup_manager_connected ()) {
+
+				if (class->cgmanager_wait) {
+					/* Unref the events that were ref'ed
+					 * whilst waiting for the cgroup manager
+					 * to become available.
+					 */
+					event_operator_reset (class->start_on);
+					class->cgmanager_wait = FALSE;
+				}
+			} else {
+				nih_debug ("Cannot start job %s until CGroup Manager available", class->name);
+
+				/* Reference the event to stop it being destroyed since it will
+				 * be required by the job once the cgroup manager eventually
+				 * becomes available.
+				 */
+				if (! class->cgmanager_wait) {
+					if (event_operator_handle (class->start_on, event, NULL))
+						class->cgmanager_wait = TRUE;
+				}
+
+				continue;
+			}
+		}
+#endif
 
 		/* Now we match the start events for the class to see
 		 * whether we need a new instance.

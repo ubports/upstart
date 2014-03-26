@@ -453,8 +453,8 @@ If only \'KEY\' is given, then the value is taken from the
 daemon's own environment.
 .\"
 .TP
-.B export \fIKEY\fR
-Exports the value of an environment variable into the
+.B export \fIKEY\fR...
+Exports the value of one or more environment variables into the
 .BR starting (7),
 .BR started (7),
 .BR stopping (7)
@@ -465,6 +465,14 @@ events for this job
 and to all resultant events
 .ft
 (not just those relating to the current job).
+
+Note that each
+.I KEY
+is the
+.I name
+of a variable; it is
+.B not
+prefixed with a dollar (\(aq$\(aq) sign.
 .RE
 
 The first two categories above comprise the

@@ -58,6 +58,10 @@
 #include "state.h"
 #include "apparmor.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
@@ -93,6 +97,9 @@ static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
 
+static int job_destroy (Job *job)
+	__attribute__ ((warn_unused_result));
+
 /**
  * job_new:
  * @class: class of job,
@@ -125,7 +132,7 @@ job_new (JobClass   *class,
 
 	nih_list_init (&job->entry);
 
-	nih_alloc_set_destructor (job, nih_list_destroy);
+	nih_alloc_set_destructor (job, job_destroy);
 
 	job->name = nih_strdup (job, name);
 	if (! job->name)
@@ -212,6 +219,38 @@ job_new (JobClass   *class,
 error:
 	nih_free (job);
 	return NULL;
+}
+
+/**
+ * job_destroy:
+ *
+ * @job: job.
+ *
+ * Called automatically when Job is being destroyed.
+ *
+ * Returns: 0 always.
+ **/
+static int
+job_destroy (Job *job)
+{
+	nih_assert (job);
+
+#ifdef ENABLE_CGROUPS
+	if (! cgroup_cleanup (&job->class->cgroups)) {
+		NihError *err;
+
+		err = nih_error_get ();
+
+		nih_warn ("%s %s",
+				_("failed to delete cgroups"),
+				err->message);
+		nih_free (err);
+	}
+#endif /* ENABLE_CGROUPS */
+
+	nih_list_destroy (&job->entry);
+
+	return 0;
 }
 
 /**
@@ -2364,4 +2403,31 @@ job_find (const Session  *session,
 
 error:
 	return NULL;
+}
+
+/**
+ * job_needs_cgroups:
+ *
+ * @job: job.
+ *
+ * Determine if specified job requires cgroups.
+ *
+ * Returns: TRUE if @job needs atleast 1 cgroup, else FALSE.
+ **/
+int
+job_needs_cgroups (const Job *job)
+{
+	NihList   *cgroups;
+
+	nih_assert (job);
+
+	cgroups = &job->class->cgroups;
+
+	if (! cgroup_support_enabled ())
+		return FALSE;
+
+	if (NIH_LIST_EMPTY (cgroups))
+		return FALSE;
+
+	return TRUE;
 }

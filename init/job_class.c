@@ -56,6 +56,10 @@
 #include "control.h"
 #include "parse_job.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
@@ -389,6 +393,8 @@ job_class_new (const void *parent,
 	class->usage = NULL;
 
 	class->apparmor_switch = NULL;
+
+	nih_list_init (&class->cgroups);
 
 	return class;
 
@@ -1035,6 +1041,17 @@ job_class_start (JobClass        *class,
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to modify job: %s"),
+			class->name);
+		return -1;
+	}
+
+	/* Job has specified a cgroup stanza but since the cgroup manager is
+	 * not yet contactable, the job cannot be started.
+	 */
+	if (! NIH_LIST_EMPTY (&class->cgroups) /*&& ! cgroup_manager_connected ()*/) { /* FIXME */
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
+			_("Job cannot be started as CGroup Manager not available: %s"),
 			class->name);
 		return -1;
 	}
@@ -1882,7 +1899,7 @@ error:
  * Returns: JSON-serialised JobClass object, or NULL on error.
  **/
 json_object *
-job_class_serialise (const JobClass *class)
+job_class_serialise (JobClass *class)
 {
 	json_object      *json;
 	json_object      *json_export;
@@ -1894,6 +1911,10 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_start_on;
 	json_object      *json_stop_on;
 	int               session_index;
+
+#ifdef ENABLE_CGROUPS
+	json_object      *json_cgroups;
+#endif /* ENABLE_CGROUPS */
 
 	nih_assert (class);
 	nih_assert (job_classes);
@@ -2050,6 +2071,14 @@ job_class_serialise (const JobClass *class)
 
 	if (! state_set_json_string_var_from_obj (json, class, apparmor_switch))
 		goto error;
+
+#ifdef ENABLE_CGROUPS
+	json_cgroups = cgroup_serialise_all (&class->cgroups);
+	if (! json_cgroups)
+		goto error;
+
+	json_object_object_add (json, "cgroups", json_cgroups);
+#endif /* ENABLE_CGROUPS */
 
 	return json;
 
@@ -2383,6 +2412,11 @@ job_class_deserialise (json_object *json)
 	 */
 	if (job_deserialise_all (class, json) < 0)
 		goto error;
+
+#ifdef ENABLE_CGROUPS
+	if (cgroup_deserialise_all (class, &class->cgroups, json) < 0)
+		goto error;
+#endif /* ENABLE_CGROUPS */
 
 	return class;
 

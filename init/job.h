@@ -167,6 +167,7 @@ NIH_BEGIN_EXTERN
 
 Job *       job_new             (JobClass *class, const char *name)
 	__attribute__ ((warn_unused_result));
+
 void        job_register        (Job *job, DBusConnection *conn, int signal);
 
 void        job_change_goal     (Job *job, JobGoal goal);
@@ -226,6 +227,9 @@ Job *       job_find            (const Session *session,
 				 JobClass       *class,
 				 const char     *job_class,
 				 const char     *job_name)
+	__attribute__ ((warn_unused_result));
+
+int job_needs_cgroups (const Job *job)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

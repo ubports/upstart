@@ -77,6 +77,16 @@ AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
 have_tap=no
 AM_CONDITIONAL([ENABLE_TAP_OUTPUT], [test "$have_tap" = "yes"])
 
+AC_ARG_ENABLE([cgroups],
+	AS_HELP_STRING([--disable-cgroups],
+		[Disable support for Linux cgroups]),
+		[enable_cgroups=no], [enable_cgroups=yes])
+PKG_CHECK_MODULES([CGMANAGER], [libcgmanager], [have_cgmanager=yes], [have_cgmanager=no])
+AM_CONDITIONAL([ENABLE_CGROUPS], [test "$enable_cgroups" = yes && test "$have_cgmanager" = yes])
+
+if test "$enable_cgroups" = yes && test "$have_cgmanager" = yes; then
+	AC_DEFINE([ENABLE_CGROUPS], [1], [Build with Cgroup CGManager support])
+fi
 
 # Reasons for requiring this library version:
 #

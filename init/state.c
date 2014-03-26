@@ -48,6 +48,10 @@
 #include "conf.h"
 #include "control.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
@@ -342,6 +346,10 @@ state_to_string (char **json_string, size_t *len)
 	json_object  *json_job_environ;
 	const char   *value;
 
+#ifdef ENABLE_CGROUPS
+	json_object  *json_object_cgroup_paths;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (json_string);
 	nih_assert (len);
 
@@ -365,6 +373,18 @@ state_to_string (char **json_string, size_t *len)
 	}
 
 	json_object_object_add (json, "events", json_events);
+
+#ifdef ENABLE_CGROUPS
+	json_object_cgroup_paths = cgroup_path_serialise_all ();
+
+	if (! json_object_cgroup_paths) {
+		nih_error ("%s cgroup paths",
+				_("Failed to serialise"));
+		goto error;
+	}
+
+	json_object_object_add (json, "cgroup_paths", json_object_cgroup_paths);
+#endif /* ENABLE_CGROUPS */
 
 	json_job_environ = job_class_serialise_job_environ ();
 
@@ -457,6 +477,13 @@ state_from_string (const char *state)
 		nih_error ("%s Events", _("Failed to deserialise"));
 		goto out;
 	}
+
+#ifdef ENABLE_CGROUPS
+	if (cgroup_path_deserialise_all (json) < 0) {
+		nih_error ("%s cgroup paths", _("Failed to deserialise"));
+		goto out;
+	}
+#endif /* ENABLE_CGROUPS */
 
 	/* Again, we cannot error here since older JSON state data did
 	 * not encode ConfSource or ConfFile objects.

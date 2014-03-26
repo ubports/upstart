@@ -60,6 +60,7 @@
 #include "events.h"
 #include "paths.h"
 #include "xdg.h"
+#include "cgroup.h"
 
 #include "com.ubuntu.Upstart.h"
 
@@ -970,6 +971,59 @@ control_notify_dbus_address (void            *data,
 
 	if (control_bus_open () < 0)
 		return -1;
+
+	return 0;
+}
+
+/* FIXME: remove */
+/**
+ * control_notify_cgroup_manager_address:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @address: D-Bus address that cgroup manager is connected to.
+ *
+ * Implements the NotifyCGroupManagerAddress method of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to allow the cgroup manager to be contacted,
+ * thus enabling the cgroup stanza.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_notify_cgroup_manager_address (void            *data,
+				       NihDBusMessage  *message,
+				       const char      *address)
+{
+	nih_assert (message);
+	nih_assert (address);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to notify cgroup manager address"));
+		return -1;
+	}
+
+#ifdef ENABLE_CGROUPS
+	if (! cgroup_support_enabled ())
+		return 0;
+
+#if 0
+	if (cgroup_manager_connected ())
+		return 0;
+
+	if (cgroup_manager_connect (address) < 0)
+		return -1;
+#endif
+#endif /* ENABLE_CGROUPS */
+
+	/* FIXME: can't we just wait for the next main loop iteration to
+	 * now start all the cgroup stanza jobs?
+	 */
+
+	/* FIXME: needed? */
+	nih_main_loop_interrupt ();
 
 	return 0;
 }

@@ -36,8 +36,6 @@ enum {
 
 	/* Errors while handling job processes */
 	JOB_PROCESS_ERROR,
-	JOB_PROCESS_INVALID_SETUID,
-	JOB_PROCESS_INVALID_SETGID,
 
 	/* Errors while parsing configuration files */
 	PARSE_ILLEGAL_INTERVAL,
@@ -55,8 +53,8 @@ enum {
 	/* Errors while handling control requests */
 	CONTROL_NAME_TAKEN,
 
-	/* Errors while handling security profiles */
-	SECURITY_ERROR,
+	/* Errors while manipulating cgroups */
+	CGROUP_ERROR,
 };
 
 /* Error strings for defined messages */
@@ -66,6 +64,7 @@ enum {
 #define ENVIRON_MISMATCHED_BRACES_STR	N_("Mismatched braces")
 #define JOB_PROCESS_INVALID_SETUID_STR	N_("Invalid setuid user name does not exist")
 #define JOB_PROCESS_INVALID_SETGID_STR	N_("Invalid setgid group name does not exist")
+#define JOB_PROCESS_SECURITY_STR      	N_("Failed to set security context")
 #define PARSE_ILLEGAL_INTERVAL_STR	N_("Illegal interval, expected number of seconds")
 #define PARSE_ILLEGAL_EXIT_STR		N_("Illegal exit status, expected integer")
 #define PARSE_ILLEGAL_SIGNAL_STR	N_("Illegal signal status, expected integer")

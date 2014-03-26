@@ -69,6 +69,9 @@
 #include "xdg.h"
 #include "apparmor.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 /**
  * SHELL_CHARS:
@@ -423,21 +426,23 @@ job_process_spawn (Job          *job,
 		   int           script_fd,
 		   ProcessType   process)
 {
-	sigset_t        child_set, orig_set;
-	pid_t           pid;
-	int             i, fds[2];
-	int             pty_master = -1;
-	int             pty_slave = -1;
-	char            pts_name[PATH_MAX];
-	char            filename[PATH_MAX];
-	FILE           *fd;
-	nih_local char *log_path = NULL;
-	JobClass       *class;
-	uid_t           job_setuid = -1;
-	gid_t           job_setgid = -1;
-	struct passwd   *pwd = NULL;
-	struct group    *grp = NULL;
-
+	sigset_t           child_set, orig_set;
+	pid_t              pid;
+	int                i, fds[2];
+	int                pty_master = -1;
+	int                pty_slave = -1;
+	char               pts_name[PATH_MAX];
+	char               filename[PATH_MAX];
+	FILE              *fd;
+	nih_local char    *log_path = NULL;
+	JobClass          *class;
+	uid_t              job_setuid = -1;
+	gid_t              job_setgid = -1;
+	struct passwd     *pwd = NULL;
+	struct group      *grp = NULL;
+#ifdef ENABLE_CGROUPS
+	nih_local char   **job_cgroup_paths = NULL;
+#endif
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
@@ -525,6 +530,29 @@ job_process_spawn (Job          *job,
 	 */
 	fflush (NULL);
 
+#ifdef ENABLE_CGROUPS
+	if (job_needs_cgroups (job) &&
+			! cgroup_expand_paths (NULL,
+				&job_cgroup_paths,
+				&job->class->cgroups,
+				env)) {
+		nih_return_system_error (-1);
+	}
+
+	{
+		char **p;
+		nih_message ("XXX:%s:%d: job_cgroup_paths:",
+				__func__, __LINE__);
+
+		for (p = job_cgroup_paths; p && *p; p++) {
+		nih_message ("XXX:%s:%d: path='%s'",
+				__func__, __LINE__, *p);
+		}
+
+	}
+
+#endif /* ENABLE_CGROUPS */
+
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
 	 */
@@ -555,6 +583,15 @@ job_process_spawn (Job          *job,
 		 * log object is destroyed.
 		 */
 		close (fds[0]);
+
+#if 0
+#ifdef ENABLE_CGROUPS
+		if (job_needs_cgroups (job))
+			cgroup_cache_paths (job, job_cgroup_paths);
+
+#endif /* ENABLE_CGROUPS */
+#endif
+
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
@@ -581,6 +618,15 @@ job_process_spawn (Job          *job,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
+
+#if 0
+#ifdef ENABLE_CGROUPS
+	if (! cgroup_setup (&job->class->cgroups, env)) {
+		/* FIXME: correct? shouldn't this be JOB_PROCESS_ERROR? */
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP, 0);
+	}
+#endif /* ENABLE_CGROUPS */
+#endif
 
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
@@ -822,7 +868,7 @@ job_process_spawn (Job          *job,
 					nih_error_raise_system ();
 					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETPWNAM, 0);
 				} else {
-					nih_error_raise (JOB_PROCESS_INVALID_SETUID,
+					nih_error_raise (JOB_PROCESS_ERROR,
 							 JOB_PROCESS_INVALID_SETUID_STR);
 					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETUID, 0);
 				}
@@ -841,7 +887,7 @@ job_process_spawn (Job          *job,
 					nih_error_raise_system ();
 					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GETGRNAM, 0);
 				} else {
-					nih_error_raise (JOB_PROCESS_INVALID_SETGID,
+					nih_error_raise (JOB_PROCESS_ERROR,
 							 JOB_PROCESS_INVALID_SETGID_STR);
 					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_BAD_SETGID, 0);
 				}
@@ -1206,6 +1252,10 @@ job_process_error_read (int fd)
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to switch security profile: %s"),
 				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to create required cgroups")));
 		break;
 	default:
 		nih_assert_not_reached ();
@@ -2322,3 +2372,23 @@ job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
 	close (*fd);
 	*fd = new;
 }
+
+#if 0
+/* FIXME */
+void
+cgroup_cache_paths (const Job *job, NihList *job_cgroup_paths)
+{
+	nih_assert (job);
+	nih_assert (job_cgroup_paths);
+
+#if 0
+	NIH_LIST_FOREACH (job_cgroup_paths, iter) {
+		NihListEntry *path = (NihListEntry *)iter;
+
+
+	}
+#endif
+}
+#endif
+
+

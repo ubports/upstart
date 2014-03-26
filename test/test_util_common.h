@@ -6,6 +6,9 @@
 #include <sys/wait.h>
 
 #include <nih-dbus/test_dbus.h>
+#include <nih/list.h>
+#include <nih/hash.h>
+#include <nih/tree.h>
 
 /**
  * TEST_DIR_MODE:
@@ -672,6 +675,18 @@
 
 extern int test_user_mode;
 
+/**
+ * NihTreeHandler:
+ * @node: tree entry being visited,
+ * @data: data pointer.
+ *
+ * A tree handler is a function called for each tree node
+ * when iterating over a tree.
+ *
+ * Returns: TRUE if tree entry process correctly, else FALSE.
+ **/
+typedef int (*NihTreeHandler) (NihTree *node, void *data);
+
 /* Prototypes */
 int set_upstart_session (pid_t session_init_pid)
 	__attribute__ ((warn_unused_result));
@@ -730,5 +745,34 @@ int file_exists (const char *path)
 void test_common_setup (void);
 
 void test_common_cleanup (void);
+
+typedef int (*NihListHandler) (NihList *entry, void *data);
+
+int test_list_handler_generic (NihList *entry, void *data)
+    __attribute__ ((unused, noinline));
+
+int test_list_foreach (const NihList *list, size_t *len,
+		NihListHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_list_count (const NihList *list)
+	__attribute__((warn_unused_result, unused));
+
+NihList *test_list_get_index (NihList *list, size_t count)
+	__attribute__((warn_unused_result, unused));
+
+int test_hash_foreach (const NihHash *hash, size_t *len,
+		NihListHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_hash_count (const NihHash *hash)
+	__attribute__((warn_unused_result, unused));
+
+int test_tree_foreach (NihTree *tree, size_t *len,
+		NihTreeHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_tree_count (NihTree *tree)
+	__attribute__((warn_unused_result, unused));
 
 #endif /* TEST_UTIL_COMMON_H */
