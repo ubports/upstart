@@ -1720,7 +1720,7 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 }
 
 /**
- * cgroup_expand_path:
+ * cgroup_setup_path:
  *
  * @parent: parent for @paths,
  * @paths: newly-allocated string array of expanded paths,
@@ -1734,7 +1734,7 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
  * Returns: TRUE on success, or FALSE on raised error.
  **/
 int
-cgroup_expand_paths (void           *parent,
+cgroup_setup_paths (void           *parent,
 		     char         ***paths,
 		     NihList        *cgroups,
 		     char * const   *env)
@@ -1879,4 +1879,11 @@ cgroup_expand_paths (void           *parent,
 error:
 	nih_free (paths);
 	return FALSE;
+}
+
+/* FIXME: implement, and document */
+int
+cgroup_apply_paths (void)
+{
+	return TRUE;
 }

@@ -531,12 +531,13 @@ job_process_spawn (Job          *job,
 	fflush (NULL);
 
 #ifdef ENABLE_CGROUPS
-	if (job_needs_cgroups (job) &&
-			! cgroup_expand_paths (NULL,
-				&job_cgroup_paths,
-				&job->class->cgroups,
-				env)) {
-		nih_return_system_error (-1);
+	if (job_needs_cgroups (job)) {
+	       if (! cgroup_setup_paths (NULL,
+					&job_cgroup_paths,
+					&job->class->cgroups,
+					env)) {
+		       nih_return_system_error (-1);
+	       }
 	}
 
 	{
@@ -545,8 +546,8 @@ job_process_spawn (Job          *job,
 				__func__, __LINE__);
 
 		for (p = job_cgroup_paths; p && *p; p++) {
-		nih_message ("XXX:%s:%d: path='%s'",
-				__func__, __LINE__, *p);
+			nih_message ("XXX:%s:%d: path='%s'",
+					__func__, __LINE__, *p);
 		}
 
 	}
@@ -627,6 +628,20 @@ job_process_spawn (Job          *job,
 	}
 #endif /* ENABLE_CGROUPS */
 #endif
+
+#ifdef ENABLE_CGROUPS
+	if (job_cgroup_paths) {
+		/* FIXME: args!! */
+		if (! cgroup_apply_paths ()) {
+			/* FIXME */
+		}
+
+		for (char **p = job_cgroup_paths; p && *p; p++) {
+			nih_message ("XXX:@@@@@@@@@@@@@@@@@@@@@@@@@@@@@: %s:%d: path='%s'",
+					__func__, __LINE__, *p);
+		}
+	}
+#endif /* ENABLE_CGROUPS */
 
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
