@@ -540,6 +540,8 @@ job_process_spawn (Job          *job,
 	       }
 	}
 
+	/* FIXME */
+#if 1
 	{
 		char **p;
 		nih_message ("XXX:%s:%d: job_cgroup_paths:",
@@ -551,6 +553,7 @@ job_process_spawn (Job          *job,
 		}
 
 	}
+#endif
 
 #endif /* ENABLE_CGROUPS */
 

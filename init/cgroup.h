@@ -127,6 +127,7 @@ typedef struct cgroup {
  * CGroupPath:
  * @entry: list header,
  * @path: Fully-expanded relative path of cgroup,
+ * @controller: cgroup controller @path refers to,
  * @blockers: Number of jobs that require @path.
  *
  * Used to track paths the CGroup manager has created on behalf of one
@@ -141,6 +142,7 @@ typedef struct cgroup {
 typedef struct cgroup_path {
 	NihList         entry;
 	char           *path;
+	char           *controller;
 	int             blockers;
 } CGroupPath;
 
@@ -201,7 +203,7 @@ int cgroup_setup (NihList *paths, char * const *env)
 int cgroup_cleanup (NihList *paths)
 	__attribute__ ((warn_unused_result));
 
-CGroupPath *cgroup_path_new (void *parent, const char *path)
+CGroupPath *cgroup_path_new (void *parent, const char *controller, const char *path)
 	__attribute__ ((warn_unused_result));
 
 json_object *cgroup_manager_serialise (void)
@@ -260,6 +262,9 @@ int cgroup_setup_paths (void *parent, char ***paths, NihList *cgroups, char * co
 	__attribute__ ((warn_unused_result));
 
 int cgroup_apply_paths (void)
+	__attribute__ ((warn_unused_result));
+
+CGroupPath *cgroup_path_find (const char *controller, const char *path)
 	__attribute__ ((warn_unused_result));
 
 NIH_END_EXTERN

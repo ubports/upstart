@@ -470,7 +470,7 @@ cgroup_setup (NihList *cgroups, char * const *env)
 			 * from the CGroup Managers perspective) path in the
 			 * global table.
 			 */
-			if (! cgroup_path_new (NULL, cgroup_path))
+			if (! cgroup_path_new (NULL, cgroup->controller, cgroup_path))
 				return FALSE;
 		}
 	}
@@ -1133,9 +1133,9 @@ cgroup_manager_error_handler (void *data, NihDBusMessage *message)
 int
 cgroup_create_path (const char *controller, const char *path)
 {
-	CGroupPath       *cgpath;
-	//int               ret = 0;
-	int               existed = -1;
+	CGroupPath  *cgpath;
+	//int        ret = 0;
+	int          existed = -1;
 
 	nih_assert (path);
 #if 0
@@ -1144,9 +1144,10 @@ cgroup_create_path (const char *controller, const char *path)
 
 	cgroup_init ();
 
-	cgpath = (CGroupPath *)nih_hash_lookup (cgroup_paths, path);
+	cgpath = cgroup_path_find (controller, path);
 
 	if (cgpath) {
+		/* FIXME: need to check controller too? */
 		/* Path already exists, so just ref */
 		cgpath->blockers++;
 
@@ -1172,7 +1173,7 @@ cgroup_create_path (const char *controller, const char *path)
 	if (existed == 1)
 		return TRUE;
 
-	cgpath = cgroup_path_new (cgroup_paths, path);
+	cgpath = cgroup_path_new (cgroup_paths, controller, path);
 	if (! cgpath)
 		nih_return_no_memory_error (FALSE);
 
@@ -1190,7 +1191,7 @@ cgroup_create_path (const char *controller, const char *path)
  * Returns: newly allocated CGroupPath structure or NULL if insufficient memory.
  **/
 CGroupPath *
-cgroup_path_new (void *parent, const char *path)
+cgroup_path_new (void *parent, const char *controller, const char *path)
 {
 	CGroupPath *cgpath;
 
@@ -1205,6 +1206,10 @@ cgroup_path_new (void *parent, const char *path)
 	nih_list_init (&cgpath->entry);
 
 	nih_alloc_set_destructor (cgpath, nih_list_destroy);
+
+	cgpath->controller = nih_strdup (cgpath, controller);
+	if (! cgpath->controller)
+		goto error;
 
 	cgpath->path = nih_strdup (cgpath, path);
 	if (! cgpath->path)
@@ -1246,7 +1251,7 @@ cgroup_path_unref (const char *controller, const char *path)
 
 	cgroup_init ();
 
-	cgpath = (CGroupPath *)nih_hash_lookup (cgroup_paths, path);
+	cgpath = cgroup_path_find (controller, path);
 
 	/* must already exist */
 	nih_assert (cgpath);
@@ -1314,6 +1319,9 @@ cgroup_path_serialise (const CGroupPath *cgpath)
 	if (! cgroup_support_enabled ())
 		return json;
 
+	if (! state_set_json_string_var_from_obj (json, cgpath, controller))
+		goto error;
+
 	if (! state_set_json_string_var_from_obj (json, cgpath, path))
 		goto error;
 
@@ -1376,6 +1384,7 @@ CGroupPath *
 cgroup_path_deserialise (json_object *json)
 {
 	CGroupPath      *cgpath;
+	nih_local char  *controller = NULL;
 	nih_local char  *path = NULL;
 
 	nih_assert (json);
@@ -1385,10 +1394,13 @@ cgroup_path_deserialise (json_object *json)
 	if (! state_check_json_type (json, object))
 		return NULL;
 
+	if (! state_get_json_string_var (json, "controller", NULL, controller))
+		return NULL;
+
 	if (! state_get_json_string_var (json, "path", NULL, path))
 		return NULL;
 
-	cgpath = cgroup_path_new (NULL, path);
+	cgpath = cgroup_path_new (NULL, controller, path);
 	if (! cgpath)
 		return NULL;
 
@@ -1854,7 +1866,9 @@ cgroup_setup_paths (void           *parent,
 			/* Remap slash to underscore to avoid unexpected
 			 * sub-cgroup creation.
 			 */
-			cgroup_remap_name (has_var ?cgroup_path + strlen ("$UPSTART_CGROUP") : cgroup_path);
+			cgroup_remap_name (has_var
+					? cgroup_path + strlen ("$UPSTART_CGROUP")
+					: cgroup_path);
 
 			/* FIXME */
 			nih_message ("XXX:%s:%d: cgroup_path='%s'", __func__, __LINE__, cgroup_path);
@@ -1862,12 +1876,14 @@ cgroup_setup_paths (void           *parent,
 			if (! cgroup_create_path (cgroup->controller, cgroup_path))
 				goto error;
 
+#if 0
 			/* Record the "full" (strictly still a relative suffix
 			 * from the CGroup Managers perspective) path in the
 			 * global table.
 			 */
-			if (! cgroup_path_new (NULL, cgroup_path))
+			if (! cgroup_path_new (NULL, cgroup->controller, cgroup_path))
 				goto error;
+#endif
 
 			if (! nih_str_array_add (paths, NULL, NULL, cgroup_path))
 				goto error;
@@ -1886,4 +1902,35 @@ int
 cgroup_apply_paths (void)
 {
 	return TRUE;
+}
+
+/**
+ * cgroup_path_find:
+ *
+ * @controller: controller,
+ * @path: expanded path name to look for.
+ *
+ * Search the cgroup_paths hash for the entry corresponding to
+ * @controller and @path.
+ *
+ * Returns: Entry in cgroup_paths hash, or NULL if not found.
+ **/
+CGroupPath *
+cgroup_path_find (const char *controller, const char *path)
+{
+	CGroupPath  *cgpath = NULL;
+
+	nih_assert (controller);
+	nih_assert (path);
+
+	cgroup_init ();
+
+	do {
+		cgpath = (CGroupPath *)nih_hash_search (cgroup_paths, path, (NihList *)cgpath);
+		if (cgpath && ! strcmp (cgpath->controller, controller))
+			return cgpath;
+
+	} while (cgpath && cgpath->path);
+
+	return NULL;
 }
