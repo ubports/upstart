@@ -92,16 +92,20 @@ typedef struct cgroup_setting {
  *
  * @entry: list header,
  * @name: name of cgroup,
+ * @expanded: value of @name where all variables have been expanded
+ *  (or NULL if expanded value is the same as @name),
  * @settings: list of CGroupSettings.
  *
  * Representation of a control group name.
  *
- * Note: @name is in fact a relative path fragment which may contain
- * slashes and where embedded variables will be expanded.
+ * Note: @name is in fact a relative path fragment which can optionally
+ * contain embedded variables which will be expanded and which will be created
+ * below the appropriate cgroup controller.
  **/
 typedef struct cgroup_name {
 	NihList         entry;
 	char           *name;
+	char           *expanded;
 	NihList         settings;
 } CGroupName;
 
@@ -197,11 +201,14 @@ int cgroup_manager_connect (const char *address)
 int cgroup_manager_connected (void)
 	__attribute__ ((warn_unused_result));
 
+/* FIXME */
+#if 0
 int cgroup_setup (NihList *paths, char * const *env)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_cleanup (NihList *paths)
 	__attribute__ ((warn_unused_result));
+#endif
 
 CGroupPath *cgroup_path_new (void *parent, const char *controller, const char *path)
 	__attribute__ ((warn_unused_result));
@@ -254,11 +261,15 @@ int cgroup_create_path (const char *controller, const char *path)
 int cgroup_enter (const char *controller, const char *path, pid_t pid)
 	__attribute__ ((warn_unused_result));
 
+int cgroup_enter_groups (NihList  *cgroups)
+	__attribute__ ((warn_unused_result));
+
 int cgroup_settings_apply (const char *controller,
 		const char *path, NihList *settings)
 	__attribute__ ((warn_unused_result));
 
-int cgroup_setup_paths (void *parent, char ***paths, NihList *cgroups, char * const  *env)
+int cgroup_expand_paths (void *parent, NihList *cgroups,
+		char * const  *env)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_apply_paths (void)

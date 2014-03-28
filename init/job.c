@@ -235,6 +235,8 @@ job_destroy (Job *job)
 {
 	nih_assert (job);
 
+	/* FIXME */
+#if 0
 #ifdef ENABLE_CGROUPS
 	if (! cgroup_cleanup (&job->class->cgroups)) {
 		NihError *err;
@@ -247,6 +249,7 @@ job_destroy (Job *job)
 		nih_free (err);
 	}
 #endif /* ENABLE_CGROUPS */
+#endif
 
 	nih_list_destroy (&job->entry);
 
@@ -2422,9 +2425,6 @@ job_needs_cgroups (const Job *job)
 	nih_assert (job);
 
 	cgroups = &job->class->cgroups;
-
-	if (! cgroup_support_enabled ())
-		return FALSE;
 
 	if (NIH_LIST_EMPTY (cgroups))
 		return FALSE;

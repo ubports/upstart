@@ -440,8 +440,9 @@ job_process_spawn (Job          *job,
 	gid_t              job_setgid = -1;
 	struct passwd     *pwd = NULL;
 	struct group      *grp = NULL;
+
 #ifdef ENABLE_CGROUPS
-	nih_local char   **job_cgroup_paths = NULL;
+	int                cgroups_needed = FALSE;
 #endif
 
 	nih_assert (job != NULL);
@@ -452,6 +453,21 @@ job_process_spawn (Job          *job,
 	class = job->class;
 
 	nih_assert (class != NULL);
+
+#ifdef ENABLE_CGROUPS
+
+	cgroups_needed = job_needs_cgroups (job);
+
+	if (cgroups_needed) {
+		if (! cgroup_support_enabled ())
+			nih_return_error (-1, CGROUP_ERROR, _("CGroup support not available"));
+
+		/* Should not ever happen */
+		if (! cgroup_manager_connected ())
+			nih_return_error (-1, CGROUP_ERROR, _("No Connection to CGroup manager"));
+	}
+
+#endif
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -530,32 +546,18 @@ job_process_spawn (Job          *job,
 	 */
 	fflush (NULL);
 
+#if 0
 #ifdef ENABLE_CGROUPS
 	if (job_needs_cgroups (job)) {
-	       if (! cgroup_setup_paths (NULL,
-					&job_cgroup_paths,
+	       if (! cgroup_expand_paths (NULL,
 					&job->class->cgroups,
 					env)) {
 		       nih_return_system_error (-1);
 	       }
 	}
 
-	/* FIXME */
-#if 1
-	{
-		char **p;
-		nih_message ("XXX:%s:%d: job_cgroup_paths:",
-				__func__, __LINE__);
-
-		for (p = job_cgroup_paths; p && *p; p++) {
-			nih_message ("XXX:%s:%d: path='%s'",
-					__func__, __LINE__, *p);
-		}
-
-	}
-#endif
-
 #endif /* ENABLE_CGROUPS */
+#endif
 
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
@@ -632,6 +634,7 @@ job_process_spawn (Job          *job,
 #endif /* ENABLE_CGROUPS */
 #endif
 
+#if 0
 #ifdef ENABLE_CGROUPS
 	if (job_cgroup_paths) {
 		/* FIXME: args!! */
@@ -645,6 +648,7 @@ job_process_spawn (Job          *job,
 		}
 	}
 #endif /* ENABLE_CGROUPS */
+#endif
 
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
@@ -668,8 +672,7 @@ job_process_spawn (Job          *job,
 		if (sigaction (SIGCHLD, &ignore, &act) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SIGNAL, 0);
-		}
-
+		} 
 		if (grantpt (pty_master) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_GRANTPT, 0);
@@ -949,6 +952,18 @@ job_process_spawn (Job          *job,
 			}
 		}
 
+#ifdef ENABLE_CGROUPS
+		if (cgroups_needed) {
+			/* Inform the parent that FIXME */
+			close (fds[1]);
+		}
+		
+		if (cgroups_needed ! cgroup_setup (&job->class->cgroups, env)) {
+			/* FIXME: correct? shouldn't this be JOB_PROCESS_ERROR? */
+			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP, 0);
+		}
+#endif /* ENABLE_CGROUPS */
+
 		/* Start dropping privileges */
 		if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
 			nih_error_raise_system ();
@@ -983,6 +998,10 @@ job_process_spawn (Job          *job,
 	if (class->debug) {
 		close (fds[1]);
 		raise (SIGSTOP);
+	}
+
+	if (cgroup_enter_groups (&job->class->cgroups) != TRUE) {
+		exit (1);
 	}
 
 	/* Set up a process trace if we need to trace forks */

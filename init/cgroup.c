@@ -74,7 +74,6 @@ int disable_cgroups = FALSE;
  **/
 NihHash *cgroup_paths = NULL;
 
-#if 0
 /**
  * cgroup_manager_address:
  *
@@ -88,14 +87,15 @@ char *cgroup_manager_address = NULL;
  * Proxy to the CGroup Manager.
  **/
 NihDBusProxy *cgroup_manager = NULL;
-#endif
 
+#if 0
 static int cgroup_path_unref (const char *controller, const char *path)
 	__attribute__ ((warn_unused_result));
-#if 0
-static void cgroup_manager_disconnected (DBusConnection *connection);
-static void cgroup_manager_lost_handler (void *data, NihDBusProxy *proxy);
 #endif
+
+static void cgroup_manager_disconnected (DBusConnection *connection);
+
+//static void cgroup_manager_lost_handler (void *data, NihDBusProxy *proxy);
 
 #if 0
 static void cgroup_manager_error_handler (void *data, NihDBusMessage  *message)
@@ -334,6 +334,7 @@ error:
 	return -1;
 }
 
+#if 0
 /**
  * cgroup_setup:
  *
@@ -458,8 +459,10 @@ cgroup_setup (NihList *cgroups, char * const *env)
 			if (! cgroup_create_path (cgroup->controller, cgroup_path))
 				return FALSE;
 
+#if 0
 			if (! cgroup_enter (cgroup->controller, cgroup_path, pid))
 				return FALSE;
+#endif
 
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgroup_path,
@@ -477,7 +480,9 @@ cgroup_setup (NihList *cgroups, char * const *env)
 
 	return TRUE;
 }
+#endif
 
+#if 0
 /**
  * cgroup_cleanup:
  *
@@ -530,6 +535,7 @@ cgroup_cleanup (NihList *cgroups)
 
 	return TRUE;
 }
+#endif
 
 /**
  * cgroup_name_new:
@@ -566,6 +572,8 @@ cgroup_name_new (void *parent, const char *name)
 	cgroup->name = nih_strdup (cgroup, name);
 	if (! cgroup->name)
 		goto error;
+
+	cgroup->expanded = NULL;
 
 	nih_list_init (&cgroup->settings);
 
@@ -946,7 +954,6 @@ error:
 	return -1;
 }
 
-#if 0
 /**
  * cgroup_manager_connected:
  *
@@ -1025,6 +1032,7 @@ cgroup_manager_connect (const char *address)
 {
 	DBusConnection  *connection;
 	DBusError        dbus_error;
+	//int              fd;
 
 	nih_assert (address);
 
@@ -1042,6 +1050,16 @@ cgroup_manager_connect (const char *address)
 	connection = nih_dbus_connect (cgroup_manager_address, cgroup_manager_disconnected);
 	if (! connection)
 		return -1;
+
+	/* FIXME: not necessary */
+#if 0
+	if (! dbus_connection_get_unix_fd (connection, &fd))
+		nih_return_system_error (-1);
+
+	/* Stop the connection leaking to the child job process */
+	nih_io_set_cloexec (fd);
+
+#endif
 
 	dbus_connection_set_exit_on_disconnect (connection, FALSE);
 	dbus_error_free (&dbus_error);
@@ -1084,7 +1102,6 @@ cgroup_manager_disconnected (DBusConnection *connection)
 
 	cgroup_manager = NULL;
 }
-#endif
 
 /* FIXME: */
 #if 0
@@ -1226,6 +1243,7 @@ error:
 	return NULL;
 }
 
+#if 0
 /**
  * cgroup_path_unref
  * @controller: cgroup controller,
@@ -1289,6 +1307,7 @@ cgroup_path_unref (const char *controller, const char *path)
 
 	return TRUE;
 }
+#endif
 
 /**
  * cgroup_path_serialise:
@@ -1732,10 +1751,9 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 }
 
 /**
- * cgroup_setup_path:
+ * cgroup_expand_paths:
  *
  * @parent: parent for @paths,
- * @paths: newly-allocated string array of expanded paths,
  * @cgroups: list of CGroup objects,
  * @env: environment table.
  *
@@ -1746,8 +1764,7 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
  * Returns: TRUE on success, or FALSE on raised error.
  **/
 int
-cgroup_setup_paths (void           *parent,
-		     char         ***paths,
+cgroup_expand_paths (void           *parent,
 		     NihList        *cgroups,
 		     char * const   *env)
 {
@@ -1769,13 +1786,8 @@ cgroup_setup_paths (void           *parent,
 	 * */
 	nih_local char   *upstart_cgroup = NULL;
 
-	nih_assert (paths);
 	nih_assert (cgroups);
 	nih_assert (env);
-
-	*paths = nih_str_array_new (parent);
-	if (! *paths)
-		nih_return_no_memory_error (FALSE);
 
 	if (! cgroup_support_enabled ())
 		return TRUE;
@@ -1838,9 +1850,8 @@ cgroup_setup_paths (void           *parent,
 		CGroup *cgroup = (CGroup *)iter;
 
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
-			CGroupName      *cgname = (CGroupName *)iter2;
-			nih_local char  *cgroup_path = NULL;
-			char            *p;
+			CGroupName   *cgname = (CGroupName *)iter2;
+			char         *p;
 
 			/* TRUE if the path *starts with* '$UPSTART_CGROUP' */
 			int              has_var = FALSE;
@@ -1852,11 +1863,11 @@ cgroup_setup_paths (void           *parent,
 			if (p && p == cgname->name)
 				has_var = TRUE;
 
-			cgroup_path = NIH_SHOULD (environ_expand (NULL,
+			cgname->expanded = NIH_SHOULD (environ_expand (cgname,
 						cgname->name,
 						cgroup_env));
 
-			if (! cgroup_path) {
+			if (! cgname->expanded) {
 				/* Failure to expand any other variables
 				 * is however an error.
 				 */
@@ -1867,14 +1878,29 @@ cgroup_setup_paths (void           *parent,
 			 * sub-cgroup creation.
 			 */
 			cgroup_remap_name (has_var
-					? cgroup_path + strlen ("$UPSTART_CGROUP")
-					: cgroup_path);
+					? cgname->expanded + strlen ("$UPSTART_CGROUP")
+					: cgname->expanded);
+
+
+			if (! strcmp (cgname->name, cgname->expanded)) {
+				/* expanded value is the same as the
+				 * original, so don't bother storing the
+				 * former.
+				 */
+				nih_free (cgname->expanded);
+				cgname->expanded = NULL;
+			}
 
 			/* FIXME */
-			nih_message ("XXX:%s:%d: cgroup_path='%s'", __func__, __LINE__, cgroup_path);
+#if 1
+			nih_message ("XXX:%s:%d: cgname: name='%s', expanded='%s'", __func__, __LINE__,
+					cgname->name, cgname->expanded ? cgname->expanded : "");
+#endif
 
+#if 0
 			if (! cgroup_create_path (cgroup->controller, cgroup_path))
 				goto error;
+#endif
 
 #if 0
 			/* Record the "full" (strictly still a relative suffix
@@ -1885,15 +1911,16 @@ cgroup_setup_paths (void           *parent,
 				goto error;
 #endif
 
+#if 0
 			if (! nih_str_array_add (paths, NULL, NULL, cgroup_path))
 				goto error;
+#endif
 		}
 	}
 
 	return TRUE;
 
 error:
-	nih_free (paths);
 	return FALSE;
 }
 
@@ -1933,4 +1960,43 @@ cgroup_path_find (const char *controller, const char *path)
 	} while (cgpath && cgpath->path);
 
 	return NULL;
+}
+
+/* FIXME: document */
+int
+cgroup_enter_groups (NihList  *cgroups)
+{
+	pid_t  pid;
+
+	nih_assert (cgroups);
+
+	if (! cgroup_support_enabled ())
+		return TRUE;
+
+#if 0
+	if (! cgroup_manager_connected ())
+		return TRUE;
+#endif
+
+	if (NIH_LIST_EMPTY (cgroups))
+		return TRUE;
+
+	pid = getpid ();
+
+	NIH_LIST_FOREACH (cgroups, iter) {
+		CGroup *cgroup = (CGroup *)iter;
+
+		NIH_LIST_FOREACH (&cgroup->names, iter2) {
+			CGroupName      *cgname = (CGroupName *)iter2;
+
+			if (! cgroup_enter (cgroup->controller,
+						cgname->expanded
+						? cgname->expanded
+						: cgname->name,
+						pid))
+				return FALSE;
+		}
+	}
+
+	return TRUE;
 }

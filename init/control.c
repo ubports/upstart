@@ -1009,13 +1009,13 @@ control_notify_cgroup_manager_address (void            *data,
 	if (! cgroup_support_enabled ())
 		return 0;
 
-#if 0
+	/* Already connected */
 	if (cgroup_manager_connected ())
 		return 0;
 
 	if (cgroup_manager_connect (address) < 0)
 		return -1;
-#endif
+
 #endif /* ENABLE_CGROUPS */
 
 	/* FIXME: can't we just wait for the next main loop iteration to
