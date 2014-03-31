@@ -922,10 +922,26 @@ job_process_spawn (Job          *job,
 
 			if (! cgroup_setup (&job->class->cgroups,
 						env,
-						class->setuid ? job_setuid : getuid (),
-						class->setgid ? job_setgid : getgid ())) {
+						class->setuid ? job_setuid : geteuid (),
+						class->setgid ? job_setgid : getegid ())) {
+				NihError *err;
+
+				err = nih_error_get ();
+
+				nih_error ("%s: %s",
+						_("Failed to setup cgroups"),
+						err->message);
+				nih_free (err);
+
 				exit (1);
 			}
+
+			/* Signal to parent that the (final) setup phase
+			 * is complete.
+			 */
+			nih_message ("XXX:%s:%d: raising SIGSTOP to %s process %s pid %d (state=%s)", __func__, __LINE__,
+				job_name (job), process_name (process), getpid(), job_state_name (job->state));fflush (NULL);
+			raise (SIGSTOP);
 		}
 		
 #endif /* ENABLE_CGROUPS */
@@ -1638,7 +1654,8 @@ job_process_terminated (Job         *job,
 			    || (job->state == JOB_KILLED)
 			    || (job->state == JOB_STOPPING)
 			    || (job->state == JOB_POST_START)
-			    || (job->state == JOB_PRE_STOP));
+			    || (job->state == JOB_PRE_STOP)
+			    || (job->state == JOB_SETUP));
 
 		/* We don't change the state if we're in post-start and there's
 		 * a post-start process running, or if we're in pre-stop and
@@ -1935,19 +1952,30 @@ job_process_stopped (Job         *job,
 {
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d: job=%s, process=%s, pid %d (state=%s, goal=%s)", __func__, __LINE__,
+			job_name (job), process_name (process), job->pid[process], job_state_name (job->state), job_goal_name (job->goal));
+
 	/* Any process can stop on a signal, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED && job->state != JOB_SETUP))
 		return;
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Send SIGCONT back and change the state to the next one, if this
 	 * job behaves that way.
 	 */
-	if (job->class->expect == EXPECT_STOP) {
+	if (job->class->expect == EXPECT_STOP || (job->state == JOB_SPAWNED && job_needs_cgroups (job))) {
+		nih_message ("XXX:%s:%d: sending SIGCONT to %s process %s pid %d (state=%s)", __func__, __LINE__,
+				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 		kill (job->pid[process], SIGCONT);
 		job_change_state (job, job_next_state (job));
+
+		/* FIXME: skip over JOB_SETUP */
+		job_change_state (job, job_next_state (job));
 	}
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 }
 
 

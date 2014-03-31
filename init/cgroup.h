@@ -1,5 +1,9 @@
 /* TODO:FIXME:XXX:
  * 
+ * - *_SETUP states:
+ * 	- add missing states for other job processes.
+ * 	- add serialisation / deserialisation support!
+ *
  * - XXX: cgroup_manager_connect() may block!
  *
  * - XXX: block job from starting unless cgroup_support_enabled() and
@@ -51,15 +55,20 @@
 #define DBUS_INTERFACE_CGMANAGER "org.linuxcontainers.cgmanager0_0"
 #define DBUS_PATH_CGMANAGER "/org/linuxcontainers/cgmanager"
 
-/* FIXME: remove - make spawning async!! */
 /**
- * CGROUP_MANAGER_TIMEOUT:
+ * UPSTART_CGROUP_ENVVAR:
  *
- * Time in seconds that the CGroup manager must respond within
- * before it is considered to have stalled/died. Required to avoid
- * blocking PID 1.
+ * Name of special variable that may be specified within a cgroup stanza
+ * and which expands to a job-unique cgroup path.
  **/
-#define CGROUP_MANAGER_TIMEOUT 3
+#define UPSTART_CGROUP_ENVVAR "UPSTART_CGROUP"
+
+/**
+ * UPSTART_CGROUP_SHELL_ENVVAR:
+ *
+ * Value of UPSTART_CGROUP_ENVVAR with leading dollar.
+ **/
+#define UPSTART_CGROUP_SHELL_ENVVAR "$" UPSTART_CGROUP_ENVVAR
 
 /**
  * CGroupSetting:
@@ -183,12 +192,6 @@ int cgroup_chown (const char *controller,
 		  uid_t uid, gid_t gid)
 	__attribute__ ((warn_unused_result));
 
-/* FIXME */
-#if 0
-int cgroup_cleanup (NihList *paths)
-	__attribute__ ((warn_unused_result));
-#endif
-
 json_object *cgroup_manager_serialise (void)
 	__attribute__ ((warn_unused_result));
 
@@ -214,9 +217,6 @@ int cgroup_setting_deserialise_all (void *parent, NihList *list,
 
 int cgroup_add (void *parent, NihList *list, const char *controller,
 		const char *name, const char *key, const char *value)
-	__attribute__ ((warn_unused_result));
-
-int cgroup_cleanup (NihList *cgroups)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_create (const char *controller, const char *path)

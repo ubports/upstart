@@ -316,6 +316,8 @@ job_change_goal (Job     *job,
 {
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
 	if (job->goal == goal)
 		return;
 
@@ -383,6 +385,8 @@ job_change_state (Job      *job,
 		  JobState  state)
 {
 	nih_assert (job != NULL);
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	while (job->state != state) {
 		JobState old_state;
@@ -487,9 +491,21 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_POST_START:
+		case JOB_SETUP:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
+
+			/* The state cgroup jobs is updated once the
+			 * parent receives the SIGSTOP to signify the
+			 * cgroup setup was successful. Non-cgroup jobs just
+			 * skip through this state.
+			 */
+			if (! job_needs_cgroups (job))
+				state = job_next_state (job);
+			break;
+		case JOB_POST_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SETUP);
 
 			if (job->class->process[PROCESS_POST_START]) {
 				if (job_process_run (job, PROCESS_POST_START) < 0)
@@ -543,7 +559,8 @@ job_change_state (Job      *job,
 				    || (old_state == JOB_SPAWNED)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
-				    || (old_state == JOB_PRE_STOP));
+				    || (old_state == JOB_PRE_STOP)
+				    || (old_state == JOB_SETUP));
 
 			job->blocker = job_emit_event (job);
 
@@ -644,6 +661,8 @@ job_next_state (Job *job)
 {
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
 	switch (job->state) {
 	case JOB_WAITING:
 		switch (job->goal) {
@@ -682,6 +701,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_SPAWNED:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SETUP;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SETUP:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -1148,6 +1176,8 @@ job_state_name (JobState state)
 		return N_("pre-start");
 	case JOB_SPAWNED:
 		return N_("spawned");
+	case JOB_SETUP:
+		return N_("setup");
 	case JOB_POST_START:
 		return N_("post-start");
 	case JOB_RUNNING:

@@ -394,7 +394,9 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	/* FIXME */
 	nih_message ("XXX:%s:%d: UPSTART_INSTANCE='%s'", __func__, __LINE__, upstart_instance);
 
-	envvar = NIH_MUST (nih_sprintf (NULL, "UPSTART_CGROUP=%s", upstart_cgroup));
+	envvar = NIH_MUST (nih_sprintf (NULL, "%s=%s",
+				UPSTART_CGROUP_ENVVAR,
+				upstart_cgroup));
 
 	/* FIXME */
 	nih_message ("XXX:%s:%d: upstart_cgroup='%s'", __func__, __LINE__, upstart_cgroup);
@@ -415,9 +417,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 						cgroup_env));
 
 			if (! cgroup_path) {
-				/* Failure to expand any other variables
-				 * is however an error.
-				 */
+				/* Failure to expand variables is an error */
 				return FALSE;
 			}
 
@@ -427,78 +427,33 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			cgroup_name_remap (cgroup_path);
 
 			/* FIXME */
-			nih_message ("XXX:%s:%d: cgroup_path='%s'", __func__, __LINE__, cgroup_path);
+			nih_message ("XXX:%s:%d: controller='%s', cgroup_path='%s'", __func__, __LINE__,
+					cgroup->controller,
+					cgroup_path);
 
 			if (! cgroup_create (cgroup->controller, cgroup_path))
 				return FALSE;
+
+			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgroup_path,
 						&cgname->settings))
 				return FALSE;
 
+			nih_message ("XXX:%s:%d:", __func__, __LINE__);
+
 			if (! cgroup_chown (cgroup->controller, cgroup_path, uid, gid))
 				return FALSE;
+
+			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		}
 	}
 
-	return TRUE;
-}
-
-#if 0
-/**
- * cgroup_cleanup:
- *
- * @list: list of CGroupController.
- *
- * Attempt to delete the specified cgroup paths. If the paths
- * are required for other jobs, they will not be deleted (this is not an
- * error).
- *
- * Returns: TRUE on success, FALSE on raised error.
- **/
-int
-cgroup_cleanup (NihList *cgroups)
-{
-	int  ret;
-
-	nih_assert (cgroups);
-
-	if (! cgroup_support_enabled ())
-		return TRUE;
-
-#if 0
-	if (! cgroup_manager_connected ())
-		return TRUE;
-#endif
-
-	if (NIH_LIST_EMPTY (cgroups))
-		return TRUE;
-
-	NIH_LIST_FOREACH (cgroups, iter) {
-		CGroup *cgroup = (CGroup *)iter;
-
-		NIH_LIST_FOREACH (&cgroup->names, iter2) {
-			CGroupName  *cgname = (CGroupName *)iter2;
-
-			ret = cgroup_path_unref (cgroup->controller, cgname->name);
-			if (! ret) {
-				nih_local char *message = NULL;
-
-				message = nih_sprintf (NULL, "%s %s: %s",
-						_("failed to delete cgroup path"),
-						cgname->name,
-						/* FIXME */
-						"FIXME:cgmanager_error_string");
-
-				nih_return_error (FALSE, CGROUP_ERROR, message);
-			}
-		}
-	}
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 	return TRUE;
 }
-#endif
 
 /**
  * cgroup_name_new:
@@ -1012,16 +967,6 @@ cgroup_manager_connect (const char *address)
 	if (! connection)
 		return -1;
 
-	/* FIXME: not necessary */
-#if 0
-	if (! dbus_connection_get_unix_fd (connection, &fd))
-		nih_return_system_error (-1);
-
-	/* Stop the connection leaking to the child job process */
-	nih_io_set_cloexec (fd);
-
-#endif
-
 	dbus_connection_set_exit_on_disconnect (connection, FALSE);
 	dbus_error_free (&dbus_error);
 
@@ -1094,10 +1039,10 @@ cgroup_manager_error_handler (void *data, NihDBusMessage *message)
  *
  * The CGroup Manager creates cgroups as:
  *
- *   "/sys/fs/cgroup/$controller/$cgroup_path_suffix".
+ *   "/sys/fs/cgroup/$controller/$name".
  *
- * FIXME: UPDATE !!!
- *
+ * Upstart will take the value specified by the cgroup stanza,
+ * prepend
  * A standard prefix is applied to the specified @path (which must be
  * relative) such that $cgroup_path_suffix path will in fact be:
  *
@@ -1112,11 +1057,35 @@ int
 cgroup_create (const char *controller, const char *path)
 {
 	int        ret = 0;
-	int          existed = -1;
+	int        existed = -1;
 
 	nih_assert (controller);
 	nih_assert (path);
 	nih_assert (cgroup_manager);
+
+	nih_message ("XXX:%s:%d: controller='%s', path='%s'",
+			__func__, __LINE__,
+			controller, path);
+
+	/* FIXME: reconnect */
+#if 1
+	{
+		nih_local char *saved = NULL;
+		int ret;
+
+		saved = NIH_MUST (nih_strdup (NULL, cgroup_manager_address));
+
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+		nih_free (cgroup_manager);
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+		cgroup_manager = NULL;
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+		ret = cgroup_manager_connect (saved);
+	nih_message ("XXX:%s:%d:cgroup_manager_connect returned %d", __func__, __LINE__, ret);fflush(NULL);
+	}
+#endif
+
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 	/* Ask cgmanager to create path */
 	ret = cgmanager_create_sync (NULL,
@@ -1127,6 +1096,9 @@ cgroup_create (const char *controller, const char *path)
 
 	if (ret < 0)
 		return FALSE;
+
+	nih_debug ("Created '%s' controller cgroup '%s'",
+			controller, path);
 
 	return TRUE;
 }
@@ -1153,6 +1125,8 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	nih_assert (cgroup_manager);
 
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+
 	/* Move the pid into the appropriate cgroup */
 	ret = cgmanager_move_pid_sync (NULL,
 			cgroup_manager,
@@ -1162,6 +1136,9 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	if (ret < 0)
 		return FALSE;
+
+	nih_debug ("Moved pid %d to '%s' controller cgroup '%s'",
+			pid, controller, path);
 
 	return TRUE;
 }
@@ -1223,7 +1200,7 @@ cgroup_add (void        *parent,
 	 * path.
 	 */
 	if (! name)
-		name = "$UPSTART_CGROUP";
+		name = UPSTART_CGROUP_SHELL_ENVVAR;
 
 	if (value)
 		nih_assert (key);
@@ -1386,7 +1363,11 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 
 		if (ret < 0)
 			return FALSE;
+
 	}
+
+	nih_debug ("Applied cgroup settings to '%s' controller cgroup '%s'",
+			controller, path);
 
 	return TRUE;
 }
@@ -1588,8 +1569,12 @@ cgroup_enter_groups (NihList  *cgroups)
 {
 	nih_assert (cgroups);
 
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+
 	if (! cgroup_support_enabled ())
 		return TRUE;
+
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 #if 0
 	if (! cgroup_manager_connected ())
@@ -1598,6 +1583,8 @@ cgroup_enter_groups (NihList  *cgroups)
 
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
+
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 	NIH_LIST_FOREACH (cgroups, iter) {
 		CGroup *cgroup = (CGroup *)iter;
@@ -1640,7 +1627,8 @@ cgroup_chown (const char  *controller,
 	if (ret < 0)
 		return FALSE;
 
-	return TRUE;
+	nih_debug ("Changed ownership of '%s' controller cgroup '%s'",
+			controller, path);
 
 	return TRUE;
 }
