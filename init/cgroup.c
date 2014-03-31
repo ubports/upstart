@@ -62,19 +62,6 @@
 int disable_cgroups = FALSE;
 
 /**
- * cgroup_paths:
- *
- * Hash of CGroupPath objects. Entries are added when a path has been
- * created (at the point a job is spawned) and deleted when a job ends
- * iff no other running job instance requires it.
- *
- * This is required since the cgroup stanza can contain variables,
- * meaning the job-specified values are not in their final form until
- * jobs start running.
- **/
-NihHash *cgroup_paths = NULL;
-
-/**
  * cgroup_manager_address:
  *
  * Address on which the CGroup Manager may be reached.
@@ -102,19 +89,7 @@ static void cgroup_manager_error_handler (void *data, NihDBusMessage  *message)
 	__attribute__ ((unused)); /* FIXME */
 #endif
 
-static void cgroup_remap_name (char *str);
-
-/**
- * cgroup_init:
- *
- * Initialise the cgroup_paths hash.
- **/
-void
-cgroup_init (void)
-{
-	if (! cgroup_paths)
-		cgroup_paths = NIH_MUST (nih_hash_string_new (NULL, 0));
-}
+static void cgroup_name_remap (char *str);
 
 /**
  * cgroup_support_enabled:
@@ -334,12 +309,13 @@ error:
 	return -1;
 }
 
-#if 0
 /**
  * cgroup_setup:
  *
  * @cgroups: list of CGroup objects,
- * @env: environment table.
+ * @env: environment table,
+ * @uid: user id that should own the created cgroup,
+ * @gid: group id that should own the created cgroup.
  *
  * Use @env to expand all variables in the cgroup names specified
  * in @cgroups, create the resulting cgroup paths, placing the caller
@@ -348,14 +324,13 @@ error:
  * Returns: TRUE on success, FALSE on raised error.
  **/
 int
-cgroup_setup (NihList *cgroups, char * const *env)
+cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 {
 	const char       *upstart_job = NULL;
 	const char       *upstart_instance = NULL;
 	nih_local char   *suffix = NULL;
 	nih_local char  **cgroup_env = NULL;
 	nih_local char   *envvar = NULL;
-	pid_t             pid;
 	int               instance = FALSE;
 
 	/* Value of $UPSTART_CGROUP which takes the form:
@@ -383,8 +358,6 @@ cgroup_setup (NihList *cgroups, char * const *env)
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
 
-	pid = getpid ();
-
 	cgroup_env = nih_str_array_new (NULL);
 	if (! cgroup_env)
 		nih_return_no_memory_error (FALSE);
@@ -411,7 +384,7 @@ cgroup_setup (NihList *cgroups, char * const *env)
 		nih_return_no_memory_error (FALSE);
 
 	/* Remap the standard prefix to avoid creating sub-cgroups erroneously */
-	cgroup_remap_name (suffix);
+	cgroup_name_remap (suffix);
 
 	upstart_cgroup = nih_sprintf (NULL, "upstart/%s", suffix);
 
@@ -451,36 +424,26 @@ cgroup_setup (NihList *cgroups, char * const *env)
 			/* Remap slash to underscore to avoid unexpected
 			 * sub-cgroup creation.
 			 */
-			cgroup_remap_name (cgroup_path);
+			cgroup_name_remap (cgroup_path);
 
 			/* FIXME */
 			nih_message ("XXX:%s:%d: cgroup_path='%s'", __func__, __LINE__, cgroup_path);
 
-			if (! cgroup_create_path (cgroup->controller, cgroup_path))
+			if (! cgroup_create (cgroup->controller, cgroup_path))
 				return FALSE;
-
-#if 0
-			if (! cgroup_enter (cgroup->controller, cgroup_path, pid))
-				return FALSE;
-#endif
 
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgroup_path,
 						&cgname->settings))
 				return FALSE;
 
-			/* Record the "full" (strictly still a relative suffix
-			 * from the CGroup Managers perspective) path in the
-			 * global table.
-			 */
-			if (! cgroup_path_new (NULL, cgroup->controller, cgroup_path))
+			if (! cgroup_chown (cgroup->controller, cgroup_path, uid, gid))
 				return FALSE;
 		}
 	}
 
 	return TRUE;
 }
-#endif
 
 #if 0
 /**
@@ -887,8 +850,6 @@ cgroup_setting_deserialise (void *parent, json_object *json)
 
 	nih_assert (json);
 
-	cgroup_init ();
-
 	if (! state_check_json_type (json, object))
 		return NULL;
 
@@ -1125,7 +1086,7 @@ cgroup_manager_error_handler (void *data, NihDBusMessage *message)
 #endif
 
 /**
- * cgroup_create_path:
+ * cgroup_create:
  * @controller: cgroup controller,
  * @path: relative cgroup path to create.
  *
@@ -1148,31 +1109,15 @@ cgroup_manager_error_handler (void *data, NihDBusMessage *message)
  * Returns: TRUE on success, FALSE on raised error.
  **/
 int
-cgroup_create_path (const char *controller, const char *path)
+cgroup_create (const char *controller, const char *path)
 {
-	CGroupPath  *cgpath;
-	//int        ret = 0;
+	int        ret = 0;
 	int          existed = -1;
 
+	nih_assert (controller);
 	nih_assert (path);
-#if 0
 	nih_assert (cgroup_manager);
-#endif
 
-	cgroup_init ();
-
-	cgpath = cgroup_path_find (controller, path);
-
-	if (cgpath) {
-		/* FIXME: need to check controller too? */
-		/* Path already exists, so just ref */
-		cgpath->blockers++;
-
-		return TRUE;
-	}
-
-	/* FIXME: create cgroup! */
-#if 0
 	/* Ask cgmanager to create path */
 	ret = cgmanager_create_sync (NULL,
 			cgroup_manager,
@@ -1182,303 +1127,8 @@ cgroup_create_path (const char *controller, const char *path)
 
 	if (ret < 0)
 		return FALSE;
-#endif
-
-	/* Cgroup already existed prior to our request to create it, so
-	 * don't track this path since we do not own it.
-	 */
-	if (existed == 1)
-		return TRUE;
-
-	cgpath = cgroup_path_new (cgroup_paths, controller, path);
-	if (! cgpath)
-		nih_return_no_memory_error (FALSE);
 
 	return TRUE;
-}
-
-/**
- * cgroup_path_new:
- * @parent: parent of new CgroupPath,
- * @path: Cgroup path to create.
- *
- * Create a new CGroupPath, automatically adding the object to
- * cgroup_paths and setting blockers to 1.
- *
- * Returns: newly allocated CGroupPath structure or NULL if insufficient memory.
- **/
-CGroupPath *
-cgroup_path_new (void *parent, const char *controller, const char *path)
-{
-	CGroupPath *cgpath;
-
-	nih_assert (path);
-
-	cgroup_init ();
-
-	cgpath = nih_new (parent, CGroupPath);
-	if (! cgpath)
-		return NULL;
-
-	nih_list_init (&cgpath->entry);
-
-	nih_alloc_set_destructor (cgpath, nih_list_destroy);
-
-	cgpath->controller = nih_strdup (cgpath, controller);
-	if (! cgpath->controller)
-		goto error;
-
-	cgpath->path = nih_strdup (cgpath, path);
-	if (! cgpath->path)
-		goto error;
-
-	cgpath->blockers = 1;
-
-	nih_hash_add (cgroup_paths, &cgpath->entry);
-
-	return cgpath;
-
-error:
-	nih_free (cgpath);
-	return NULL;
-}
-
-#if 0
-/**
- * cgroup_path_unref
- * @controller: cgroup controller,
- * @path: cgroup path to potentially remove.
- *
- * Decrement the refcount for the specified cgroup path. If the refcount
- * falls to zero, the path will be removed.
- *
- * Returns: TRUE on success, FALSE on raised error.
- **/
-
-/* FIXME: currently crashing since we are incorrectly adding the path
- * *IN THE CHILD* process only!!.
- */
-static int
-cgroup_path_unref (const char *controller, const char *path)
-{
-	//int          ret = 0;
-	int          existed = -1;
-	CGroupPath  *cgpath;
-
-	nih_assert (path);
-
-	cgroup_init ();
-
-	cgpath = cgroup_path_find (controller, path);
-
-	/* must already exist */
-	nih_assert (cgpath);
-	nih_assert (cgpath->blockers);
-
-	cgpath->blockers--;
-
-	if (cgpath->blockers) {
-		/* Other jobs still need this path */
-		return TRUE;
-	}
-
-	/* FIXME: remove cgroup */
-#if 0
-	/* Ask cgmanager to remove the path */
-	ret = cgmanager_remove_sync (NULL,
-			cgroup_manager,
-			controller,
-			path,
-			TRUE,
-			&existed);
-
-	if (ret < 0)
-		return FALSE;
-#endif
-
-	if (existed != 1) {
-		/* Something else deleted it from underneath us */
-		nih_warn ("%s: %s",
-			_("CGroup no longer exists"),
-			path);
-	}
-
-	nih_free (cgpath);
-
-	return TRUE;
-}
-#endif
-
-/**
- * cgroup_path_serialise:
- * @group: CGroupPath to serialise.
- *
- * Convert @cgpath into a JSON representation for serialisation.
- * Caller must free returned value using json_object_put().
- *
- * Returns: JSON-serialised CGroupPath object, or NULL on error.
- **/
-json_object *
-cgroup_path_serialise (const CGroupPath *cgpath)
-{
-	json_object  *json;
-
-	nih_assert (cgpath);
-
-	json = json_object_new_object ();
-	if (! json)
-		return NULL;
-
-#if 0
-	if (! cgroup_support_enabled () ||
-	    ! cgroup_manager ||
-	    ! cgroup_manager_address)
-		return json;
-#endif
-	if (! cgroup_support_enabled ())
-		return json;
-
-	if (! state_set_json_string_var_from_obj (json, cgpath, controller))
-		goto error;
-
-	if (! state_set_json_string_var_from_obj (json, cgpath, path))
-		goto error;
-
-	if (! state_set_json_int_var_from_obj (json, cgpath, blockers))
-		goto error;
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
-}
-
-/**
- * cgroup_path_serialise_all:
- *
- * Convert cgroup_paths hash to JSON representation.
- *
- * Returns: JSON object containing array of CGroupPath objects in JSON
- * form, or NULL on error.
- */
-json_object *
-cgroup_path_serialise_all (void)
-{
-	json_object *json;
-
-	cgroup_init ();
-
-	json = json_object_new_array ();
-	if (! json)
-		return NULL;
-
-	NIH_HASH_FOREACH (cgroup_paths, iter) {
-		json_object  *json_cgpath;
-		CGroupPath   *cgpath = (CGroupPath *)iter;
-
-		json_cgpath = cgroup_path_serialise (cgpath);
-		if (! json_cgpath)
-			goto error;
-
-		json_object_array_add (json, json_cgpath);
-	}
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
-}
-
-/**
- * cgroup_path_deserialise:
- * @json: JSON-serialised CGroupPath object to deserialise.
- *
- * Convert @json into a CGroupPath object.
- *
- * Returns: CGroupPath object, or NULL on error.
- **/
-CGroupPath *
-cgroup_path_deserialise (json_object *json)
-{
-	CGroupPath      *cgpath;
-	nih_local char  *controller = NULL;
-	nih_local char  *path = NULL;
-
-	nih_assert (json);
-
-	cgroup_init ();
-
-	if (! state_check_json_type (json, object))
-		return NULL;
-
-	if (! state_get_json_string_var (json, "controller", NULL, controller))
-		return NULL;
-
-	if (! state_get_json_string_var (json, "path", NULL, path))
-		return NULL;
-
-	cgpath = cgroup_path_new (NULL, controller, path);
-	if (! cgpath)
-		return NULL;
-
-	if (! state_get_json_int_var_to_obj (json, cgpath, blockers))
-		goto error;
-
-	return cgpath;
-
-error:
-	nih_free (cgpath);
-	return NULL;
-}
-
-/**
- * cgroup_path_deserialise_all:
- *
- * @json: root of JSON-serialised state.
- *
- * Convert JSON representation of CGroupPaths objects back into
- * the cgroup_paths hash.
- *
- * Returns: 0 on success, -1 on error.
- **/
-int
-cgroup_path_deserialise_all (json_object *json)
-{
-	json_object  *json_cgpaths;
-
-	cgroup_init ();
-
-	nih_assert (json);
-
-	json_cgpaths = json_object_object_get (json, "cgroup_paths");
-	if (! json_cgpaths)
-		goto error;
-
-	if (! state_check_json_type (json_cgpaths, array))
-		goto error;
-
-	for (int i = 0; i < json_object_array_length (json_cgpaths); i++) {
-		json_object  *json_cgpath;
-		CGroupPath   *cgpath;
-
-		json_cgpath = json_object_array_get_idx (json_cgpaths, i);
-		if (! json_cgpath)
-			goto error;
-
-		if (! state_check_json_type (json_cgpath, object))
-			goto error;
-
-		cgpath = cgroup_path_deserialise (json_cgpath);
-		if (! cgpath)
-			goto error;
-	}
-
-	return 0;
-
-error:
-	return -1;
 }
 
 /**
@@ -1495,17 +1145,14 @@ error:
 int
 cgroup_enter (const char *controller, const char *path, pid_t pid)
 {
-	//int                ret;
+	int                ret;
 
 	nih_assert (controller);
 	nih_assert (path);
 	nih_assert (pid > 0);
-#if 0
-	nih_assert (cgroup_manager);
-#endif
 
-	/* FIXME: move pid into cgroup */
-#if 0
+	nih_assert (cgroup_manager);
+
 	/* Move the pid into the appropriate cgroup */
 	ret = cgmanager_move_pid_sync (NULL,
 			cgroup_manager,
@@ -1515,13 +1162,12 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	if (ret < 0)
 		return FALSE;
-#endif
 
 	return TRUE;
 }
 
 /**
- * cgroup_remap_name:
+ * cgroup_name_remap:
  *
  * @str: string to modify.
  *
@@ -1529,7 +1175,7 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
  * underscore. Used to avoid to avoid erroneous sub-cgroup creation.
  **/
 static void
-cgroup_remap_name (char *str)
+cgroup_name_remap (char *str)
 {
 	nih_assert (str);
 
@@ -1713,14 +1359,12 @@ cgroup_add (void        *parent,
 int
 cgroup_settings_apply (const char *controller, const char *path, NihList *settings)
 {
-	//int               ret;
+	int               ret;
 
 	nih_assert (controller);
 	nih_assert (path);
 	nih_assert (settings);
-#if 0
 	nih_assert (cgroup_manager);
-#endif
 
 	NIH_LIST_FOREACH (settings, iter) {
 		nih_local char *setting_key = NULL;
@@ -1733,8 +1377,6 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 		if (! setting_key)
 			nih_return_no_memory_error (FALSE);
 
-		/* FIXME: Apply the setting */
-#if 0
 		ret = cgmanager_set_value_sync (NULL,
 				cgroup_manager,
 				controller,
@@ -1744,12 +1386,12 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 
 		if (ret < 0)
 			return FALSE;
-#endif
 	}
 
 	return TRUE;
 }
 
+#if 0
 /**
  * cgroup_expand_paths:
  *
@@ -1827,7 +1469,7 @@ cgroup_expand_paths (void           *parent,
 		goto error;
 
 	/* Remap the standard prefix to avoid creating sub-cgroups erroneously */
-	cgroup_remap_name (suffix);
+	cgroup_name_remap (suffix);
 
 	upstart_cgroup = nih_sprintf (NULL, "upstart/%s", suffix);
 
@@ -1877,7 +1519,7 @@ cgroup_expand_paths (void           *parent,
 			/* Remap slash to underscore to avoid unexpected
 			 * sub-cgroup creation.
 			 */
-			cgroup_remap_name (has_var
+			cgroup_name_remap (has_var
 					? cgname->expanded + strlen ("$UPSTART_CGROUP")
 					: cgname->expanded);
 
@@ -1898,7 +1540,7 @@ cgroup_expand_paths (void           *parent,
 #endif
 
 #if 0
-			if (! cgroup_create_path (cgroup->controller, cgroup_path))
+			if (! cgroup_create (cgroup->controller, cgroup_path))
 				goto error;
 #endif
 
@@ -1930,44 +1572,20 @@ cgroup_apply_paths (void)
 {
 	return TRUE;
 }
+#endif
 
 /**
- * cgroup_path_find:
+ * cgroup_enter_groups:
  *
- * @controller: controller,
- * @path: expanded path name to look for.
+ * @cgroups: list of CGroup objects.
  *
- * Search the cgroup_paths hash for the entry corresponding to
- * @controller and @path.
+ * Move the current pid into the cgroups specified by @cgroups.
  *
- * Returns: Entry in cgroup_paths hash, or NULL if not found.
+ * Returns: TRUE on success, FALSE on raised error.
  **/
-CGroupPath *
-cgroup_path_find (const char *controller, const char *path)
-{
-	CGroupPath  *cgpath = NULL;
-
-	nih_assert (controller);
-	nih_assert (path);
-
-	cgroup_init ();
-
-	do {
-		cgpath = (CGroupPath *)nih_hash_search (cgroup_paths, path, (NihList *)cgpath);
-		if (cgpath && ! strcmp (cgpath->controller, controller))
-			return cgpath;
-
-	} while (cgpath && cgpath->path);
-
-	return NULL;
-}
-
-/* FIXME: document */
 int
 cgroup_enter_groups (NihList  *cgroups)
 {
-	pid_t  pid;
-
 	nih_assert (cgroups);
 
 	if (! cgroup_support_enabled ())
@@ -1981,8 +1599,6 @@ cgroup_enter_groups (NihList  *cgroups)
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
 
-	pid = getpid ();
-
 	NIH_LIST_FOREACH (cgroups, iter) {
 		CGroup *cgroup = (CGroup *)iter;
 
@@ -1993,10 +1609,38 @@ cgroup_enter_groups (NihList  *cgroups)
 						cgname->expanded
 						? cgname->expanded
 						: cgname->name,
-						pid))
+						getpid ()))
 				return FALSE;
 		}
 	}
+
+	return TRUE;
+}
+
+int
+cgroup_chown (const char  *controller,
+	      const char  *path,
+	      uid_t        uid,
+	      gid_t        gid)
+{
+	int ret = 0;
+
+	nih_assert (controller);
+	nih_assert (path);
+	nih_assert (cgroup_manager);
+
+	/* Ask cgmanager to chown the path */
+	ret = cgmanager_chown_sync (NULL,
+			cgroup_manager,
+			controller,
+			path,
+			uid,
+			gid);
+
+	if (ret < 0)
+		return FALSE;
+
+	return TRUE;
 
 	return TRUE;
 }

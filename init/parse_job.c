@@ -1111,9 +1111,6 @@ parse_cgroup (JobClass        *class,
 	 * parse the cgroup stanzas tokens (to consume that input) - we
 	 * just don't add use those tokens to create a Cgroup object.
 	 */
-#if ENABLE_CGROUPS
-	cgroup_init ();
-#endif
 	if (! nih_config_has_token (file, len, pos, lineno))
 		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
 				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));

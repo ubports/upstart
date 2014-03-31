@@ -1,4 +1,6 @@
 /* TODO:FIXME:XXX:
+ * 
+ * - XXX: cgroup_manager_connect() may block!
  *
  * - XXX: block job from starting unless cgroup_support_enabled() and
  *   cgmanager_connected().
@@ -6,20 +8,14 @@
  *   - XXX: need to avoid events being destroyed if a job needs them but
  *     it is blocked on the cgmanager starting!!
  *
- * - XXX: BUG: XXX : cgroup_setup() calls cgroup_create_path() which stores the
- *   expanded cgroup path in the NihHash, but it's being called from the
- *   child side of the fork so is lost! Problem would be solved when we
- *   can perform async process start since cgroup_setup can be called
- *   from the parent side.
- *
- * - test cgmanager stall/timeouts carefully!
- * - call cgmanager_rmdir() when job ends if CGPath blockers is 1.
+ * - test scenarios:
+ *   - setuid + cgroup
+ *   - setgid + cgroup
+ *   - ensure *ALL* job pids are put into the cgroup.
  *
  * - test_state.c: test re-exec with cgroups.
  * - test_jobclass.c: test class->cgroups is an empty list.
  * - cgroup path for a job: "upstart/$UPSTART_JOB/$UPSTART_INSTANCE/$requested"
- * - FIXME: Who should own each path element?
- * - FIXME: check in global CGPath hash before creating a path!
  */
 
 /* upstart
@@ -127,29 +123,6 @@ typedef struct cgroup {
 	NihList         names;
 } CGroup;
 
-/**
- * CGroupPath:
- * @entry: list header,
- * @path: Fully-expanded relative path of cgroup,
- * @controller: cgroup controller @path refers to,
- * @blockers: Number of jobs that require @path.
- *
- * Used to track paths the CGroup manager has created on behalf of one
- * or more jobs.
- *
- * Entries are stored in cgroup_paths to allow fast lookup of paths that
- * can be deleted once a job ends (a path will be deleted once @blockers
- * falls to zero). Note that extracting the paths via each JobClass is
- * insufficient since those paths are not fully expanded (they may
- * contain variables).
- **/
-typedef struct cgroup_path {
-	NihList         entry;
-	char           *path;
-	char           *controller;
-	int             blockers;
-} CGroupPath;
-
 NIH_BEGIN_EXTERN
 
 void cgroup_init (void);
@@ -201,17 +174,20 @@ int cgroup_manager_connect (const char *address)
 int cgroup_manager_connected (void)
 	__attribute__ ((warn_unused_result));
 
-/* FIXME */
-#if 0
-int cgroup_setup (NihList *paths, char * const *env)
+int cgroup_setup (NihList *cgroups, char * const *env,
+		uid_t uid, gid_t gid)
 	__attribute__ ((warn_unused_result));
 
+int cgroup_chown (const char *controller,
+		  const char *path,
+		  uid_t uid, gid_t gid)
+	__attribute__ ((warn_unused_result));
+
+/* FIXME */
+#if 0
 int cgroup_cleanup (NihList *paths)
 	__attribute__ ((warn_unused_result));
 #endif
-
-CGroupPath *cgroup_path_new (void *parent, const char *controller, const char *path)
-	__attribute__ ((warn_unused_result));
 
 json_object *cgroup_manager_serialise (void)
 	__attribute__ ((warn_unused_result));
@@ -220,18 +196,6 @@ int cgroup_manager_deserialise (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 json_object *cgroup_serialise_all (NihList *cgroups)
-	__attribute__ ((warn_unused_result));
-
-json_object *cgroup_path_serialise (const CGroupPath *cgpath)
-	__attribute__ ((warn_unused_result));
-
-CGroupPath *cgroup_path_deserialise (json_object *json)
-	__attribute__ ((warn_unused_result));
-
-json_object *cgroup_path_serialise_all (void)
-	__attribute__ ((warn_unused_result));
-
-int cgroup_path_deserialise_all (json_object *json)
 	__attribute__ ((warn_unused_result));
 
 json_object *cgroup_setting_serialise (const CGroupSetting *setting)
@@ -255,7 +219,7 @@ int cgroup_add (void *parent, NihList *list, const char *controller,
 int cgroup_cleanup (NihList *cgroups)
 	__attribute__ ((warn_unused_result));
 
-int cgroup_create_path (const char *controller, const char *path)
+int cgroup_create (const char *controller, const char *path)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_enter (const char *controller, const char *path, pid_t pid)
@@ -268,15 +232,14 @@ int cgroup_settings_apply (const char *controller,
 		const char *path, NihList *settings)
 	__attribute__ ((warn_unused_result));
 
+#if 0
 int cgroup_expand_paths (void *parent, NihList *cgroups,
 		char * const  *env)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_apply_paths (void)
 	__attribute__ ((warn_unused_result));
-
-CGroupPath *cgroup_path_find (const char *controller, const char *path)
-	__attribute__ ((warn_unused_result));
+#endif
 
 NIH_END_EXTERN
 

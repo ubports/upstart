@@ -546,19 +546,6 @@ job_process_spawn (Job          *job,
 	 */
 	fflush (NULL);
 
-#if 0
-#ifdef ENABLE_CGROUPS
-	if (job_needs_cgroups (job)) {
-	       if (! cgroup_expand_paths (NULL,
-					&job->class->cgroups,
-					env)) {
-		       nih_return_system_error (-1);
-	       }
-	}
-
-#endif /* ENABLE_CGROUPS */
-#endif
-
 	/* Fork the child process, handling success and failure by resetting
 	 * the signal mask and returning the new process id or a raised error.
 	 */
@@ -590,14 +577,6 @@ job_process_spawn (Job          *job,
 		 */
 		close (fds[0]);
 
-#if 0
-#ifdef ENABLE_CGROUPS
-		if (job_needs_cgroups (job))
-			cgroup_cache_paths (job, job_cgroup_paths);
-
-#endif /* ENABLE_CGROUPS */
-#endif
-
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
@@ -624,31 +603,6 @@ job_process_spawn (Job          *job,
 	 * far because read() returned zero.
 	 */
 	close (fds[0]);
-
-#if 0
-#ifdef ENABLE_CGROUPS
-	if (! cgroup_setup (&job->class->cgroups, env)) {
-		/* FIXME: correct? shouldn't this be JOB_PROCESS_ERROR? */
-		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP, 0);
-	}
-#endif /* ENABLE_CGROUPS */
-#endif
-
-#if 0
-#ifdef ENABLE_CGROUPS
-	if (job_cgroup_paths) {
-		/* FIXME: args!! */
-		if (! cgroup_apply_paths ()) {
-			/* FIXME */
-		}
-
-		for (char **p = job_cgroup_paths; p && *p; p++) {
-			nih_message ("XXX:@@@@@@@@@@@@@@@@@@@@@@@@@@@@@: %s:%d: path='%s'",
-					__func__, __LINE__, *p);
-		}
-	}
-#endif /* ENABLE_CGROUPS */
-#endif
 
 	job_process_remap_fd (&fds[1], JOB_PROCESS_SCRIPT_FD, fds[1]);
 	nih_io_set_cloexec (fds[1]);
@@ -954,14 +908,26 @@ job_process_spawn (Job          *job,
 
 #ifdef ENABLE_CGROUPS
 		if (cgroups_needed) {
-			/* Inform the parent that FIXME */
+			/* Inform the parent that the initial setup was
+			 * successful. Since communication with the
+			 * cgmanager could block, we cannot make
+			 * cgmanager calls in the child until this fd is
+			 * closed to avoid blocking our parent. Thus,
+			 * cgroup jobs have two distinct setup phases,
+			 * the "standard" setup followed by the cgroup
+			 * setup. If the latter fails, it is detected by
+			 * the child handler.
+			 */
 			close (fds[1]);
+
+			if (! cgroup_setup (&job->class->cgroups,
+						env,
+						class->setuid ? job_setuid : getuid (),
+						class->setgid ? job_setgid : getgid ())) {
+				exit (1);
+			}
 		}
 		
-		if (cgroups_needed ! cgroup_setup (&job->class->cgroups, env)) {
-			/* FIXME: correct? shouldn't this be JOB_PROCESS_ERROR? */
-			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP, 0);
-		}
 #endif /* ENABLE_CGROUPS */
 
 		/* Start dropping privileges */
@@ -1000,6 +966,10 @@ job_process_spawn (Job          *job,
 		raise (SIGSTOP);
 	}
 
+	/* Move the pid into the appropriate cgroups now that 
+	 * the process is running with the correct group and user
+	 * ownership.
+	 */
 	if (cgroup_enter_groups (&job->class->cgroups) != TRUE) {
 		exit (1);
 	}
