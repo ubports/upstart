@@ -1068,10 +1068,13 @@ cgroup_create (const char *controller, const char *path)
 {
 	int        ret = 0;
 	int        existed = -1;
+	pid_t      pid;
 
 	nih_assert (controller);
 	nih_assert (path);
 	nih_assert (cgroup_manager);
+
+	pid = getpid ();
 
 	nih_message ("XXX:%s:%d: controller='%s', path='%s'",
 			__func__, __LINE__,
@@ -1096,6 +1099,23 @@ cgroup_create (const char *controller, const char *path)
 #endif
 
 	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+
+	/* Escape our existing cgroup for this controller by moving to
+	 * the root cgroup to avoid creating groups below the current
+	 * cgroup.
+	 */
+	ret = cgmanager_move_pid_abs_sync (NULL,
+			cgroup_manager,
+			controller,
+			UPSTART_CGROUP_ROOT,
+			pid);
+
+	if (ret < 0)
+		return FALSE;
+
+	nih_debug ("Moved pid %d to root of '%s' controller cgroup",
+			pid, controller);
+
 
 	/* Ask cgmanager to create the cgroup */
 	ret = cgmanager_create_sync (NULL,
@@ -1608,7 +1628,6 @@ cgroup_apply_paths (void)
 int
 cgroup_enter_groups (NihList  *cgroups)
 {
-	int     ret;
 	pid_t   pid;
 
 	nih_assert (cgroups);
@@ -1634,19 +1653,6 @@ cgroup_enter_groups (NihList  *cgroups)
 
 	NIH_LIST_FOREACH (cgroups, iter) {
 		CGroup *cgroup = (CGroup *)iter;
-
-		/* Escape our existing cgroups by moving to the root cgroup */
-		ret = cgmanager_move_pid_abs_sync (NULL,
-				cgroup_manager,
-				cgroup->controller,
-				UPSTART_CGROUP_ROOT,
-				pid);
-
-		if (ret < 0)
-			return FALSE;
-
-		nih_debug ("Moved pid %d to root of '%s' controller cgroup",
-				pid, cgroup->controller);
 
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
 			CGroupName      *cgname = (CGroupName *)iter2;
