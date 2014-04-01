@@ -386,7 +386,8 @@ job_change_state (Job      *job,
 {
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, new state=%s", __func__, __LINE__,
+			job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (state));
 
 	while (job->state != state) {
 		JobState old_state;
@@ -399,6 +400,9 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
+
+	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, old state=%s", __func__, __LINE__,
+			job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (old_state));
 
 		NIH_LIST_FOREACH (control_conns, iter) {
 			NihListEntry   *entry = (NihListEntry *)iter;
@@ -479,21 +483,6 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
-			/* The state cgroup jobs is updated once the
-			 * parent receives the SIGSTOP to signify the
-			 * cgroup setup was successful. Non-cgroup jobs just
-			 * skip through this state.
-			 */
-#if 0
-			if (! job_needs_cgroups (job))
-				state = job_next_state (job);
-#endif
-			state = job_next_state (job);
-			break;
-		case JOB_SPAWNED:
-			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SETUP);
-
 			if (job->class->process[PROCESS_MAIN]) {
 				if (job_process_run (job, PROCESS_MAIN) < 0) {
 					job_failed (job, PROCESS_MAIN, -1);
@@ -504,7 +493,12 @@ job_change_state (Job      *job,
 			} else {
 				state = job_next_state (job);
 			}
+			break;
+		case JOB_SPAWNED:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SETUP);
 
+			state = job_next_state (job);
 			break;
 		case JOB_POST_START:
 			nih_assert (job->goal == JOB_START);

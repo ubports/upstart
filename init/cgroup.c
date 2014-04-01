@@ -1008,15 +1008,14 @@ cgroup_manager_connect (const char *address)
 static void
 cgroup_manager_disconnected (DBusConnection *connection)
 {
-	DBusError  error;
-
 	nih_assert (connection);
-
-	dbus_error_init (&error);
+	nih_assert (cgroup_manager_address);
 
 	nih_warn (_("Disconnected from CGroup manager"));
 
 	cgroup_manager = NULL;
+	nih_free (cgroup_manager_address);
+	cgroup_manager_address = NULL;
 }
 
 /* FIXME: */
@@ -1159,6 +1158,8 @@ cgroup_create (const char *controller, const char *path)
 	if (ret < 0)
 		return FALSE;
 
+	nih_debug ("Set remove on empty for '%s' controller cgroup '%s'",
+			controller, path);
 
 	return TRUE;
 }
@@ -1197,9 +1198,6 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	nih_debug ("Moved pid %d to '%s' controller cgroup '%s'",
 			pid, controller, path);
-
-	nih_debug ("Set remove on empty for '%s' controller cgroup '%s'",
-			controller, path);
 
 	return TRUE;
 }

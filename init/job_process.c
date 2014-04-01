@@ -1519,6 +1519,9 @@ job_process_handler (void           *data,
 
 	nih_assert (pid > 0);
 
+	nih_message ("XXX:%s:%d:pid=%d, event=%x, status=%d", __func__, __LINE__,
+			pid, event, status);
+
 	/* Find the job that an event ocurred for, and identify which of the
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
@@ -1526,6 +1529,9 @@ job_process_handler (void           *data,
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
+
+	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s", __func__, __LINE__,
+			job_name (job), job_goal_name (job->goal), job_state_name (job->state));
 
 	/* Check the job's normal exit clauses to see whether this is a failure
 	 * worth warning about.
@@ -1990,7 +1996,7 @@ job_process_stopped (Job         *job,
 	/* Send SIGCONT back and change the state to the next one, if this
 	 * job behaves that way.
 	 */
-	if (job->class->expect == EXPECT_STOP || (job->state == JOB_SPAWNED && job_needs_cgroups (job))) {
+	if (job->class->expect == EXPECT_STOP || (job->state == JOB_SETUP && job_needs_cgroups (job))) {
 		nih_message ("XXX:%s:%d: sending SIGCONT to %s process %s pid %d (state=%s)", __func__, __LINE__,
 				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 		kill (job->pid[process], SIGCONT);
