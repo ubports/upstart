@@ -377,6 +377,12 @@ job_process_run (Job         *job,
 		nih_io_shutdown (io);
 	}
 
+	/* Jobs that do need cgroups will have their state progressed by
+	 * job_process_stopped().
+	 */
+	if (! job_needs_cgroups (job))
+		job_change_state (job, job_next_state (job));
+
 	return 0;
 }
 
@@ -933,7 +939,7 @@ job_process_spawn (Job          *job,
 						err->message);
 				nih_free (err);
 
-				exit (1);
+				exit (255);
 			}
 
 			/* Signal to parent that the (final) setup phase
@@ -943,6 +949,7 @@ job_process_spawn (Job          *job,
 				job_name (job), process_name (process), getpid(), job_state_name (job->state));fflush (NULL);
 			raise (SIGSTOP);
 		}
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		
 #endif /* ENABLE_CGROUPS */
 
@@ -952,11 +959,14 @@ job_process_spawn (Job          *job,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
 		}
 
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
 		}
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	}
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
@@ -965,6 +975,7 @@ job_process_spawn (Job          *job,
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Notes:
 	 *
 	 * - we can't use pause() here since there would then be no way to
@@ -981,23 +992,36 @@ job_process_spawn (Job          *job,
 		close (fds[1]);
 		raise (SIGSTOP);
 	}
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Move the pid into the appropriate cgroups now that 
 	 * the process is running with the correct group and user
 	 * ownership.
 	 */
 	if (cgroup_enter_groups (&job->class->cgroups) != TRUE) {
-		exit (1);
+		NihError *err;
+
+		err = nih_error_get ();
+
+		nih_error ("%s: %s",
+				_("Failed to enter cgroups"),
+				err->message);
+		nih_free (err);
+
+		exit (255);
 	}
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
 			nih_error_raise_system();
 			job_process_error_abort (fds[1],
 						 JOB_PROCESS_ERROR_PTRACE, 0);
 		}
 	}
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {
@@ -1973,7 +1997,7 @@ job_process_stopped (Job         *job,
 		job_change_state (job, job_next_state (job));
 
 		/* FIXME: skip over JOB_SETUP */
-		job_change_state (job, job_next_state (job));
+		//job_change_state (job, job_next_state (job));
 	}
 	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 }

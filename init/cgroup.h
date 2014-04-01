@@ -15,6 +15,10 @@
  * - test scenarios:
  *   - setuid + cgroup
  *   - setgid + cgroup
+ *   - setuid + cgroup + fork
+ *   - setgid + cgroup + fork
+ *   - setuid + cgroup + daemon
+ *   - setgid + cgroup + daemon
  *   - ensure *ALL* job pids are put into the cgroup.
  *
  * - test_state.c: test re-exec with cgroups.
@@ -54,6 +58,13 @@
 #define DBUS_SERVICE_CGMANAGER "org.linuxcontainers.cgmanager"
 #define DBUS_INTERFACE_CGMANAGER "org.linuxcontainers.cgmanager0_0"
 #define DBUS_PATH_CGMANAGER "/org/linuxcontainers/cgmanager"
+
+/**
+ * UPSTART_CGROUP_ROOT:
+ *
+ * Name of root cgroup.
+ **/
+#define UPSTART_CGROUP_ROOT "/"
 
 /**
  * UPSTART_CGROUP_ENVVAR:

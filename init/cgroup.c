@@ -52,7 +52,7 @@
 #include "state.h"
 #include "cgroup.h"
 
-#include "cgmanager-client.h"
+#include <cgmanager/cgmanager-client.h>
 
 /**
  * disable_cgroups:
@@ -332,6 +332,8 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	nih_local char  **cgroup_env = NULL;
 	nih_local char   *envvar = NULL;
 	int               instance = FALSE;
+	uid_t             current_uid;
+	gid_t             current_gid;
 
 	/* Value of $UPSTART_CGROUP which takes the form:
 	 *
@@ -357,6 +359,9 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
+
+	current_uid = geteuid ();
+	current_gid = getegid ();
 
 	cgroup_env = nih_str_array_new (NULL);
 	if (! cgroup_env)
@@ -442,6 +447,11 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 				return FALSE;
 
 			nih_message ("XXX:%s:%d:", __func__, __LINE__);
+
+			if ((uid == current_uid) && gid == current_gid) {
+				/* No need to chown */
+				continue;
+			}
 
 			if (! cgroup_chown (cgroup->controller, cgroup_path, uid, gid))
 				return FALSE;
@@ -1087,7 +1097,7 @@ cgroup_create (const char *controller, const char *path)
 
 	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
-	/* Ask cgmanager to create path */
+	/* Ask cgmanager to create the cgroup */
 	ret = cgmanager_create_sync (NULL,
 			cgroup_manager,
 			controller,
@@ -1099,6 +1109,36 @@ cgroup_create (const char *controller, const char *path)
 
 	nih_debug ("Created '%s' controller cgroup '%s'",
 			controller, path);
+
+	/* Get the CGroup manager to delete the cgroup once no more job
+	 * processes remain in it. Never mind if auto-deletion occurs between
+	 * a jobs processes since the group will be recreated anyway by
+	 * cgroup_create().
+	 *
+	 * This may seem incorrect since if we create the group,
+	 * then mark it to be auto-removed when empty, surely
+	 * it will be immediately deleted? However, the way this works
+	 * is that the group will be deleted once it has _become_ empty
+	 * (having at some time *not* been empty).
+	 *
+	 * The logic of using auto-delete is slightly inefficient
+	 * in terms of cgmanager usage, but is hugely beneficial to
+	 * Upstart since it avoids having to store details of which
+	 * groups were created by jobs and also avoids the complexity of
+	 * the child (which is responsible for creating the cgroups)
+	 * pass back these details asynchronously to the parent to avoid
+	 * it blocking.
+	 */
+	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
+	ret = cgmanager_remove_on_empty_sync (NULL,
+			cgroup_manager,
+			controller,
+			path);
+
+	nih_message ("XXX:%s:%d:ret=%d", __func__, __LINE__, ret);fflush(NULL);
+	if (ret < 0)
+		return FALSE;
+
 
 	return TRUE;
 }
@@ -1117,15 +1157,13 @@ cgroup_create (const char *controller, const char *path)
 int
 cgroup_enter (const char *controller, const char *path, pid_t pid)
 {
-	int                ret;
+	int     ret;
 
 	nih_assert (controller);
 	nih_assert (path);
 	nih_assert (pid > 0);
 
 	nih_assert (cgroup_manager);
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 	/* Move the pid into the appropriate cgroup */
 	ret = cgmanager_move_pid_sync (NULL,
@@ -1139,6 +1177,9 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	nih_debug ("Moved pid %d to '%s' controller cgroup '%s'",
 			pid, controller, path);
+
+	nih_debug ("Set remove on empty for '%s' controller cgroup '%s'",
+			controller, path);
 
 	return TRUE;
 }
@@ -1567,7 +1608,12 @@ cgroup_apply_paths (void)
 int
 cgroup_enter_groups (NihList  *cgroups)
 {
+	int     ret;
+	pid_t   pid;
+
 	nih_assert (cgroups);
+	
+	pid = getpid ();
 
 	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
@@ -1589,14 +1635,30 @@ cgroup_enter_groups (NihList  *cgroups)
 	NIH_LIST_FOREACH (cgroups, iter) {
 		CGroup *cgroup = (CGroup *)iter;
 
+		/* Escape our existing cgroups by moving to the root cgroup */
+		ret = cgmanager_move_pid_abs_sync (NULL,
+				cgroup_manager,
+				cgroup->controller,
+				UPSTART_CGROUP_ROOT,
+				pid);
+
+		if (ret < 0)
+			return FALSE;
+
+		nih_debug ("Moved pid %d to root of '%s' controller cgroup",
+				pid, cgroup->controller);
+
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
 			CGroupName      *cgname = (CGroupName *)iter2;
 
+			nih_message ("XXX:%s:%d:cgname='%s', expanded=%s", __func__, __LINE__,
+					cgname->name,
+					cgname->expanded ? cgname->expanded : "n/a");fflush(NULL);
 			if (! cgroup_enter (cgroup->controller,
 						cgname->expanded
 						? cgname->expanded
 						: cgname->name,
-						getpid ()))
+						pid))
 				return FALSE;
 		}
 	}

@@ -475,9 +475,24 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_SPAWNED:
+		case JOB_SETUP:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
+
+			/* The state cgroup jobs is updated once the
+			 * parent receives the SIGSTOP to signify the
+			 * cgroup setup was successful. Non-cgroup jobs just
+			 * skip through this state.
+			 */
+#if 0
+			if (! job_needs_cgroups (job))
+				state = job_next_state (job);
+#endif
+			state = job_next_state (job);
+			break;
+		case JOB_SPAWNED:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SETUP);
 
 			if (job->class->process[PROCESS_MAIN]) {
 				if (job_process_run (job, PROCESS_MAIN) < 0) {
@@ -491,21 +506,9 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_SETUP:
-			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SPAWNED);
-
-			/* The state cgroup jobs is updated once the
-			 * parent receives the SIGSTOP to signify the
-			 * cgroup setup was successful. Non-cgroup jobs just
-			 * skip through this state.
-			 */
-			if (! job_needs_cgroups (job))
-				state = job_next_state (job);
-			break;
 		case JOB_POST_START:
 			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SETUP);
+			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
 				if (job_process_run (job, PROCESS_POST_START) < 0)
@@ -696,20 +699,20 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
-			return JOB_SPAWNED;
-		default:
-			nih_assert_not_reached ();
-		}
-	case JOB_SPAWNED:
-		switch (job->goal) {
-		case JOB_STOP:
-			return JOB_STOPPING;
-		case JOB_START:
 			return JOB_SETUP;
 		default:
 			nih_assert_not_reached ();
 		}
 	case JOB_SETUP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SPAWNED;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SPAWNED:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -1174,10 +1177,10 @@ job_state_name (JobState state)
 		return N_("security");
 	case JOB_PRE_START:
 		return N_("pre-start");
-	case JOB_SPAWNED:
-		return N_("spawned");
 	case JOB_SETUP:
 		return N_("setup");
+	case JOB_SPAWNED:
+		return N_("spawned");
 	case JOB_POST_START:
 		return N_("post-start");
 	case JOB_RUNNING:
