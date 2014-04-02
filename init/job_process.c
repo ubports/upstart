@@ -199,6 +199,8 @@ job_process_run (Job         *job,
 
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
 	proc = job->class->process[process];
 	nih_assert (proc != NULL);
 	nih_assert (proc->command != NULL);
@@ -452,6 +454,8 @@ job_process_spawn (Job          *job,
 #ifdef ENABLE_CGROUPS
 	int                cgroups_needed = FALSE;
 #endif
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
@@ -2019,7 +2023,9 @@ job_process_stopped (Job         *job,
 		nih_message ("XXX:%s:%d: sending SIGCONT to %s process %s pid %d (state=%s)", __func__, __LINE__,
 				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 		kill (job->pid[process], SIGCONT);
-		job_change_state (job, job_next_state (job));
+
+		if (! job_needs_cgroups (job))
+			job_change_state (job, job_next_state (job));
 
 		/* FIXME: skip over JOB_SETUP */
 		//job_change_state (job, job_next_state (job));

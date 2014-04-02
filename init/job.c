@@ -401,8 +401,8 @@ job_change_state (Job      *job,
 		old_state = job->state;
 		job->state = state;
 
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, old state=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (old_state));
+		nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, old state=%s", __func__, __LINE__,
+				job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (old_state));
 
 		NIH_LIST_FOREACH (control_conns, iter) {
 			NihListEntry   *entry = (NihListEntry *)iter;
@@ -488,8 +488,13 @@ job_change_state (Job      *job,
 					job_failed (job, PROCESS_MAIN, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
-				} else if (job->class->expect == EXPECT_NONE)
+				}
+			       
+				if (job_needs_cgroups (job)) {
+					break;
+				} else if (job->class->expect == EXPECT_NONE) {
 					state = job_next_state (job);
+				}
 			} else {
 				state = job_next_state (job);
 			}
