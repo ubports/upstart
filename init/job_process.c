@@ -455,7 +455,7 @@ job_process_spawn (Job          *job,
 	int                cgroups_needed = FALSE;
 #endif
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+	//nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);

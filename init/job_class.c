@@ -1048,7 +1048,7 @@ job_class_start (JobClass        *class,
 	/* Job has specified a cgroup stanza but since the cgroup manager is
 	 * not yet contactable, the job cannot be started.
 	 */
-	if (! NIH_LIST_EMPTY (&class->cgroups) /*&& ! cgroup_manager_connected ()*/) { /* FIXME */
+	if (! NIH_LIST_EMPTY (&class->cgroups) && ! cgroup_manager_connected ()) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
 			_("Job cannot be started as CGroup Manager not available: %s"),
