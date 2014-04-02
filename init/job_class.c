@@ -1048,7 +1048,7 @@ job_class_start (JobClass        *class,
 	/* Job has specified a cgroup stanza but since the cgroup manager is
 	 * not yet contactable, the job cannot be started.
 	 */
-	if (! NIH_LIST_EMPTY (&class->cgroups) && ! cgroup_manager_connected ()) {
+	if (job_class_cgroups (class) && ! cgroup_manager_connected ()) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
 			_("Job cannot be started as CGroup Manager not available: %s"),
@@ -2690,4 +2690,26 @@ job_class_get_index (const JobClass *class)
 	}
 
 	return -1;
+}
+
+/**
+ * job_class_cgroups:
+ *
+ * @class: JobClass.
+ *
+ * Determine if the specified class needs cgroup support.
+ *
+ * Returns TRUE if cgroups are required, else FALSE.
+ *
+ **/
+int
+job_class_cgroups (JobClass *class)
+{
+	nih_assert (class);
+
+	if (NIH_LIST_EMPTY (&class->cgroups))
+		return FALSE;
+
+	return TRUE;
+
 }

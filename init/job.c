@@ -2452,14 +2452,7 @@ error:
 int
 job_needs_cgroups (const Job *job)
 {
-	NihList   *cgroups;
-
 	nih_assert (job);
 
-	cgroups = &job->class->cgroups;
-
-	if (NIH_LIST_EMPTY (cgroups))
-		return FALSE;
-
-	return TRUE;
+	return job_class_cgroups (job->class);
 }

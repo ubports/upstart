@@ -389,6 +389,9 @@ ssize_t
 job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
 
+int job_class_cgroups (JobClass *class)
+	__attribute__ ((warn_unused_result));
+
 /* FIXME */
 #if 0
 int job_class_add_cgroup (JobClass *class, const char *controller,
