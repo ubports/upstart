@@ -305,8 +305,6 @@ event_pending_handle_jobs (Event *event)
 
 	nih_assert (event != NULL);
 
-	nih_message ("XXX:%s:%d:event=%s", __func__, __LINE__, event->name);
-
 	job_class_init ();
 
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
@@ -375,21 +373,15 @@ event_pending_handle_jobs (Event *event)
 		 * started.
 		 */
 
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-
 		if (class->start_on && job_class_cgroups (class)) {
-			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 			if (cgroup_manager_connected ()) {
-				nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 				if (class->cgmanager_wait) {
-					nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 					/* Unref the events that were ref'ed
 					 * whilst waiting for the cgroup manager
 					 * to become available.
 					 */
 					event_operator_reset (class->start_on);
-					nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 					class->cgmanager_wait = FALSE;
 				}
 			} else {
@@ -399,19 +391,14 @@ event_pending_handle_jobs (Event *event)
 				 * be required by the job once the cgroup manager eventually
 				 * becomes available.
 				 */
-				nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 				if (! class->cgmanager_wait) {
-					nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 					if (event_operator_handle (class->start_on, event, NULL))
 						class->cgmanager_wait = TRUE;
 				}
 
-				nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 				continue;
 			}
 		}
-
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 		/* Now we match the start events for the class to see
 		 * whether we need a new instance.
@@ -482,14 +469,11 @@ event_pending_handle_jobs (Event *event)
 
 			event_operator_reset (class->start_on);
 		}
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	}
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	if (! quiesce_in_progress ())
 		return;
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Determine if any job instances remain */
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
@@ -502,7 +486,6 @@ event_pending_handle_jobs (Event *event)
 		if (! empty)
 			break;
 	}	
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* If no instances remain, force quiesce to finish */
 	if (empty)

@@ -1290,6 +1290,17 @@ job_start (Job             *job,
 		return -1;
 	}
 
+	/* Job has specified a cgroup stanza but since the cgroup
+	 * manager has not yet been contacted, the job cannot be started.
+	 */
+	if (job_class_cgroups (job->class) && ! cgroup_manager_connected ()) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
+			_("Job cannot be started as CGroup Manager not available: %s"),
+			job_name (job));
+		return -1;
+	}
+
 	if (wait) {
 		blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD,
 				       message);

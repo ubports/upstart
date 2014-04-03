@@ -65,6 +65,11 @@
 
 #include <json.h>
 
+/* FIXME */
+#if 1
+#include "early_assert-2.c"
+#endif
+
 extern json_object *json_classes;
 extern int user_mode;
 extern int no_inherit_env;
@@ -117,6 +122,11 @@ job_class_init (void)
 {
 	if (! job_classes)
 		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
+
+	/* FIXME */
+#if 1
+	nih_log_set_logger (nih_logger_james2);
+#endif
 }
 
 /**
@@ -1047,8 +1057,8 @@ job_class_start (JobClass        *class,
 		return -1;
 	}
 
-	/* Job has specified a cgroup stanza but since the cgroup manager is
-	 * not yet contactable, the job cannot be started.
+	/* Job has specified a cgroup stanza but since the cgroup
+	 * manager has not yet been contacted, the job cannot be started.
 	 */
 	if (job_class_cgroups (class) && ! cgroup_manager_connected ()) {
 		nih_dbus_error_raise_printf (

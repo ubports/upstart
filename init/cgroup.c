@@ -54,6 +54,11 @@
 
 #include <cgmanager/cgmanager-client.h>
 
+/* FIXME */
+#if 1
+#include "early_assert.c"
+#endif
+
 /**
  * disable_cgroups:
  *
@@ -121,6 +126,15 @@ CGroup *
 cgroup_new (void *parent, const char *controller)
 {
 	CGroup *cgroup;
+
+	/* FIXME */
+#if 1
+	static int done = 0;
+	if (! done) {
+		nih_log_set_logger (nih_logger_james);
+		done = 1;
+	}
+#endif
 
 	nih_assert (controller);
 
