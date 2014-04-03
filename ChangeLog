@@ -1,3 +1,179 @@
+2014-03-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.12.1
+
+2014-03-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.12
+
+2014-03-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/tests/test_libupstart.c: Revert to looking for 'init'
+	  rather than 'test_init'.
+	* test/test_util_common.c: _start_upstart(): Don't modify argv[0] to
+	  make the tests inits appear as "test_init" since it breaks the re-exec
+	  tests (LP: #1288243).
+	* util/tests/test_initctl.c: Revert to looking for "init' rather than
+	  'test_init'.
+	* init/job_process.c: job_process_spawn(): Comments.
+	* init/main.c: main(): Enable the debug stanza when booting with
+	  '--debug' (switching log-level will not work).
+	* init/parse_job.c: stanza_debug(): Conditionally disable the debug
+	  stanza.
+	* init/control.c:
+	  - control_serialise_bus_address(), control_deserialise_bus_address():
+	    New functions to handle carrying the control bus address across a
+	    re-exec (LP: #1258098).
+	* init/state.c:
+	  - state_to_string(): Handle control bus address serialisation.
+	  - state_from_string(): Handle control bus address
+	deserialisation.
+	* util/tests/test_initctl.c: test_dbus_connection(): New test:
+	  - "ensure Session Init retains D-Bus address across a re-exec"
+
+2014-03-06  James Hunt  <james.hunt@ubuntu.com>
+
+	* lib/tests/test_libupstart.c: test_libupstart(): Another
+	  init => test_init fix.
+
+2014-03-05  James Hunt  <james.hunt@ubuntu.com>
+
+	* doc/states.dot: Added missing security state.
+	* init/control.c:
+	  - control_set_env():
+	    - Check permissions before anything else.
+	    - Explicit check on @var rather than an assert.
+	  - control_unset_env(): Explicit check on @name rather than an assert.
+	  - control_get_env(): Explicit check on @name.
+	  - control_reset_env(): Check permissions before anything else.
+	* init/control.h: control_get_job():
+	  - Pass @job_name to job_find() rather than hard-coded NULL.
+	  - Handle instance being NULL when raising NIH D-Bus error.
+	* init/job.c: job_find(): Handle NULL job_name.
+	* init/tests/test_control.c:
+	  - Typo.
+	  - New functions:
+	    - test_list_env().
+	    - test_list_env().
+	    - test_get_env().
+	    - test_set_env().
+	    - test_unset_env().
+	    - test_reset_env().
+	* init/tests/test_job.c: test_job_find(): New function.
+	* scripts/init-checkconf.sh:
+	  - Don't rely on D-Bus any more: spawn a Session Init instead since
+	    this is simpler and allows the two major limitations to be dropped.
+	* scripts/man/init-checkconf.8: Updated date and limitations section.
+	* init/job_class.c: job_class_stop(): Copy env rather than
+	  referencing a local variable (LP: #1222705).
+	* init/tests/test_job_class.c: test_start(), test_stop(),
+	  test_restart(): Check job->env, job->start_env and job->stop-env.
+
+2014-02-04   Cameron Norman  <camerontnorman@gmail.com>
+
+	* extra/upstart-socket-bridge.c:
+	  - epoll_watcher(): Fix missing breaks in a switch, move buffer and
+	                     remove its nih_local usage.
+	  - job_add_socket(): added case for name_len being a AF_INET6 address.
+
+2014-02-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/socket-event.7: Environment variable is
+	  UPSTART_EVENTS, not UPSTART_JOB (LP: #1275308).
+
+2014-01-22  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: logger_kmsg(): Use open(2) rather than fopen(3) to avoid
+	  stealing the console in an container: fopen(3) may not specify
+	  O_NOCTTY and Upstart should not own the console (LP: #1263738).
+
+2014-01-20  Cameron Norman  <camerontnorman@gmail.com>
+
+	* extra/upstart-socket-bridge.c: Fixed indentation, used nih_local.
+	* extra/man/socket-event.7: Added inet6 example.
+
+2014-01-19  Kai Mast <mail@kai-mast.de>
+
+	* extra/upstart-socket-bridge.c: Added IPv6 support (LP: #942955).
+
+2014-01-17  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/conf.c:
+	  - conf_file_serialise(): Handle ConfFile's without an
+	    associated JobClass, resulting from an unparseable job configuration
+	    file (LP: #1269731).
+	  - conf_file_deserialise(): Comments.
+	* init/job_class.c: job_class_deserialise_all(): Comments.
+	* init/tests/test_conf.c: test_source_reload_file(): Add new tests:
+	  - "Invalid .conf file does not stop ConfFile being serialised".
+	  - "ConfFile with no JobClass can be deserialised".
+	* scripts/pyupstart.py:
+	  - JobInstance:destroy(): Whitespace.
+	  - SessionInit::reexec(): Add a log message.
+	* scripts/tests/test_pyupstart_session_init.py:
+	  - TestSessionUpstart: Add pid to ps output.
+	  - TestSessionInitReExec::test_session_init_reexec():
+	    - Create an invalid job to ensure re-exec can handle it.
+	    - Use 'with' for handling re-exec exception.
+	* scripts/tests/test_pyupstart_system_init.py:
+	  - TestSystemInitReExec::test_pid1_reexec():
+	    - Create an invalid job to ensure re-exec can handle it.
+
+2014-01-15  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/telinit.c: upstart_open(): Connect using private socket
+	  for systems without D-Bus.
+
+2014-01-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Explain valid syntax for stanzas
+	  accepting a signal (such as 'kill signal').
+
+2014-01-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* extra/man/upstart-udev-bridge.8: Corrected example event
+	  name (LP: #1265359).
+
+2013-12-23  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Comma-separate and sort SEE ALSO entries.
+	* init/man/init.8:
+	  - Expand SEE ALSO section (debian bug#732128).
+	  - Removed duplicated Job States and Job Lifecycle sections.
+
+2013-12-20  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.8:
+	  - Added Job States and Job Lifecycle sections (taken from
+	    Ubuntu+Debian specific upstart-events(7) since this information
+	    is distro-agnostic) (debian bug#732125).
+	  - Updated date+copyright.
+	* util/man/initctl.8:
+	  - Added reference to Job States section in init(8).
+	  - Updated date+copyright.
+	  - Refer to job goals in start/stop/restart commands.
+	  - Explain actual semantics of restart (debian bug#732126).
+	* init/man/init.5: Provide additional detail on start/stop on
+	  stanzas with respect to how Upstart deals with complex
+	  conditions containing multiple events (debian bug#732122).
+
+2013-12-19  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man/init.5: Provide more detail on setuid and setgid stanzas
+	  (debian bug#732127).
+
+2013-11-23  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/tests/test_state.c: fix test case to not assume SIGUSR1 == 10;
+	  the numeric value may vary between platforms, what we actually care
+	  about is making sure that the deserialization output matches what
+	  was in the json - so check the numeric value, NOT the symbolic
+	  signal name.
+	* init/tests/test_log.c: don't assume the root filesystem is not
+	  writable.  If we want to make sure log data stays in the buffer
+	  instead of being flushed to disk, create a log file that we
+	  control and know can't be written to.
+
 2013-11-16  Dmitrijs Ledkovs  <xnox@ubuntu.com>
 
 	* init/xdg.c, util/Makefile.am, test/Makefile.am, init/conf.c:
@@ -16,6 +192,13 @@
 	  - drop a spurious check of nih_io_watches at a point where its
 	    content cannot possibly have changed.
 	* test/test_util_common.h: drop TIMED_BLOCK() macro, no longer used.
+
+2013-11-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* test/test_util_common.c: _start_upstart(): Set name to
+	  "test_init" for consistency with TEST_DBUS() and to make it
+	  easier to avoid killing non-test Session Inits when developing
+	  new tests.
 
 2013-11-14  James Hunt  <james.hunt@ubuntu.com>
 

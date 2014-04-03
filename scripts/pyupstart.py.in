@@ -15,7 +15,6 @@ Upstart test module.
 """
 
 import os
-import sys
 import logging
 import tempfile
 import pyinotify
@@ -32,10 +31,17 @@ from gi.repository import GLib
 VERSION = '0.1'
 NAME = 'TestUpstart'
 
-UPSTART = '/sbin/init'
-INITCTL = '/sbin/initctl'
+# FIXME: should really take account of autoconf prefix
+SYSTEM_UPSTART = '/sbin/init'
+SYSTEM_INITCTL = '/sbin/initctl'
+SYSTEM_FILE_BRIDGE = '/sbin/upstart-file-bridge'
+
+BUILT_UPSTART = '@built_init_binary@'
+BUILT_INITCTL = '@built_initctl_binary@'
+BUILT_FILE_BRIDGE = '@built_file_bridge_binary@'
 
 UPSTART_SESSION_ENV = 'UPSTART_SESSION'
+USE_SYSTEM_BINARIES_ENV = 'UPSTART_TEST_USE_SYSTEM_BINARIES'
 
 UPSTART_STATE_FILE = 'upstart.state'
 
@@ -77,6 +83,41 @@ LOGFILE_WAIT_SECS = 5
 
 #---------------------------------------------------------------------
 
+def get_init():
+    """
+    Return full path to an appropriate init daemon binary.
+    """
+    if os.environ.get(USE_SYSTEM_BINARIES_ENV, None):
+        binary = SYSTEM_UPSTART
+    else:
+        binary = BUILT_UPSTART
+
+    assert (os.path.exists(binary))
+    return binary
+
+def get_initctl():
+    """
+    Return full path to an appropriate initctl binary.
+    """
+    if os.environ.get(USE_SYSTEM_BINARIES_ENV, None):
+        binary = SYSTEM_INITCTL
+    else:
+        binary = BUILT_INITCTL
+
+    assert (os.path.exists(binary))
+    return binary
+
+def get_file_bridge():
+    """
+    Return full path to an appropriate upstart-file-bridge binary.
+    """
+    if os.environ.get(USE_SYSTEM_BINARIES_ENV, None):
+        binary = SYSTEM_FILE_BRIDGE
+    else:
+        binary = BUILT_FILE_BRIDGE
+
+    assert (os.path.exists(binary))
+    return binary
 
 def dbus_encode(str):
     """
@@ -136,7 +177,6 @@ def wait_for_file(path, timeout=FILE_WAIT_SECS):
         if os.path.exists(path):
             return True
         time.sleep(0.1)
-
     return False
 
 
@@ -925,8 +965,8 @@ class JobInstance:
         """
         Stop the instance and cleanup.
 
-	Note: If the instance specified retain when created, this will
-	be a NOP.
+        Note: If the instance specified retain when created, this will
+        be a NOP.
         """
         if not self.job.retain:
             self.stop()
@@ -969,7 +1009,7 @@ class SessionInit(Upstart):
 
         sessions = {}
 
-        args = [INITCTL, 'list-sessions']
+        args = [get_initctl(), 'list-sessions']
 
         for line in subprocess.check_output(args,
                         universal_newlines=True).splitlines():
@@ -1028,6 +1068,9 @@ class SessionInit(Upstart):
             args = []
 
             pid = os.getpid()
+            init_binary = get_init()
+
+            self.logger.debug('Using init binary %s' % init_binary)
 
             self.conf_dir = \
                 tempfile.mkdtemp(prefix="%s-confdir-%d-" % (NAME, pid))
@@ -1035,7 +1078,7 @@ class SessionInit(Upstart):
             self.log_dir = \
                 tempfile.mkdtemp(prefix="%s-logdir-%d-" % (NAME, pid))
 
-            args.extend([UPSTART, '--user',
+            args.extend([init_binary, '--user',
                            '--confdir', self.conf_dir,
                            '--logdir', self.log_dir])
 
@@ -1119,4 +1162,5 @@ class SessionInit(Upstart):
         if not self.proxy:
             raise UpstartException('Not yet connected')
 
+        self.logger.debug("Restarting Session Init")
         self.proxy.Restart()

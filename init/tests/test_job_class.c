@@ -1571,6 +1571,16 @@ test_start (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
 
+	TEST_EQ_P (job->start_env, NULL);
+	TEST_EQ_P (job->stop_env, NULL);
+
+	TEST_NE_P (job->env, NULL);
+	TEST_EQ_STRN (job->env[0], "PATH=");
+	TEST_EQ_STRN (job->env[1], "TERM=");
+	TEST_EQ_P (job->env[2], NULL);
+
+	TEST_NE_P (job->env, env);
+
 	TEST_LIST_NOT_EMPTY (&job->blocking);
 
 	blocked = (Blocked *)job->blocking.next;
@@ -1666,6 +1676,15 @@ test_start (void)
 
 	TEST_LIST_EMPTY (&job->blocking);
 
+	TEST_EQ_P (job->start_env, NULL);
+	TEST_EQ_P (job->stop_env, NULL);
+
+	TEST_NE_P (job->env, NULL);
+	TEST_EQ_STRN (job->env[0], "PATH=");
+	TEST_EQ_STRN (job->env[1], "TERM=");
+	TEST_EQ_P (job->env[2], NULL);
+
+	TEST_NE_P (job->env, env);
 
 	dbus_connection_flush (conn);
 
@@ -1747,6 +1766,16 @@ test_start (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->stop_env, NULL);
+
+	TEST_NE_P (job->start_env, NULL);
+	TEST_EQ_STRN (job->start_env[0], "PATH=");
+	TEST_EQ_STRN (job->start_env[1], "TERM=");
+	TEST_EQ_P (job->start_env[2], NULL);
+
+	TEST_NE_P (job->start_env, env);
 
 	TEST_LIST_NOT_EMPTY (&job->blocking);
 
@@ -1908,11 +1937,17 @@ test_start (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STARTING);
 
+	TEST_NE_P (job->start_env, env);
+	TEST_NE_P (job->stop_env, env);
+
+	TEST_NE_P (job->env, NULL);
 	TEST_EQ_STRN (job->env[0], "PATH=");
 	TEST_EQ_STRN (job->env[1], "TERM=");
 	TEST_EQ_STR (job->env[2], "FOO=wibble");
 	TEST_EQ_STR (job->env[3], "BAR=wobble");
 	TEST_EQ_P (job->env[4], NULL);
+
+	TEST_NE_P (job->env, env);
 
 	TEST_LIST_NOT_EMPTY (&job->blocking);
 
@@ -2089,6 +2124,14 @@ test_stop (void)
 
 	TEST_NOT_FREE (job);
 
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->start_env, NULL);
+
+	TEST_NE_P (job->stop_env, NULL);
+	TEST_EQ_P (job->stop_env[0], NULL);
+
+	TEST_NE_P (job->stop_env, env);
+
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
 
@@ -2179,6 +2222,13 @@ test_stop (void)
 
 	TEST_LIST_EMPTY (&job->blocking);
 
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->start_env, NULL);
+
+	TEST_NE_P (job->stop_env, NULL);
+	TEST_EQ_P (job->stop_env[0], NULL);
+
+	TEST_NE_P (job->stop_env, env);
 
 	dbus_connection_flush (conn);
 
@@ -2356,9 +2406,15 @@ test_stop (void)
 	TEST_EQ (job->goal, JOB_STOP);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->start_env, NULL);
+
+	TEST_NE_P (job->stop_env, NULL);
 	TEST_EQ_STR (job->stop_env[0], "FOO=wibble");
 	TEST_EQ_STR (job->stop_env[1], "BAR=wobble");
 	TEST_EQ_P (job->stop_env[2], NULL);
+
+	TEST_NE_P (job->stop_env, env);
 
 	TEST_LIST_NOT_EMPTY (&job->blocking);
 
@@ -2529,6 +2585,16 @@ test_restart (void)
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
 
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->stop_env, NULL);
+
+	TEST_NE_P (job->start_env, NULL);
+	TEST_EQ_STRN (job->start_env[0], "PATH=");
+	TEST_EQ_STRN (job->start_env[1], "TERM=");
+	TEST_EQ_P (job->start_env[2], NULL);
+
+	TEST_NE_P (job->start_env, env);
+
 	TEST_LIST_NOT_EMPTY (&job->blocking);
 
 	blocked = (Blocked *)job->blocking.next;
@@ -2627,6 +2693,16 @@ test_restart (void)
 
 	TEST_EQ (job->goal, JOB_START);
 	TEST_EQ (job->state, JOB_STOPPING);
+
+	TEST_EQ_P (job->env, NULL);
+	TEST_EQ_P (job->stop_env, NULL);
+
+	TEST_NE_P (job->start_env, NULL);
+	TEST_EQ_STRN (job->start_env[0], "PATH=");
+	TEST_EQ_STRN (job->start_env[1], "TERM=");
+	TEST_EQ_P (job->start_env[2], NULL);
+
+	TEST_NE_P (job->start_env, env);
 
 	TEST_LIST_EMPTY (&job->blocking);
 

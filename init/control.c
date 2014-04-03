@@ -1342,7 +1342,13 @@ control_set_env (void            *data,
 
 	nih_assert (message);
 	nih_assert (job_details);
-	nih_assert (var);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
 
 	if (job_details[0]) {
 		job_name = job_details[0];
@@ -1356,10 +1362,9 @@ control_set_env (void            *data,
 		return -1;
 	}
 
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
+	if (! var || ! *var) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1440,12 +1445,17 @@ control_unset_env (void            *data,
 
 	nih_assert (message);
 	nih_assert (job_details);
-	nih_assert (name);
 
 	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	if (! name || ! *name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1541,6 +1551,12 @@ control_get_env (void             *data,
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to query job environment"));
+		return -1;
+	}
+
+	if (! name || ! *name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1703,6 +1719,13 @@ control_reset_env (void           *data,
 	nih_assert (message);
 	nih_assert (job_details);
 
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
@@ -1712,13 +1735,6 @@ control_reset_env (void           *data,
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("Not permissible to modify PID 1 job environment"));
-		return -1;
-	}
-
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
 		return -1;
 	}
 
@@ -1940,4 +1956,67 @@ control_end_session (void             *data,
 	quiesce (QUIESCE_REQUESTER_SESSION);
 
 	return 0;
+}
+
+/**
+ * control_serialise_bus_address:
+ *
+ * Convert control_bus_address into JSON representation.
+ *
+ * Returns: JSON string representing control_bus_address or NULL if
+ * control_bus_address not set or on error.
+ *
+ * Note: If NULL is returned, check the value of control_bus_address
+ * itself to determine if the error is real.
+ **/
+json_object *
+control_serialise_bus_address (void)
+{
+	control_init ();
+
+	/* A NULL return represents a JSON null */
+	return control_bus_address
+		? json_object_new_string (control_bus_address)
+		: NULL;
+}
+
+/**
+ * control_deserialise_bus_address:
+ *
+ * @json: root of JSON-serialised state.
+ *
+ * Convert JSON representation of control_bus_address back into a native
+ * string.
+ *
+ * Returns: 0 on success, -1 on error.
+ **/
+int
+control_deserialise_bus_address (json_object *json)
+{
+	const char  *address;
+
+	nih_assert (json);
+	nih_assert (! control_bus_address);
+
+	control_init ();
+
+	/* control_bus_address was never set */
+	if (state_check_json_type (json, null))
+		return 0;
+
+	if (! state_check_json_type (json, string))
+		goto error;
+
+	address = json_object_get_string (json);
+	if (! address)
+		goto error;
+
+	control_bus_address = nih_strdup (NULL, address);
+	if (! control_bus_address)
+		goto error;
+
+	return 0;
+
+error:
+	return -1;
 }

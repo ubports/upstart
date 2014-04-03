@@ -8,7 +8,7 @@
 #
 #---------------------------------------------------------------------
 #
-# Copyright (C) 2011 Canonical Ltd.
+# Copyright (C) 2011-2013 Canonical Ltd.
 #
 # Author: James Hunt <james.hunt@canonical.com>
 #
@@ -28,34 +28,38 @@
 
 script_name=${0##*/}
 confdir=$(mktemp -d /tmp/${script_name}.XXXXXXXXXX)
+xdg_runtime_dir=$(mktemp -d /tmp/${script_name}.XXXXXXXXXX)
 upstart_path=/sbin/init
 initctl_path=/sbin/initctl
 debug_enabled=n
 file_valid=n
 running=n
+set_session=n
 check_scripts=y
-dbus_cmd=dbus-launch
-started_dbus=n
 
 cleanup()
 {
-  if [ ! -z "$upstart_pid" ]
-  then
-    debug "stopping secondary Upstart (running with PID $upstart_pid)"
-    kill -0 "$upstart_pid" >/dev/null 2>&1 && \
-    kill -9 "$upstart_pid" >/dev/null 2>&1
-  fi
+    # Restore
+    [ -n "$saved_xdg_runtime_dir" ] && \
+        debug "Restoring XDG_RUNTIME_DIR to '$saved_xdg_runtime_dir'"
+    export XDG_RUNTIME_DIR="$saved_xdg_runtime_dir"
 
-  if [ "$started_dbus" = y ] && [ -n "$DBUS_SESSION_BUS_PID" ]
-  then
-    debug "stopping dbus-daemon (running with PID $DBUS_SESSION_BUS_PID)"
-    kill -0 "$DBUS_SESSION_BUS_PID" >/dev/null 2>&1 && \
-    kill -9 "$DBUS_SESSION_BUS_PID" >/dev/null 2>&1
-  fi
-
-  [ -d "$confdir" ] && rm -rf "$confdir"
-  [ $file_valid = y ] && exit 0
-  exit 1
+    [ -n "$saved_upstart_session" ] && \
+        debug "Restoring UPSTART_SESSION to '$saved_upstart_session'"
+    export UPSTART_SESSION="$saved_upstart_session"
+  
+    if [ ! -z "$upstart_pid" ]
+    then
+      debug "Stopping secondary Upstart (running with PID $upstart_pid)"
+      kill -9 "$upstart_pid" >/dev/null 2>&1
+    fi
+  
+    [ -d "$confdir" ] && rm -rf "$confdir"
+    dir="$xdg_runtime_dir/upstart/sessions"
+    [ -d "$dir" ] && rm -rf "$xdg_runtime_dir"
+    [ "$file_valid" = y ] && exit 0
+  
+    exit 1
 }
 
 usage()
@@ -84,39 +88,36 @@ EOT
 
 debug()
 {
-  msg="$*"
-  [ $debug_enabled = y ] && echo "DEBUG: $msg"
+    msg="$*"
+    [ $debug_enabled = y ] && echo "DEBUG: $msg"
 }
 
 error()
 {
-  msg="$*"
-  printf "ERROR: %s\n" "$msg" >&2
+    msg="$*"
+    printf "ERROR: %s\n" "$msg" >&2
 }
 
 die()
 {
-  error "$*"
-  exit 1
+    error "$*"
+    exit 1
 }
 
-# Return 0 if Upstart is running on the D-Bus session bus, else 1.
+# Return 0 if Upstart is running, else 1
 upstart_running()
 {
-  dbus-send --session --print-reply \
-    --dest='com.ubuntu.Upstart' /com/ubuntu/Upstart \
-    org.freedesktop.DBus.Properties.GetAll \
-    string:'com.ubuntu.Upstart0_6' >/dev/null 2>&1
+    initctl --user version >/dev/null 2>&1
 }
 
 trap cleanup EXIT INT TERM
 
 args=$(getopt \
-  -n "$script_name" \
-  -a \
-  --options="df:hi:sx:" \
-  --longoptions="debug file: help initctl-path: noscript upstart-path:" \
-  -- "$@")
+    -n "$script_name" \
+    -a \
+    --options="df:hi:sx:" \
+    --longoptions="debug file: help initctl-path: noscript upstart-path:" \
+    -- "$@")
 
 eval set -- "$args"
 [ $? -ne 0 ] && { usage; exit 1; }
@@ -162,22 +163,27 @@ do
 done
 
 [ -z "$file" ] && file="$1"
-
-# safety first
-[ "$(id -u)" -eq 0 ] && die "cannot run as root"
-
-[   -z "$file" ] && die "must specify configuration file"
-[ ! -f "$file" ] && die "file $file does not exist"
+[ -z "$file" ] && die "Must specify configuration file"
+[ ! -f "$file" ] && die "File $file does not exist"
 
 debug "upstart_path=$upstart_path"
 debug "initctl_path=$initctl_path"
 
 for cmd in "$upstart_path" "$initctl_path"
 do
-  [ -f "$cmd" ] || die "Path $cmd does not exist"
-  [ -x "$cmd" ] || die "File $cmd not executable"
-  "$cmd" --help | grep -q -- --session || die "version of $cmd too old"
+    [ -f "$cmd" ] || die "Path $cmd does not exist"
+    [ -x "$cmd" ] || die "File $cmd not executable"
+    "$cmd" --help | grep -q -- --user || die "version of $cmd too old"
 done
+
+export saved_xdg_runtime_dir="$XDG_RUNTIME_DIR"
+debug "Setting XDG_RUNTIME_DIR='$xdg_runtime_dir'"
+export XDG_RUNTIME_DIR="$xdg_runtime_dir"
+
+export saved_upstart_session="$UPSTART_SESSION"
+[ -n "$UPSTART_SESSION" ] \
+    && debug "Unsetting UPSTART_SESSION ($UPSTART_SESSION)" \
+    && unset UPSTART_SESSION
 
 # this is the only safe way to run another instance of Upstart
 "$upstart_path" --help|grep -q -- --no-startup-event || die "$upstart_path too old"
@@ -187,79 +193,81 @@ debug "file=$file"
 
 filename=$(basename $file)
 
-echo "$filename" | egrep -q '\.conf$' || die "file must end in .conf"
+echo "$filename" | egrep -q '\.conf$' || die "File must end in .conf"
 
 job="${filename%.conf}"
 
-cp "$file" "$confdir" || die "failed to copy file $file to $confdir"
+cp "$file" "$confdir" || die "Failed to copy file $file to $confdir"
 debug "job=$job"
-
-upstart_running
-[ $? -eq 0 ] && die "Another instance of this program is already running"
-debug "ok - no other running instances detected"
 
 upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
 
-# auto-start dbus if it isn't already running (required in non-desktop
-# environments).
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-  [ -z "$(which $dbus_cmd)" ] && die "cannot find $dbus_cmd"
-  eval $($dbus_cmd --auto-syntax)
-  started_dbus=y
-  debug "started $dbus_cmd"
-fi
-
 upstart_cmd=$(printf \
-   "%s --session --no-sessions --no-startup-event --verbose --confdir %s" \
-  "$upstart_path" \
-  "$confdir")
+    "%s --user --no-dbus --no-sessions --no-startup-event --verbose --confdir %s" \
+        "$upstart_path" \
+        "$confdir")
 debug "upstart_cmd=$upstart_cmd"
 
 nohup $upstart_cmd >"$upstart_out" 2>&1 &
 upstart_pid=$!
+debug "Upstart pid=$upstart_pid"
 
 # Stop the shell outputting a message when Upstart is killed.
 # We handle this ourselves in cleanup().
 disown 
 
-# wait for Upstart to initialize
+# wait for Upstart to initialise
 for i in $(seq 1 5)
 do
-  debug "Waiting for Upstart to reply over D-Bus (attempt $i)"
-  upstart_running
-  if [ $? -eq 0 ]
-  then
-    running=y
-    break
-  fi
-  sleep 1
+    sessions=$("$initctl_path" list-sessions)
+
+    if [ "$set_session" = n ] && [ -n "$sessions" ]
+    then
+        count=$(echo "$sessions"|wc -l)
+        [ "$count" -gt 1 ] && die "Got unexpected session count: $count"
+        session=$(echo "$sessions"|awk '{print $2}')
+        debug "Joining Upstart session '$session'"
+        export UPSTART_SESSION="$session"
+	set_session=y
+    fi
+
+    debug "Waiting for Upstart to initialise (attempt $i)"
+
+    upstart_running
+    if [ $? -eq 0 ]
+    then
+        running=y
+        break
+    fi
+
+    sleep 1
 done
 
-[ $running = n ] && die "failed to ask Upstart to check conf file"
+[ $running = n ] && die "Failed to ask Upstart to check conf file"
 
 debug "Secondary Upstart ($upstart_cmd) running with PID $upstart_pid"
 
 if [ "$check_scripts" = y ]
 then
-  for section in pre-start post-start script pre-stop post-stop
-  do
-    if egrep -q "\<${section}\>" "$file"
-    then
-      cmd='sed -n "/^ *${section}/,/^ *end script/p" $file | /bin/sh -n 2>&1'
-      errors=$(eval "$cmd")
-      [ $? -ne 0 ] && \
-        die "$(printf "File $file: shell syntax invalid in $section section:\n${errors}")"
-    fi
-  done
+    for section in pre-start post-start script pre-stop post-stop
+    do
+        if egrep -q "\<${section}\>" "$file"
+        then
+            cmd='sed -n "/^ *${section}/,/^ *end script/p" $file | /bin/sh -n 2>&1'
+            errors=$(eval "$cmd")
+            [ $? -ne 0 ] && \
+                die "$(printf "File $file: shell syntax invalid in $section section:\n${errors}")"
+        fi
+    done
 fi
 
-"$initctl_path" --session list|grep -q "^${job}"
+"$initctl_path" --user list|grep -q "^${job}"
 if [ $? -eq 0 ]
 then
-  file_valid=y
-  echo "File $file: syntax ok"
-  exit 0
+    file_valid=y
+    echo "File $file: syntax ok"
+    exit 0
 fi
 
 errors=$(grep "$job" "$upstart_out"|sed "s,${confdir}/,,g")

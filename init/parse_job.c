@@ -242,6 +242,7 @@ static int stanza_usage       (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
+
 static int stanza_cgroup      (JobClass *class, NihConfigStanza *stanza,
 			       const char *file, size_t len,
 			       size_t *pos, size_t *lineno)
@@ -254,6 +255,12 @@ static int parse_cgroup       (JobClass        *class,
 			       size_t          *lineno)
 	__attribute__ ((warn_unused_result));
 
+/**
+ * debug_stanza_enabled:
+ *
+ * If TRUE, honour the debug stanza, else consider it a NOP.
+ **/
+int debug_stanza_enabled = FALSE;
 
 /**
  * stanzas:
@@ -1228,7 +1235,8 @@ stanza_debug (JobClass           *class,
 	nih_assert (file != NULL);
 	nih_assert (pos != NULL);
 
-	class->debug = TRUE;
+	if (debug_stanza_enabled)
+		class->debug = TRUE;
 
 	return 0;
 }

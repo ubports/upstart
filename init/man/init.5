@@ -319,8 +319,8 @@ is given by its name.  Multiple events are permitted using the
 .B and
 &
 .B or
-operators, and complex expressions may be performed with parentheses (within
-which line breaks are permitted).
+logical operators, and complex expressions may be performed with
+parentheses (within which line breaks are permitted).
 
 You may also match on the environment variables contained within the event
 by specifying the
@@ -345,13 +345,60 @@ between the
 and
 .IR VALUE .
 
+If an event is emitted for which no jobs have registered interest
+(via either
+.B start on
+or
+.BR "stop on" "),"
+the event is destroyed.
+
+If a job specifies a single event in its start condition and that event
+is emitted and matches any specifies event environment variables, the
+overall condition becomes true, the job is started and -- assuming no
+other job has registered an interest in it -- the event is destroyed.
+
+However, if an event is emitted which matches
+.I part
+of a jobs start condition, the job is said to be blocking the event
+(since the event is unable to change state until the job has started)
+and will both cause the event to persist and the job start condition to
+be marked as partially completed. Once all events in the start condition
+have been emitted, the overall job start condition becomes true and the
+job will be started. If no other jobs have registered interest in the
+events in the start condition, they will then be destroyed.
+
+Note that no job processes are started until the overall expression
+evaluates to true.
+
+Note that if a new job is created which specifies that it starts on one
+or more events
+.IR "that have already been destroyed" ","
+that job will not start automatically until those events are emitted
+again. Depending on the event, this may not happen until the next time
+the system is booted.
+
+Although complex expressions are supported, it should be possible
+to specify the start condition for the majority of jobs with very
+simple expressions (between one and four events as a very approximate
+guide). A large number or complex combination of events is often
+an indication that the condition should be refactored.
+
+Examples of
+.B start on
+conditions:
+
 .nf
 start on started gdm or started kdm
+
+start on stopped JOB=foo RESULT=failed PROCESS=pre-start
 
 start on device\-added SUBSYSTEM=tty DEVPATH=ttyS*
 
 start on net\-device\-added INTERFACE!=lo
+
+start on (A and B C=D and E F=G)
 .fi
+
 .TP
 .B stop on \fIEVENT \fR[[\fIKEY=\fR]\fIVALUE\fR]... [\fBand\fR|\fBor\fR...]
 The
@@ -365,7 +412,15 @@ stopped.  It has the same syntax as
 may additionally expand the value of any variable that came from the
 job's start environment (either the event or the command that started it).
 
+Examples of
+.B stop on
+conditions:
+
 .nf
+stop on A
+
+stop on starting B and stopped JOB=C
+
 stop on stopping gdm or stopping kdm
 
 stop on device\-removed DEVPATH=$DEVPATH
@@ -532,10 +587,12 @@ command.
 .B normal exit \fISTATUS\fR|\fISIGNAL\fR...
 Additional exit statuses or even signals may be added, if the job
 process terminates with any of these it will not be considered to have
-failed and will not be respawned.
+failed and will not be respawned. A signal can be specified either
+as a full name (for example "\fISIGTERM\fP") or a partial name
+(for example "\fITERM\fP").
 
 .nf
-normal exit 0 1 TERM HUP
+normal exit 0 1 TERM SIGHUP
 .fi
 .\"
 .SS Instances
@@ -860,8 +917,22 @@ Changes to the user
 .I USERNAME
 before running any job process.
 
-If this stanza is unspecified, all job processes will run as root in the
-case of system jobs, and as the user in the case of user jobs.
+The job process will run with the primary group of user
+.I USERNAME
+unless the
+.B setgid
+stanza is also specified in which case that group will be used instead.
+
+For system jobs
+.BR initgroups (3)
+will be called to set up supplementary group access.
+
+Failure to determine and/or set user and group details will result in
+the overall job failing to start.
+
+If this stanza is unspecified, all job processes will run with user ID 0
+(root) in the case of system jobs, and as the user in the case of user
+jobs.
 
 Note that system jobs using the
 .B setuid
@@ -876,13 +947,18 @@ Changes to the group
 .I GROUPNAME
 before running any job process.
 
+For system jobs
+.BR initgroups (3)
+will be called to set up supplementary group access.
+
 If this stanza is unspecified, the primary group of the user specified
 in the
 .B setuid
-block is used for all job processes. If both stanzas are unspecified,
-all job processes will run with its group ID set to 0 in the case of
-system jobs, and as the primary group of the user in the case of User
-Session jobs.
+block is used for all job processes. If both this and the
+.B setuid
+stanza are unspecified, all job processes will run with their group ID set
+to 0 (root) in the case of system jobs, and as the primary group of the
+user in the case of User Session jobs.
 .\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
@@ -961,7 +1037,11 @@ apparmor switch /usr/sbin/cupsd
 Specifies the stopping signal, 
 .I SIGTERM
 by default, a job's main process will receive when stopping the
-running job.
+running job. The signal should be specified as a full name (for example
+"\fISIGTERM\fP") or a partial name (for example "\fITERM\fP"). Note
+that it is possible to specify the signal as a number (for example
+"\fI15\fP") although this should be avoided if at all possible since
+signal numbers may differ between systems.
 
 .nf
 kill signal INT
@@ -972,7 +1052,11 @@ kill signal INT
 Specifies the reload signal,
 .I SIGHUP
 by default, a job's main process will receive when reloading the
-running job.
+running job. The signal should be specified as a full name (for example
+"\fISIGHUP\fP") or a partial name (for example "\fIHUP\fP"). Note
+that it is possible to specify the signal as a number (for example
+"\fI1\fP") although this should be avoided if at all possible since
+signal numbers may differ between systems.
 
 .nf
 reload signal USR1
@@ -1026,7 +1110,7 @@ stopped as soon as they fork on startup.
 .\"
 .SH RESTRICTIONS
 The use of symbolic links in job configuration file directories is not
-supported since it can lead to unpredicable behaviour resulting from
+supported since it can lead to unpredictable behaviour resulting from
 broken or inaccessible links (such as would be caused by a link crossing
 a filesystem boundary to a filesystem that has not yet been mounted).
 .\"
@@ -1119,9 +1203,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 .\"
 .SH SEE ALSO
-.BR init (8)
-.BR initctl (8)
-.BR prctl (2)
-.BR pty (7)
-.BR sh (1)
-.BR apparmor (7)
+
+.BR apparmor (7),
+.BR init (8),
+.BR initctl (8),
+.BR prctl (2),
+.BR pty (7),
+.BR sh (1).

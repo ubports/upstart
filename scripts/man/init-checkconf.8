@@ -1,4 +1,4 @@
-.TH init\-checkconf 8 2011-04-06 "Upstart"
+.TH init\-checkconf 8 2013-11-19 "Upstart"
 .\"
 .SH NAME
 init\-checkconf \- manual page for init-checkconf
@@ -52,17 +52,15 @@ Written by James Hunt
 .\"
 .SH LIMITATIONS
 .IP \(bu 4
-This program will not run as the root user.
-.IP \(bu 4
-It is not possible for a user to run multiple simultaneous
-instances of this program.
+.B exec
+stanzas containing shell meta-characters will not be checked as scripts.
 .\"
 .SH REPORTING BUGS
 Report bugs at
 .RB < https://launchpad.net/upstart/+bugs >
 .\"
 .SH COPYRIGHT
-Copyright \(co 2011 Canonical Ltd.
+Copyright \(co 2011-2013 Canonical Ltd.
 .br
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

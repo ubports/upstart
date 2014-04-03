@@ -3724,14 +3724,15 @@ no_inotify:
 void
 test_source_reload_file (void)
 {
-	ConfSource *source;
-	ConfFile   *file, *old_file;
-	FILE       *f;
-	int         ret, fd, nfds;
-	char        dirname[PATH_MAX];
-	char        tmpname[PATH_MAX], filename[PATH_MAX];
-	fd_set      readfds, writefds, exceptfds;
-	NihError   *err;
+	ConfSource  *source;
+	ConfFile    *file, *old_file;
+	FILE        *f;
+	int          ret, fd, nfds;
+	char         dirname[PATH_MAX];
+	char         tmpname[PATH_MAX], filename[PATH_MAX];
+	fd_set       readfds, writefds, exceptfds;
+	NihError    *err;
+	json_object *json;
 
 	TEST_FUNCTION_FEATURE ("conf_source_reload",
 			       "with configuration file");
@@ -4500,12 +4501,76 @@ no_inotify:
 	strcat (filename, "/bar.conf");
 	unlink (filename);
 
-	rmdir (dirname);
-
-	nih_log_set_priority (NIH_LOG_MESSAGE);
-
 	/* Re-enable inotify */
 	assert0 (unsetenv ("INOTIFY_DISABLE"));
+
+	TEST_FEATURE ("Invalid .conf file does not stop ConfFile being serialised");
+	conf_init ();
+	TEST_LIST_EMPTY (conf_sources);
+
+	f = fopen (filename, "w");
+	/* Create an invalid job by adding an invalid stanza */
+	fprintf (f, "invalid\n");
+	fclose (f);
+
+	source = conf_source_new (NULL, filename, CONF_FILE);
+	TEST_NE_P (source, NULL);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (source->files);
+
+	file = conf_file_new (source, "/path/to/file");
+	TEST_NE_P (file, NULL);
+	TEST_HASH_NOT_EMPTY (source->files);
+
+	/* Initially, a ConfFile has no associated JobClass */
+	TEST_EQ_P (file->job, NULL);
+
+	/* Normally, this would create a JobClass and associate it with
+	 * its parent ConfFile, but that doesn't happen when the on-disk
+	 * job configuration file is invalid.
+	 */
+	ret = conf_source_reload (source);
+
+	/* Although the on-disk file is invalid, there is no error here
+	 * since it's already been handled by conf_reload_path() (which
+	 * displays an error message with details of how the job
+	 * configuration file is invalid).
+	 */
+	TEST_EQ (ret, 0);
+
+	/* We know the job was invalid * by the fact that the ConfFile
+	 * still has no associated JobClass.
+	 */
+	TEST_EQ (file->job, NULL);
+
+	/* See if we can serialise the ConfFile without an associated
+	 * JobClass.
+	 */
+	json = conf_file_serialise (file);
+	TEST_NE_P (json, NULL);
+
+	/* Test there is no JobClass in the JSON */
+	TEST_EQ_P (json_object_object_get (json, "job_class"), NULL);
+
+	TEST_FEATURE ("ConfFile with no JobClass can be deserialised");
+
+	nih_free (source);
+
+	source = conf_source_new (NULL, filename, CONF_FILE);
+	TEST_NE_P (source, NULL);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (source->files);
+
+	file = conf_file_deserialise (source, json);
+	TEST_NE_P (file, NULL);
+
+	nih_free (source);
+
+	json_object_put (json);
+
+	unlink (filename);
+	rmdir (dirname);
+	nih_log_set_priority (NIH_LOG_MESSAGE);
 }
 
 
