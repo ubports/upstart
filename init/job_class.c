@@ -394,6 +394,8 @@ job_class_new (const void *parent,
 
 	class->apparmor_switch = NULL;
 
+	class->cgmanager_wait = FALSE;
+
 	nih_list_init (&class->cgroups);
 
 	return class;
@@ -2072,6 +2074,9 @@ job_class_serialise (JobClass *class)
 	if (! state_set_json_string_var_from_obj (json, class, apparmor_switch))
 		goto error;
 
+	if (! state_set_json_int_var_from_obj (json, class, cgmanager_wait))
+		goto error;
+
 #ifdef ENABLE_CGROUPS
 	json_cgroups = cgroup_serialise_all (&class->cgroups);
 	if (! json_cgroups)
@@ -2414,8 +2419,14 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 #ifdef ENABLE_CGROUPS
-	if (cgroup_deserialise_all (class, &class->cgroups, json) < 0)
-		goto error;
+	if (json_object_object_get (json, "cgmanager_wait")) {
+
+		if (cgroup_deserialise_all (class, &class->cgroups, json) < 0)
+			goto error;
+
+		if (! state_get_json_int_var_to_obj (json, class, cgmanager_wait))
+			goto error;
+	}
 #endif /* ENABLE_CGROUPS */
 
 	return class;

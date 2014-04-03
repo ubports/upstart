@@ -231,7 +231,6 @@ typedef struct job_class {
 
 	char	       *apparmor_switch;
 	NihList         cgroups;
-	/* FIXME: serialise!! */
 	int             cgmanager_wait;
 } JobClass;
 
