@@ -2024,7 +2024,7 @@ job_process_stopped (Job         *job,
 				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 		kill (job->pid[process], SIGCONT);
 
-		if (! job_needs_cgroups (job))
+		if (! job_needs_cgroups (job) || job->class->expect == EXPECT_NONE)
 			job_change_state (job, job_next_state (job));
 
 		/* FIXME: skip over JOB_SETUP */
