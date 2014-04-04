@@ -85,6 +85,55 @@ void print_my_cgroup(void)
 	}
 }
 
+char *get_my_cgroup()
+{
+	char line[1024], *ret = NULL;
+	FILE *f = fopen("/proc/self/cgroup", "r");
+
+	while (fgets(line, 1024, f)) {
+		char *p, *p2;
+		if ((p = strchr(line, ':')) == NULL)
+			continue;
+		p++;
+		if ((p2 = strchr(p, ':')) == NULL)
+			continue;
+		if (strncmp(p, "name=", 5) == 0)
+			continue;
+		ret = NIH_MUST( nih_strdup(NULL, p2+1) );
+		break;
+	}
+	fclose(f);
+	return ret;
+}
+
+int check_cgroup_sandbox(void)
+{
+	char *cg_prev = NULL, *cg_post = NULL;
+	int ret = -1;
+
+	cg_prev = get_my_cgroup();
+	if (!cg_prev)
+		return -1;
+	if (setup_cgroup_sandbox() < 0) {
+		nih_free(cg_prev);
+		return -1;
+	}
+	cg_post = get_my_cgroup();
+	if (!cg_post) {
+		nih_free(cg_prev);
+		return -1;
+	}
+	/* we should have moved cgroups, so the two should be different */
+	if (strcmp(cg_prev, cg_post) != 0) {
+		nih_warn("setup_cgroup_sandbox moved me from %s to %s",
+				cg_prev, cg_post);
+		ret = 0;
+	}
+	nih_free(cg_prev);
+	nih_free(cg_post);
+	return ret;
+}
+
 /**
  * test_checks:
  *
@@ -118,6 +167,10 @@ test_checks (void)
 	case 0: print_my_cgroup(); break;
 	default: TEST_FAILED("Unknown error from connect_to_cgmanager: %d", ret);
 	}
+
+	TEST_FEATURE("cgroup sandbox");
+	TEST_EQ(check_cgroup_sandbox(), 0);
+	disconnect_cgmanager();
 }
 
 int

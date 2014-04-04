@@ -1090,7 +1090,7 @@ test_list_count (const NihList *list)
 }
 
 NihList *
-test_list_get_index (NihList *list, size_t count)
+test_list_get_strchr (NihList *list, size_t count)
 {
 	size_t i = 0;
 
@@ -1320,4 +1320,78 @@ get_pid_cgroup(const char *controller, pid_t pid)
 		return NULL;
 	}
 	return str;
+}
+
+/*
+ * setup_cgroup_sandbox:
+ *
+ * Creates a unique cgroup, sets it to remove on empty, and enters the
+ * current task into the new cgroup.
+ */
+int
+setup_cgroup_sandbox(void)
+{
+	char tmpnam[32], line[1024], *cg;
+	int32_t e;
+	int ret = -1, fd = -1;
+	FILE *cgf = NULL;
+	pid_t mypid = getpid();
+
+	if (!cgroup_manager) {
+		nih_error("%s: connect_to_cgmanager must be called first",
+				__func__);
+		goto out;
+	}
+	memset(tmpnam, 0, 32);
+	strcpy(tmpnam, "/tmp/upstart-test-XXXXXX");
+	if ((fd = mkstemp(tmpnam)) < 0) {
+		nih_error("%s: failed to create a tempfile", __func__);
+		goto out;
+	}
+	unlink(tmpnam);
+	cg = tmpnam+5;
+
+	if ((cgf = fopen("/proc/cgroups", "r")) == NULL) {
+		nih_error("%s: failed to read my cgroups", __func__);
+		goto out;
+	}
+	while (fgets(line, 1024, cgf)) {
+		char *p;
+		if (line[0] == '#')
+			continue;
+
+		p = strchr(line, '\t');
+		if (!p) {
+			nih_error("failed to find a \t");
+			continue;
+		}
+		*p = '\0';
+		if (cgmanager_create_sync(NULL, cgroup_manager, line, cg,
+					&e) != 0) {
+			nih_error("%s: failed to create cgroup %s:%s",
+				__func__, line, cg);
+			goto out;
+		}
+		if (e == 1)
+			nih_warn("%s: boggle: cgroup %s:%s already existed",
+					__func__, line, cg);
+		if (cgmanager_remove_on_empty_sync(NULL, cgroup_manager, line,
+					cg) != 0)
+			nih_warn("%s: failed to mark %s:%s remove-on-empty",
+				__func__, line, cg);
+		if (cgmanager_move_pid_sync(NULL, cgroup_manager, line, cg,
+					mypid) != 0) {
+			nih_error("%s: failed to move myself to cgroup %s:%s",
+				__func__, line, cg);
+			goto out;
+		}
+	}
+	ret = 0;
+
+out:
+	if (fd != -1)
+		close(fd);
+	if (cgf)
+		fclose(cgf);
+	return ret;
 }
