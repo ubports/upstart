@@ -246,15 +246,6 @@ int cgroup_settings_apply (const char *controller,
 		const char *path, NihList *settings)
 	__attribute__ ((warn_unused_result));
 
-#if 0
-int cgroup_expand_paths (void *parent, NihList *cgroups,
-		char * const  *env)
-	__attribute__ ((warn_unused_result));
-
-int cgroup_apply_paths (void)
-	__attribute__ ((warn_unused_result));
-#endif
-
 NIH_END_EXTERN
 
 #endif /* INIT_CGROUP_H */

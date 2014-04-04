@@ -429,46 +429,69 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 		CGroup *cgroup = (CGroup *)iter;
 
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
-			CGroupName      *cgname = (CGroupName *)iter2;
-			nih_local char  *cgroup_path = NULL;
+			CGroupName   *cgname = (CGroupName *)iter2;
+			char         *p;
 
-			cgroup_path = NIH_SHOULD (environ_expand (NULL,
+			/* TRUE if the path *starts with* '$UPSTART_CGROUP' */
+			int           has_var = FALSE;
+			size_t        len;
+
+			/* Note that we don't support "${UPSTART_CGROUP}" */
+			p = strstr (cgname->name, "$UPSTART_CGROUP");
+
+			/* cgroup specifies UPSTART_CGROUP initially */
+			if (p && p == cgname->name)
+				has_var = TRUE;
+
+			cgname->expanded = environ_expand (cgname,
 						cgname->name,
-						cgroup_env));
+						cgroup_env);
 
-			if (! cgroup_path) {
-				/* Failure to expand variables is an error */
+			if (! cgname->expanded)
 				return FALSE;
+
+			if (! strcmp (cgname->name, cgname->expanded)) {
+				/* expanded value is the same as the
+				 * original, so don't bother storing the
+				 * former.
+				 */
+				nih_free (cgname->expanded);
+				cgname->expanded = NULL;
 			}
+
+			len = strlen (cgname->expanded);
 
 			/* Remap slash to underscore to avoid unexpected
 			 * sub-cgroup creation.
 			 */
-			cgroup_name_remap (cgroup_path);
+			cgroup_name_remap (has_var && len > strlen (UPSTART_CGROUP_SHELL_ENVVAR)
+					? cgname->expanded + strlen (UPSTART_CGROUP_SHELL_ENVVAR)
+					: cgname->expanded);
 
 			/* FIXME */
-			nih_message ("XXX:%s:%d: controller='%s', cgroup_path='%s'", __func__, __LINE__,
+			nih_message ("XXX:%s:%d: controller='%s', expanded cgroup path='%s'",
+					__func__, __LINE__,
 					cgroup->controller,
-					cgroup_path);
+					cgname->expanded);
 
-			if (! cgroup_create (cgroup->controller, cgroup_path))
+			if (! cgroup_create (cgroup->controller, cgname->expanded))
 				return FALSE;
 
 			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 			if (! cgroup_settings_apply (cgroup->controller,
-						cgroup_path,
+						cgname->expanded,
 						&cgname->settings))
 				return FALSE;
 
 			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
-			if ((uid == current_uid) && gid == current_gid) {
+			if ((uid == current_uid) && (gid == current_gid)) {
 				/* No need to chown */
 				continue;
 			}
 
-			if (! cgroup_chown (cgroup->controller, cgroup_path, uid, gid))
+			if (! cgroup_chown (cgroup->controller, cgname->expanded, uid, gid))
 				return FALSE;
 
 			nih_message ("XXX:%s:%d:", __func__, __LINE__);
@@ -551,6 +574,9 @@ cgroup_name_serialise (CGroupName *name)
 	if (! state_set_json_string_var_from_obj (json, name, name))
 		goto error;
 
+	if (! state_set_json_string_var_from_obj (json, name, expanded))
+		goto error;
+
 	json_settings = cgroup_setting_serialise_all (&name->settings);
 	if (! json_settings)
 		goto error;
@@ -630,6 +656,9 @@ cgroup_name_deserialise (void *parent, json_object *json)
 
 	cgname = cgroup_name_new (parent, name);
 	if (! cgname)
+		return NULL;
+
+	if (! state_get_json_string_var_to_obj (json, cgname, expanded))
 		return NULL;
 
 	if (cgroup_setting_deserialise_all (cgname, &cgname->settings, json) < 0)
@@ -915,26 +944,19 @@ cgroup_manager_available (void)
  * serialisation. Caller must free returned value using
  * json_object_put().
  *
- * Returns: JSON-serialised cgroup manager object, or NULL on error.
+ * Returns: JSON string representing cmgroup_manager_address or NULL if
+ * cmgroup_manager_address not set or on error.
+ *
+ * Note: If NULL is returned, check the value of cmgroup_manager_address
+ * itself to determine if the error is real.
  **/
 json_object *
 cgroup_manager_serialise (void)
 {
-	json_object  *json;
-
-	json = json_object_new_object ();
-	if (! json)
-		return NULL;
-
-	if (! state_set_json_string_var (json, "cgroup_manager_address",
-				cgroup_manager_address))
-		goto error;
-
-	return json;
-
-error:
-	json_object_put (json);
-	return NULL;
+	/* A NULL return represents a JSON null */
+	return cgroup_manager_address 
+		? json_object_new_string (cgroup_manager_address)
+		: NULL;
 }
 
 /**
@@ -1400,7 +1422,9 @@ cgroup_add (void        *parent,
  * Returns: TRUE on success, FALSE on raised error.
  **/
 int
-cgroup_settings_apply (const char *controller, const char *path, NihList *settings)
+cgroup_settings_apply (const char  *controller,
+		       const char  *path,
+		       NihList     *settings)
 {
 	int               ret;
 
@@ -1437,189 +1461,6 @@ cgroup_settings_apply (const char *controller, const char *path, NihList *settin
 
 	return TRUE;
 }
-
-#if 0
-/**
- * cgroup_expand_paths:
- *
- * @parent: parent for @paths,
- * @cgroups: list of CGroup objects,
- * @env: environment table.
- *
- * Use @env to expand all variables in the cgroup names specified
- * in @cgroups, create the resulting cgroup paths and add them to
- * the cgroup_paths hash.
- *
- * Returns: TRUE on success, or FALSE on raised error.
- **/
-int
-cgroup_expand_paths (void           *parent,
-		     NihList        *cgroups,
-		     char * const   *env)
-{
-	const char       *upstart_job = NULL;
-	const char       *upstart_instance = NULL;
-	nih_local char   *suffix = NULL;
-	nih_local char  **cgroup_env = NULL;
-	nih_local char   *envvar = NULL;
-	int               instance = FALSE;
-
-	/* Value of $UPSTART_CGROUP which takes the form:
-	 *
-	 *     upstart/${UPSTART_JOB}
-	 *
-	 * Or for instance jobs:
-	 *
-	 *     upstart/${UPSTART_JOB}-${UPSTART_INSTANCE}
-	 *
-	 * */
-	nih_local char   *upstart_cgroup = NULL;
-
-	nih_assert (cgroups);
-	nih_assert (env);
-
-	if (! cgroup_support_enabled ())
-		return TRUE;
-
-	/* FIXME */
-#if 0
-	if (! cgroup_manager_connected ())
-		return TRUE;
-#endif
-
-	if (NIH_LIST_EMPTY (cgroups))
-		return TRUE;
-
-	cgroup_env = nih_str_array_new (NULL);
-	if (! cgroup_env)
-		goto error;
-
-	/* Copy the existing environment table */
-	if (! environ_append (&cgroup_env, NULL, NULL, TRUE, env))
-		nih_return_no_memory_error (FALSE);
-
-	upstart_job = environ_get (cgroup_env, "UPSTART_JOB");
-	nih_assert (upstart_job);
-
-	upstart_instance = environ_get (cgroup_env, "UPSTART_INSTANCE");
-	nih_assert (upstart_instance);
-
-	if (*upstart_instance)
-		instance = TRUE;
-
-	suffix = nih_sprintf (NULL, "%s%s%s",
-			upstart_job,
-			instance ? "-" : "",
-			instance ? upstart_instance : "");
-
-	if (! suffix)
-		goto error;
-
-	/* Remap the standard prefix to avoid creating sub-cgroups erroneously */
-	cgroup_name_remap (suffix);
-
-	upstart_cgroup = nih_sprintf (NULL, "upstart/%s", suffix);
-
-	if (! upstart_cgroup)
-		goto error;
-
-	/* FIXME */
-	nih_message ("XXX:%s:%d: UPSTART_INSTANCE='%s'", __func__, __LINE__, upstart_instance);
-
-	envvar = NIH_MUST (nih_sprintf (NULL, "UPSTART_CGROUP=%s", upstart_cgroup));
-
-	/* FIXME */
-	nih_message ("XXX:%s:%d: upstart_cgroup='%s'", __func__, __LINE__, upstart_cgroup);
-	nih_message ("XXX:%s:%d: envvar='%s'", __func__, __LINE__, envvar);
-
-	if (! environ_add (&cgroup_env, NULL, NULL, TRUE, envvar))
-		goto error;
-
-	NIH_LIST_FOREACH (cgroups, iter) {
-		CGroup *cgroup = (CGroup *)iter;
-
-		NIH_LIST_FOREACH (&cgroup->names, iter2) {
-			CGroupName   *cgname = (CGroupName *)iter2;
-			char         *p;
-
-			/* TRUE if the path *starts with* '$UPSTART_CGROUP' */
-			int              has_var = FALSE;
-
-			/* Note that we don't support "${UPSTART_CGROUP}" */
-			p = strstr (cgname->name, "$UPSTART_CGROUP");
-
-			/* cgroup specifies UPSTART_CGROUP initially */
-			if (p && p == cgname->name)
-				has_var = TRUE;
-
-			cgname->expanded = NIH_SHOULD (environ_expand (cgname,
-						cgname->name,
-						cgroup_env));
-
-			if (! cgname->expanded) {
-				/* Failure to expand any other variables
-				 * is however an error.
-				 */
-				goto error;
-			}
-
-			/* Remap slash to underscore to avoid unexpected
-			 * sub-cgroup creation.
-			 */
-			cgroup_name_remap (has_var
-					? cgname->expanded + strlen ("$UPSTART_CGROUP")
-					: cgname->expanded);
-
-
-			if (! strcmp (cgname->name, cgname->expanded)) {
-				/* expanded value is the same as the
-				 * original, so don't bother storing the
-				 * former.
-				 */
-				nih_free (cgname->expanded);
-				cgname->expanded = NULL;
-			}
-
-			/* FIXME */
-#if 1
-			nih_message ("XXX:%s:%d: cgname: name='%s', expanded='%s'", __func__, __LINE__,
-					cgname->name, cgname->expanded ? cgname->expanded : "");
-#endif
-
-#if 0
-			if (! cgroup_create (cgroup->controller, cgroup_path))
-				goto error;
-#endif
-
-#if 0
-			/* Record the "full" (strictly still a relative suffix
-			 * from the cgroup managers perspective) path in the
-			 * global table.
-			 */
-			if (! cgroup_path_new (NULL, cgroup->controller, cgroup_path))
-				goto error;
-#endif
-
-#if 0
-			if (! nih_str_array_add (paths, NULL, NULL, cgroup_path))
-				goto error;
-#endif
-		}
-	}
-
-	return TRUE;
-
-error:
-	return FALSE;
-}
-
-/* FIXME: implement, and document */
-int
-cgroup_apply_paths (void)
-{
-	return TRUE;
-}
-#endif
 
 /**
  * cgroup_enter_groups:

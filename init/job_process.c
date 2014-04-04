@@ -1013,6 +1013,7 @@ job_process_spawn (Job          *job,
 	}
 	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
+#ifdef ENABLE_CGROUPS
 	/* Move the pid into the appropriate cgroups now that 
 	 * the process is running with the correct group and user
 	 * ownership.
@@ -1027,6 +1028,7 @@ job_process_spawn (Job          *job,
 
 		exit (255);
 	}
+#endif /* ENABLE_CGROUPS */
 
 	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Set up a process trace if we need to trace forks */

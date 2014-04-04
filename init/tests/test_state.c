@@ -46,11 +46,14 @@
 #include "job_class.h"
 #include "job.h"
 #include "log.h"
-#include "cgroup.h"
 #include "blocked.h"
 #include "control.h"
 #include "test_util_common.h"
 #include "test_util.h"
+
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 #ifndef TEST_DATA_DIR
 #error ERROR: TEST_DATA_DIR not defined
