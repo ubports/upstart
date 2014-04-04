@@ -199,8 +199,6 @@ job_process_run (Job         *job,
 
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-
 	proc = job->class->process[process];
 	nih_assert (proc != NULL);
 	nih_assert (proc->command != NULL);
@@ -456,8 +454,6 @@ job_process_spawn (Job          *job,
 #ifdef ENABLE_CGROUPS
 	int                cgroups_needed = FALSE;
 #endif
-
-	//nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
@@ -958,11 +954,8 @@ job_process_spawn (Job          *job,
 			/* Signal to parent that the (final) setup phase
 			 * is complete.
 			 */
-			nih_message ("XXX:%s:%d: raising SIGSTOP to %s process %s pid %d (state=%s)", __func__, __LINE__,
-				job_name (job), process_name (process), getpid(), job_state_name (job->state));fflush (NULL);
 			raise (SIGSTOP);
 		}
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		
 #endif /* ENABLE_CGROUPS */
 
@@ -972,14 +965,11 @@ job_process_spawn (Job          *job,
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETGID, 0);
 		}
 
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		if (job_setuid != (uid_t)-1 && setuid (job_setuid) < 0) {
 			nih_error_raise_system ();
 			job_process_error_abort (fds[1], JOB_PROCESS_ERROR_SETUID, 0);
 		}
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	}
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Reset all the signal handlers back to their default handling so
 	 * the child isn't unexpectedly ignoring any, and so we won't
@@ -988,7 +978,6 @@ job_process_spawn (Job          *job,
 	nih_signal_reset ();
 	sigprocmask (SIG_SETMASK, &orig_set, NULL);
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Notes:
 	 *
 	 * - we can't use pause() here since there would then be no way to
@@ -1011,7 +1000,6 @@ job_process_spawn (Job          *job,
 		close (fds[1]);
 		raise (SIGSTOP);
 	}
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 #ifdef ENABLE_CGROUPS
 	/* Move the pid into the appropriate cgroups now that 
@@ -1030,17 +1018,14 @@ job_process_spawn (Job          *job,
 	}
 #endif /* ENABLE_CGROUPS */
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		if (ptrace (PTRACE_TRACEME, 0, NULL, 0) < 0) {
 			nih_error_raise_system();
 			job_process_error_abort (fds[1],
 						 JOB_PROCESS_ERROR_PTRACE, 0);
 		}
 	}
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {
@@ -1538,9 +1523,6 @@ job_process_handler (void           *data,
 
 	nih_assert (pid > 0);
 
-	nih_message ("XXX:%s:%d:pid=%d, event=%x, status=%d", __func__, __LINE__,
-			pid, event, status);
-
 	/* Find the job that an event ocurred for, and identify which of the
 	 * job's process it was.  If we don't know about it, then we simply
 	 * ignore the event.
@@ -1548,9 +1530,6 @@ job_process_handler (void           *data,
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
-
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state));
 
 	/* Check the job's normal exit clauses to see whether this is a failure
 	 * worth warning about.
@@ -1565,7 +1544,6 @@ job_process_handler (void           *data,
 
 	switch (event) {
 	case NIH_CHILD_EXITED:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child exited; check status to see whether it exited
 		 * normally (zero) or with a non-zero status.
 		 */
@@ -1583,7 +1561,6 @@ job_process_handler (void           *data,
 		break;
 	case NIH_CHILD_KILLED:
 	case NIH_CHILD_DUMPED:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child was killed by a signal, and maybe dumped core.  We
 		 * store the signal value in the higher byte of status (it's
 		 * safe to do that) to distinguish it from a normal exit
@@ -1604,7 +1581,6 @@ job_process_handler (void           *data,
 		job_process_terminated (job, process, status);
 		break;
 	case NIH_CHILD_STOPPED:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child was stopped by a signal, make sure it was SIGSTOP
 		 * and not a tty-related signal.
 		 */
@@ -1620,13 +1596,11 @@ job_process_handler (void           *data,
 		}
 
 		if (status == SIGSTOP) {
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_stopped (job, process);
 		}
 
 		break;
 	case NIH_CHILD_CONTINUED:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child was continued by a signal.
 		 */
 		sig = nih_signal_to_name (status);
@@ -1641,7 +1615,6 @@ job_process_handler (void           *data,
 		}
 		break;
 	case NIH_CHILD_TRAPPED:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child received a signal while we were tracing it.  This
 		 * can be a signal raised inside the kernel as a side-effect
 		 * of the trace because the child called fork() or exec();
@@ -1649,29 +1622,23 @@ job_process_handler (void           *data,
 		 */
 		if ((job->trace_state == TRACE_NEW)
 		    && (status == SIGTRAP)) {
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_trace_new (job, process);
 		} else if ((job->trace_state == TRACE_NEW_CHILD)
 			   && (status == SIGSTOP)) {
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_trace_new_child (job, process);
 		} else {
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_trace_signal (job, process, status);
 		}
 		break;
 	case NIH_CHILD_PTRACE:
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		/* Child called an important syscall that can modify the
 		 * state of the process trace we hold.
 		 */
 		switch (status) {
 		case PTRACE_EVENT_FORK:
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_trace_fork (job, process);
 			break;
 		case PTRACE_EVENT_EXEC:
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 			job_process_trace_exec (job, process);
 			break;
 		default:
@@ -1708,10 +1675,6 @@ job_process_terminated (Job         *job,
 	struct timeval tv;
 
 	nih_assert (job != NULL);
-
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s, status=%d", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process), status);
 
 	switch (process) {
 	case PROCESS_MAIN:
@@ -2018,32 +1981,21 @@ job_process_stopped (Job         *job,
 {
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d: job=%s, process=%s, pid %d (state=%s, goal=%s)", __func__, __LINE__,
-			job_name (job), process_name (process), job->pid[process], job_state_name (job->state), job_goal_name (job->goal));
-
 	/* Any process can stop on a signal, but we only care about the
 	 * main process when the state is still spawned.
 	 */
 	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED && job->state != JOB_SETUP))
 		return;
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-
 	/* Send SIGCONT back and change the state to the next one, if this
 	 * job behaves that way.
 	 */
 	if (job->class->expect == EXPECT_STOP || (job->state == JOB_SETUP && job_needs_cgroups (job))) {
-		nih_message ("XXX:%s:%d: sending SIGCONT to %s process %s pid %d (state=%s)", __func__, __LINE__,
-				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 		kill (job->pid[process], SIGCONT);
 
 		if (! job_needs_cgroups (job) || job->class->expect == EXPECT_NONE)
 			job_change_state (job, job_next_state (job));
-
-		/* FIXME: skip over JOB_SETUP */
-		//job_change_state (job, job_next_state (job));
 	}
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 }
 
 
@@ -2065,10 +2017,6 @@ job_process_trace_new (Job         *job,
 	nih_assert (job != NULL);
 	nih_assert ((job->trace_state == TRACE_NEW)
 		    || (job->trace_state == TRACE_NEW_CHILD));
-
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process));
 
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
@@ -2121,10 +2069,6 @@ job_process_trace_new_child (Job         *job,
 	nih_assert (job != NULL);
 	nih_assert (job->trace_state == TRACE_NEW_CHILD);
 
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process));
-
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
@@ -2170,10 +2114,6 @@ job_process_trace_signal (Job         *job,
 {
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s, signum=%d", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process), signum);
-
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
@@ -2208,10 +2148,6 @@ job_process_trace_fork (Job         *job,
 	unsigned long data;
 
 	nih_assert (job != NULL);
-
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process));
 
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
@@ -2280,10 +2216,6 @@ job_process_trace_exec (Job         *job,
 			ProcessType  process)
 {
 	nih_assert (job != NULL);
-
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, process=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state),
-			process_name (process));
 
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned and we're tracing it.

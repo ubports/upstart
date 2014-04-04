@@ -411,16 +411,9 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	if (! upstart_cgroup)
 		nih_return_no_memory_error (FALSE);
 
-	/* FIXME */
-	nih_message ("XXX:%s:%d: UPSTART_INSTANCE='%s'", __func__, __LINE__, upstart_instance);
-
 	envvar = NIH_MUST (nih_sprintf (NULL, "%s=%s",
 				UPSTART_CGROUP_ENVVAR,
 				upstart_cgroup));
-
-	/* FIXME */
-	nih_message ("XXX:%s:%d: upstart_cgroup='%s'", __func__, __LINE__, upstart_cgroup);
-	nih_message ("XXX:%s:%d: envvar='%s'", __func__, __LINE__, envvar);
 
 	if (! environ_add (&cgroup_env, NULL, NULL, TRUE, envvar))
 		nih_return_no_memory_error (FALSE);
@@ -430,6 +423,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
 			CGroupName   *cgname = (CGroupName *)iter2;
+			char         *cgpath;
 			char         *p;
 
 			/* TRUE if the path *starts with* '$UPSTART_CGROUP' */
@@ -437,7 +431,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			size_t        len;
 
 			/* Note that we don't support "${UPSTART_CGROUP}" */
-			p = strstr (cgname->name, "$UPSTART_CGROUP");
+			p = strstr (cgname->name, UPSTART_CGROUP_SHELL_ENVVAR);
 
 			/* cgroup specifies UPSTART_CGROUP initially */
 			if (p && p == cgname->name)
@@ -450,15 +444,6 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			if (! cgname->expanded)
 				return FALSE;
 
-			if (! strcmp (cgname->name, cgname->expanded)) {
-				/* expanded value is the same as the
-				 * original, so don't bother storing the
-				 * former.
-				 */
-				nih_free (cgname->expanded);
-				cgname->expanded = NULL;
-			}
-
 			len = strlen (cgname->expanded);
 
 			/* Remap slash to underscore to avoid unexpected
@@ -468,37 +453,34 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 					? cgname->expanded + strlen (UPSTART_CGROUP_SHELL_ENVVAR)
 					: cgname->expanded);
 
-			/* FIXME */
-			nih_message ("XXX:%s:%d: controller='%s', expanded cgroup path='%s'",
-					__func__, __LINE__,
-					cgroup->controller,
-					cgname->expanded);
+			if (! strcmp (cgname->name, cgname->expanded)) {
+				/* expanded value is the same as the
+				 * original, so don't bother storing the
+				 * former.
+				 */
+				nih_free (cgname->expanded);
+				cgname->expanded = NULL;
+			}
 
-			if (! cgroup_create (cgroup->controller, cgname->expanded))
+			cgpath = cgname->expanded ? cgname->expanded : cgname->name;
+
+			if (! cgroup_create (cgroup->controller, cgpath))
 				return FALSE;
-
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 			if (! cgroup_settings_apply (cgroup->controller,
-						cgname->expanded,
+						cgpath,
 						&cgname->settings))
 				return FALSE;
-
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 			if ((uid == current_uid) && (gid == current_gid)) {
 				/* No need to chown */
 				continue;
 			}
 
-			if (! cgroup_chown (cgroup->controller, cgname->expanded, uid, gid))
+			if (! cgroup_chown (cgroup->controller, cgpath, uid, gid))
 				return FALSE;
-
-			nih_message ("XXX:%s:%d:", __func__, __LINE__);
 		}
 	}
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);
 
 	return TRUE;
 }
@@ -1122,12 +1104,6 @@ cgroup_create (const char *controller, const char *path)
 
 	pid = getpid ();
 
-	nih_message ("XXX:%s:%d: controller='%s', path='%s'",
-			__func__, __LINE__,
-			controller, path);
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-
 	/* Escape our existing cgroup for this controller by moving to
 	 * the root cgroup to avoid creating groups below the current
 	 * cgroup.
@@ -1177,13 +1153,11 @@ cgroup_create (const char *controller, const char *path)
 	 * pass back these details asynchronously to the parent to avoid
 	 * it blocking.
 	 */
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 	ret = cgmanager_remove_on_empty_sync (NULL,
 			cgroup_manager,
 			controller,
 			path);
 
-	nih_message ("XXX:%s:%d:ret=%d", __func__, __LINE__, ret);fflush(NULL);
 	if (ret < 0)
 		return FALSE;
 
@@ -1293,8 +1267,6 @@ cgroup_add (void        *parent,
 	if (value)
 		nih_assert (key);
 
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-
 	NIH_LIST_FOREACH_SAFE (cgroups, iter) {
 		cgroup = (CGroup *)iter;
 
@@ -1339,13 +1311,6 @@ cgroup_add (void        *parent,
 					}
 
 					if (! found_setting) {
-
-#if 1
-						nih_message ("XXX:%s:%d: calling cgroup_setting_new(parent=cgname(%p))",
-								__func__, __LINE__,
-								cgname);
-#endif
-
 						setting = cgroup_setting_new (cgname, key, value);
 						if (! setting)
 							return FALSE;
@@ -1361,11 +1326,6 @@ cgroup_add (void        *parent,
 				nih_list_add (&cgroup->names, &cgname->entry);
 
 				if (key) {
-#if 1
-					nih_message ("XXX:%s:%d: calling cgroup_setting_new(parent=cgname(%p))",
-							__func__, __LINE__,
-							cgname);
-#endif
 					setting = cgroup_setting_new (cgname, key, value);
 					if (! setting)
 						return FALSE;
@@ -1391,11 +1351,6 @@ cgroup_add (void        *parent,
 			nih_list_add (&cgroup->names, &cgname->entry);
 
 			if (key) {
-#if 1
-				nih_message ("XXX:%s:%d: calling cgroup_setting_new(parent=cgname(%p))",
-						__func__, __LINE__,
-						cgname);
-#endif
 				setting = cgroup_setting_new (cgname, key, value);
 				if (! setting)
 					return FALSE;
@@ -1477,25 +1432,15 @@ cgroup_enter_groups (NihList  *cgroups)
 	pid_t   pid;
 
 	nih_assert (cgroups);
+	nih_assert (cgroup_manager_address);
 	
 	pid = getpid ();
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 	if (! cgroup_support_enabled ())
 		return TRUE;
 
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-
-#if 0
-	if (! cgroup_manager_connected ())
-		return TRUE;
-#endif
-
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
 	NIH_LIST_FOREACH (cgroups, iter) {
 		CGroup *cgroup = (CGroup *)iter;
@@ -1503,9 +1448,6 @@ cgroup_enter_groups (NihList  *cgroups)
 		NIH_LIST_FOREACH (&cgroup->names, iter2) {
 			CGroupName      *cgname = (CGroupName *)iter2;
 
-			nih_message ("XXX:%s:%d:cgname='%s', expanded=%s", __func__, __LINE__,
-					cgname->name,
-					cgname->expanded ? cgname->expanded : "n/a");fflush(NULL);
 			if (! cgroup_enter (cgroup->controller,
 						cgname->expanded
 						? cgname->expanded
