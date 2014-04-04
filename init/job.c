@@ -452,10 +452,8 @@ job_change_state (Job      *job,
 					state = job_next_state (job);
 				}
 
-				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
+				if (job_needs_cgroups (job))
 					break;
-				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -479,10 +477,8 @@ job_change_state (Job      *job,
 					state = job_next_state (job);
 				}
 
-				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
+				if (job_needs_cgroups (job))
 					break;
-				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -506,7 +502,6 @@ job_change_state (Job      *job,
 				}
 			       
 				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
 					break;
 				} else if (job->class->expect == EXPECT_NONE) {
 					state = job_next_state (job);
@@ -529,10 +524,8 @@ job_change_state (Job      *job,
 				if (job_process_run (job, PROCESS_POST_START) < 0)
 					state = job_next_state (job);
 
-				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
+				if (job_needs_cgroups (job))
 					break;
-				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -577,10 +570,8 @@ job_change_state (Job      *job,
 				if (job_process_run (job, PROCESS_PRE_STOP) < 0)
 					state = job_next_state (job);
 
-				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
+				if (job_needs_cgroups (job))
 					break;
-				}
 			} else {
 				state = job_next_state (job);
 			}
@@ -630,10 +621,8 @@ job_change_state (Job      *job,
 					state = job_next_state (job);
 				}
 
-				if (job_needs_cgroups (job)) {
-					/* Wait for SIGSTOP before progressing state */
+				if (job_needs_cgroups (job))
 					break;
-				}
 			} else {
 				state = job_next_state (job);
 			}

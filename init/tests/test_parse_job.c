@@ -42,8 +42,6 @@
 
 #include "cgroup.h"
 
-extern NihHash *cgroup_paths;
-
 #endif /* ENABLE_CGROUPS */
 
 #include "test_util_common.h"
@@ -8853,11 +8851,6 @@ test_stanza_cgroup (void)
 	job = parse_job (NULL, NULL, NULL, "test", buf, len, &pos, &lineno);
 	TEST_EQ_P (job, NULL);
 
-	/* parse_job() should eventually result in cgroup_init()
-	 * getting called, even on error.
-	 */
-	TEST_NE_P (cgroup_paths, NULL);
-
 	err = nih_error_get ();
 	TEST_EQ (err->number, NIH_CONFIG_EXPECTED_TOKEN);
 
@@ -8900,7 +8893,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -8952,7 +8944,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9004,7 +8995,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9056,7 +9046,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9126,7 +9115,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9196,7 +9184,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9271,7 +9258,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9344,7 +9330,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9417,7 +9402,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
@@ -9488,8 +9472,6 @@ test_stanza_cgroup (void)
 		TEST_EQ_STR (cgroup->controller, "perf_event");
 		TEST_ALLOC_PARENT (cgroup->controller, cgroup);
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
-
-		TEST_HASH_EMPTY (cgroup_paths);
 
 		count = test_list_count (&cgroup->names);
 		TEST_EQ (count, 2);
@@ -9593,8 +9575,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_PARENT (cgroup->controller, cgroup);
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
-		TEST_HASH_EMPTY (cgroup_paths);
-
 		count = test_list_count (&cgroup->names);
 		TEST_EQ (count, 1);
 
@@ -9683,7 +9663,6 @@ test_stanza_cgroup (void)
 		TEST_ALLOC_SIZE (cgroup->controller, 1+strlen ("perf_event"));
 
 		count = test_list_count (&cgroup->names);
-		TEST_HASH_EMPTY (cgroup_paths);
 		TEST_EQ (count, 1);
 
 		cgname = (CGroupName *)test_list_get_index (&cgroup->names, 0);
