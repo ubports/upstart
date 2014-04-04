@@ -1763,7 +1763,7 @@ job_process_terminated (Job         *job,
 		stop = TRUE;
 		break;
 	case PROCESS_SECURITY:
-		nih_assert (job->state == JOB_SECURITY);
+		nih_assert (job->state == JOB_SECURITY_SETUP);
 
 		/* We should always fail the job if the security profile
 		 * failed to load
@@ -1774,7 +1774,7 @@ job_process_terminated (Job         *job,
 		}
 		break;
 	case PROCESS_PRE_START:
-		nih_assert (job->state == JOB_PRE_START);
+		nih_assert (job->state == JOB_PRE_START_SETUP);
 
 		/* If the pre-start script is killed or exits with a status
 		 * other than zero, it's always considered a failure since
@@ -1786,7 +1786,7 @@ job_process_terminated (Job         *job,
 		}
 		break;
 	case PROCESS_POST_START:
-		nih_assert (job->state == JOB_POST_START);
+		nih_assert (job->state == JOB_POST_START_SETUP);
 
 		/* We always want to change the state when the post-start
 		 * script terminates; if the main process is running, we'll
@@ -1797,7 +1797,7 @@ job_process_terminated (Job         *job,
 		 */
 		break;
 	case PROCESS_PRE_STOP:
-		nih_assert (job->state == JOB_PRE_STOP);
+		nih_assert (job->state == JOB_PRE_STOP_SETUP);
 
 		/* We always want to change the state when the pre-stop
 		 * script terminates, we either want to go back into running
@@ -1808,7 +1808,7 @@ job_process_terminated (Job         *job,
 		 */
 		break;
 	case PROCESS_POST_STOP:
-		nih_assert (job->state == JOB_POST_STOP);
+		nih_assert (job->state == JOB_POST_STOP_SETUP);
 
 		/* If the post-stop script is killed or exits with a status
 		 * other than zero, it's always considered a failure since
@@ -1995,16 +1995,11 @@ job_process_stopped (Job         *job,
 	/* Send SIGCONT back and change the state to the next one for
 	 * 'expect stop' jobs and those that require cgroup setup.
 	 */
-	if (job->class->expect == EXPECT_STOP || (job_needs_cgroups (job) && setup)) {
+	if (job->class->expect == EXPECT_STOP || (job_needs_cgroups (job) && setup))
 		kill (job->pid[process], SIGCONT);
 
-		if (! job_needs_cgroups (job) || job->class->expect == EXPECT_NONE) {
-			/* cgroup setup was successful, so move the
-			 * state along.
-			 */
-			job_change_state (job, job_next_state (job));
-		}
-	}
+	if (job->class->expect == EXPECT_STOP && process == PROCESS_MAIN && job->state == JOB_SPAWNED)
+		job_change_state (job, job_next_state (job));
 }
 
 
