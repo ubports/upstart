@@ -1009,21 +1009,24 @@ control_notify_cgroup_manager_address (void            *data,
 	if (! cgroup_support_enabled ())
 		return 0;
 
-	/* Already connected */
-	if (cgroup_manager_connected ())
+	/* Already called */
+	if (cgroup_manager_available ())
 		return 0;
 
-	if (cgroup_manager_connect (address) < 0)
+	if (! cgroup_manager_set_address (address)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+				_("Out of Memory"));
 		return -1;
+	}
 
-#endif /* ENABLE_CGROUPS */
-
-	/* FIXME: can't we just wait for the next main loop iteration to
-	 * now start all the cgroup stanza jobs?
-	 */
+	nih_debug ("set cgroup manager address");
 
 	/* FIXME: needed? */
 	nih_main_loop_interrupt ();
+
+#else
+	nih_debug ("cgroup support not available");
+#endif /* ENABLE_CGROUPS */
 
 	return 0;
 }

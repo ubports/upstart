@@ -450,6 +450,8 @@ job_process_spawn (Job          *job,
 	gid_t              job_setgid = -1;
 	struct passwd     *pwd = NULL;
 	struct group      *grp = NULL;
+	NihError          *err;
+
 
 #ifdef ENABLE_CGROUPS
 	int                cgroups_needed = FALSE;
@@ -472,11 +474,11 @@ job_process_spawn (Job          *job,
 
 	if (cgroups_needed) {
 		if (! cgroup_support_enabled ())
-			nih_return_error (-1, CGROUP_ERROR, _("CGroup support not available"));
+			nih_return_error (-1, CGROUP_ERROR, _("cgroup support not available"));
 
 		/* Should not ever happen */
-		if (! cgroup_manager_connected ())
-			nih_return_error (-1, CGROUP_ERROR, _("No Connection to CGroup manager"));
+		if (! cgroup_manager_available ())
+			nih_return_error (-1, CGROUP_ERROR, _("cgroup manager not available"));
 	}
 
 #endif
@@ -491,8 +493,6 @@ job_process_spawn (Job          *job,
 			class->console = CONSOLE_NONE;
 
 	if (class->console == CONSOLE_LOG) {
-		NihError *err;
-
 		/* Ensure log destroyed for previous matching job process
 		 * (occurs when job restarted but previous process has not
 		 * yet been reaped).
@@ -698,8 +698,6 @@ job_process_spawn (Job          *job,
 	 */
 	if (system_setup_console (class->console, FALSE) < 0) {
 		if (class->console == CONSOLE_OUTPUT) {
-			NihError *err;
-
 			err = nih_error_get ();
 			nih_warn (_("Failed to open system console: %s"),
 				  err->message);
@@ -932,12 +930,21 @@ job_process_spawn (Job          *job,
 			 */
 			close (fds[1]);
 
+			if (cgroup_manager_connect () < 0) {
+				err = nih_error_get ();
+
+				nih_error ("%s: %s",
+						_("Failed to connect to cgroup manager"),
+						err->message);
+				nih_free (err);
+
+				exit (255);
+			}
+
 			if (! cgroup_setup (&job->class->cgroups,
 						env,
 						class->setuid ? job_setuid : geteuid (),
 						class->setgid ? job_setgid : getegid ())) {
-				NihError *err;
-
 				err = nih_error_get ();
 
 				nih_error ("%s: %s",
@@ -1011,8 +1018,6 @@ job_process_spawn (Job          *job,
 	 * ownership.
 	 */
 	if (cgroup_enter_groups (&job->class->cgroups) != TRUE) {
-		NihError *err;
-
 		err = nih_error_get ();
 
 		nih_error ("%s: %s",

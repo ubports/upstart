@@ -60,6 +60,10 @@ json_object *json_conf_sources = NULL;
 extern char *log_dir;
 extern char *control_bus_address;
 
+#ifdef ENABLE_CGROUPS
+extern char *cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
+
 /**
  * args_copy:
  *
@@ -348,6 +352,10 @@ state_to_string (char **json_string, size_t *len)
 	json_object  *json_control_bus_address;
 	const char   *value;
 
+#ifdef ENABLE_CGROUPS
+	json_object  *json_cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (json_string);
 	nih_assert (len);
 
@@ -385,6 +393,22 @@ state_to_string (char **json_string, size_t *len)
 	}
 
 	json_object_object_add (json, "control_bus_address", json_control_bus_address);
+
+#ifdef ENABLE_CGROUPS
+	json_cgroup_manager_address = cgroup_manager_serialise ();
+
+	/* Take care to distinguish between memory failure and an
+	 * as-yet-not-set cgroup manager address.
+	 */
+	if (! json_cgroup_manager_address && cgroup_manager_address) {
+		nih_error ("%s %s",
+				_("Failed to serialise"),
+			       _("cgroup manager address"));
+		goto error;
+	}
+
+	json_object_object_add (json, "cgroup_manager_address", json_cgroup_manager_address);
+#endif /* ENABLE_CGROUPS */
 
 	json_job_environ = job_class_serialise_job_environ ();
 
@@ -450,6 +474,10 @@ state_from_string (const char *state)
 	json_object              *json_control_bus_address;
 	enum json_tokener_error   error;
 
+#ifdef ENABLE_CGROUPS
+	json_object              *json_cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (state);
 
 	/* This function is called before conf_source_new (), so setup
@@ -492,6 +520,21 @@ state_from_string (const char *state)
 		 */
 		nih_warn ("%s", _("No control details present in state data"));
 	}
+
+#ifdef ENABLE_CGROUPS
+	ret = json_object_object_get_ex (json, "cgroup_manager_address", &json_cgroup_manager_address);
+
+	if (json_cgroup_manager_address) {
+		if (cgroup_manager_deserialise (json_cgroup_manager_address) < 0) {
+			nih_error ("%s %s",
+					_("Failed to deserialise"),
+					_("cgroup manager address"));
+			goto out;
+		}
+	} else if (! ret) {
+		nih_warn ("No %s in state data", _("cgroup manager address"));
+	}
+#endif /* ENABLE_CGROUPS */
 
 	/* Again, we cannot error here since older JSON state data did
 	 * not encode ConfSource or ConfFile objects.

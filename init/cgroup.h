@@ -188,10 +188,13 @@ CGroupSetting *cgroup_setting_new (void *parent,
 CGroup *cgroup_new (void *parent, const char *controller)
 	__attribute__ ((warn_unused_result));
 
-int cgroup_manager_connect (const char *address)
+int cgroup_manager_set_address (const char *address)
 	__attribute__ ((warn_unused_result));
 
-int cgroup_manager_connected (void)
+int cgroup_manager_connect (void)
+	__attribute__ ((warn_unused_result));
+
+int cgroup_manager_available (void)
 	__attribute__ ((warn_unused_result));
 
 int cgroup_setup (NihList *cgroups, char * const *env,

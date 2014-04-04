@@ -66,7 +66,7 @@
 #include <json.h>
 
 /* FIXME */
-#if 1
+#if 0
 #include "early_assert-2.c"
 #endif
 
@@ -124,7 +124,7 @@ job_class_init (void)
 		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
 
 	/* FIXME */
-#if 1
+#if 0
 	nih_log_set_logger (nih_logger_james2);
 #endif
 }
@@ -1060,10 +1060,10 @@ job_class_start (JobClass        *class,
 	/* Job has specified a cgroup stanza but since the cgroup
 	 * manager has not yet been contacted, the job cannot be started.
 	 */
-	if (job_class_cgroups (class) && ! cgroup_manager_connected ()) {
+	if (job_class_cgroups (class) && ! cgroup_manager_available ()) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
-			_("Job cannot be started as CGroup Manager not available: %s"),
+			_("Job cannot be started as cgroup manager not available: %s"),
 			class->name);
 		return -1;
 	}

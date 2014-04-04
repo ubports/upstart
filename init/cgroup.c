@@ -55,7 +55,7 @@
 #include <cgmanager/cgmanager-client.h>
 
 /* FIXME */
-#if 1
+#if 0
 #include "early_assert.c"
 #endif
 
@@ -69,14 +69,18 @@ int disable_cgroups = FALSE;
 /**
  * cgroup_manager_address:
  *
- * Address on which the CGroup Manager may be reached.
+ * Address on which the cgroup manager may be reached. Set by 'initctl
+ * notify-cgroup-manager-address' which should be called once the cgroup
+ * manager is running.
  **/
 char *cgroup_manager_address = NULL;
 
 /**
  * cgroup_manager:
  *
- * Proxy to the CGroup Manager.
+ * Proxy to the cgroup manager.
+ *
+ * Note: Only used by child processes.
  **/
 NihDBusProxy *cgroup_manager = NULL;
 
@@ -128,7 +132,7 @@ cgroup_new (void *parent, const char *controller)
 	CGroup *cgroup;
 
 	/* FIXME */
-#if 1
+#if 0
 	static int done = 0;
 	if (! done) {
 		nih_log_set_logger (nih_logger_james);
@@ -366,10 +370,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	if (! cgroup_support_enabled ())
 		return TRUE;
 
-#if 0
-	if (! cgroup_manager_connected ())
-		return TRUE;
-#endif
+	nih_assert (cgroup_manager_available ());
 
 	if (NIH_LIST_EMPTY (cgroups))
 		return TRUE;
@@ -895,26 +896,26 @@ error:
 }
 
 /**
- * cgroup_manager_connected:
+ * cgroup_manager_available:
  *
- * Determine if already connected to the CGroup Manager.
+ * Determine if the cgroup manager is running.
  *
- * Returns: TRUE if connected, else FALSE.
+ * Returns: TRUE on success, else FALSE.
  **/
 int
-cgroup_manager_connected (void)
+cgroup_manager_available (void)
 {
-	return !! cgroup_manager;
+	return !! cgroup_manager_address;
 }
 
 /**
  * cgroup_manager_serialise:
  *
- * Convert CGroup manager address into a JSON representation for
+ * Convert cgroup manager address into a JSON representation for
  * serialisation. Caller must free returned value using
  * json_object_put().
  *
- * Returns: JSON-serialised CGroup Manager object, or NULL on error.
+ * Returns: JSON-serialised cgroup manager object, or NULL on error.
  **/
 json_object *
 cgroup_manager_serialise (void)
@@ -949,8 +950,6 @@ cgroup_manager_deserialise (json_object *json)
 {
 	nih_assert (json);
 
-	nih_assert (! cgroup_manager);
-
 	if (! state_get_json_string_var (json,"cgroup_manager_address",
 				NULL, cgroup_manager_address))
 		return -1;
@@ -959,27 +958,39 @@ cgroup_manager_deserialise (json_object *json)
 }
 
 /**
+ * cgroup_manager_set_address:
+ *
+ * @address: cgroup manager address.
+ *
+ * Save the address to contact the cgroup manager on.
+ *
+ * Returns: TRUE on success, else FALSE.
+ **/
+int
+cgroup_manager_set_address (const char *address)
+{
+	nih_assert (address);
+
+	cgroup_manager_address = nih_strdup (NULL, address);
+
+	return cgroup_manager_address ? TRUE : FALSE;
+}
+
+/**
  * cgroup_manager_connect:
  *
- * @address: Address of CGroup Manager.
- *
- * Connect to the CGroup Manager.
+ * Connect to the cgroup manager.
  *
  * Returns: zero on success, negative value on raised error.
  **/
 int
-cgroup_manager_connect (const char *address)
+cgroup_manager_connect (void)
 {
 	DBusConnection  *connection;
 	DBusError        dbus_error;
-	//int              fd;
 
-	nih_assert (address);
-
-	if (cgroup_manager)
-		return 0;
-
-	cgroup_manager_address = NIH_MUST (nih_strdup (NULL, address));
+	nih_assert (cgroup_manager_address);
+	nih_assert (! cgroup_manager);
 
 	dbus_error_init (&dbus_error);
 
@@ -1016,7 +1027,7 @@ cgroup_manager_connect (const char *address)
 /**
  * cgroup_manager_disconnected:
  *
- * This function is called when the connection to the CGroup manager
+ * This function is called when the connection to the cgroup manager
  * is dropped and our reference is about to be lost.
  **/
 static void
@@ -1025,7 +1036,7 @@ cgroup_manager_disconnected (DBusConnection *connection)
 	nih_assert (connection);
 	nih_assert (cgroup_manager_address);
 
-	nih_warn (_("Disconnected from CGroup manager"));
+	nih_warn (_("Disconnected from cgroup manager"));
 
 	cgroup_manager = NULL;
 	nih_free (cgroup_manager_address);
@@ -1039,7 +1050,7 @@ cgroup_manager_lost_handler (void *data, NihDBusProxy *proxy)
 {
 	nih_assert (proxy);
 
-	nih_warn (_("Lost track of CGroup manager"));
+	nih_warn (_("Lost track of cgroup manager"));
 }
 
 static void
@@ -1058,9 +1069,9 @@ cgroup_manager_error_handler (void *data, NihDBusMessage *message)
  * @controller: cgroup controller,
  * @path: relative cgroup path to create.
  *
- * Request the CGroup Manager create a cgroup.
+ * Request the cgroup manager create a cgroup.
  *
- * The CGroup Manager creates cgroups as:
+ * The cgroup manager creates cgroups as:
  *
  *   "/sys/fs/cgroup/$controller/$name".
  *
@@ -1092,24 +1103,6 @@ cgroup_create (const char *controller, const char *path)
 	nih_message ("XXX:%s:%d: controller='%s', path='%s'",
 			__func__, __LINE__,
 			controller, path);
-
-	/* FIXME: reconnect */
-#if 1
-	{
-		nih_local char *saved = NULL;
-		int ret;
-
-		saved = NIH_MUST (nih_strdup (NULL, cgroup_manager_address));
-
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-		nih_free (cgroup_manager);
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-		cgroup_manager = NULL;
-	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
-		ret = cgroup_manager_connect (saved);
-	nih_message ("XXX:%s:%d:cgroup_manager_connect returned %d", __func__, __LINE__, ret);fflush(NULL);
-	}
-#endif
 
 	nih_message ("XXX:%s:%d:", __func__, __LINE__);fflush(NULL);
 
@@ -1143,7 +1136,7 @@ cgroup_create (const char *controller, const char *path)
 	nih_debug ("Created '%s' controller cgroup '%s'",
 			controller, path);
 
-	/* Get the CGroup manager to delete the cgroup once no more job
+	/* Get the cgroup manager to delete the cgroup once no more job
 	 * processes remain in it. Never mind if auto-deletion occurs between
 	 * a jobs processes since the group will be recreated anyway by
 	 * cgroup_create().
@@ -1600,7 +1593,7 @@ cgroup_expand_paths (void           *parent,
 
 #if 0
 			/* Record the "full" (strictly still a relative suffix
-			 * from the CGroup Managers perspective) path in the
+			 * from the cgroup managers perspective) path in the
 			 * global table.
 			 */
 			if (! cgroup_path_new (NULL, cgroup->controller, cgroup_path))

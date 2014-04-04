@@ -374,7 +374,7 @@ event_pending_handle_jobs (Event *event)
 		 */
 
 		if (class->start_on && job_class_cgroups (class)) {
-			if (cgroup_manager_connected ()) {
+			if (cgroup_manager_available ()) {
 
 				if (class->cgmanager_wait) {
 					/* Unref the events that were ref'ed
@@ -385,7 +385,7 @@ event_pending_handle_jobs (Event *event)
 					class->cgmanager_wait = FALSE;
 				}
 			} else {
-				nih_debug ("Cannot start job %s until CGroup Manager available", class->name);
+				nih_debug ("Cannot start job %s until cgroup manager available", class->name);
 
 				/* Reference the event to stop it being destroyed since it will
 				 * be required by the job once the cgroup manager eventually
