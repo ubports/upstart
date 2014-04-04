@@ -440,7 +440,7 @@ job_change_state (Job      *job,
 			job->blocker = job_emit_event (job);
 
 			break;
-		case JOB_SECURITY:
+		case JOB_SECURITY_SETUP:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
@@ -451,12 +451,24 @@ job_change_state (Job      *job,
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
 				}
+
+				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
+					break;
+				}
 			} else {
 				state = job_next_state (job);
 			}
 
 			break;
-		case JOB_PRE_START:
+
+		case JOB_SECURITY:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SECURITY_SETUP);
+
+			state = job_next_state (job);
+			break;
+		case JOB_PRE_START_SETUP:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SECURITY);
 
@@ -466,10 +478,21 @@ job_change_state (Job      *job,
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
 				}
+
+				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
+					break;
+				}
 			} else {
 				state = job_next_state (job);
 			}
 
+			break;
+		case JOB_PRE_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_PRE_START_SETUP);
+
+			state = job_next_state (job);
 			break;
 		case JOB_SETUP:
 			nih_assert (job->goal == JOB_START);
@@ -483,6 +506,7 @@ job_change_state (Job      *job,
 				}
 			       
 				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
 					break;
 				} else if (job->class->expect == EXPECT_NONE) {
 					state = job_next_state (job);
@@ -497,17 +521,28 @@ job_change_state (Job      *job,
 
 			state = job_next_state (job);
 			break;
-		case JOB_POST_START:
+		case JOB_POST_START_SETUP:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
 				if (job_process_run (job, PROCESS_POST_START) < 0)
 					state = job_next_state (job);
+
+				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
+					break;
+				}
 			} else {
 				state = job_next_state (job);
 			}
 
+			break;
+		case JOB_POST_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_POST_START_SETUP);
+
+			state = job_next_state (job);
 			break;
 		case JOB_RUNNING:
 			nih_assert (job->goal == JOB_START);
@@ -534,27 +569,42 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_PRE_STOP:
+		case JOB_PRE_STOP_SETUP:
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_RUNNING);
 
 			if (job->class->process[PROCESS_PRE_STOP]) {
 				if (job_process_run (job, PROCESS_PRE_STOP) < 0)
 					state = job_next_state (job);
+
+				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
+					break;
+				}
 			} else {
 				state = job_next_state (job);
 			}
 
 			break;
+		case JOB_PRE_STOP:
+			nih_assert (job->goal == JOB_STOP);
+			nih_assert (old_state == JOB_PRE_STOP_SETUP);
+
+			state = job_next_state (job);
+			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_PRE_START_SETUP)
 				    || (old_state == JOB_PRE_START)
+				    || (old_state == JOB_SECURITY_SETUP)
 				    || (old_state == JOB_SECURITY)
+				    || (old_state == JOB_SETUP)
 				    || (old_state == JOB_SPAWNED)
+				    || (old_state == JOB_POST_START_SETUP)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
-				    || (old_state == JOB_PRE_STOP)
-				    || (old_state == JOB_SETUP));
+				    || (old_state == JOB_PRE_STOP_SETUP)
+				    || (old_state == JOB_PRE_STOP));
 
 			job->blocker = job_emit_event (job);
 
@@ -570,7 +620,7 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_POST_STOP:
+		case JOB_POST_STOP_SETUP:
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->class->process[PROCESS_POST_STOP]) {
@@ -579,10 +629,19 @@ job_change_state (Job      *job,
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
 				}
+
+				if (job_needs_cgroups (job)) {
+					/* Wait for SIGSTOP before progressing state */
+					break;
+				}
 			} else {
 				state = job_next_state (job);
 			}
 
+			break;
+		case JOB_POST_STOP:
+			nih_assert (old_state == JOB_POST_STOP_SETUP);
+			state = job_next_state (job);
 			break;
 		case JOB_WAITING:
 			nih_assert (job->goal == JOB_STOP);
@@ -670,11 +729,29 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
+			return JOB_SECURITY_SETUP;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SECURITY_SETUP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
 			return JOB_SECURITY;
 		default:
 			nih_assert_not_reached ();
 		}
 	case JOB_SECURITY:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_PRE_START_SETUP;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_PRE_START_SETUP:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -706,7 +783,19 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
+			return JOB_POST_START_SETUP;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_POST_START_SETUP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
 			return JOB_POST_START;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
+			return JOB_STOPPING;
 		default:
 			nih_assert_not_reached ();
 		}
@@ -727,11 +816,23 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
-				return JOB_PRE_STOP;
+				return JOB_PRE_STOP_SETUP;
 			} else {
 				return JOB_STOPPING;
 			}
 		case JOB_START:
+			return JOB_STOPPING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_PRE_STOP_SETUP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_PRE_STOP;
+		case JOB_RESPAWN:
+			job_change_goal (job, JOB_START);
 			return JOB_STOPPING;
 		default:
 			nih_assert_not_reached ();
@@ -760,7 +861,16 @@ job_next_state (Job *job)
 	case JOB_KILLED:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_POST_STOP;
+			return JOB_POST_STOP_SETUP;
+		case JOB_START:
+			return JOB_POST_STOP_SETUP;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_POST_STOP_SETUP:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_WAITING;
 		case JOB_START:
 			return JOB_POST_STOP;
 		default:
@@ -1162,24 +1272,34 @@ job_state_name (JobState state)
 		return N_("waiting");
 	case JOB_STARTING:
 		return N_("starting");
+	case JOB_SECURITY_SETUP:
+		return N_("security-setup");
 	case JOB_SECURITY:
 		return N_("security");
+	case JOB_PRE_START_SETUP:
+		return N_("pre-start-setup");
 	case JOB_PRE_START:
 		return N_("pre-start");
 	case JOB_SETUP:
 		return N_("setup");
 	case JOB_SPAWNED:
 		return N_("spawned");
+	case JOB_POST_START_SETUP:
+		return N_("post-start-setup");
 	case JOB_POST_START:
 		return N_("post-start");
 	case JOB_RUNNING:
 		return N_("running");
+	case JOB_PRE_STOP_SETUP:
+		return N_("pre-stop-setup");
 	case JOB_PRE_STOP:
 		return N_("pre-stop");
 	case JOB_STOPPING:
 		return N_("stopping");
 	case JOB_KILLED:
 		return N_("killed");
+	case JOB_POST_STOP_SETUP:
+		return N_("post-stop-setup");
 	case JOB_POST_STOP:
 		return N_("post-stop");
 	default:
@@ -1204,22 +1324,34 @@ job_state_from_name (const char *state)
 		return JOB_WAITING;
 	} else if (! strcmp (state, "starting")) {
 		return JOB_STARTING;
+	} else if (! strcmp (state, "security-setup")) {
+		return JOB_SECURITY_SETUP;
 	} else if (! strcmp (state, "security")) {
 		return JOB_SECURITY;
+	} else if (! strcmp (state, "pre-start-setup")) {
+		return JOB_PRE_START_SETUP;
 	} else if (! strcmp (state, "pre-start")) {
 		return JOB_PRE_START;
+	} else if (! strcmp (state, "setup")) {
+		return JOB_SETUP;
 	} else if (! strcmp (state, "spawned")) {
 		return JOB_SPAWNED;
+	} else if (! strcmp (state, "post-start-setup")) {
+		return JOB_POST_START_SETUP;
 	} else if (! strcmp (state, "post-start")) {
 		return JOB_POST_START;
 	} else if (! strcmp (state, "running")) {
 		return JOB_RUNNING;
+	} else if (! strcmp (state, "pre-stop-setup")) {
+		return JOB_PRE_STOP_SETUP;
 	} else if (! strcmp (state, "pre-stop")) {
 		return JOB_PRE_STOP;
 	} else if (! strcmp (state, "stopping")) {
 		return JOB_STOPPING;
 	} else if (! strcmp (state, "killed")) {
 		return JOB_KILLED;
+	} else if (! strcmp (state, "post-stop-setup")) {
+		return JOB_POST_STOP_SETUP;
 	} else if (! strcmp (state, "post-stop")) {
 		return JOB_POST_STOP;
 	} else {
@@ -2256,13 +2388,19 @@ job_state_enum_to_str (JobState state)
 	state_enum_to_str (JOB_WAITING, state);
 	state_enum_to_str (JOB_STARTING, state);
 	state_enum_to_str (JOB_SECURITY, state);
+	state_enum_to_str (JOB_SECURITY_SETUP, state);
+	state_enum_to_str (JOB_PRE_START_SETUP, state);
 	state_enum_to_str (JOB_PRE_START, state);
+	state_enum_to_str (JOB_SETUP, state);
 	state_enum_to_str (JOB_SPAWNED, state);
+	state_enum_to_str (JOB_POST_START_SETUP, state);
 	state_enum_to_str (JOB_POST_START, state);
 	state_enum_to_str (JOB_RUNNING, state);
+	state_enum_to_str (JOB_PRE_STOP_SETUP, state);
 	state_enum_to_str (JOB_PRE_STOP, state);
 	state_enum_to_str (JOB_STOPPING, state);
 	state_enum_to_str (JOB_KILLED, state);
+	state_enum_to_str (JOB_POST_STOP_SETUP, state);
 	state_enum_to_str (JOB_POST_STOP, state);
 
 	return NULL;
@@ -2282,14 +2420,20 @@ job_state_str_to_enum (const char *state)
 {
 	state_str_to_enum (JOB_WAITING, state);
 	state_str_to_enum (JOB_STARTING, state);
+	state_str_to_enum (JOB_SECURITY_SETUP, state);
 	state_str_to_enum (JOB_SECURITY, state);
+	state_str_to_enum (JOB_PRE_START_SETUP, state);
 	state_str_to_enum (JOB_PRE_START, state);
+	state_str_to_enum (JOB_SETUP, state);
 	state_str_to_enum (JOB_SPAWNED, state);
+	state_str_to_enum (JOB_POST_START_SETUP, state);
 	state_str_to_enum (JOB_POST_START, state);
 	state_str_to_enum (JOB_RUNNING, state);
+	state_str_to_enum (JOB_PRE_STOP_SETUP, state);
 	state_str_to_enum (JOB_PRE_STOP, state);
 	state_str_to_enum (JOB_STOPPING, state);
 	state_str_to_enum (JOB_KILLED, state);
+	state_str_to_enum (JOB_POST_STOP_SETUP, state);
 	state_str_to_enum (JOB_POST_STOP, state);
 
 	return -1;

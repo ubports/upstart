@@ -305,6 +305,10 @@ event_pending_handle_jobs (Event *event)
 {
 	int  empty = TRUE;
 
+#ifdef ENABLE_CGROUPS
+	int  warn = FALSE;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (event != NULL);
 
 	job_class_init ();
@@ -388,7 +392,7 @@ event_pending_handle_jobs (Event *event)
 					class->cgmanager_wait = FALSE;
 				}
 			} else {
-				nih_debug ("Cannot start job %s until cgroup manager available", class->name);
+				warn = TRUE;
 
 				/* Reference the event to stop it being destroyed since it will
 				 * be required by the job once the cgroup manager eventually
@@ -474,6 +478,9 @@ event_pending_handle_jobs (Event *event)
 			event_operator_reset (class->start_on);
 		}
 	}
+
+	if (warn)
+		nih_debug ("Cannot start some jobs until cgroup manager available");
 
 	if (! quiesce_in_progress ())
 		return;

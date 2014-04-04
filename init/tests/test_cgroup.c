@@ -36,7 +36,6 @@ test_cgroup_new (void)
 
 	TEST_FUNCTION ("cgroup_new");
 
-	cgroup_init ();
 	parent = nih_strdup (NULL, "a parent object");
 	TEST_NE_P (parent, NULL);
 
@@ -99,7 +98,6 @@ test_cgroup_name_new (void)
 
 	TEST_FUNCTION ("cgroup_name_new");
 
-	cgroup_init ();
 	parent = nih_strdup (NULL, "a parent object");
 	TEST_NE_P (parent, NULL);
 
@@ -155,8 +153,6 @@ test_cgroup_setting_new (void)
 {
 	CGroupSetting   *setting;
 	nih_local char  *parent= NULL;
-
-	cgroup_init ();
 
 	parent = nih_strdup (NULL, "a parent object");
 	TEST_NE_P (parent, NULL);
@@ -246,75 +242,6 @@ test_cgroup_setting_new (void)
 	}
 }
 
-void
-test_path_new (void)
-{
-	char           *path = "foo/bar";
-	CGroupPath     *cgpath;
-	nih_local char *parent= NULL;
-
-	TEST_FUNCTION ("cgroup_path_new");
-
-	cgroup_init ();
-
-	parent = nih_strdup (NULL, "a parent object");
-	TEST_NE_P (parent, NULL);
-
-	TEST_FEATURE ("no parent, path");
-
-	TEST_ALLOC_FAIL {
-		TEST_HASH_EMPTY (cgroup_paths);
-
-		cgpath = cgroup_path_new (NULL, path);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (cgpath, NULL);
-			continue;
-		}
-
-		TEST_NE_P (cgpath, NULL);
-
-		TEST_ALLOC_SIZE (cgpath, sizeof (CGroupPath));
-
-		TEST_ALLOC_PARENT (cgpath, NULL);
-		TEST_EQ_STR (cgpath->path, path);
-		TEST_ALLOC_SIZE (cgpath->path, 1+strlen (path));
-		TEST_ALLOC_PARENT (cgpath->path, cgpath);
-		TEST_EQ (cgpath->blockers, 1);
-
-		TEST_HASH_NOT_EMPTY (cgroup_paths);
-
-		nih_free (cgpath);
-	}
-
-	TEST_FEATURE ("parent and path");
-
-	TEST_ALLOC_FAIL {
-		TEST_HASH_EMPTY (cgroup_paths);
-
-		cgpath = cgroup_path_new (parent, path);
-
-		if (test_alloc_failed) {
-			TEST_EQ_P (cgpath, NULL);
-			continue;
-		}
-
-		TEST_NE_P (cgpath, NULL);
-
-		TEST_ALLOC_SIZE (cgpath, sizeof (CGroupPath));
-
-		TEST_ALLOC_PARENT (cgpath, parent);
-		TEST_EQ_STR (cgpath->path, path);
-		TEST_ALLOC_SIZE (cgpath->path, 1+strlen (path));
-		TEST_ALLOC_PARENT (cgpath->path, cgpath);
-		TEST_EQ (cgpath->blockers, 1);
-
-		TEST_HASH_NOT_EMPTY (cgroup_paths);
-
-		nih_free (cgpath);
-	}
-}
-
 int
 main (int   argc,
       char *argv[])
@@ -322,7 +249,6 @@ main (int   argc,
 	test_cgroup_new ();
 	test_cgroup_name_new ();
 	test_cgroup_setting_new ();
-	test_path_new ();
 
 	return 0;
 }

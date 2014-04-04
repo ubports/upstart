@@ -1967,22 +1967,43 @@ static void
 job_process_stopped (Job         *job,
 		     ProcessType  process)
 {
+	int setup;
+
 	nih_assert (job != NULL);
 
+	switch (job->state) {
+	case JOB_SECURITY_SETUP:
+	case JOB_PRE_START_SETUP:
+	case JOB_SETUP:
+	case JOB_POST_START_SETUP:
+	case JOB_PRE_STOP_SETUP:
+	case JOB_POST_STOP_SETUP:
+		setup = TRUE;
+		break;
+	default:
+		setup = FALSE;
+		break;
+	}
+
 	/* Any process can stop on a signal, but we only care about the
-	 * main process when the state is still spawned.
+	 * main process when the state is still spawned and any jobs
+	 * which require (cgroup) setup.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED && job->state != JOB_SETUP))
+	if (! ((process == PROCESS_MAIN && job->state == JOB_SPAWNED) || setup))
 		return;
 
-	/* Send SIGCONT back and change the state to the next one, if this
-	 * job behaves that way.
+	/* Send SIGCONT back and change the state to the next one for
+	 * 'expect stop' jobs and those that require cgroup setup.
 	 */
-	if (job->class->expect == EXPECT_STOP || (job->state == JOB_SETUP && job_needs_cgroups (job))) {
+	if (job->class->expect == EXPECT_STOP || (job_needs_cgroups (job) && setup)) {
 		kill (job->pid[process], SIGCONT);
 
-		if (! job_needs_cgroups (job) || job->class->expect == EXPECT_NONE)
+		if (! job_needs_cgroups (job) || job->class->expect == EXPECT_NONE) {
+			/* cgroup setup was successful, so move the
+			 * state along.
+			 */
 			job_change_state (job, job_next_state (job));
+		}
 	}
 }
 
