@@ -1006,7 +1006,7 @@ job_process_spawn (Job          *job,
 	 * the process is running with the correct group and user
 	 * ownership.
 	 */
-	if (cgroup_enter_groups (&job->class->cgroups) != TRUE) {
+	if (cgroups_needed && cgroup_enter_groups (&job->class->cgroups) != TRUE) {
 		err = nih_error_get ();
 
 		nih_error ("%s: %s",
