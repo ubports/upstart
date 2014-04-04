@@ -21,7 +21,6 @@ CLEANFILES = \
 EXTRA_DIST = \
 	$(install_scripts) \
 	pyupstart.py \
-	pyupstartvars.py \
 	tests/__init__.py \
 	tests/test_pyupstart_session_init.py \
 	tests/test_pyupstart_system_init.py
