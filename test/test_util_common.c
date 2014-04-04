@@ -48,6 +48,9 @@
 
 #include "dbus/upstart.h"
 
+#include <nih-dbus/dbus_connection.h>
+#include <cgmanager/cgmanager-client.h>
+
 #include "test_util_common.h"
 
 #ifndef UPSTART_BINARY
@@ -1224,4 +1227,97 @@ test_tree_count (NihTree *tree)
 	ret = test_tree_foreach (tree, &len, NULL, NULL);
 
 	return (ret == -1 ? 0 : len);
+}
+
+static NihDBusProxy *cgroup_manager;
+#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
+/*
+ * connect_to_cgmanager:
+ *
+ * Returns -2 if cgmanager is not running, -1 on other error,
+ * and 0 on success
+ */
+int
+connect_to_cgmanager(void)
+{
+	DBusError dbus_error;
+	static DBusConnection *connection;
+
+	dbus_error_init(&dbus_error);
+
+	connection = dbus_connection_open_private(CGMANAGER_DBUS_SOCK, &dbus_error);
+	if (!connection) {
+		nih_error("Failed opening dbus connection: %s: %s",
+				dbus_error.name, dbus_error.message);
+		dbus_error_free(&dbus_error);
+		return -2;
+	}
+	if (nih_dbus_setup(connection, NULL) < 0) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Unable to open cgmanager connection at %s: %s", CGMANAGER_DBUS_SOCK,
+			nerr->message);
+		nih_free(nerr);
+		dbus_error_free(&dbus_error);
+		dbus_connection_unref(connection);
+		return -1;
+	}
+	dbus_connection_set_exit_on_disconnect(connection, FALSE);
+	dbus_error_free(&dbus_error);
+	cgroup_manager = nih_dbus_proxy_new(NULL, connection,
+				NULL /* p2p */,
+				"/org/linuxcontainers/cgmanager", NULL, NULL);
+	dbus_connection_unref(connection);
+	if (!cgroup_manager) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Error opening cgmanager proxy: %s", nerr->message);
+		nih_free(nerr);
+		return -1;
+	}
+
+	if (cgmanager_ping_sync(NULL, cgroup_manager, 0) != 0) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Error pinging cgroup manager: %s", nerr->message);
+		nih_free(nerr);
+		disconnect_cgmanager();
+		return -1;
+	}
+	return 0;
+}
+
+void
+disconnect_cgmanager(void)
+{
+       if (cgroup_manager) {
+	       dbus_connection_flush(cgroup_manager->connection);
+	       dbus_connection_close(cgroup_manager->connection);
+               nih_free(cgroup_manager);
+       }
+       cgroup_manager = NULL;
+}
+
+/*
+ * get_pid_cgroup:
+ *
+ * @controller: cgroup controller to query
+ * @pid: pid whose cgroup to return
+ *
+ * The result must be nih_freed
+ */
+char *
+get_pid_cgroup(const char *controller, pid_t pid)
+{
+	char *str;
+	if (cgmanager_get_pid_cgroup_sync(NULL, cgroup_manager,
+				controller, pid, &str) != 0) {
+		
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("call to cgmanager_set_value_sync failed: %s", nerr->message);
+		nih_free(nerr);
+		return NULL;
+	}
+	return str;
 }

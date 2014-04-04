@@ -72,6 +72,19 @@ check_for_overlayfs (void)
 	return found;
 }
 
+void print_my_cgroup(void)
+{
+	char *str;
+	str = get_pid_cgroup("freezer", getpid());
+	if (str) {
+		nih_warn("I am in freezer cgroup: %s", str);
+		TEST_EQ_STR(str, "/");
+		nih_free(str);
+	} else {
+		TEST_FAILED("Failed to get my freezer cgroup");
+	}
+}
+
 /**
  * test_checks:
  *
@@ -80,6 +93,8 @@ check_for_overlayfs (void)
 void
 test_checks (void)
 {
+	int ret;
+
 	TEST_GROUP ("test environment");
 
 	/*
@@ -93,6 +108,15 @@ test_checks (void)
 		nih_warn ("Found overlayfs mounts");
 		nih_warn ("This environment will probably cause tests to fail mysteriously!!");
 		nih_warn ("See bug LP:#882147 for further details.");
+	}
+
+	TEST_FEATURE ("checking for cgmanager");
+	ret = connect_to_cgmanager();
+	switch(ret) {
+	case -2: TEST_FAILED("Found no cgroup manager"); break;
+	case -1: TEST_FAILED("Error connecting to cgmanager"); break;
+	case 0: print_my_cgroup(); break;
+	default: TEST_FAILED("Unknown error from connect_to_cgmanager: %d", ret);
 	}
 }
 

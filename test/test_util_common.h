@@ -775,4 +775,7 @@ int test_tree_foreach (NihTree *tree, size_t *len,
 size_t test_tree_count (NihTree *tree)
 	__attribute__((warn_unused_result, unused));
 
+int connect_to_cgmanager(void);
+void disconnect_cgmanager(void);
+char *get_pid_cgroup(const char *controller, pid_t pid);
 #endif /* TEST_UTIL_COMMON_H */

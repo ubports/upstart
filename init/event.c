@@ -304,10 +304,7 @@ static void
 event_pending_handle_jobs (Event *event)
 {
 	int  empty = TRUE;
-
-#ifdef ENABLE_CGROUPS
 	int  warn = FALSE;
-#endif /* ENABLE_CGROUPS */
 
 	nih_assert (event != NULL);
 

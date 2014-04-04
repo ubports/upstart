@@ -10,6 +10,7 @@ AM_CFLAGS = \
 	$(DBUS_CFLAGS) \
 	$(JSON_CFLAGS) \
 	$(CGMANAGER_CFLAGS)
+AM_LIBADD = -lcgmanager $(NIH_LIBS) $(NIH_DBUS_LIBS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -465,6 +466,7 @@ test_xdg_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
+	-lcgmanager \
 	-lrt
 
 test_cgroup_SOURCES = tests/test_cgroup.c
