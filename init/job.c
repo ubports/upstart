@@ -278,6 +278,8 @@ job_change_goal (Job     *job,
 {
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
 	if (job->goal == goal)
 		return;
 
@@ -346,6 +348,9 @@ job_change_state (Job      *job,
 {
 	nih_assert (job != NULL);
 
+	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, new state=%s", __func__, __LINE__,
+			job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (state));
+
 	while (job->state != state) {
 		JobState old_state;
 		int      unused;
@@ -357,6 +362,9 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
+
+		nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, old state=%s", __func__, __LINE__,
+				job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (old_state));
 
 		NIH_LIST_FOREACH (control_conns, iter) {
 			NihListEntry   *entry = (NihListEntry *)iter;
@@ -664,6 +672,8 @@ JobState
 job_next_state (Job *job)
 {
 	nih_assert (job != NULL);
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	switch (job->state) {
 	case JOB_WAITING:
