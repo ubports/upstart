@@ -45,10 +45,12 @@
 #include "control.h"
 #include "errors.h"
 #include "quiesce.h"
-#include "cgroup.h"
 
 #include "com.ubuntu.Upstart.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 /* Prototypes for static functions */
 static void event_pending              (Event *event);
@@ -373,6 +375,7 @@ event_pending_handle_jobs (Event *event)
 		 * started.
 		 */
 
+#ifdef ENABLE_CGROUPS
 		if (class->start_on && job_class_cgroups (class)) {
 			if (cgroup_manager_available ()) {
 
@@ -399,6 +402,7 @@ event_pending_handle_jobs (Event *event)
 				continue;
 			}
 		}
+#endif /* ENABLE_CGROUPS */
 
 		/* Now we match the start events for the class to see
 		 * whether we need a new instance.

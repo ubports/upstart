@@ -388,15 +388,10 @@ ssize_t
 job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
 
+#ifdef ENABLE_CGROUPS
 int job_class_cgroups (JobClass *class)
 	__attribute__ ((warn_unused_result));
-
-/* FIXME */
-#if 0
-int job_class_add_cgroup (JobClass *class, const char *controller,
-		const char *name, const char *key, const char *value)
-	__attribute__ ((warn_unused_result));
-#endif
+#endif /* ENABLE_CGROUPS */
 
 NIH_END_EXTERN
 

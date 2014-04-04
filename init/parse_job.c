@@ -1112,9 +1112,7 @@ parse_cgroup (JobClass        *class,
 	nih_assert (file);
 	nih_assert (pos);
 
-	/* FIXME:
-	 *
-	 * Note that if cgroups are *NOT* enabled, we still need to
+	/* XXX: Note that if cgroups are *NOT* enabled, we still need to
 	 * parse the cgroup stanzas tokens (to consume that input) - we
 	 * just don't add use those tokens to create a Cgroup object.
 	 */
@@ -1168,37 +1166,6 @@ parse_cgroup (JobClass        *class,
 
 	name = arg2;
 	nih_ref (name, arg2);
-
-	/* FIXME */
-#if 0
-	if (! nih_config_has_token (file, len, pos, lineno))
-		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
-				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-
-	name = nih_config_next_arg (NULL, file, len, pos, lineno);
-	if (! name)
-		return -1;
-
-	if (! nih_config_has_token (file, len, pos, lineno))
-		goto out;
-
-	/* key/value specified */
-	key = nih_config_next_arg (NULL, file, len, pos, lineno);
-	if (! key)
-		return -1;
-
-	if (! nih_config_has_token (file, len, pos, lineno)) {
-		/* If a key is specified, a value must also be
-		 * specified.
-		 */
-		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
-				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
-	}
-
-	value = nih_config_next_arg (NULL, file, len, pos, lineno);
-	if (! value)
-		return -1;
-#endif
 
 out:
 #ifdef ENABLE_CGROUPS

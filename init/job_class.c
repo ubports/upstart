@@ -1057,6 +1057,7 @@ job_class_start (JobClass        *class,
 		return -1;
 	}
 
+#ifdef ENABLE_CGROUPS
 	/* Job has specified a cgroup stanza but since the cgroup
 	 * manager has not yet been contacted, the job cannot be started.
 	 */
@@ -1067,6 +1068,7 @@ job_class_start (JobClass        *class,
 			class->name);
 		return -1;
 	}
+#endif /* ENABLE_CGROUPS */
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -2717,6 +2719,7 @@ job_class_get_index (const JobClass *class)
 	return -1;
 }
 
+#ifdef ENABLE_CGROUPS
 /**
  * job_class_cgroups:
  *
@@ -2738,3 +2741,4 @@ job_class_cgroups (JobClass *class)
 	return TRUE;
 
 }
+#endif /* ENABLE_CGROUPS */

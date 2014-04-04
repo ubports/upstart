@@ -952,13 +952,29 @@ cgroup_manager_serialise (void)
 int
 cgroup_manager_deserialise (json_object *json)
 {
+	const char  *address;
+
 	nih_assert (json);
 
-	if (! state_get_json_string_var (json,"cgroup_manager_address",
-				NULL, cgroup_manager_address))
-		return -1;
+	/* address was never set */
+	if (state_check_json_type (json, null))
+		return 0;
+
+	if (! state_check_json_type (json, string))
+		goto error;
+
+	address = json_object_get_string (json);
+	if (! address)
+		goto error;
+
+	cgroup_manager_address = nih_strdup (NULL, address);
+	if (! cgroup_manager_address)
+		goto error;
 
 	return 0;
+
+error:
+	return -1;
 }
 
 /**

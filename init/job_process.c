@@ -377,14 +377,6 @@ job_process_run (Job         *job,
 		nih_io_shutdown (io);
 	}
 
-	/* Jobs that do need cgroups will have their state progressed by
-	 * job_process_stopped().
-	 */
-#if 0
-	if (! job_needs_cgroups (job))
-		job_change_state (job, job_next_state (job));
-#endif
-
 	return 0;
 }
 
@@ -453,7 +445,7 @@ job_process_spawn (Job          *job,
 
 #ifdef ENABLE_CGROUPS
 	int                cgroups_needed = FALSE;
-#endif
+#endif /* ENABLE_CGROUPS */
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
@@ -477,7 +469,7 @@ job_process_spawn (Job          *job,
 			nih_return_error (-1, CGROUP_ERROR, _("cgroup manager not available"));
 	}
 
-#endif
+#endif /* ENABLE_CGROUPS */
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -1303,10 +1295,6 @@ job_process_error_read (int fd)
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to switch security profile: %s"),
 				  strerror (err->errnum)));
-		break;
-	case JOB_PROCESS_ERROR_CGROUP:
-		err->error.message = NIH_MUST (nih_sprintf (
-				  err, _("unable to create required cgroups")));
 		break;
 	default:
 		nih_assert_not_reached ();

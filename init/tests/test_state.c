@@ -59,6 +59,8 @@
 #error ERROR: TEST_DATA_DIR not defined
 #endif
 
+extern char *cgroup_manager_address;
+
 /* These functions are 'protected'.
  *
  * The test code needs access, but they cannot be public due to
@@ -162,6 +164,7 @@ void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
 void test_reload_signal_state (const char *path);
 void test_job_environ_upgrade (const char *path);
+void test_cgroup_state (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -172,9 +175,6 @@ int conf_source_diff (const ConfSource *a, const ConfSource *b, AlreadySeen seen
 	__attribute__ ((warn_unused_result));
 
 int conf_file_diff (const ConfFile *a, const ConfFile *b, AlreadySeen seen)
-	__attribute__ ((warn_unused_result));
-
-int cgroup_path_diff (const CGroupPath *a, const CGroupPath *b)
 	__attribute__ ((warn_unused_result));
 
 /**
@@ -211,6 +211,7 @@ TestDataFile test_data_files[] = {
 	{ "upstart-session-infinity.json", test_session_upgrade_stale },
 	{ "upstart-1.9.json", test_reload_signal_state },
 	{ "upstart-1.11.json", test_job_environ_upgrade },
+	{ "upstart-1.13.json", test_cgroup_state },
 
 	{ NULL, NULL }
 };
@@ -978,36 +979,6 @@ conf_file_diff (const ConfFile *a, const ConfFile *b, AlreadySeen seen)
 		goto fail;
 
 	if (job_class_diff (a->job, b->job, seen, TRUE))
-		goto fail;
-
-	return 0;
-
-fail:
-	return 1;
-}
-
-/**
- * cgroup_path_diff:
- * @a: first CGroupPath,
- * @b: second CGroupPath.
- *
- * Compare two CGroupPath objects for equivalence.
- *
- * Returns: 0 if @a and @b are identical, else 1.
- **/
-int
-cgroup_path_diff (const CGroupPath *a, const CGroupPath *b)
-{
-	if ((a == b) && !a)
-		return 0;
-
-	if (!a || !b)
-		fail;
-
-	if (obj_string_check (a, b, path))
-		goto fail;
-
-	if (obj_num_check (a, b, blockers))
 		goto fail;
 
 	return 0;
@@ -4567,6 +4538,87 @@ test_job_environ_upgrade (const char *path)
 
 	/* Recreate state from JSON data file */
 	assert0 (state_from_string (json_string));
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_cgroup_state:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart can deserialise both cgroup stanzas and the cgroup
+ * manager address.
+ **/
+void
+test_cgroup_state (const char *path)
+{
+	nih_local char   *cgroup_address = NULL;
+	const char       *address;
+	nih_local char   *json_string = NULL;
+	json_object      *json = NULL;
+	json_object      *json_value = NULL;
+	struct stat       statbuf;
+	size_t            len;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+	cgroup_manager_address = NULL;
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_object_from_file (path);
+	TEST_NE_P (json, NULL);
+
+	/* Ensure it's there */
+	TEST_TRUE (json_object_object_get_ex (json, "cgroup_manager_address", &json_value));
+
+	address = json_object_get_string (json_value);
+	TEST_NE_P (address, NULL);
+	cgroup_address = NIH_MUST (nih_strdup (NULL, address));
+
+	/* free the JSON */
+	json_object_put (json);
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (json_string));
+
+	TEST_NE_P (cgroup_manager_address, NULL);
+	TEST_EQ_STR (cgroup_manager_address, cgroup_address);
 
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_NOT_EMPTY (events);

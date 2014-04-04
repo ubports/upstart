@@ -60,9 +60,12 @@
 #include "events.h"
 #include "paths.h"
 #include "xdg.h"
-#include "cgroup.h"
 
 #include "com.ubuntu.Upstart.h"
+
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 /* Prototypes for static functions */
 static int   control_server_connect      (DBusServer *server, DBusConnection *conn);
@@ -975,7 +978,6 @@ control_notify_dbus_address (void            *data,
 	return 0;
 }
 
-/* FIXME: remove */
 /**
  * control_notify_cgroup_manager_address:
  * @data: not used,
