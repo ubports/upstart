@@ -238,6 +238,9 @@ Job *       job_find            (const Session *session,
 int job_needs_cgroups (const Job *job)
 	__attribute__ ((warn_unused_result));
 
+int job_in_setup_state (const Job *job)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

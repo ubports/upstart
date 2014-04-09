@@ -364,6 +364,7 @@ event_pending_handle_jobs (Event *event)
 						job->stop_on,
 						job, &job->blocking);
 
+					nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 					job_change_goal (job, JOB_STOP);
 				}
 
@@ -472,6 +473,7 @@ event_pending_handle_jobs (Event *event)
 				event_operator_events (job->class->start_on,
 						       job, &job->blocking);
 
+				nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 				job_change_goal (job, JOB_START);
 			}
 
@@ -530,6 +532,8 @@ event_finished (Event *event)
 			 * next state.
 			 */
 			blocked->job->blocker = NULL;
+			nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, new state=%s", __func__, __LINE__,
+					job_name (blocked->job), job_goal_name (blocked->job->goal), job_state_name (blocked->job->state), job_state_name (job_next_state (blocked->job)));
 			job_change_state (blocked->job,
 					  job_next_state (blocked->job));
 

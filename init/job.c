@@ -2574,3 +2574,37 @@ job_needs_cgroups (const Job *job)
 #endif /* ENABLE_CGROUPS */
 
 }
+
+/**
+ * job_in_setup_state:
+ *
+ * @job: job.
+ *
+ * Determine if the specified job is in one of the "mezzanine" setup
+ * states.
+ *
+ * Returns: TRUE if @job is in a setup phase, else FALSE.
+ **/
+int
+job_in_setup_state (const Job *job)
+{
+	int  ret;
+
+	nih_assert (job);
+
+	switch (job->state) {
+	case JOB_SECURITY_SETUP:
+	case JOB_PRE_START_SETUP:
+	case JOB_SETUP:
+	case JOB_POST_START_SETUP:
+	case JOB_PRE_STOP_SETUP:
+	case JOB_POST_STOP_SETUP:
+		ret = TRUE;
+		break;
+	default:
+		ret = FALSE;
+		break;
+	}
+
+	return ret;
+}

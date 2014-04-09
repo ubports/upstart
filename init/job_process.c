@@ -947,12 +947,6 @@ job_process_spawn (Job          *job,
 				exit (255);
 			}
 
-			/* Signal to parent that the (final) setup phase
-			 * is complete.
-			 */
-			nih_message ("XXX:%s:%d: raising SIGSTOP to %s process %s pid %d (state=%s)", __func__, __LINE__,
-				job_name (job), process_name (process), getpid(), job_state_name (job->state));fflush (NULL);
-			raise (SIGSTOP);
 		}
 		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		
@@ -1033,6 +1027,17 @@ job_process_spawn (Job          *job,
 		}
 	}
 	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
+#ifdef ENABLE_CGROUPS
+	if (cgroups_needed) {
+			/* Signal to parent that the (final) setup phase
+			 * is complete.
+			 */
+			nih_message ("XXX:%s:%d: raising SIGSTOP to %s process %s pid %d (state=%s)", __func__, __LINE__,
+				job_name (job), process_name (process), getpid(), job_state_name (job->state));fflush (NULL);
+			raise (SIGSTOP);
+	}
+#endif /* ENABLE_CGROUPS */
 
 	/* Execute the process, if we escape from here it failed */
 	if (execvp (argv[0], argv) < 0) {
@@ -1410,6 +1415,7 @@ job_process_stop_all (void)
 			Job *job = (Job *)job_iter;
 
 			/* Request job instance stops */
+			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 			job_change_goal (job, JOB_STOP);
 		}
 	}
@@ -1787,16 +1793,27 @@ job_process_terminated (Job         *job,
 					 * to remember to do it when that
 					 * finishes.
 					 */
-					if (! state)
+					if (! state) {
+						nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 						job_change_goal (job, JOB_RESPAWN);
+					}
 					break;
 				}
 			}
 		}
 
-		/* Otherwise whether it's failed or not, we should
-		 * stop the job now.
-		 */
+#if 0
+		if (job_needs_cgroups (job) && job_in_setup_state (job)) {
+			/* Don't stop cgroup jobs FIXME */
+			stop = FALSE;
+		} else {
+			/* Otherwise whether it's failed or not, we should
+			 * stop the job now.
+			 */
+			stop = TRUE;
+		}
+#endif
+
 		stop = TRUE;
 		break;
 	case PROCESS_SECURITY:
@@ -1940,12 +1957,14 @@ job_process_terminated (Job         *job,
 	if (stop) {
 		if (job->state == JOB_RUNNING)
 			state = FALSE;
-
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		job_change_goal (job, JOB_STOP);
 	}
 
-	if (state)
+	if (state) {
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		job_change_state (job, job_next_state (job));
+	}
 }
 
 /**
@@ -2008,22 +2027,11 @@ job_process_stopped (Job         *job,
 
 	nih_assert (job != NULL);
 
-	switch (job->state) {
-	case JOB_SECURITY_SETUP:
-	case JOB_PRE_START_SETUP:
-	case JOB_SETUP:
-	case JOB_POST_START_SETUP:
-	case JOB_PRE_STOP_SETUP:
-	case JOB_POST_STOP_SETUP:
-		setup = TRUE;
-		break;
-	default:
-		setup = FALSE;
-		break;
-	}
+	setup = job_in_setup_state (job);
 
-	nih_message ("XXX:%s:%d: job=%s, process=%s, pid %d (state=%s, goal=%s)", __func__, __LINE__,
-			job_name (job), process_name (process), job->pid[process], job_state_name (job->state), job_goal_name (job->goal));
+	nih_message ("XXX:%s:%d: job=%s, process=%s, pid %d (state=%s, goal=%s, setup=%d, expect=%s)", __func__, __LINE__,
+			job_name (job), process_name (process), job->pid[process], job_state_name (job->state), job_goal_name (job->goal),
+			setup, job_class_expect_type_enum_to_str (job->class->expect));
 
 	/* Any process can stop on a signal, but we only care about the
 	 * main process when the state is still spawned and any jobs
@@ -2042,7 +2050,8 @@ job_process_stopped (Job         *job,
 		kill (job->pid[process], SIGCONT);
 	}
 
-	if (job->class->expect == EXPECT_STOP && process == PROCESS_MAIN && job->state == JOB_SPAWNED) {
+	if ((job->class->expect == EXPECT_STOP && process == PROCESS_MAIN && job->state == JOB_SPAWNED)
+			|| (job_needs_cgroups (job) && setup)) {
 		nih_message ("XXX:%s:%d: changing state for job %s process %s pid %d (state=%s)", __func__, __LINE__,
 				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 
