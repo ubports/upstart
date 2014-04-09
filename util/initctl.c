@@ -1033,20 +1033,28 @@ reload_action (NihCommand *  command,
 
 	job->auto_start = FALSE;
 
-	if (job_get_processes_sync (NULL, job, &processes) < 0)
-		goto error;
-
-	if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
-		nih_error (_("Not running"));
-		return 1;
-	}
-
 	if (job_reload_sync (NULL, job) < 0) {
 		/* well reload_sync call should always work...  unless we
 		 * didn't reboot since upgrade and pid1 is still old
 		 * upstart that does not have reload_sync call, fallback
 		 * to sending SIGHUP to main process
 		 */
+		err = nih_error_get ();
+		if (strcmp(((NihDBusError *)err)->name, DBUS_ERROR_UNKNOWN_METHOD)) {
+			nih_error ("%s", err->message);
+			nih_free (err);
+			return 1;
+		}
+		nih_free (err);
+
+		if (job_get_processes_sync (NULL, job, &processes) < 0)
+			goto error;
+
+		if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
+			nih_error (_("Not running"));
+			return 1;
+		}
+
 		if (kill (processes[0]->item1, SIGHUP) < 0) {
 			nih_error_raise_system ();
 			goto error;
