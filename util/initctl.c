@@ -1033,9 +1033,25 @@ reload_action (NihCommand *  command,
 
 	job->auto_start = FALSE;
 
-	if (job_reload_sync (NULL, job) < 0)
-	        goto error;
+	if (job_get_processes_sync (NULL, job, &processes) < 0)
+		goto error;
 
+	if ((! processes[0]) || strcmp (processes[0]->item0, "main")) {
+		nih_error (_("Not running"));
+		return 1;
+	}
+
+	if (job_reload_sync (NULL, job) < 0) {
+		/* well reload_sync call should always work...  unless we
+		 * didn't reboot since upgrade and pid1 is still old
+		 * upstart that does not have reload_sync call, fallback
+		 * to sending SIGHUP to main process
+		 */
+		if (kill (processes[0]->item1, SIGHUP) < 0) {
+			nih_error_raise_system ();
+			goto error;
+		}
+	}
 	return 0;
 
 error:
