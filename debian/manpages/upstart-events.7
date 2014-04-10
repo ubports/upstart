@@ -91,6 +91,7 @@ Ref@Event@Type@Emit@Time@Note
   @\fBpower\-\%status\-\%changed\fP(7)@S@I@> (5)@I
   @recovery@S@G@Boot (<5)@R
   @\fBremote\-\%filesystems\fP(7)@S@M@> (6)@
+  @rotate\-logs@H@R@hourly@Y
   @\fBrunlevel\fP(7)@M@T@> (7) + (8)@
   @\fBsocket\fP(7)@S@S@> socket connection@X
 5@\fBstartup\fP(7)@S@I@Boot@J
@@ -195,6 +196,7 @@ L@\fBupstart\-dbus\-bridge\fP(8)@See \fBdbus\-event\fP(7).
 M@\fBmountall\fP(8)@
 N@network\-interface job@
 O@\fBupstart\-dconf\-bridge\fP(8)@See \fBdconf\-event\fP(7).
+R@\fI/etc/cron.hourly/upstart\fP@See \fBcron\fP(8).
 S@\fBupstart\-socket\-bridge\fP(8)@See \fBsocket\-event\fP(7).
 T@\fBtelinit\fP(8), \fBshutdown\fP(8)@
 U@\fBupstart\-udev\-bridge\fP(8)@
@@ -290,6 +292,10 @@ Emitted by Session Init only since bridge not run as system job by
 default.
 T}
 X@See \fBsocket\-event\fP(7).
+Y@T{
+Used primary by Session Job
+\fI/usr/share/upstart/sessions/logrotate.conf\fP.
+T}
 .TE
 .po \n[old_po]
 .in \n[old_in]
