@@ -1,3 +1,10 @@
+2014-04-10  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c: log_file_open(): Restore umask after opening log file
+	  (LP: #1302117).
+	* util/tests/test_initctl.c: test_reexec(): New test:
+	  - "ensure re-exec does not disrupt umask". 
+
 2014-03-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.12.1
