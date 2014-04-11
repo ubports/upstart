@@ -1,4 +1,4 @@
-upstart (1.12.1-0ubuntu2) UNRELEASED; urgency=medium
+upstart (1.12.1-0ubuntu2) trusty; urgency=medium
 
   [ Steve Langasek ]
   * debian/conf/wait-for-state.conf: suppress stderr from 'grep -q
@@ -17,7 +17,7 @@ upstart (1.12.1-0ubuntu2) UNRELEASED; urgency=medium
     pid 1 during upgrades. (LP: #1303891)
   * Add a shebang to debian/upstart.cron.hourly
 
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 10 Apr 2014 08:55:00 +0100
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 11 Apr 2014 05:43:53 +0100
 
 upstart (1.12.1-0ubuntu1) trusty; urgency=medium
 
