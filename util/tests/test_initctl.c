@@ -9348,6 +9348,8 @@ test_reload_action (void)
 
 			kill (server_pid, SIGTERM);
 			waitpid (server_pid, NULL, 0);
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
 			continue;
 		}
 
