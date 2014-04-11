@@ -1,3 +1,12 @@
+upstart (1.12.1-0ubuntu3) UNRELEASED; urgency=medium
+
+  * Rotate user logs daily, not hourly; while we do need them rotated more
+    often than once per login in the case of long-lived sessions, once per
+    hour is far too frequent and will cause log data to be rotated off far
+    too quickly.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 11 Apr 2014 11:30:26 -0700
+
 upstart (1.12.1-0ubuntu2) trusty; urgency=medium
 
   [ Steve Langasek ]
