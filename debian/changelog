@@ -1,3 +1,11 @@
+upstart (1.12.1-0ubuntu4) UNRELEASED; urgency=medium
+
+  [ Adam Conrad ]
+  * Disable chroot sessions by default, add an option to enable chroot
+    sessions. (LP: #1277594)
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 11 Apr 2014 22:30:35 +0100
+
 upstart (1.12.1-0ubuntu3) trusty; urgency=medium
 
   [ Steve Langasek ]
