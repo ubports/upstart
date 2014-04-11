@@ -1,3 +1,4 @@
+#!/bin/sh
 # Emit an Upstart system event, that will propagate to the Session Inits
 # via the upstart-event-bridge(8), requesting that the Session Inits
 # rotate their logs.
