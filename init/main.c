@@ -130,7 +130,7 @@ static int disable_dbus = FALSE;
 
 extern int          no_inherit_env;
 extern int          user_mode;
-extern int          disable_sessions;
+extern int          chroot_sessions;
 extern int          disable_job_logging;
 extern int          use_session_bus;
 extern int          default_console;
@@ -164,8 +164,8 @@ static NihOption options[] = {
 	{ 0, "no-log", N_("disable job logging"),
 		NULL, NULL, &disable_job_logging, NULL },
 
-	{ 0, "no-sessions", N_("disable chroot sessions"),
-		NULL, NULL, &disable_sessions, NULL },
+	{ 0, "chroot-sessions", N_("enable chroot sessions"),
+		NULL, NULL, &chroot_sessions, NULL },
 
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
@@ -696,8 +696,8 @@ main (int   argc,
 		control_notify_restarted();
 	}
 
-	if (disable_sessions)
-		nih_debug ("Chroot Sessions disabled");
+	if (chroot_sessions)
+		nih_debug ("Chroot Sessions enabled");
 
 	/* Set us as the child subreaper.
 	 * This ensures that even when init doesn't run as PID 1, it'll always be

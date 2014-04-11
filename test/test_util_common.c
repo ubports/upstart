@@ -546,9 +546,6 @@ start_upstart_common (pid_t *pid, int user, int inherit_env,
 					"--session"));
 	}
 
-	NIH_MUST (nih_str_array_add (&args, NULL, NULL,
-				"--no-sessions"));
-
 	if (! inherit_env) {
 		NIH_MUST (nih_str_array_add (&args, NULL, NULL,
 					"--no-inherit-env"));
