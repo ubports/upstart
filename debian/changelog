@@ -1,4 +1,4 @@
-upstart (1.12.1-0ubuntu3) UNRELEASED; urgency=medium
+upstart (1.12.1-0ubuntu3) trusty; urgency=medium
 
   [ Steve Langasek ]
   * Rotate user logs daily, not hourly; while we do need them rotated more
@@ -10,7 +10,7 @@ upstart (1.12.1-0ubuntu3) UNRELEASED; urgency=medium
   * Clean-up stale child processes in the new initctl reload test case,
     thus resolving hanging buildds.
 
- -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 11 Apr 2014 11:30:26 -0700
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 11 Apr 2014 20:18:50 +0100
 
 upstart (1.12.1-0ubuntu2) trusty; urgency=medium
 
