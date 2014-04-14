@@ -8,4 +8,4 @@
 
 [ -x /sbin/initctl ] || exit 0
 
-initctl emit rotate-logs
+/sbin/initctl emit rotate-logs

@@ -253,6 +253,13 @@ Options are passed to
 by placing them on the kernel command-line.
 .\"
 .TP
+.B \-\-chroot-sessions
+Enable chroot session support. See
+.B Chroot Support
+in
+.BR init (5) "" "."
+.\"
+.TP
 .B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than the default
 (\fI/etc/init\fP for process ID 1).
@@ -298,7 +305,7 @@ for further details.
 .\"
 .TP
 .B \-\-no\-sessions
-Disable chroot sessions.
+Disable chroot sessions (default).
 .\"
 .TP
 .B \-\-no\-startup\-event
