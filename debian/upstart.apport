@@ -171,7 +171,9 @@ def add_info(report, ui):
     report['UpstartRunningSystemVersion'] = command_output(['initctl', '--system', 'version'])
 
     if category == 'System' or category == 'Unknown':
-        report['UpstartRunningSystemJobs'] = sorted(command_output(['initctl', '--system', 'list']))
+        ursysj = command_output(['initctl', '--system', 'list'])
+        report['UpstartRunningSystemJobs'] = \
+            '\n'.join(sorted(ursysj.split('\n')))
 
     session_count = 0
     if category == 'Session' or category == 'Unknown':
@@ -188,4 +190,6 @@ def add_info(report, ui):
 
     if os.environ.get('UPSTART_SESSION', None):
         report['UpstartRunningSessionVersion'] = command_output(['initctl', 'version'])
-        report['UpstartRunningSessionJobs'] = sorted(command_output(['initctl', 'list']))
+        ursesj = command_output(['initctl', 'list'])
+        report['UpstartRunningSessionJobs'] = \
+            '\n'.join(sorted(ursesj.split('\n')))
