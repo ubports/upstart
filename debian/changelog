@@ -3,8 +3,9 @@ upstart (1.12.1-0ubuntu5) UNRELEASED; urgency=medium
   * debian/manpages/upstart-events.7: Correction for 'rotate-logs'.
   * debian/upstart.cron.daily: Specify full path to initctl.
   * init/man/init.8: Add missing information on '--chroot-sessions'.
+  * debian/upstart.apport: Sort system and session jobs.
 
- -- James Hunt <james.hunt@ubuntu.com>  Mon, 14 Apr 2014 10:48:45 +0100
+ -- James Hunt <james.hunt@ubuntu.com>  Wed, 16 Apr 2014 17:43:36 +0100
 
 upstart (1.12.1-0ubuntu4) trusty; urgency=medium
 
