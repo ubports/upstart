@@ -481,8 +481,10 @@ event_pending_handle_jobs (Event *event)
 		}
 	}
 
+#ifdef ENABLE_CGROUPS
 	if (warn)
 		nih_debug ("Cannot start some jobs until cgroup manager available");
+#endif /* ENABLE_CGROUPS */
 
 	if (! quiesce_in_progress ())
 		return;

@@ -2,7 +2,7 @@
  *
  * cgroup.c - cgroup support.
  *
- * Copyright © 2013 Canonical Ltd.
+ * Copyright © 2013-2014 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -467,20 +467,26 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			if (! cgroup_create (cgroup->controller, cgpath))
 				return FALSE;
 
+			nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, cgroup->controller, cgpath);
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgpath,
 						&cgname->settings))
 				return FALSE;
+			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 			if ((uid == current_uid) && (gid == current_gid)) {
 				/* No need to chown */
 				continue;
 			}
 
+			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+
 			if (! cgroup_chown (cgroup->controller, cgpath, uid, gid))
 				return FALSE;
 		}
 	}
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	return TRUE;
 }
@@ -1404,10 +1410,15 @@ cgroup_settings_apply (const char  *controller,
 	nih_assert (settings);
 	nih_assert (cgroup_manager);
 
+	nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, controller, path);
+
 	NIH_LIST_FOREACH (settings, iter) {
 		nih_local char *setting_key = NULL;
 
 		CGroupSetting *setting = (CGroupSetting *)iter;
+
+		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s'",
+				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "");
 
 		/* setting files in a cgroup directory take the form "controller.key" */
 		setting_key = nih_sprintf (NULL, "%s.%s",
@@ -1415,12 +1426,16 @@ cgroup_settings_apply (const char  *controller,
 		if (! setting_key)
 			nih_return_no_memory_error (FALSE);
 
+		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s', setting_key='%s'",
+				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "", setting_key);
+
 		ret = cgmanager_set_value_sync (NULL,
 				cgroup_manager,
 				controller,
 				path,
 				setting_key,
 				setting->value ? setting->value : "");
+		nih_message ("XXX:%s:%d:ret=%d", __func__, __LINE__, ret);
 
 		if (ret < 0)
 			return FALSE;

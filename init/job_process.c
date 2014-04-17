@@ -1540,8 +1540,11 @@ job_process_handler (void           *data,
 	 * ignore the event.
 	 */
 	job = job_process_find (pid, &process);
-	if (! job)
+	if (! job) {
+		nih_message ("XXX:%s:%d:pid=%d, event=%x, status=%d: NOT A JOB PID!", __func__, __LINE__,
+				pid, event, status);
 		return;
+	}
 
 	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s", __func__, __LINE__,
 			job_name (job), job_goal_name (job->goal), job_state_name (job->state));
@@ -1713,9 +1716,12 @@ job_process_terminated (Job         *job,
 			    || (job->state == JOB_SPAWNED)
 			    || (job->state == JOB_KILLED)
 			    || (job->state == JOB_STOPPING)
+			    || (job->state == JOB_POST_START_SETUP)
 			    || (job->state == JOB_POST_START)
 			    || (job->state == JOB_PRE_STOP)
 			    || (job->state == JOB_SETUP));
+
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 		/* We don't change the state if we're in post-start and there's
 		 * a post-start process running, or if we're in pre-stop and
@@ -1736,8 +1742,10 @@ job_process_terminated (Job         *job,
 		 * considered a failure.  We also don't want to tamper with
 		 * the goal since we might be restarting the job anyway.
 		 */
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		if (job->state == JOB_KILLED)
 			break;
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 		/* Yet another corner case is terminating when we were
 		 * already stopping, we don't to tamper with the goal or
@@ -1750,6 +1758,7 @@ job_process_terminated (Job         *job,
 			state = FALSE;
 			break;
 		}
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 		/* We don't assume that because the primary process was
 		 * killed or exited with a non-zero status, it failed.
@@ -1817,6 +1826,7 @@ job_process_terminated (Job         *job,
 		stop = TRUE;
 		break;
 	case PROCESS_SECURITY:
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		nih_assert (job->state == JOB_SECURITY_SETUP);
 
 		/* We should always fail the job if the security profile
@@ -1828,6 +1838,7 @@ job_process_terminated (Job         *job,
 		}
 		break;
 	case PROCESS_PRE_START:
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		nih_assert (job->state == JOB_PRE_START_SETUP);
 
 		/* If the pre-start script is killed or exits with a status
@@ -1840,6 +1851,7 @@ job_process_terminated (Job         *job,
 		}
 		break;
 	case PROCESS_POST_START:
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		nih_assert (job->state == JOB_POST_START_SETUP);
 
 		/* We always want to change the state when the post-start
@@ -1851,6 +1863,7 @@ job_process_terminated (Job         *job,
 		 */
 		break;
 	case PROCESS_PRE_STOP:
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		nih_assert (job->state == JOB_PRE_STOP_SETUP);
 
 		/* We always want to change the state when the pre-stop
@@ -1862,6 +1875,7 @@ job_process_terminated (Job         *job,
 		 */
 		break;
 	case PROCESS_POST_STOP:
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		nih_assert (job->state == JOB_POST_STOP_SETUP);
 
 		/* If the post-stop script is killed or exits with a status
@@ -1877,6 +1891,7 @@ job_process_terminated (Job         *job,
 		nih_assert_not_reached ();
 	}
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Cancel any timer trying to kill the job, since it's just
 	 * died.  We could do this inside the main process block above, but
@@ -1944,10 +1959,15 @@ job_process_terminated (Job         *job,
 	/* Clear the process pid field */
 	job->pid[process] = 0;
 
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Mark the job as failed */
-	if (failed)
+	if (failed) {
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 		job_failed (job, process, status);
+	}
+
+	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	/* Change the goal to stop; normally this doesn't have any
 	 * side-effects, except when we're in the RUNNING state when it'll
@@ -2037,19 +2057,32 @@ job_process_stopped (Job         *job,
 	 * main process when the state is still spawned and any jobs
 	 * which require (cgroup) setup.
 	 */
-	if (! ((process == PROCESS_MAIN && job->state == JOB_SPAWNED) || setup))
+	if (! ((process == PROCESS_MAIN && job->state == JOB_SPAWNED) || setup || process == PROCESS_POST_START))
 		return;
 
 	/* Send SIGCONT back and change the state to the next one for
 	 * 'expect stop' jobs and those that require cgroup setup.
 	 */
-	if (job->class->expect == EXPECT_STOP || (job_needs_cgroups (job) && setup)) {
+	if (job->class->expect == EXPECT_STOP
+			|| (job_needs_cgroups (job) && setup)
+			|| (job_needs_cgroups (job) && process == PROCESS_POST_START)) {
 		nih_message ("XXX:%s:%d: sending SIGCONT to %s process %s pid %d (state=%s)", __func__, __LINE__,
 				job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
 
 		kill (job->pid[process], SIGCONT);
 	}
 
+	if (setup && job_needs_cgroups (job) && process != PROCESS_MAIN) {
+		/* Don't change the state of a cgroup job until the
+		 * process actually exits. The exception is when running
+		 * the main process since the post-start needs to be
+		 * triggered now.
+		 */
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+		return;
+	}
+
+#if 0
 	if ((job->class->expect == EXPECT_STOP && process == PROCESS_MAIN && job->state == JOB_SPAWNED)
 			|| (job_needs_cgroups (job) && setup)) {
 		nih_message ("XXX:%s:%d: changing state for job %s process %s pid %d (state=%s)", __func__, __LINE__,
@@ -2057,6 +2090,11 @@ job_process_stopped (Job         *job,
 
 		job_change_state (job, job_next_state (job));
 	}
+#endif
+	nih_message ("XXX:%s:%d: changing state for job %s process %s pid %d (state=%s)", __func__, __LINE__,
+			job_name (job), process_name (process), job->pid[process], job_state_name (job->state));
+
+	job_change_state (job, job_next_state (job));
 
 	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 }
