@@ -333,7 +333,7 @@ upstart_open (const void *parent)
 
 	user_addr = getenv ("UPSTART_SESSION");
 
-	if (user_addr && dbus_bus_type < 0) {
+	if (user_addr && user_addr[0] && dbus_bus_type < 0) {
 		user_mode = TRUE;
 	}
 
