@@ -1,3 +1,9 @@
+2014-04-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/man.5:
+	  - Clarify default behaviour of 'respawn' stanza.
+	  - Add missing 'respawn limit unlimited' details.
+
 2014-03-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.12.1
