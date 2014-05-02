@@ -331,14 +331,14 @@ test_confdir (void)
 
 	qsort (output, lines, sizeof (output[0]), strcmp_compar);
 
-	TEST_EQ (lines, 2);
-	/* XXX: Only the last instance of --confdir should be honoured.
-	 *
-	 * This behaviour deviates from running as a Session Init where *all*
-	 * --confdir's specified are used.
+	/* Like a Session Init, the System Init behaviour is (now) to
+	 * honour all --confdirs.
 	 */
-	TEST_STR_MATCH (output[0], "baz stop/waiting");
-	TEST_STR_MATCH (output[1], "qux stop/waiting");
+	TEST_EQ (lines, 3);
+
+	TEST_STR_MATCH (output[0], "bar stop/waiting");
+	TEST_STR_MATCH (output[1], "baz stop/waiting");
+	TEST_STR_MATCH (output[2], "qux stop/waiting");
 	nih_free (output);
 
 	DELETE_FILE (xdg_conf_dir, "foo.conf");
@@ -363,6 +363,7 @@ test_confdir (void)
 	extra[3] = confdir_b;
 	extra[4] = NULL;
 
+	/* pass 2 confdir directories */
 	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
 
 	/* Should be running */
@@ -375,7 +376,6 @@ test_confdir (void)
 	qsort (output, lines, sizeof (output[0]), strcmp_compar);
 
 	TEST_EQ (lines, 1);
-	/* only the last instance of --confdir should be honoured */
 	TEST_STR_MATCH (output[0], "conflict stop/waiting");
 	nih_free (output);
 
@@ -386,7 +386,7 @@ test_confdir (void)
 	/* Ensure the correct version of the conflict job is found */
 	TEST_EQ (lines, 2);
 	TEST_STR_MATCH (output[0], "conflict");
-	TEST_STR_MATCH (output[1], "  emits confdir_b");
+	TEST_STR_MATCH (output[1], "  emits confdir_a");
 	nih_free (output);
 
 	DELETE_FILE (xdg_conf_dir, "conflict.conf");

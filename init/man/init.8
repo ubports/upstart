@@ -255,12 +255,14 @@ by placing them on the kernel command-line.
 .TP
 .B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than the default
-(\fI/etc/init\fP for process ID 1).
+(\fI/etc/init\fP for process ID 1). This option may be specified
+multiple times which will result in job configuration files being
+loaded from each directory specified (which must exist). Directories
+will be searched for jobs in the specified order.
 
-When running as process ID 1, the last directory specified will be used.
+In the case that multiple directories specify a job of the same name,
+the first job encountered will be honoured.
 
-In user session mode, multiple directories will be honoured and job
-configuration files loaded from the directories in the order specified.
 .\"
 .TP
 .B \-\-default-console \fIvalue\fP

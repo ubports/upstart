@@ -1,3 +1,12 @@
+2014-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Allow System Init read from multiple
+	  configuration to directories like a Session Init (LP: #1315060).
+	* init/man/init.5: Clarify default directory.
+	* init/man/init.8: Explain new behaviour.
+	* init/tests/test_main.c: test_confdir(): Update tests for new
+	  '--confdir' behaviour of System init.
+
 2014-04-24  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/man/init.5:

@@ -22,7 +22,7 @@ On startup, the Upstart
 .BR init (8)
 daemon reads its job configuration from files in the
 .I /etc/init/
-directory, and watches for future changes to these files using
+directory by default, and watches for future changes to these files using
 .BR inotify (7).
 
 If Upstart was invoked as a user process with \-\-user option, it will

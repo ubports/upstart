@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -568,24 +568,14 @@ main (int   argc,
 
 	/* Read configuration */
 	if (! user_mode) {
-		char   *conf_dir;
-		int     len = 0;
-
 		nih_assert (conf_dirs[0]);
-
-		/* Count entries */
-		for (char **d = conf_dirs; d && *d; d++, len++)
-			;
-
-		nih_assert (len);
-
-		/* Use last value specified */
-		conf_dir = conf_dirs[len-1];
 
 		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 
-		nih_debug ("Using configuration directory %s", conf_dir);
-		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
+		for (char **d = conf_dirs; d && *d; d++) {
+			nih_debug ("Using configuration directory %s", *d);
+			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		}
 	} else {
 		nih_local char **dirs = NULL;
 
