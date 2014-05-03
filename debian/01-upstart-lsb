@@ -1,0 +1,27 @@
+# Allow executing init.d scripts as upstart jobs
+
+# Operate against system upstart, not session
+unset UPSTART_SESSION
+_UPSTART_JOB=$(basename ${0:-})
+
+if [ -r "/etc/init/${_UPSTART_JOB}.conf" ] && which initctl >/dev/null \
+   && initctl version 2>/dev/null | grep -q upstart \
+   && initctl status ${_UPSTART_JOB} 2>/dev/null 1>/dev/null
+then
+   # Upstart configuration exists for this job and we're running on upstart
+   case "${1:-}" in
+      start|stop|status|reload)
+         # Action is a valid upstart action
+         exec ${1} ${_UPSTART_JOB}
+      ;;
+      restart)
+        # Map restart to the usual sysvinit behavior.
+         stop ${_UPSTART_JOB} || :
+         exec start ${_UPSTART_JOB}
+      ;;
+      force-reload)
+         # Upstart just uses reload for force-reload
+         exec reload ${_UPSTART_JOB}
+      ;;
+   esac
+fi
