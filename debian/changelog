@@ -1,3 +1,11 @@
+upstart (1.12.1-0ubuntu6) UNRELEASED; urgency=medium
+
+  * Map force-reload to restart command in init-functions hook.
+  * Use variable expansion, instead of basename as that is shipped in
+    /usr.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 05 May 2014 19:51:37 +0100
+
 upstart (1.12.1-0ubuntu5) utopic; urgency=medium
 
   [ James Hunt ]
