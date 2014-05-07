@@ -407,9 +407,7 @@ session_deserialise_all (json_object *json)
 
 	nih_assert (NIH_LIST_EMPTY (sessions));
 
-	json_sessions = json_object_object_get (json, "sessions");
-
-	if (! json_sessions)
+	if (! json_object_object_get_ex (json, "sessions", &json_sessions))
 		goto error;
 
 	if (! state_check_json_type (json_sessions, array))

@@ -2294,7 +2294,7 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 	/* reload_signal is new in upstart 1.10+ */
-	if (json_object_object_get (json, "reload_signal")) {
+	if (json_object_object_get_ex (json, "reload_signal", NULL)) {
 		if (! state_get_json_int_var_to_obj (json, class, reload_signal))
 			goto error;
 	}
@@ -2346,13 +2346,12 @@ job_class_deserialise (json_object *json)
 	/* If we are missing this, we're probably importing from a
 	 * previous version that didn't include PROCESS_SECURITY.
 	 */
-	if (json_object_object_get (json, "apparmor_switch")) {
+	if (json_object_object_get_ex (json, "apparmor_switch", NULL)) {
 		if (! state_get_json_string_var_to_obj (json, class, apparmor_switch))
 			goto error;
 	}
 
-	json_normalexit = json_object_object_get (json, "normalexit");
-	if (! json_normalexit)
+	if (! json_object_object_get_ex (json, "normalexit", &json_normalexit))
 		goto error;
 
 	ret = state_deserialise_int_array (class, json_normalexit,
@@ -2412,9 +2411,7 @@ job_class_deserialise_all (json_object *json)
 
 	job_class_init ();
 
-	json_classes = json_object_object_get (json, "job_classes");
-
-	if (! json_classes)
+	if (! json_object_object_get_ex (json, "job_classes", &json_classes))
 		goto error;
 
 	if (! state_check_json_type (json_classes, array))
