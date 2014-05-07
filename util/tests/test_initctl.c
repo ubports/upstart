@@ -17263,7 +17263,10 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	nih_local char  **extra = NULL;
+	extra = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&extra, NULL, NULL,"--no-startup-event"));
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
@@ -17333,7 +17336,7 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the first D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
