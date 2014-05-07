@@ -1,4 +1,4 @@
-upstart (1.12.1-0ubuntu6) UNRELEASED; urgency=medium
+upstart (1.12.1-0ubuntu6) utopic; urgency=medium
 
   * Map force-reload to restart command in init-functions hook.
   * Use variable expansion, instead of basename as that is shipped in
@@ -6,7 +6,7 @@ upstart (1.12.1-0ubuntu6) UNRELEASED; urgency=medium
   * Resolve test-failure, when dbus user session job is launched
     accidentally by unit-tests. (LP: #1315767)
 
- -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 05 May 2014 19:51:37 +0100
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Wed, 07 May 2014 20:15:35 +0100
 
 upstart (1.12.1-0ubuntu5) utopic; urgency=medium
 
