@@ -6,6 +6,10 @@
 #include <sys/wait.h>
 
 #include <nih-dbus/test_dbus.h>
+#include <nih/timer.h>
+#include <nih/main.h>
+#include <nih/child.h>
+#include <nih/io.h>
 
 /**
  * TEST_DIR_MODE:
@@ -33,6 +37,16 @@
 #define TEST_QUIESCE_KILL_PHASE 5
 
 #define TEST_QUIESCE_TOTAL_WAIT_TIME (TEST_EXIT_TIME + TEST_QUIESCE_KILL_PHASE)
+
+/**
+ * TEST_MAIN_LOOP_TIMEOUT_SECS:
+ *
+ * Number of seconds to wait until the main loop is exited in error.
+ *
+ * To avoid a test failure, all main loops must exit within this
+ * number of seconds.
+ **/
+#define TEST_MAIN_LOOP_TIMEOUT_SECS    5
 
 /* A 'reasonable' path, but which also contains a marker at the end so
  * we know when we're looking at a PATH these tests have set.
@@ -167,6 +181,30 @@
                                                                      \
 	TEST_EQ (count, 0);                                          \
 }
+
+/**
+ * TEST_RESET_MAIN_LOOP:
+ * 
+ * Reset main loop and associated test variables.
+ **/
+#define TEST_RESET_MAIN_LOOP() \
+	if (nih_main_loop_functions) { \
+		nih_free (nih_main_loop_functions); \
+		nih_main_loop_functions = NULL; \
+	} \
+	if (nih_child_watches) { \
+		nih_free (nih_child_watches); \
+		nih_child_watches = NULL; \
+	} \
+	if (nih_timers) { \
+		nih_free (nih_timers); \
+		nih_timers = NULL; \
+	} \
+	nih_child_init (); \
+	nih_main_loop_init (); \
+	nih_timer_init (); \
+	nih_io_init ()
+
 
 /**
  * obj_string_check:
@@ -702,10 +740,10 @@ pid_t job_to_pid (const char *job)
 int string_check (const char *a, const char *b)
 	__attribute__ ((warn_unused_result));
 
-const char * get_upstart_binary (void)
+const char *get_upstart_binary (void)
 	__attribute__ ((warn_unused_result));
 
-const char * get_initctl_binary (void)
+const char *get_initctl_binary (void)
 	__attribute__ ((warn_unused_result));
 
 int strcmp_compar (const void *a, const void *b)
@@ -730,5 +768,18 @@ int file_exists (const char *path)
 void test_common_setup (void);
 
 void test_common_cleanup (void);
+
+void timer_cb (void *data, NihTimer *timer);
+
+void test_job_process_handler (void *data, pid_t pid,
+			  NihChildEvents event, int status);
+
+void test_main_loop_func (void *data, NihMainLoopFunc *self);
+
+int fd_valid (int fd)
+	__attribute__ ((warn_unused_result));
+
+NihIoBuffer *read_from_fd (void *parent, int fd)
+	__attribute__ ((warn_unused_result));
 
 #endif /* TEST_UTIL_COMMON_H */

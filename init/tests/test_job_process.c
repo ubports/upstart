@@ -147,33 +147,6 @@ static char *argv0;
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
 
-/**
- * fd_valid:
- * @fd: file descriptor.
- *
- * Return 1 if @fd is valid, else 0.
- **/
-static int
-fd_valid (int fd)
-{
-	int flags = 0;
-
-	if (fd < 0)
-		return 0;
-
-	errno = 0;
-	flags = fcntl (fd, F_GETFL);
-
-	if (flags < 0)
-		return 0;
-
-	/* redundant really */
-	if (errno == EBADF)
-		return 0;
-
-	return 1;
-}
-
 static void
 child (enum child_tests  test,
        const char       *filename)
