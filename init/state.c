@@ -532,7 +532,7 @@ out:
 
 
 /**
- * state_toggle_cloexec:
+ * state_modify_cloexec:
  *
  * @fd: file descriptor,
  * @set: set close-on-exec flag if TRUE, clear if FALSE.
@@ -542,7 +542,7 @@ out:
  * Returns: 0 on success, -1 on error.
  **/
 int
-state_toggle_cloexec (int fd, int set)
+state_modify_cloexec (int fd, int set)
 {
 	long   flags;
 	int    ret;
