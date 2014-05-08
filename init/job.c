@@ -863,7 +863,22 @@ job_finished (Job *job,
 
 /**
  * job_emit_event:
- * @job: job generating the event.
+ * @job: job generating the event,
+ *
+ * Compat function, for migration to job_emit_event_with_state.
+ *
+ * Returns: new Event in the queue.
+ **/
+Event *
+job_emit_event (Job *job)
+{
+    return job_emit_event_with_state (job, job->state);
+}
+
+/**
+ * job_emit_event_with_state:
+ * @job: job generating the event,
+ * @state: state job is moving to.
  *
  * Called from a state change because it believes an event should be
  * emitted.  Constructs the event with the right arguments and environment
@@ -881,7 +896,7 @@ job_finished (Job *job,
  * Returns: new Event in the queue.
  **/
 Event *
-job_emit_event (Job *job)
+job_emit_event_with_state (Job *job, JobState state)
 {
 	Event           *event;
 	const char      *name;
@@ -892,7 +907,7 @@ job_emit_event (Job *job)
 
 	nih_assert (job != NULL);
 
-	switch (job->state) {
+	switch (state) {
 	case JOB_STARTING:
 		name = JOB_STARTING_EVENT;
 		block = TRUE;
