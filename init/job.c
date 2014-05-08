@@ -1107,22 +1107,34 @@ job_state_name (JobState state)
 		return N_("waiting");
 	case JOB_STARTING:
 		return N_("starting");
+	case JOB_SECURITY_SPAWNING:
+		return N_("security-spawning");
 	case JOB_SECURITY:
 		return N_("security");
+	case JOB_PRE_STARTING:
+		return N_("pre-starting");
 	case JOB_PRE_START:
 		return N_("pre-start");
+	case JOB_SPAWNING:
+		return N_("spawning");
 	case JOB_SPAWNED:
 		return N_("spawned");
+	case JOB_POST_STARTING:
+		return N_("post-starting");
 	case JOB_POST_START:
 		return N_("post-start");
 	case JOB_RUNNING:
 		return N_("running");
+	case JOB_PRE_STOPPING:
+		return N_("pre-stopping");
 	case JOB_PRE_STOP:
 		return N_("pre-stop");
 	case JOB_STOPPING:
 		return N_("stopping");
 	case JOB_KILLED:
 		return N_("killed");
+	case JOB_POST_STOPPING:
+		return N_("post-stopping");
 	case JOB_POST_STOP:
 		return N_("post-stop");
 	default:
@@ -1147,22 +1159,34 @@ job_state_from_name (const char *state)
 		return JOB_WAITING;
 	} else if (! strcmp (state, "starting")) {
 		return JOB_STARTING;
+	} else if (! strcmp (state, "security-spawning")) {
+		return JOB_SECURITY_SPAWNING;
 	} else if (! strcmp (state, "security")) {
 		return JOB_SECURITY;
+	} else if (! strcmp (state, "pre-starting")) {
+		return JOB_PRE_STARTING;
 	} else if (! strcmp (state, "pre-start")) {
 		return JOB_PRE_START;
+	} else if (! strcmp (state, "spawning")) {
+		return JOB_SPAWNING;
 	} else if (! strcmp (state, "spawned")) {
 		return JOB_SPAWNED;
+	} else if (! strcmp (state, "post-starting")) {
+		return JOB_POST_STARTING;
 	} else if (! strcmp (state, "post-start")) {
 		return JOB_POST_START;
 	} else if (! strcmp (state, "running")) {
 		return JOB_RUNNING;
+	} else if (! strcmp (state, "pre-stopping")) {
+		return JOB_PRE_STOPPING;
 	} else if (! strcmp (state, "pre-stop")) {
 		return JOB_PRE_STOP;
 	} else if (! strcmp (state, "stopping")) {
 		return JOB_STOPPING;
 	} else if (! strcmp (state, "killed")) {
 		return JOB_KILLED;
+	} else if (! strcmp (state, "post-stopping")) {
+		return JOB_POST_STOPPING;
 	} else if (! strcmp (state, "post-stop")) {
 		return JOB_POST_STOP;
 	} else {
@@ -2175,14 +2199,20 @@ job_state_enum_to_str (JobState state)
 {
 	state_enum_to_str (JOB_WAITING, state);
 	state_enum_to_str (JOB_STARTING, state);
+	state_enum_to_str (JOB_SECURITY_SPAWNING, state);
 	state_enum_to_str (JOB_SECURITY, state);
+	state_enum_to_str (JOB_PRE_STARTING, state);
 	state_enum_to_str (JOB_PRE_START, state);
+	state_enum_to_str (JOB_SPAWNING, state);
 	state_enum_to_str (JOB_SPAWNED, state);
+	state_enum_to_str (JOB_POST_STARTING, state);
 	state_enum_to_str (JOB_POST_START, state);
 	state_enum_to_str (JOB_RUNNING, state);
+	state_enum_to_str (JOB_PRE_STOPPING, state);
 	state_enum_to_str (JOB_PRE_STOP, state);
 	state_enum_to_str (JOB_STOPPING, state);
 	state_enum_to_str (JOB_KILLED, state);
+	state_enum_to_str (JOB_POST_STOPPING, state);
 	state_enum_to_str (JOB_POST_STOP, state);
 
 	return NULL;
@@ -2202,14 +2232,20 @@ job_state_str_to_enum (const char *state)
 {
 	state_str_to_enum (JOB_WAITING, state);
 	state_str_to_enum (JOB_STARTING, state);
+	state_str_to_enum (JOB_SECURITY_SPAWNING, state);
 	state_str_to_enum (JOB_SECURITY, state);
+	state_str_to_enum (JOB_PRE_STARTING, state);
 	state_str_to_enum (JOB_PRE_START, state);
+	state_str_to_enum (JOB_SPAWNING, state);
 	state_str_to_enum (JOB_SPAWNED, state);
+	state_str_to_enum (JOB_POST_STARTING, state);
 	state_str_to_enum (JOB_POST_START, state);
 	state_str_to_enum (JOB_RUNNING, state);
+	state_str_to_enum (JOB_PRE_STOPPING, state);
 	state_str_to_enum (JOB_PRE_STOP, state);
 	state_str_to_enum (JOB_STOPPING, state);
 	state_str_to_enum (JOB_KILLED, state);
+	state_str_to_enum (JOB_POST_STOPPING, state);
 	state_str_to_enum (JOB_POST_STOP, state);
 
 	return -1;
