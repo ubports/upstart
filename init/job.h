@@ -228,6 +228,16 @@ Job *       job_find            (const Session *session,
 				 const char     *job_name)
 	__attribute__ ((warn_unused_result));
 
+const char *
+job_state_enum_to_str (JobState state)
+	__attribute__ ((warn_unused_result));
+
+JobState
+job_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
+void job_child_error_handler (Job *job, ProcessType process);
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

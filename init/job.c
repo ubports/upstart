@@ -70,14 +70,6 @@ static JobGoal job_goal_str_to_enum (const char *goal)
 	__attribute__ ((warn_unused_result));
 
 static const char *
-job_state_enum_to_str (JobState state)
-	__attribute__ ((warn_unused_result));
-
-static JobState
-job_state_str_to_enum (const char *state)
-	__attribute__ ((warn_unused_result));
-
-static const char *
 job_trace_state_enum_to_str (TraceState state)
 	__attribute__ ((warn_unused_result));
 
@@ -2163,7 +2155,7 @@ job_goal_str_to_enum (const char *goal)
  *
  * Returns: string representation of @state, or NULL if not known.
  **/
-static const char *
+const char *
 job_state_enum_to_str (JobState state)
 {
 	state_enum_to_str (JOB_WAITING, state);
@@ -2190,7 +2182,7 @@ job_state_enum_to_str (JobState state)
  *
  * Returns: JobState representation of @state, or -1 if not known.
  **/
-static JobState
+JobState
 job_state_str_to_enum (const char *state)
 {
 	state_str_to_enum (JOB_WAITING, state);
