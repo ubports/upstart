@@ -949,7 +949,6 @@ log_deserialise (const void *parent,
 	nih_local char  *unflushed = NULL;
 	int              ret;
 	size_t           len;
-	json_object     *json_unflushed;
 	nih_local char  *path = NULL;
 	int              io_watch_fd = -1;
 	uid_t            uid = (uid_t)-1;
@@ -1000,8 +999,7 @@ log_deserialise (const void *parent,
 	if (! log->unflushed)
 		goto error;
 
-	json_unflushed = json_object_object_get (json, "unflushed");
-	if (json_unflushed) {
+	if (json_object_object_get_ex (json, "unflushed", NULL)) {
 		if (! state_get_json_string_var_strict (json, "unflushed", NULL, unflushed_hex))
 			goto error;
 

@@ -1831,7 +1831,6 @@ job_deserialise (JobClass *parent, json_object *json)
 	nih_local char *name = NULL;
 	Job            *job = NULL;
 	json_object    *json_kill_timer;
-	json_object    *blocker;
 	json_object    *json_fds;
 	json_object    *json_pid;
 	json_object    *json_logs;
@@ -1930,9 +1929,7 @@ job_deserialise (JobClass *parent, json_object *json)
 
 	/* blocking is handled by state_deserialise_blocking() */
 
-	blocker = json_object_object_get (json, "blocker");
-
-	if (blocker) {
+	if (json_object_object_get_ex (json, "blocker", NULL)) {
 		int event_index = -1;
 
 		if (! state_get_json_int_var (json, "blocker", event_index))
@@ -1951,9 +1948,8 @@ job_deserialise (JobClass *parent, json_object *json)
 	/* Check to see if a kill timer exists first since we do not
 	 * want to end up creating a real but empty timer.
 	 */
-	json_kill_timer = json_object_object_get (json, "kill_timer");
 
-	if (json_kill_timer) {
+	if (json_object_object_get_ex (json, "kill_timer", &json_kill_timer)) {
 		/* Found a partial kill timer, so create a new one and
 		 * adjust its due time. By the time the main loop gets
 		 * called, the due time will probably be in the past
@@ -1997,8 +1993,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (! state_get_json_int_var_to_obj (json, job, respawn_count))
 		goto error;
 
-	json_fds = json_object_object_get (json, "fds");
-	if (! json_fds)
+	if (! json_object_object_get_ex (json, "fds", &json_fds))
 		goto error;
 
 	ret = state_deserialise_int_array (job, json_fds,
@@ -2006,8 +2001,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	if (ret < 0)
 		goto error;
 
-	json_pid = json_object_object_get (json, "pid");
-	if (! json_pid)
+	if (! json_object_object_get_ex (json, "pid", &json_pid))
 		goto error;
 
 	ret = state_deserialise_int_array (job, json_pid,
@@ -2039,9 +2033,7 @@ job_deserialise (JobClass *parent, json_object *json)
 				"trace_state", job->trace_state))
 		goto error;
 
-	json_logs = json_object_object_get (json, "log");
-
-	if (! json_logs)
+	if (! json_object_object_get_ex (json, "log", &json_logs))
 		goto error;
 
 	if (! state_check_json_type (json_logs, array))
@@ -2097,9 +2089,7 @@ job_deserialise_all (JobClass *parent, json_object *json)
 	nih_assert (parent);
 	nih_assert (json);
 
-	json_jobs = json_object_object_get (json, "jobs");
-
-	if (! json_jobs)
+	if (! json_object_object_get_ex (json, "jobs", &json_jobs))
 		goto error;
 
 	if (! state_check_json_type (json_jobs, array))
