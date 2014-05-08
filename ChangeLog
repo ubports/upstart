@@ -1,3 +1,8 @@
+2014-05-07  James Hunt  <james.hunt@ubuntu.com>
+
+	* Convert calls to deprecated json_object_object_get() to
+	  json_object_object_get_ex().
+
 2014-05-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: main(): Allow System Init read from multiple
