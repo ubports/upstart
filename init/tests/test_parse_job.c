@@ -9222,8 +9222,6 @@ test_stanza_cgroup (void)
 
 	/* FIXME: variables are only expanded on job start so cannot
 	 * validate.
-	 *
-	 * FIXME: how do we handle validating $UPSTART_CGROUP ?
 	 */
 	TEST_FEATURE ("name with embedded variable is accepted");
 
@@ -9707,8 +9705,6 @@ main (int   argc,
 	/* run tests in legacy (pre-session support) mode */
 	setenv ("UPSTART_NO_SESSIONS", "1", 1);
 
-	/* FIXME */
-#if 0
 	test_parse_job ();
 
 	test_stanza_instance ();
@@ -9754,7 +9750,6 @@ main (int   argc,
 	test_stanza_setuid ();
 	test_stanza_setgid ();
 	test_stanza_usage ();
-#endif
 	test_stanza_cgroup ();
 
 	return 0;

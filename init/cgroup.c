@@ -380,6 +380,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	if (*upstart_instance)
 		instance = TRUE;
 
+	/* Construct the value of $UPSTART_CGROUP */
 	suffix = nih_sprintf (NULL, "%s%s%s",
 			upstart_job,
 			instance ? "-" : "",
@@ -999,10 +1000,6 @@ cgroup_manager_connect (void)
 
 	dbus_error_init (&dbus_error);
 
-	/* FIXME:
-	 *
-	 * - Hard-code well-known address (DBUS_ADDRESS_CGMANAGER) or use initctl command?
-	 */
 	connection = nih_dbus_connect (cgroup_manager_address, cgroup_manager_disconnected);
 	if (! connection)
 		return -1;
@@ -1010,10 +1007,10 @@ cgroup_manager_connect (void)
 	dbus_connection_set_exit_on_disconnect (connection, FALSE);
 	dbus_error_free (&dbus_error);
 
-	/* FIXME: hard-coded values! */
 	cgroup_manager = nih_dbus_proxy_new (NULL, connection,
 					     NULL, /* peer-to-peer connection */
-					     DBUS_PATH_CGMANAGER, NULL, NULL);
+					     DBUS_PATH_CGMANAGER,
+					     NULL, NULL);
 	if (! cgroup_manager) {
 		dbus_connection_unref (connection);
 		return -1;
@@ -1111,7 +1108,8 @@ cgroup_create (const char *controller, const char *path)
 	if (ret < 0)
 		return FALSE;
 
-	nih_debug ("Created '%s' controller cgroup '%s'",
+	nih_debug ("%s '%s' controller cgroup '%s'",
+			! existed ? "Created" : "Using existing",
 			controller, path);
 
 	/* Get the cgroup manager to delete the cgroup once no more job
@@ -1391,7 +1389,11 @@ cgroup_settings_apply (const char  *controller,
 /* FIXME */
 #if 1
 		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s', setting_key='%s'",
-				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "", setting_key);
+				__func__, __LINE__,
+				controller, path,
+				setting->key,
+				setting->value ? setting->value : "",
+				setting_key);
 #endif
 
 		ret = cgmanager_set_value_sync (NULL,

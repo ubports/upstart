@@ -1,12 +1,8 @@
 /* TODO:FIXME:XXX:
  * 
- * - XXX:BUG: cgroup_manager_connect(): Use specified value, not hard-coded one!
- *
  * - *_SETUP states:
  * 	- add missing states for other job processes.
  * 	- add serialisation / deserialisation support!
- *
- * - XXX: cgroup_manager_connect() may block!
  *
  * - XXX: block job from starting unless cgroup_support_enabled() and
  *   cgmanager_connected().
@@ -24,15 +20,13 @@
  *   - ensure *ALL* job pids are put into the cgroup.
  *
  * - test_state.c: test re-exec with cgroups.
- * - test_jobclass.c: test class->cgroups is an empty list.
- * - cgroup path for a job: "upstart/$UPSTART_JOB/$UPSTART_INSTANCE/$requested"
  */
 
 /* upstart
  *
  * cgroup.c - cgroup support.
  *
- * Copyright © 2013 Canonical Ltd.
+ * Copyright © 2013-2014 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,11 +49,14 @@
 #include <nih/hash.h>
 #include <json.h>
 
-/* FIXME: document */
-#define DBUS_ADDRESS_CGMANAGER "unix:path=/sys/fs/cgroup/cgmanager/sock"
-#define DBUS_SERVICE_CGMANAGER "org.linuxcontainers.cgmanager"
-#define DBUS_INTERFACE_CGMANAGER "org.linuxcontainers.cgmanager0_0"
+/**
+ * DBUS_PATH_CGMANAGER:
+ *
+ * D-Bus object path the cgroup manager is available on.
+ **/
+#ifndef DBUS_PATH_CGMANAGER
 #define DBUS_PATH_CGMANAGER "/org/linuxcontainers/cgmanager"
+#endif
 
 /**
  * UPSTART_CGROUP_ROOT:
