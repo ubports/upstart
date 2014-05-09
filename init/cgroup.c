@@ -286,9 +286,7 @@ cgroup_deserialise_all (void         *parent,
 	nih_assert (list);
 	nih_assert (json);
 
-	json_cgroups = json_object_object_get (json, "cgroups");
-
-	if (! json_cgroups)
+	if (! json_object_object_get_ex (json, "cgroups", &json_cgroups))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_cgroups); i++) {
@@ -664,9 +662,7 @@ cgroup_name_deserialise_all (void         *parent,
 
 	nih_assert (json);
 
-	json_names = json_object_object_get (json, "names");
-
-	if (! json_names)
+	if (! json_object_object_get_ex (json, "names", &json_names))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_names); i++) {
@@ -868,9 +864,7 @@ cgroup_setting_deserialise_all (void         *parent,
 
 	nih_assert (json);
 
-	json_settings = json_object_object_get (json, "settings");
-
-	if (! json_settings)
+	if (! json_object_object_get_ex (json, "settings", &json_settings))
 		goto error;
 
 	for (int i = 0; i < json_object_array_length (json_settings); i++) {

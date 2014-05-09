@@ -2431,7 +2431,7 @@ job_class_deserialise (json_object *json)
 		goto error;
 
 #ifdef ENABLE_CGROUPS
-	if (json_object_object_get (json, "cgmanager_wait")) {
+	if (json_object_object_get_ex (json, "cgmanager_wait", NULL)) {
 
 		if (cgroup_deserialise_all (class, &class->cgroups, json) < 0)
 			goto error;
