@@ -724,7 +724,7 @@ event_deserialise (json_object *json)
 	if (! state_get_json_string_var_strict (json, "name", NULL, name))
 		goto error;
 
-	if (json_object_object_get (json, "env")) {
+	if (json_object_object_get_ex (json, "env", NULL)) {
 		if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
 
@@ -758,7 +758,7 @@ event_deserialise (json_object *json)
 	 * possible to manually reconstruct the state of the
 	 * EventOperators post-re-exec.
 	 */
-	if (json_object_object_get (json, "blockers")) {
+	if (json_object_object_get_ex (json, "blockers", NULL)) {
 		if (! state_get_json_int_var_to_obj (json, event, blockers))
 			goto error;
 	}
@@ -789,9 +789,8 @@ event_deserialise_all (json_object *json)
 	event_init ();
 
 	nih_assert (NIH_LIST_EMPTY (events));
-	json_events = json_object_object_get (json, "events");
 
-	if (! json_events)
+	if (! json_object_object_get_ex (json, "events", &json_events))
 		goto error;
 
 	if (! state_check_json_type (json_events, array))

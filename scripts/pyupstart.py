@@ -28,6 +28,8 @@ import json
 from datetime import datetime, timedelta
 from gi.repository import GLib
 
+from pyupstartvars import *
+
 VERSION = '0.1'
 NAME = 'TestUpstart'
 
@@ -35,10 +37,6 @@ NAME = 'TestUpstart'
 SYSTEM_UPSTART = '/sbin/init'
 SYSTEM_INITCTL = '/sbin/initctl'
 SYSTEM_FILE_BRIDGE = '/sbin/upstart-file-bridge'
-
-BUILT_UPSTART = '@built_init_binary@'
-BUILT_INITCTL = '@built_initctl_binary@'
-BUILT_FILE_BRIDGE = '@built_file_bridge_binary@'
 
 UPSTART_SESSION_ENV = 'UPSTART_SESSION'
 USE_SYSTEM_BINARIES_ENV = 'UPSTART_TEST_USE_SYSTEM_BINARIES'

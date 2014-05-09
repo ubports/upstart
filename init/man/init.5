@@ -569,9 +569,14 @@ the
 .BR stop (8)
 command itself, are considered abnormal.  Tasks may exit with a zero
 exit status to prevent being respawned.
+Note that specifying this stanza
+.I without also specifying
+the
+.B respawn limit
+stanza will apply the default respawn limit as specified below.
 .\"
 .TP
-.B respawn limit \fICOUNT INTERVAL
+.B respawn limit \fR[\fICOUNT INTERVAL\fR|\fIunlimited\fR]
 Respawning is subject to a limit, if the job is respawned more than
 .I COUNT
 times in
@@ -579,7 +584,21 @@ times in
 seconds, it will be considered to be having deeper problems and will
 be stopped. Default COUNT is 10. Default INTERVAL is 5 seconds.
 
-This only applies to automatic respawns and not the
+If the special argument
+.I unlimited
+is specified instead of a
+.I COUNT
+and
+.I INTERVAL
+value, no limit will be applied and the job will be
+respawned indefinitely. Specifying either
+.I COUNT
+or
+.I INTERVAL
+as zero implies
+.IR unlimited "."
+
+This stanza only applies to automatic respawns and not the
 .BR restart (8)
 command.
 .\"

@@ -4550,7 +4550,7 @@ no_inotify:
 	TEST_NE_P (json, NULL);
 
 	/* Test there is no JobClass in the JSON */
-	TEST_EQ_P (json_object_object_get (json, "job_class"), NULL);
+	TEST_EQ (json_object_object_get_ex (json, "job_class", NULL), FALSE);
 
 	TEST_FEATURE ("ConfFile with no JobClass can be deserialised");
 

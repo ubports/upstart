@@ -66,12 +66,12 @@ static Session *session_deserialise (json_object *json)
 NihList *sessions = NULL;
 
 /**
- * disable_sessions:
+ * chroot_sessions:
  *
- * If TRUE, disable chroot sessions, resulting in a
+ * If TRUE, enable chroot sessions, we default to a
  * "traditional" (pre-session support) system.
  **/
-int disable_sessions = FALSE;
+int chroot_sessions = FALSE;
 
 
 /* Prototypes for static functions */
@@ -168,7 +168,7 @@ session_from_dbus (const void     *parent,
 	/* Handle explicit command-line request and alternative request
 	 * method (primarily for test framework) to disable session support.
 	 */
-	if (disable_sessions || getenv ("UPSTART_NO_SESSIONS"))
+	if (! chroot_sessions || getenv ("UPSTART_NO_SESSIONS"))
 		return NULL;
 
 	session_init ();
@@ -407,9 +407,7 @@ session_deserialise_all (json_object *json)
 
 	nih_assert (NIH_LIST_EMPTY (sessions));
 
-	json_sessions = json_object_object_get (json, "sessions");
-
-	if (! json_sessions)
+	if (! json_object_object_get_ex (json, "sessions", &json_sessions))
 		goto error;
 
 	if (! state_check_json_type (json_sessions, array))

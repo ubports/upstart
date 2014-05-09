@@ -8462,12 +8462,20 @@ test_reload_action (void)
 	FILE *          output;
 	FILE *          errors;
 	pid_t           server_pid;
+	pid_t           proc_pid;
 	DBusMessage *   method_call;
 	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
 	const char *    str_value;
+	const char *    interface;
+	const char *    property;
+	DBusMessageIter iter;
+	DBusMessageIter subiter;
+	DBusMessageIter arrayiter;
+	DBusMessageIter structiter;
+	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
 	int             ret = 0;
@@ -9136,6 +9144,231 @@ test_reload_action (void)
 
 		kill (server_pid, SIGTERM);
 		waitpid (server_pid, NULL, 0);
+	}
+
+
+	/* Check that if an error is received from the Reload call,
+	 * the fallback path is used to query main pid and SIGHUP
+	 * that.
+	 */
+	TEST_FEATURE ("with error reply to Reload");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (proc_pid) {
+			pause ();
+		}
+
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstance method call on the
+			 * job object, make sure the environment args are
+			 * passed and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstance"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ (args_elements, 0);
+			dbus_free_string_array (args_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test/_";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Reload method call against job
+			 * instance and reply with an error.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test/_");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_INVALID));
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_error (method_call,
+								DBUS_ERROR_UNKNOWN_METHOD,
+								"Unknown method");
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Get call for the processes, reply with
+			 * a main process pid.
+			 */
+ 			TEST_DBUS_MESSAGE (server_conn, method_call);
+ 
+ 			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_PROPERTIES,
+								"Get"));
+ 			TEST_EQ_STR (dbus_message_get_path (method_call),
+ 							    DBUS_PATH_UPSTART "/jobs/test/_");
+ 
+ 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &interface,
+							  DBUS_TYPE_STRING, &property,
+ 							  DBUS_TYPE_INVALID));
+
+ 			TEST_ALLOC_SAFE {
+ 				reply = dbus_message_new_method_return (method_call);
+
+				dbus_message_iter_init_append (reply, &iter);
+
+				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
+								  (DBUS_TYPE_ARRAY_AS_STRING
+								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &subiter);
+
+				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
+								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &arrayiter);
+
+				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
+								  NULL,
+								  &structiter);
+
+				str_value = "main";
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
+								&str_value);
+
+				int32_value = proc_pid;
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
+								&int32_value);
+
+				dbus_message_iter_close_container (&arrayiter, &structiter);
+
+				dbus_message_iter_close_container (&subiter, &arrayiter);
+
+				dbus_message_iter_close_container (&iter, &subiter);
+ 			}
+ 
+ 			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		if (test_alloc_failed
+		    && (ret != 0)) {
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			TEST_FILE_EQ (errors, "test: Cannot allocate memory\n");
+			TEST_FILE_END (errors);
+			TEST_FILE_RESET (errors);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		kill (proc_pid, SIGTERM);
+		waitpid (proc_pid, NULL, 0);
+		continue;
+
 	}
 
 
@@ -17030,7 +17263,10 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	nih_local char  **extra = NULL;
+	extra = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&extra, NULL, NULL,"--no-startup-event"));
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
@@ -17100,7 +17336,7 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the first D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
