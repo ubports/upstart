@@ -85,10 +85,11 @@ static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
-static void handle_confdir      (void);
-static void handle_logdir       (void);
-static int  console_type_setter (NihOption *option, const char *arg);
-static int  conf_dir_setter     (NihOption *option, const char *arg);
+static void handle_confdir         (void);
+static void handle_logdir          (void);
+static int  console_type_setter    (NihOption *option, const char *arg);
+static int  conf_dir_setter        (NihOption *option, const char *arg);
+static int  append_conf_dir_setter (NihOption *option, const char *arg);
 
 
 /**
@@ -105,6 +106,14 @@ static int state_fd = -1;
  * Array of full paths to job configuration file directories.
  **/
 static char **conf_dirs = NULL;
+
+/**
+ * append_conf_dirs:
+ *
+ * Array of full paths to job configuration file directories that will
+ * be added to conf_dirs.
+ **/
+static char **append_conf_dirs = NULL;
 
 /**
  * initial_event:
@@ -146,6 +155,9 @@ extern int          debug_stanza_enabled;
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+	{ 0, "append-confdir", N_("specify additional directory to load configuration files from"),
+		NULL, "DIR", NULL, append_conf_dir_setter },
+
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", NULL, conf_dir_setter },
 
@@ -205,6 +217,7 @@ main (int   argc,
 	int    ret;
 
 	conf_dirs = NIH_MUST (nih_str_array_new (NULL));
+	append_conf_dirs = NIH_MUST (nih_str_array_new (NULL));
 
 	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
 
@@ -587,7 +600,15 @@ main (int   argc,
 		}
 	}
 
+	if (append_conf_dirs[0]) {
+		for (char **d = append_conf_dirs; d && *d; d++) {
+			nih_debug ("Adding configuration directory %s", *d);
+			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		}
+	}
+
 	nih_free (conf_dirs);
+	nih_free (append_conf_dirs);
 
 	job_class_environment_init ();
 
@@ -1092,6 +1113,23 @@ conf_dir_setter (NihOption *option, const char *arg)
 	nih_assert (option);
 
 	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, arg));
+
+	return 0;
+}
+
+/**  
+ * NihOption setter function to handle selection of configuration file
+ * directories.
+ *
+ * Returns: 0 on success, -1 on invalid console type.
+ **/
+static int
+append_conf_dir_setter (NihOption *option, const char *arg)
+{
+	nih_assert (append_conf_dirs);
+	nih_assert (option);
+
+	NIH_MUST (nih_str_array_add (&append_conf_dirs, NULL, NULL, arg));
 
 	return 0;
 }

@@ -1,3 +1,12 @@
+2014-05-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: add '--append-confdir' command-line option (LP: #1315060).
+	* init/man/init.8:
+	  - Document '--append-confdir'.
+	  - Add init(5) reference for '--confdir'.
+	* init/tests/test_main.c: New Session and System init tests for
+	  '--append-confdir'.
+
 2014-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* Convert calls to deprecated json_object_object_get() to

@@ -46,6 +46,8 @@ test_confdir (void)
 {
 	char             confdir_a[PATH_MAX];
 	char             confdir_b[PATH_MAX];
+	char             confdir_c[PATH_MAX];
+	char             confdir_d[PATH_MAX];
 	char            *xdg_config_home;
 	char            *xdg_runtime_dir;
 	char             logdir[PATH_MAX];
@@ -58,8 +60,10 @@ test_confdir (void)
 	nih_local char  *session_file = NULL;
 	nih_local char  *path = NULL;
 
-	/* space for 2 sets of confdir options and a terminator */
-	char            *extra[5];
+	/* space for 2 sets of confdir options, 2 sets of
+	 * append-confdirs and a terminator.
+	 */
+	char            *extra[9];
 
 	xdg_config_home = getenv ("XDG_CONFIG_HOME");
 	TEST_NE_P (xdg_config_home, NULL);
@@ -74,6 +78,12 @@ test_confdir (void)
 
 	TEST_FILENAME (confdir_b);
 	assert0 (mkdir (confdir_b, 0755));
+
+	TEST_FILENAME (confdir_c);
+	assert0 (mkdir (confdir_c, 0755));
+
+	TEST_FILENAME (confdir_d);
+	assert0 (mkdir (confdir_d, 0755));
 
 	xdg_conf_dir = nih_sprintf (NULL, "%s/%s", xdg_config_home, "upstart");
 	TEST_NE_P (xdg_conf_dir, NULL);
@@ -151,6 +161,41 @@ test_confdir (void)
 	assert0 (unlink (session_file));
 
 	/************************************************************/
+	TEST_FEATURE ("Session Init with --append-confdir");
+
+	CREATE_FILE (xdg_conf_dir, "xdg_dir_job.conf", "exec true");
+	CREATE_FILE (confdir_a, "conf_dir_job.conf", "exec true");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = NULL;
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	/* jobs in xdg_conf_dir should be considered */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conf_dir_job stop/waiting");
+	TEST_STR_MATCH (output[1], "xdg_dir_job stop/waiting");
+	nih_free (output);
+
+	DELETE_FILE (xdg_conf_dir, "xdg_dir_job.conf");
+	DELETE_FILE (confdir_a, "conf_dir_job.conf");
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (session_file));
+
+	/************************************************************/
 	TEST_FEATURE ("Session Init with multiple --confdir");
 
 	CREATE_FILE (xdg_conf_dir, "xdg_dir_job.conf", "exec true");
@@ -181,6 +226,47 @@ test_confdir (void)
 	TEST_EQ (lines, 2);
 	TEST_STR_MATCH (output[0], "conf_dir_a_job stop/waiting");
 	TEST_STR_MATCH (output[1], "conf_dir_b_job stop/waiting");
+	nih_free (output);
+
+	DELETE_FILE (xdg_conf_dir, "xdg_dir_job.conf");
+	DELETE_FILE (confdir_a, "conf_dir_a_job.conf");
+	DELETE_FILE (confdir_b, "conf_dir_b_job.conf");
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (session_file));
+
+	/************************************************************/
+	TEST_FEATURE ("Session Init with multiple --append-confdir");
+
+	CREATE_FILE (xdg_conf_dir, "xdg_dir_job.conf", "exec true");
+	CREATE_FILE (confdir_a, "conf_dir_a_job.conf", "exec true");
+	CREATE_FILE (confdir_b, "conf_dir_b_job.conf", "exec true");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--append-confdir";
+	extra[3] = confdir_b;
+	extra[4] = NULL;
+
+	/* pass 2 confdir directories */
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	/* jobs in xdg_conf_dir should be considered */
+	TEST_EQ (lines, 3);
+	TEST_STR_MATCH (output[0], "conf_dir_a_job stop/waiting");
+	TEST_STR_MATCH (output[1], "conf_dir_b_job stop/waiting");
+	TEST_STR_MATCH (output[2], "xdg_dir_job stop/waiting");
 	nih_free (output);
 
 	DELETE_FILE (xdg_conf_dir, "xdg_dir_job.conf");
@@ -236,6 +322,162 @@ test_confdir (void)
 	DELETE_FILE (xdg_conf_dir, "conflict.conf");
 	DELETE_FILE (confdir_a, "conflict.conf");
 	DELETE_FILE (confdir_b, "foo.conf");
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (session_file));
+
+	/************************************************************/
+	TEST_FEATURE ("Session Init with multiple --append-confdir and conflicting names");
+
+	CREATE_FILE (xdg_conf_dir, "conflict.conf", "emits xdg_conf_dir");
+	CREATE_FILE (confdir_a, "conflict.conf", "emits confdir_a");
+	CREATE_FILE (confdir_b, "foo.conf", "exec true");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--append-confdir";
+	extra[3] = confdir_b;
+	extra[4] = NULL;
+
+	/* pass 2 confdir directories */
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	/* We expect jobs in xdg_conf_dir to be ignored */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict stop/waiting");
+	TEST_STR_MATCH (output[1], "foo stop/waiting");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "conflict");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* Ensure the correct version of the conflict job is found */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict");
+	TEST_STR_MATCH (output[1], "  emits xdg_conf_dir");
+	nih_free (output);
+
+	DELETE_FILE (xdg_conf_dir, "conflict.conf");
+	DELETE_FILE (confdir_a, "conflict.conf");
+	DELETE_FILE (confdir_b, "foo.conf");
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (session_file));
+
+	/************************************************************/
+	TEST_FEATURE ("Session Init with multiple --confdir and multiple --append-confdir and conflicting names");
+
+	CREATE_FILE (xdg_conf_dir, "conflict.conf", "emits xdg_conf_dir");
+	CREATE_FILE (confdir_a, "conflict.conf", "emits confdir_a");
+	CREATE_FILE (confdir_b, "foo.conf", "exec true");
+	CREATE_FILE (confdir_c, "conflict.conf", "emits confdir_c");
+
+	extra[0] = "--confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--confdir";
+	extra[3] = confdir_b;
+	extra[4] = "--append-confdir";
+	extra[5] = confdir_c;
+	extra[6] = NULL;
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	/* We expect jobs in xdg_conf_dir to be ignored */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict stop/waiting");
+	TEST_STR_MATCH (output[1], "foo stop/waiting");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "conflict");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* Ensure the correct version of the conflict job is found */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict");
+	TEST_STR_MATCH (output[1], "  emits confdir_a");
+	nih_free (output);
+
+	DELETE_FILE (xdg_conf_dir, "conflict.conf");
+	DELETE_FILE (confdir_a, "conflict.conf");
+	DELETE_FILE (confdir_b, "foo.conf");
+	DELETE_FILE (confdir_c, "conflict.conf");
+
+	STOP_UPSTART (upstart_pid);
+	assert0 (unlink (session_file));
+
+	/************************************************************/
+	TEST_FEATURE ("Session Init with multiple out of order --confdir and --append-confdir");
+
+	CREATE_FILE (xdg_conf_dir, "conflict.conf", "emits xdg_conf_dir");
+	CREATE_FILE (confdir_a, "conflict.conf", "emits confdir_a");
+	CREATE_FILE (confdir_b, "foo.conf", "exec true");
+	CREATE_FILE (confdir_c, "conflict.conf", "emits confdir_c");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--confdir";
+	extra[3] = confdir_b;
+	extra[4] = "--confdir";
+	extra[5] = confdir_c;
+	extra[6] = NULL;
+
+	start_upstart_common (&upstart_pid, TRUE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	session_file = get_session_file (xdg_runtime_dir, upstart_pid);
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	/* We expect jobs in xdg_conf_dir to be ignored */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict stop/waiting");
+	TEST_STR_MATCH (output[1], "foo stop/waiting");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "conflict");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* Ensure the correct version of the conflict job is found */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict");
+	TEST_STR_MATCH (output[1], "  emits confdir_c");
+	nih_free (output);
+
+	DELETE_FILE (xdg_conf_dir, "conflict.conf");
+	DELETE_FILE (confdir_a, "conflict.conf");
+	DELETE_FILE (confdir_b, "foo.conf");
+	DELETE_FILE (confdir_c, "conflict.conf");
 
 	STOP_UPSTART (upstart_pid);
 	assert0 (unlink (session_file));
@@ -305,6 +547,36 @@ test_confdir (void)
 	STOP_UPSTART (upstart_pid);
 
 	/************************************************************/
+	TEST_FEATURE ("System Init with --append-confdir");
+
+	TEST_FALSE (file_exists ("/etc/init/must-not-exist-by-default.conf"));
+
+	CREATE_FILE (confdir_a, "must-not-exist-by-default.conf", "exec true");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = NULL;
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	cmd = nih_sprintf (NULL, "%s status %s 2>&1", get_initctl (), "must-not-exist-by-default");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "must-not-exist-by-default stop/waiting");
+	nih_free (output);
+
+	DELETE_FILE (confdir_a, "must-not-exist-by-default.conf");
+
+	STOP_UPSTART (upstart_pid);
+
+	/************************************************************/
 	TEST_FEATURE ("System Init with multiple --confdir");
 
 	assert0 (setenv ("UPSTART_CONFDIR", xdg_conf_dir, 1));
@@ -345,6 +617,51 @@ test_confdir (void)
 	DELETE_FILE (confdir_a, "bar.conf");
 	DELETE_FILE (confdir_b, "baz.conf");
 	DELETE_FILE (confdir_b, "qux.conf");
+
+	STOP_UPSTART (upstart_pid);
+
+	/************************************************************/
+	TEST_FEATURE ("System Init with multiple --append-confdir");
+
+	TEST_FALSE (file_exists ("/etc/init/must-not-exist-by-default.conf"));
+	TEST_FALSE (file_exists ("/etc/init/must-not-exist-by-default2.conf"));
+
+	CREATE_FILE (confdir_a, "must-not-exist-by-default.conf", "exec true");
+	CREATE_FILE (confdir_b, "must-not-exist-by-default2.conf", "exec true");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--append-confdir";
+	extra[3] = confdir_b;
+	extra[4] = NULL;
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	cmd = nih_sprintf (NULL, "%s status %s 2>&1", get_initctl (), "must-not-exist-by-default");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "must-not-exist-by-default stop/waiting");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s status %s 2>&1", get_initctl (), "must-not-exist-by-default2");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ (lines, 1);
+	TEST_STR_MATCH (output[0], "must-not-exist-by-default2 stop/waiting");
+	nih_free (output);
+
+	DELETE_FILE (confdir_a, "must-not-exist-by-default.conf");
+	DELETE_FILE (confdir_b, "must-not-exist-by-default2.conf");
 
 	STOP_UPSTART (upstart_pid);
 
@@ -396,11 +713,113 @@ test_confdir (void)
 	STOP_UPSTART (upstart_pid);
 
 	/************************************************************/
+	TEST_FEATURE ("System Init with multiple --append-confdir and conflicting names");
+
+	TEST_FALSE (file_exists ("/etc/init/must-not-exist-by-default.conf"));
+
+	CREATE_FILE (confdir_a, "must-not-exist-by-default.conf", "emits confdir_a");
+	CREATE_FILE (confdir_b, "must-not-exist-by-default.conf", "emits confdir_b");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--append-confdir";
+	extra[3] = confdir_b;
+	extra[4] = NULL;
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "must-not-exist-by-default");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	/* Ensure the correct version of the conflict job is found */
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "must-not-exist-by-default");
+	TEST_STR_MATCH (output[1], "  emits confdir_a");
+	nih_free (output);
+
+	DELETE_FILE (confdir_a, "must-not-exist-by-default.conf");
+	DELETE_FILE (confdir_b, "must-not-exist-by-default.conf");
+
+	STOP_UPSTART (upstart_pid);
+
+	/************************************************************/
+	TEST_FEATURE ("System Init with multiple out of order --confdir and --append-confdir");
+
+	CREATE_FILE (confdir_a, "conflict.conf", "emits confdir_a");
+	CREATE_FILE (confdir_a, "wibble.conf", "emits wobble");
+	CREATE_FILE (confdir_b, "conflict.conf", "emits confdir_b");
+	CREATE_FILE (confdir_c, "conflict.conf", "emits confdir_c");
+	CREATE_FILE (confdir_d, "foo.conf", "emits hello");
+
+	extra[0] = "--append-confdir";
+	extra[1] = confdir_a;
+	extra[2] = "--append-confdir";
+	extra[3] = confdir_b;
+	extra[4] = "--confdir";
+	extra[5] = confdir_c;
+	extra[6] = "--confdir";
+	extra[7] = confdir_d;
+	extra[8] = NULL;
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, NULL, logdir, extra);
+
+	/* Should be running */
+	assert0 (kill (upstart_pid, 0));
+
+	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+
+	qsort (output, lines, sizeof (output[0]), strcmp_compar);
+
+	TEST_EQ (lines, 3);
+	TEST_STR_MATCH (output[0], "conflict stop/waiting");
+	TEST_STR_MATCH (output[1], "foo stop/waiting");
+	TEST_STR_MATCH (output[2], "wibble stop/waiting");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "conflict");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "conflict");
+	TEST_STR_MATCH (output[1], "  emits confdir_c");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "wibble");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "wibble");
+	TEST_STR_MATCH (output[1], "  emits wobble");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s show-config %s 2>&1", get_initctl (), "foo");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 2);
+	TEST_STR_MATCH (output[0], "foo");
+	TEST_STR_MATCH (output[1], "  emits hello");
+	nih_free (output);
+
+	DELETE_FILE (confdir_a, "conflict.conf");
+	DELETE_FILE (confdir_a, "wibble.conf");
+	DELETE_FILE (confdir_b, "conflict.conf");
+	DELETE_FILE (confdir_c, "conflict.conf");
+	DELETE_FILE (confdir_d, "foo.conf");
+
+	STOP_UPSTART (upstart_pid);
 
 	TEST_DBUS_END (dbus_pid);
 
 	assert0 (rmdir (confdir_a));
 	assert0 (rmdir (confdir_b));
+	assert0 (rmdir (confdir_c));
+	assert0 (rmdir (confdir_d));
 	assert0 (rmdir (xdg_conf_dir));
 	assert0 (rmdir (logdir));
 	assert0 (unsetenv ("UPSTART_CONFDIR"));
