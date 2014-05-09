@@ -468,7 +468,7 @@ job_process_spawn (Job          *job,
 		if (! cgroup_support_enabled ())
 			nih_return_error (-1, CGROUP_ERROR, _("cgroup support not available"));
 
-		/* Should not ever happen */
+		/* Should never happen */
 		if (! cgroup_manager_available ())
 			nih_return_error (-1, CGROUP_ERROR, _("cgroup manager not available"));
 	}
