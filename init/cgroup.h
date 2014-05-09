@@ -1,5 +1,7 @@
 /* TODO:FIXME:XXX:
  * 
+ * - XXX:BUG: cgroup_manager_connect(): Use specified value, not hard-coded one!
+ *
  * - *_SETUP states:
  * 	- add missing states for other job processes.
  * 	- add serialisation / deserialisation support!

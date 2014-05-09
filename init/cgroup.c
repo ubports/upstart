@@ -84,19 +84,7 @@ char *cgroup_manager_address = NULL;
  **/
 NihDBusProxy *cgroup_manager = NULL;
 
-#if 0
-static int cgroup_path_unref (const char *controller, const char *path)
-	__attribute__ ((warn_unused_result));
-#endif
-
 static void cgroup_manager_disconnected (DBusConnection *connection);
-
-//static void cgroup_manager_lost_handler (void *data, NihDBusProxy *proxy);
-
-#if 0
-static void cgroup_manager_error_handler (void *data, NihDBusMessage  *message)
-	__attribute__ ((unused)); /* FIXME */
-#endif
 
 static void cgroup_name_remap (char *str);
 
@@ -360,8 +348,7 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 	 * Or for instance jobs:
 	 *
 	 *     upstart/${UPSTART_JOB}-${UPSTART_INSTANCE}
-	 *
-	 * */
+	 */
 	nih_local char   *upstart_cgroup = NULL;
 
 	nih_assert (cgroups);
@@ -467,26 +454,24 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			if (! cgroup_create (cgroup->controller, cgpath))
 				return FALSE;
 
+			/* FIXME */
+#if 1
 			nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, cgroup->controller, cgpath);
+#endif
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgpath,
 						&cgname->settings))
 				return FALSE;
-			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 			if ((uid == current_uid) && (gid == current_gid)) {
 				/* No need to chown */
 				continue;
 			}
 
-			nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-
 			if (! cgroup_chown (cgroup->controller, cgpath, uid, gid))
 				return FALSE;
 		}
 	}
-
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	return TRUE;
 }
@@ -1069,27 +1054,6 @@ cgroup_manager_disconnected (DBusConnection *connection)
 	cgroup_manager_address = NULL;
 }
 
-/* FIXME: */
-#if 0
-static void
-cgroup_manager_lost_handler (void *data, NihDBusProxy *proxy)
-{
-	nih_assert (proxy);
-
-	nih_warn (_("Lost track of cgroup manager"));
-}
-
-static void
-cgroup_manager_error_handler (void *data, NihDBusMessage *message)       
-{
-        NihError *err;
-
-        err = nih_error_get ();        
-        nih_warn ("%s", err->message); 
-        nih_free (err);
-}
-#endif
-
 /**
  * cgroup_create:
  * @controller: cgroup controller,
@@ -1247,10 +1211,8 @@ cgroup_name_remap (char *str)
 /**
  * cgroup_add:
  *
- * FIXME: finish documenting params!!
- *
  * @parent: parent of new Cgroup,
- * @list: list to store cgroup details in,
+ * @cgroups: existing list to store cgroup details in,
  * @controller: name of cgroup controller,
  * @name: name of cgroup to create,
  * @key: cgroup setting name,
@@ -1410,15 +1372,21 @@ cgroup_settings_apply (const char  *controller,
 	nih_assert (settings);
 	nih_assert (cgroup_manager);
 
+	/* FIXME */
+#if 1
 	nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, controller, path);
+#endif
 
 	NIH_LIST_FOREACH (settings, iter) {
 		nih_local char *setting_key = NULL;
 
 		CGroupSetting *setting = (CGroupSetting *)iter;
 
+		/* FIXME */
+#if 1
 		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s'",
 				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "");
+#endif
 
 		/* setting files in a cgroup directory take the form "controller.key" */
 		setting_key = nih_sprintf (NULL, "%s.%s",
@@ -1426,8 +1394,11 @@ cgroup_settings_apply (const char  *controller,
 		if (! setting_key)
 			nih_return_no_memory_error (FALSE);
 
+/* FIXME */
+#if 1
 		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s', setting_key='%s'",
 				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "", setting_key);
+#endif
 
 		ret = cgmanager_set_value_sync (NULL,
 				cgroup_manager,
@@ -1435,7 +1406,10 @@ cgroup_settings_apply (const char  *controller,
 				path,
 				setting_key,
 				setting->value ? setting->value : "");
+		/* FIXME */
+#if 1
 		nih_message ("XXX:%s:%d:ret=%d", __func__, __LINE__, ret);
+#endif
 
 		if (ret < 0)
 			return FALSE;
@@ -1491,6 +1465,18 @@ cgroup_enter_groups (NihList  *cgroups)
 	return TRUE;
 }
 
+/**
+ * cgroup_chown:
+ *
+ * @controller: controller,
+ * @path: expanded path name,
+ * @uid: user id to change ownership to,
+ * @gid: group id to change ownership to.
+ *
+ * Change the user and group ownership of @path below @controller.
+ *
+ * Returns: TRUE on success, else FALSE.
+ **/
 int
 cgroup_chown (const char  *controller,
 	      const char  *path,
