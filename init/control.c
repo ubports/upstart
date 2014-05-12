@@ -1023,8 +1023,11 @@ control_notify_cgroup_manager_address (void            *data,
 
 	nih_debug ("set cgroup manager address");
 
-	/* FIXME: needed? */
-	nih_main_loop_interrupt ();
+	if (! job_class_induct_jobs ()) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+				_("Out of Memory"));
+		return -1;
+	}
 
 #else
 	nih_debug ("cgroup support not available");

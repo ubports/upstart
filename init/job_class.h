@@ -388,9 +388,17 @@ ssize_t
 job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
 
+int job_class_induct_job (JobClass *class)
+	__attribute__ ((warn_unused_result));
+
 #ifdef ENABLE_CGROUPS
+
+int job_class_induct_jobs (void)
+	__attribute__ ((warn_unused_result));
+
 int job_class_cgroups (JobClass *class)
 	__attribute__ ((warn_unused_result));
+
 #endif /* ENABLE_CGROUPS */
 
 NIH_END_EXTERN

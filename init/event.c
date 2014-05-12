@@ -415,69 +415,9 @@ event_pending_handle_jobs (Event *event)
 		if (class->start_on
 		    && event_operator_handle (class->start_on, event, NULL)
 		    && class->start_on->value) {
-			nih_local char **env = NULL;
-			nih_local char  *name = NULL;
-			size_t           len;
-			Job             *job;
 
-			/* Construct the environment for the new instance
-			 * from the class and the start events.
-			 */
-			env = NIH_MUST (job_class_environment (
-					  NULL, class, &len));
-			NIH_MUST (event_operator_environment (class->start_on,
-							      &env, NULL, &len,
-							      "UPSTART_EVENTS"));
-
-			/* Expand the instance name against the environment */
-			name = NIH_SHOULD (environ_expand (NULL,
-							   class->instance,
-							   env));
-			if (! name) {
-				NihError *err;
-
-				err = nih_error_get ();
-				nih_warn (_("Failed to obtain %s instance: %s"),
-					  class->name, err->message);
-				nih_free (err);
-
-				event_operator_reset (class->start_on);
-				continue;
-			}
-
-			/* Locate the current instance or create a new one */
-			job = (Job *)nih_hash_lookup (class->instances, name);
-			if (! job)
-				job = NIH_MUST (job_new (class, name));
-
-			nih_debug ("New instance %s", job_name (job));
-
-			/* Start the job with the environment we want */
-			if (job->goal != JOB_START) {
-				if (job->start_env)
-					nih_unref (job->start_env, job);
-
-				job->start_env = env;
-				nih_ref (job->start_env, job);
-
-				nih_discard (env);
-				env = NULL;
-
-				job_finished (job, FALSE);
-
-				NIH_MUST (event_operator_fds (class->start_on, job,
-							      &job->fds, &job->num_fds,
-							      &job->start_env, &len,
-							      "UPSTART_FDS"));
-
-				event_operator_events (job->class->start_on,
-						       job, &job->blocking);
-
-				nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-				job_change_goal (job, JOB_START);
-			}
-
-			event_operator_reset (class->start_on);
+			if (! job_class_induct_job (class))
+				return;
 		}
 	}
 

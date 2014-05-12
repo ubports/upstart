@@ -2716,7 +2716,120 @@ job_class_get_index (const JobClass *class)
 	return -1;
 }
 
+/* FIXME: document */
+int
+job_class_induct_job (JobClass *class)
+{
+	nih_local char **env = NULL;
+	nih_local char  *name = NULL;
+	size_t           len;
+	Job             *job;
+
+	nih_assert (class);
+
+	job_class_init ();
+
+	/* Construct the environment for the new instance
+	 * from the class and the start events.
+	 */
+	env = NIH_MUST (job_class_environment (
+				NULL, class, &len));
+	NIH_MUST (event_operator_environment (class->start_on,
+				&env, NULL, &len,
+				"UPSTART_EVENTS"));
+
+	/* Expand the instance name against the environment */
+	name = NIH_SHOULD (environ_expand (NULL,
+				class->instance,
+				env));
+	if (! name) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn (_("Failed to obtain %s instance: %s"),
+				class->name, err->message);
+		nih_free (err);
+
+		event_operator_reset (class->start_on);
+		return FALSE;
+	}
+
+	/* Locate the current instance or create a new one */
+	job = (Job *)nih_hash_lookup (class->instances, name);
+	if (! job)
+		job = NIH_MUST (job_new (class, name));
+
+	nih_debug ("New instance %s", job_name (job));
+
+	/* Start the job with the environment we want */
+	if (job->goal != JOB_START) {
+		if (job->start_env)
+			nih_unref (job->start_env, job);
+
+		job->start_env = env;
+		nih_ref (job->start_env, job);
+
+		nih_discard (env);
+		env = NULL;
+
+		job_finished (job, FALSE);
+
+		NIH_MUST (event_operator_fds (class->start_on, job,
+					&job->fds, &job->num_fds,
+					&job->start_env, &len,
+					"UPSTART_FDS"));
+
+		event_operator_events (job->class->start_on,
+				job, &job->blocking);
+
+		/* FIXME */
+#if 1
+		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
+#endif
+		job_change_goal (job, JOB_START);
+	}
+
+	event_operator_reset (class->start_on);
+
+	return TRUE;
+}
+
+
 #ifdef ENABLE_CGROUPS
+
+/* FIXME: document */
+int
+job_class_induct_jobs (void)
+{
+	nih_assert (cgroup_manager_available ());
+
+	job_class_init ();
+
+	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (! class->start_on)
+			continue;
+
+		if (! class->cgmanager_wait)
+			continue;
+
+		nih_assert (class->start_on->value);
+
+		if (! job_class_induct_job (class))
+			return FALSE;
+
+		/* Unref the events that were ref'ed
+		 * whilst waiting for the cgroup manager
+		 * to become available.
+		 */
+		event_operator_reset (class->start_on);
+		class->cgmanager_wait = FALSE;
+	}
+
+	return TRUE;
+}
+
 /**
  * job_class_cgroups:
  *
@@ -2738,4 +2851,5 @@ job_class_cgroups (JobClass *class)
 	return TRUE;
 
 }
+
 #endif /* ENABLE_CGROUPS */
