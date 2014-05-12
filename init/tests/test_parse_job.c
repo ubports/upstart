@@ -8826,6 +8826,8 @@ test_stanza_usage (void)
 	nih_free (err);
 }
 
+#ifdef ENABLE_CGROUPS
+
 void
 test_stanza_cgroup (void)
 {
@@ -9698,6 +9700,8 @@ test_stanza_cgroup (void)
 	}
 }
 
+#endif /* ENABLE_CGROUPS */
+
 int
 main (int   argc,
       char *argv[])
@@ -9750,7 +9754,10 @@ main (int   argc,
 	test_stanza_setuid ();
 	test_stanza_setgid ();
 	test_stanza_usage ();
+
+#ifdef ENABLE_CGROUPS
 	test_stanza_cgroup ();
+#endif /* ENABLE_CGROUPS */
 
 	return 0;
 }

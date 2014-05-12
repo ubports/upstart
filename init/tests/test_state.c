@@ -52,14 +52,15 @@
 #include "test_util.h"
 
 #ifdef ENABLE_CGROUPS
+
 #include "cgroup.h"
+extern char *cgroup_manager_address;
+
 #endif /* ENABLE_CGROUPS */
 
 #ifndef TEST_DATA_DIR
 #error ERROR: TEST_DATA_DIR not defined
 #endif
-
-extern char *cgroup_manager_address;
 
 /* These functions are 'protected'.
  *
@@ -164,7 +165,10 @@ void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
 void test_reload_signal_state (const char *path);
 void test_job_environ_upgrade (const char *path);
+
+#ifdef ENABLE_CGROUPS
 void test_cgroup_state (const char *path);
+#endif /* ENABLE_CGROUPS */
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -211,7 +215,10 @@ TestDataFile test_data_files[] = {
 	{ "upstart-session-infinity.json", test_session_upgrade_stale },
 	{ "upstart-1.9.json", test_reload_signal_state },
 	{ "upstart-1.11.json", test_job_environ_upgrade },
+
+#ifdef ENABLE_CGROUPS
 	{ "upstart-1.13.json", test_cgroup_state },
+#endif /* ENABLE_CGROUPS */
 
 	{ NULL, NULL }
 };
@@ -4560,6 +4567,8 @@ test_job_environ_upgrade (const char *path)
 	session_init ();
 }
 
+#ifdef ENABLE_CGROUPS
+
 /**
  * test_cgroup_state:
  *
@@ -4640,6 +4649,8 @@ test_cgroup_state (const char *path)
 	event_init ();
 	session_init ();
 }
+
+#endif /* ENABLE_CGROUPS */
 
 /**
  * conf_source_from_path:

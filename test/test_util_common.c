@@ -48,6 +48,9 @@
 
 #include "dbus/upstart.h"
 
+#include <nih-dbus/dbus_connection.h>
+#include <cgmanager/cgmanager-client.h>
+
 #include "test_util_common.h"
 
 #ifndef UPSTART_BINARY
@@ -62,6 +65,14 @@ static char *saved_xdg_config_home = NULL;
 static char *saved_xdg_runtime_dir = NULL;
 static char  test_xdg_config_home[PATH_MAX];
 static char  test_xdg_runtime_dir[PATH_MAX];
+
+#ifdef ENABLE_CGROUPS
+
+#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
+
+static NihDBusProxy *cgroup_manager;
+
+#endif /* ENABLE_CGROUPS */
 
 /**
  * test_setup_called:
@@ -1222,3 +1233,171 @@ test_tree_count (NihTree *tree)
 
 	return (ret == -1 ? 0 : len);
 }
+
+#ifdef ENABLE_CGROUPS
+
+/*
+ * connect_to_cgmanager:
+ *
+ * Returns -2 if cgmanager is not running, -1 on other error,
+ * and 0 on success
+ */
+int
+connect_to_cgmanager(void)
+{
+	DBusError dbus_error;
+	static DBusConnection *connection;
+
+	dbus_error_init(&dbus_error);
+
+	connection = dbus_connection_open_private(CGMANAGER_DBUS_SOCK, &dbus_error);
+	if (!connection) {
+		nih_error("Failed opening dbus connection: %s: %s",
+				dbus_error.name, dbus_error.message);
+		dbus_error_free(&dbus_error);
+		return -2;
+	}
+	if (nih_dbus_setup(connection, NULL) < 0) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Unable to open cgmanager connection at %s: %s", CGMANAGER_DBUS_SOCK,
+			nerr->message);
+		nih_free(nerr);
+		dbus_error_free(&dbus_error);
+		dbus_connection_unref(connection);
+		return -1;
+	}
+	dbus_connection_set_exit_on_disconnect(connection, FALSE);
+	dbus_error_free(&dbus_error);
+	cgroup_manager = nih_dbus_proxy_new(NULL, connection,
+				NULL /* p2p */,
+				"/org/linuxcontainers/cgmanager", NULL, NULL);
+	dbus_connection_unref(connection);
+	if (!cgroup_manager) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Error opening cgmanager proxy: %s", nerr->message);
+		nih_free(nerr);
+		return -1;
+	}
+
+	if (cgmanager_ping_sync(NULL, cgroup_manager, 0) != 0) {
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("Error pinging cgroup manager: %s", nerr->message);
+		nih_free(nerr);
+		disconnect_cgmanager();
+		return -1;
+	}
+	return 0;
+}
+
+void
+disconnect_cgmanager(void)
+{
+       if (cgroup_manager) {
+	       dbus_connection_flush(cgroup_manager->connection);
+	       dbus_connection_close(cgroup_manager->connection);
+               nih_free(cgroup_manager);
+       }
+       cgroup_manager = NULL;
+}
+
+/*
+ * get_pid_cgroup:
+ *
+ * @controller: cgroup controller to query
+ * @pid: pid whose cgroup to return
+ *
+ * The result must be nih_freed
+ */
+char *
+get_pid_cgroup(const char *controller, pid_t pid)
+{
+	char *str;
+	if (cgmanager_get_pid_cgroup_sync(NULL, cgroup_manager,
+				controller, pid, &str) != 0) {
+		
+		NihError *nerr;
+		nerr = nih_error_get();
+		nih_error("call to cgmanager_set_value_sync failed: %s", nerr->message);
+		nih_free(nerr);
+		return NULL;
+	}
+	return str;
+}
+
+/*
+ * setup_cgroup_sandbox:
+ *
+ * Creates a unique cgroup, sets it to remove on empty, and enters the
+ * current task into the new cgroup.
+ */
+int
+setup_cgroup_sandbox(void)
+{
+	char tmpnam[32], line[1024], *cg;
+	int32_t e;
+	int ret = -1, fd = -1;
+	FILE *cgf = NULL;
+	pid_t mypid = getpid();
+
+	if (!cgroup_manager) {
+		nih_error("%s: connect_to_cgmanager must be called first",
+				__func__);
+		goto out;
+	}
+	memset(tmpnam, 0, 32);
+	strcpy(tmpnam, "/tmp/upstart-test-XXXXXX");
+	if ((fd = mkstemp(tmpnam)) < 0) {
+		nih_error("%s: failed to create a tempfile", __func__);
+		goto out;
+	}
+	unlink(tmpnam);
+	cg = tmpnam+5;
+
+	if ((cgf = fopen("/proc/cgroups", "r")) == NULL) {
+		nih_error("%s: failed to read my cgroups", __func__);
+		goto out;
+	}
+	while (fgets(line, 1024, cgf)) {
+		char *p;
+		if (line[0] == '#')
+			continue;
+
+		p = strchr(line, '\t');
+		if (!p) {
+			nih_error("failed to find a \t");
+			continue;
+		}
+		*p = '\0';
+		if (cgmanager_create_sync(NULL, cgroup_manager, line, cg,
+					&e) != 0) {
+			nih_error("%s: failed to create cgroup %s:%s",
+				__func__, line, cg);
+			goto out;
+		}
+		if (e == 1)
+			nih_warn("%s: boggle: cgroup %s:%s already existed",
+					__func__, line, cg);
+		if (cgmanager_remove_on_empty_sync(NULL, cgroup_manager, line,
+					cg) != 0)
+			nih_warn("%s: failed to mark %s:%s remove-on-empty",
+				__func__, line, cg);
+		if (cgmanager_move_pid_sync(NULL, cgroup_manager, line, cg,
+					mypid) != 0) {
+			nih_error("%s: failed to move myself to cgroup %s:%s",
+				__func__, line, cg);
+			goto out;
+		}
+	}
+	ret = 0;
+
+out:
+	if (fd != -1)
+		close(fd);
+	if (cgf)
+		fclose(cgf);
+	return ret;
+}
+#endif /* ENABLE_CGROUPS */
