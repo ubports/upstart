@@ -20,6 +20,7 @@
  */
 
 #include <nih/string.h>
+#include <nih/file.h>
 #include <nih/test.h>
 
 #include "cgroup.h"
@@ -242,6 +243,104 @@ test_cgroup_setting_new (void)
 	}
 }
 
+void
+test_cgroup_job_start (void)
+{
+	char             confdir[PATH_MAX];
+	char             logdir[PATH_MAX];
+	char             flagfile[PATH_MAX];
+	nih_local char  *cmd = NULL;
+	pid_t            dbus_pid = 0;
+	pid_t            upstart_pid = 0;
+	char           **output;
+	size_t           lines;
+	size_t           len;
+	nih_local char  *logfile = NULL;
+	nih_local char  *logfile_name = NULL;
+	nih_local char  *contents = NULL;
+
+	if (geteuid ()) {
+		printf ("INFO: skipping %s tests as not running as root\n", __func__);
+		fflush (NULL);
+		return;
+	}
+
+	TEST_GROUP ("cgroup manager handling");
+
+        TEST_FILENAME (confdir);
+        TEST_EQ (mkdir (confdir, 0755), 0);
+
+        TEST_FILENAME (logdir);
+        TEST_EQ (mkdir (logdir, 0755), 0);
+
+        TEST_FILENAME (flagfile);
+
+	/* Use the "secret" interface */
+	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
+	TEST_EQ (setenv ("UPSTART_LOGDIR", logdir, 1), 0);
+
+	TEST_DBUS (dbus_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("Ensure startup job does not start until cgmanager available");
+
+	contents = nih_sprintf (NULL, 
+			"start on startup\n"
+			"\n"
+			"cgroup memory mem-%s\n"
+			"\n"
+			"exec echo hello\n",
+			__func__);
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "cgroup.conf", contents);
+
+	logfile_name = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"cgroup.log"));
+
+	start_upstart_common (&upstart_pid, FALSE, FALSE, confdir, logdir, NULL);
+
+	cmd = nih_sprintf (NULL, "%s status %s 2>&1", get_initctl (), "cgroup");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+
+	/* job should *NOT* start on startup */
+	TEST_EQ_STR (output[0], "cgroup stop/waiting");
+	nih_free (output);
+
+	TEST_FALSE (file_exists (logfile_name));
+
+	cmd = nih_sprintf (NULL, "%s notify-cgroup-manager-address %s 2>&1",
+			get_initctl (),
+			CGMANAGER_DBUS_SOCK);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+
+	WAIT_FOR_FILE (logfile_name);
+
+	logfile = nih_file_read (NULL, logfile_name, &len);
+	TEST_NE_P (logfile, NULL);
+
+	TEST_EQ_STR (logfile, "hello\r\n");
+
+	DELETE_FILE (confdir, "cgroup.conf");
+	assert0 (unlink (logfile_name));
+
+	/*******************************************************************/
+
+	STOP_UPSTART (upstart_pid);
+	TEST_DBUS_END (dbus_pid);
+
+        TEST_EQ (rmdir (confdir), 0);
+        TEST_EQ (rmdir (logdir), 0);
+
+	/*******************************************************************/
+
+}
+
 int
 main (int   argc,
       char *argv[])
@@ -249,6 +348,7 @@ main (int   argc,
 	test_cgroup_new ();
 	test_cgroup_name_new ();
 	test_cgroup_setting_new ();
+	test_cgroup_job_start ();
 
 	return 0;
 }

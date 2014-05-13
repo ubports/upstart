@@ -68,8 +68,6 @@ static char  test_xdg_runtime_dir[PATH_MAX];
 
 #ifdef ENABLE_CGROUPS
 
-#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
-
 static NihDBusProxy *cgroup_manager;
 
 #endif /* ENABLE_CGROUPS */

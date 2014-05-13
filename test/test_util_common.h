@@ -45,6 +45,11 @@
 /* Default value for TERM if not already set */
 #define TEST_INITCTL_DEFAULT_TERM "linux"
 
+#ifdef ENABLE_CGROUPS
+
+#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
+
+#endif /* ENABLE_CGROUPS */
 
 /* TEST_ENSURE_CLEAN_ENV:
  *
