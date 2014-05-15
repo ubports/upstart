@@ -199,6 +199,24 @@ job_new (JobClass   *class,
 		job_register (job, conn, TRUE);
 	}
 
+	/* Since some job processes can run in parallel, we must ensure
+	 * that the asynchronous-spawning of such job processes is
+	 * handled by providing a handler for each pid.
+	 *
+	 * Strictly, this is only necessary for certain combinations of
+	 * job processes (such as PROCESS_MAIN and PROCESS_POST_START),
+	 * however for consistency with other entities (such as Log), we
+	 * create a slot for all job processes since there is minimal
+	 * overhead (a single pointer) for those job processes tha
+	 * cannot run in parallel with others.
+	 */
+	job->process_data = nih_alloc (job, sizeof (JobProcessData *) * PROCESS_LAST);
+	if (! job->process_data)
+		goto error;
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		job->process_data[i] = NULL;
+
 	return job;
 
 error:
@@ -1657,6 +1675,7 @@ job_serialise (const Job *job)
 	json_object      *json_pid;
 	json_object      *json_fds;
 	json_object      *json_logs;
+	json_object      *json_handler_data;
 
 	nih_assert (job);
 
@@ -1802,6 +1821,25 @@ job_serialise (const Job *job)
 
 	json_object_object_add (json, "log", json_logs);
 
+	json_handler_data = json_object_new_array ();
+
+	if (! json_handler_data)
+		return json;
+
+	for (int process = 0; process < PROCESS_LAST; process++) {
+		json_object *json_data;
+
+		json_data = job_process_data_serialise (job, 
+				job->process_data[process]);
+		if (! json_data)
+			goto error;
+
+		if (json_object_array_add (json_handler_data, json_data) < 0)
+			goto error;
+	}
+
+	json_object_object_add (json, "process_data", json_handler_data);
+
 	return json;
 
 error:
@@ -1865,6 +1903,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	json_object    *json_fds;
 	json_object    *json_pid;
 	json_object    *json_logs;
+	json_object    *json_process_data;
 	json_object    *json_stop_on = NULL;
 	size_t          len;
 	int             ret;
@@ -2089,6 +2128,37 @@ job_deserialise (JobClass *parent, json_object *json)
 				job->log[process] = NULL;
 			} else {
 				goto error;
+			}
+		}
+	}
+
+
+	if (json_object_object_get_ex (json, "process_data", &json_process_data)) {
+		if (! state_check_json_type (json_process_data, array))
+			goto error;
+
+		for (int process = 0; process < PROCESS_LAST; process++) {
+			json_object  *json_data = NULL;
+
+			//FIXME
+			//json_data = json_object_array_get_idx (json_data, process);
+
+			if (json_data) {
+				/* NULL if there was no process_data for this job process, or we failed to
+				 * deserialise it; either way, this should be non-fatal.
+				 */
+				job->process_data[process] =
+					job_process_data_deserialise (job->process_data, job, json_data);
+
+				if (! job->process_data[process])
+					goto error;
+
+				/* Recreate watch */
+				job_register_child_handler (job->process_data[process],
+						job->process_data[process]->job_process_fd,
+						job->process_data[process]);
+			} else {
+				job->process_data[process] = NULL;
 			}
 		}
 	}
