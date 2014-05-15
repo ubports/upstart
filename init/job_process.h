@@ -125,14 +125,41 @@ typedef struct job_process_error {
 } JobProcessError;
 
 
+/**
+ * JobProcessErrorHandler:
+ *
+ * @job: job,
+ * @state: required state job is attempting to achieve,
+ * @process: job process that failed.
+ *
+ * Function that is called when a job process @process fails to start.
+ **/
+typedef void (*JobProcessErrorHandler) (Job *job, JobState state, ProcessType process);
+
 NIH_BEGIN_EXTERN
 
 int    job_process_run     (Job *job, ProcessType process);
+void
+job_process_start (Job                    *job,
+		   ProcessType             process);
+
+void   job_process_run_bottom (JobProcessData *handler_data);
+
+void   job_process_child_reader (JobProcessData *handler_data, NihIo *io,
+		const char *buf, size_t len);
+
+void   job_process_close_handler (JobProcessData *handler_data, NihIo *io);
 
 pid_t  job_process_spawn   (Job *job, char * const argv[],
 			    char * const *env, int trace, int script_fd,
 			    ProcessType   process)
 	__attribute__ ((warn_unused_result));
+
+pid_t  job_process_spawn_with_fd   (Job *job, char * const argv[],
+			    char * const *env, int trace, int script_fd,
+			    ProcessType process, int *job_process_fd)
+	__attribute__ ((warn_unused_result));
+
 
 void   job_process_kill    (Job *job, ProcessType process);
 
@@ -145,8 +172,8 @@ char  *job_process_log_path (Job *job, int user_job)
 	__attribute__ ((warn_unused_result));
 
 void   job_process_set_kill_timer (Job          *job,
-		  	    ProcessType   process,
-			    time_t        timeout);
+				   ProcessType   process,
+				   time_t        timeout);
 
 void   job_process_adj_kill_timer  (Job *job, time_t due);
 
@@ -165,6 +192,8 @@ job_process_data_serialise (const Job *job, const JobProcessData *handler_data)
 JobProcessData *
 job_process_data_deserialise (void *parent, Job *job, json_object *json)
 	__attribute__ ((warn_unused_result));
+
+void job_process_error_handler (const char *buf, size_t len);
 
 NIH_END_EXTERN
 
