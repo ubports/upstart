@@ -3598,8 +3598,8 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 	if (! state_get_json_int_var (json, "job_process_fd", job_process_fd))
 		return NULL;
 
-	job->process_data[process] = job_process_data_new (job->process_data, job, process, job_process_fd);
-	if (! job->process_data[process])
+	process_data = job_process_data_new (parent, job, process, job_process_fd);
+	if (! process_data)
 		return NULL;
 
 	if (! state_get_json_string_var_to_obj (json, process_data, script))
@@ -3615,9 +3615,6 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 		if (state_modify_cloexec (process_data->shell_fd, TRUE) < 0)
 			goto error;
 	}
-
-	if (! state_get_json_int_var_to_obj (json, process_data, job_process_fd))
-		goto error;
 
 	return process_data;
 
