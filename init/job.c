@@ -2401,3 +2401,53 @@ job_find (const Session  *session,
 error:
 	return NULL;
 }
+
+/**
+ * job_child_error_handler:
+ *
+ * @job: job,
+ * @process: process that failed to start.
+ *
+ * JobProcessErrorHandler that deals with errors resulting from
+ * a failure to start a job process.
+ **/
+void
+job_child_error_handler (Job *job, ProcessType process)
+{
+	nih_assert (job);
+	nih_assert (process > PROCESS_INVALID);
+	nih_assert (process < PROCESS_LAST);
+	
+	switch (process) {
+	case PROCESS_SECURITY:
+		job_failed (job, PROCESS_SECURITY, -1);
+		job_change_goal (job, JOB_STOP);
+		break;
+
+	case PROCESS_PRE_START:
+		job_failed (job, PROCESS_PRE_START, -1);
+		job_change_goal (job, JOB_STOP);
+		break;
+
+	case PROCESS_MAIN:
+		job_failed (job, PROCESS_MAIN, -1);
+		job_change_goal (job, JOB_STOP);
+		break;
+
+	case PROCESS_POST_START:
+		/* NOP */
+		break;
+
+	case PROCESS_PRE_STOP:
+		/* NOP */
+		break;
+
+	case PROCESS_POST_STOP:
+		job_failed (job, PROCESS_POST_STOP, -1);
+		job_change_goal (job, JOB_STOP);
+		break;
+
+	default:
+		nih_assert_not_reached ();
+	}
+}
