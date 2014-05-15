@@ -3228,7 +3228,6 @@ job_process_child_reader (JobProcessData  *process_data,
 	ProcessType              process;
 	NihError                *err;
 	int                      shell_fd;
-	//int                      status;
 
 	nih_assert (process_data);
 	nih_assert (io);
@@ -3237,7 +3236,6 @@ job_process_child_reader (JobProcessData  *process_data,
 	job = process_data->job;
 	process = process_data->process;
 	shell_fd = process_data->shell_fd;
-	//status = process_data->status;
 
 	/* Construct the NIH error from the data received from
 	 * the child.
@@ -3262,8 +3260,6 @@ job_process_child_reader (JobProcessData  *process_data,
 
 		shell_fd = -1;
 	}
-
-	job->pid[process] = 0;
 
 	if (job->class->console == CONSOLE_LOG && job->log[process]) {
 		/* Ensure the pty_master watch gets
