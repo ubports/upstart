@@ -154,6 +154,18 @@ int    job_process_jobs_running (void);
 
 void   job_process_stop_all (void);
 
+JobProcessData *
+job_process_data_new (void *parent, Job *job, ProcessType process, int job_process_fd)
+	__attribute__ ((warn_unused_result));
+
+json_object *
+job_process_data_serialise (const Job *job, const JobProcessData *handler_data)
+	__attribute__ ((warn_unused_result));
+
+JobProcessData *
+job_process_data_deserialise (void *parent, Job *job, json_object *json)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_PROCESS_H */

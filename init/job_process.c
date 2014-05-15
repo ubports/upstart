@@ -2328,3 +2328,163 @@ job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
 	close (*fd);
 	*fd = new;
 }
+
+/**
+ * job_process_data_new:
+ *
+ * @parent: parent pointer,
+ * @job: job,
+ * @process: currently-running job process,
+ * @job_process_fd: error file descriptor connected to job process used
+ * to signal successful job process setup.
+ *
+ * Create a new job process data object to record meta-data for an
+ * asynchronously-started job process. The lifetime of such objects is
+ * limited to the time taken for the job process to fail or indicate
+ * successful startup (both scenarios are handled by @job_process_fd).
+ *
+ * Returns: Newly-allocated JobProcess on success, or NULL on
+ * insufficient memory.
+ **/
+JobProcessData *
+job_process_data_new (void         *parent,
+		      Job          *job,
+		      ProcessType   process,
+		      int           job_process_fd)
+{
+	JobProcessData *process_data;
+
+	nih_assert (job);
+
+	process_data = NIH_MUST (nih_new (parent, JobProcessData));
+	if (! process_data)
+		return NULL;
+
+	process_data->process = process;
+	process_data->job_process_fd = job_process_fd;
+
+	process_data->script = NULL;
+	process_data->shell_fd = -1;
+
+	process_data->job = job;
+	process_data->status = 0;
+
+	return process_data;
+}
+
+/**
+ * job_process_data_serialise:
+ *
+ * @job: job,
+ * @process_data: job process data.
+ *
+ * Returns: JSON-serialised JobProcessData object, or NULL on error.
+ **/
+json_object *
+job_process_data_serialise (const Job *job, const JobProcessData *process_data)
+{
+	json_object     *json;
+
+	nih_assert (job);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	/* Job has no "in-flight" process */
+	if (! process_data)
+		return json;
+
+	/* XXX: Note that Job is not serialised; it's not necessary
+	 * since the JobProcessData itself is serialised within its Job
+	 * and the job pointer can be reinstated on deserialisation.
+	 */
+
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"process", process_data->process))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, process_data, script))
+		goto error;
+
+	if (process_data->shell_fd != -1) {
+		/* Clear the cloexec flag to ensure the descriptor
+		 * remains open across a re-exec.
+		 */
+		if (state_modify_cloexec (process_data->shell_fd, FALSE) < 0)
+			goto error;
+	}
+
+	if (! state_set_json_int_var_from_obj (json, process_data, shell_fd))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, process_data, job_process_fd))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_process_data_deserialise:
+ *
+ * @parent: parent pointer (FIXME: unused),
+ * @job: job,
+ * @json: JSON-serialised JobProcessData object to deserialise.
+ *
+ * Returns: JobProcessData object, or NULL on error.
+ **/
+JobProcessData *
+job_process_data_deserialise (void *parent, Job *job, json_object *json)
+{
+	JobProcessData  *process_data = NULL;
+	ProcessType      process;
+	int              job_process_fd;
+
+	nih_assert (job);
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		return NULL;
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"process", process))
+		return NULL;
+
+	if (! state_get_json_int_var (json, "job_process_fd", job_process_fd))
+		return NULL;
+
+	job->process_data[process] = job_process_data_new (job->process_data, job, process, job_process_fd);
+	if (! job->process_data[process])
+		return NULL;
+
+	if (! state_get_json_string_var_to_obj (json, process_data, script))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, process_data, shell_fd))
+		goto error;
+
+	if (process_data->shell_fd != -1) {
+		/* Reset the cloexec flag to ensure the descriptor
+		 * is not leaked to any child processes.
+		 */
+		if (state_modify_cloexec (process_data->shell_fd, TRUE) < 0)
+			goto error;
+	}
+
+	if (! state_get_json_int_var_to_obj (json, process_data, job_process_fd))
+		goto error;
+
+	return process_data;
+
+error:
+	if (process_data)
+		nih_free (process_data);
+
+	return NULL;
+}
