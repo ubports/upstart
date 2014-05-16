@@ -89,7 +89,7 @@ digraph {
 	killed -> post_stopping [color=red];
 
 	post_stopping -> post_stop [color=green,weight=10];
-	post_stopping -> waiting [color=red];
+	post_stopping -> post_stop [color=red];
 
 	post_stop -> starting [color=green];
 	post_stop -> emit_stopped [color=red,weight=10];
