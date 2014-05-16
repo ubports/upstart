@@ -3231,6 +3231,8 @@ job_process_child_reader (JobProcessData  *process_data,
 	 */
 	if (! process_data)
 		return;
+	if (! process_data->valid)
+		return;
 
 	nih_assert (io);
 	nih_assert (buf);

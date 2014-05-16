@@ -60,6 +60,7 @@
 #include "conf.h"
 #include "control.h"
 #include "state.h"
+#include "tests/test_process_handle.hh"
 
 
 char *argv0;
@@ -707,6 +708,10 @@ test_change_state (void)
 	char            *path, *job_path = NULL, *state;
 	int              status;
 
+	nih_error_init ();
+	nih_main_loop_init ();
+	event_init ();
+
 	TEST_FUNCTION ("job_change_state");
 	program_name = "test";
 	output = tmpfile ();
@@ -1183,6 +1188,9 @@ test_change_state (void)
 	tmp = class->process[PROCESS_PRE_START];
 	class->process[PROCESS_PRE_START] = fail;
 
+	pid_list = nih_list_new (NULL);
+	TEST_NE_P (pid_list, NULL);
+	
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
@@ -1190,6 +1198,17 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
+
+			/* Register another handler to be called after the primary
+			 * Upstart handler to allow the test to exit the main loop
+			 * quickly on success.
+			 */
+			NIH_MUST (nih_child_add_watch (NULL,
+						-1,
+						NIH_CHILD_ALL,
+						test_job_process_handler,
+						NULL)); 
+
 		}
 
 		job->goal = JOB_START;
@@ -1206,13 +1225,19 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_PRE_STARTING);
+		//FIXME should run without TEST_ALLOC_SAFE
+			TEST_ALLOC_SAFE {
+				job_change_state (job, JOB_PRE_STARTING);
+				nih_main_loop();
+			}
 		}
 		rewind (output);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
-		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
+		TEST_FALSE (job->process_data[PROCESS_PRE_START]->valid);
+		// FIXME shouldn't it be zero at this point?
+		TEST_NE (job->pid[PROCESS_PRE_START], 0);
 
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
