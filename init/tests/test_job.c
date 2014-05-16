@@ -165,6 +165,12 @@ test_new (void)
 			TEST_EQ_P (job->log[i], NULL);
 		}
 
+		TEST_NE_P (job->process_data, NULL);
+		TEST_ALLOC_SIZE (job->log, sizeof (JobProcessData *) * PROCESS_LAST);
+		for (i = 0; i < PROCESS_LAST; i++) {
+			TEST_EQ_P (job->process_data[i], NULL);
+		}
+
 		event_operator_reset (job->stop_on);
 
 		nih_free (job);
