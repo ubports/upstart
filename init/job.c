@@ -85,6 +85,30 @@ static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
 
+int
+job_destroy (Job *job)
+{
+	int  i;
+
+	nih_assert (job);
+
+	/* Free any associated NihIo's to avoid the handlers getting
+	 * called potentially after the job has been freed.
+	 */
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (job->process_data && job->process_data[i]) {
+			nih_free (job->process_data[i]);
+
+			job->process_data[i] = NULL;
+		}
+	}
+
+	nih_list_destroy (&job->entry);
+
+	return 0;
+}
+
+
 /**
  * job_new:
  * @class: class of job,
@@ -117,7 +141,7 @@ job_new (JobClass   *class,
 
 	nih_list_init (&job->entry);
 
-	nih_alloc_set_destructor (job, nih_list_destroy);
+	nih_alloc_set_destructor (job, job_destroy);
 
 	job->name = nih_strdup (job, name);
 	if (! job->name)
@@ -1841,12 +1865,20 @@ job_serialise (const Job *job)
 		return json;
 
 	for (int process = 0; process < PROCESS_LAST; process++) {
-		json_object *json_data;
+		json_object *json_data = NULL;
 
-		json_data = job_process_data_serialise (job, 
-				job->process_data[process]);
-		if (! json_data)
-			goto error;
+		/* Only bother serialising if the process data hasn't
+		 * been handled yet.
+		 */
+		if (job->process_data[process] && job->process_data[process]->valid) {
+
+			json_data = job_process_data_serialise (job, 
+					job->process_data[process]);
+
+			if (! json_data)
+				goto error;
+
+		}
 
 		if (json_object_array_add (json_handler_data, json_data) < 0)
 			goto error;
@@ -2154,8 +2186,7 @@ job_deserialise (JobClass *parent, json_object *json)
 		for (int process = 0; process < PROCESS_LAST; process++) {
 			json_object  *json_data = NULL;
 
-			//FIXME
-			//json_data = json_object_array_get_idx (json_data, process);
+			json_data = json_object_array_get_idx (json_process_data, process);
 
 			if (json_data) {
 				/* NULL if there was no process_data for this job process, or we failed to
@@ -2168,9 +2199,11 @@ job_deserialise (JobClass *parent, json_object *json)
 					goto error;
 
 				/* Recreate watch */
-				job_register_child_handler (job->process_data[process],
-						job->process_data[process]->job_process_fd,
-						job->process_data[process]);
+				if (job->process_data[process]->valid) {
+					job_register_child_handler (job->process_data[process],
+							job->process_data[process]->job_process_fd,
+							job->process_data[process]);
+				}
 			} else {
 				job->process_data[process] = NULL;
 			}

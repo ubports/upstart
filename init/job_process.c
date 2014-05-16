@@ -3224,15 +3224,19 @@ job_process_child_reader (JobProcessData  *process_data,
 	Job                     *job;
 	ProcessType              process;
 	NihError                *err;
-	int                      shell_fd;
 
-	nih_assert (process_data);
+	/* The job is in the process of being killed which must mean all
+	 * the job pids are dead. Hence, there is no point in attempting
+	 * to talk to them.
+	 */
+	if (! process_data)
+		return;
+
 	nih_assert (io);
 	nih_assert (buf);
 
 	job = process_data->job;
 	process = process_data->process;
-	shell_fd = process_data->shell_fd;
 
 	/* Construct the NIH error from the data received from
 	 * the child.
@@ -3252,13 +3256,14 @@ job_process_child_reader (JobProcessData  *process_data,
 	/* Non-temporary error condition, we're not going
 	 * to be able to spawn this job.
 	 */
-	if (shell_fd != -1) {
-		close (shell_fd);
+	if (process_data->shell_fd != -1) {
+		close (process_data->shell_fd);
 
-		shell_fd = -1;
+		/* Invalidate */
+		process_data->shell_fd = -1;
 	}
 
-	if (job->class->console == CONSOLE_LOG && job->log[process]) {
+	if (job && job->class->console == CONSOLE_LOG && job->log[process]) {
 		/* Ensure the pty_master watch gets
 		 * removed and the fd closed.
 		 */
@@ -3277,6 +3282,8 @@ job_process_child_reader (JobProcessData  *process_data,
 
 	nih_io_shutdown (io);
 
+	/* Invalidate */
+	process_data->job_process_fd = -1;
 	process_data->valid = FALSE;
 }
 
@@ -3294,7 +3301,13 @@ job_process_close_handler (JobProcessData  *process_data,
 	ProcessType  process;
 	int          status;
 
-	nih_assert (process_data);
+	/* The job is in the process of being killed which must mean all
+	 * the job pids are dead. Hence, there is no point in attempting
+	 * to talk to them.
+	 */
+	if (! process_data)
+		return;
+
 	nih_assert (io);
 
 	job = process_data->job;
@@ -3306,16 +3319,18 @@ job_process_close_handler (JobProcessData  *process_data,
 	 */
 	nih_free (io);
 
+	/* invalidate */
+	process_data->job_process_fd = -1;
+	process_data->valid = FALSE;
+
 	job_process_run_bottom (process_data);
 
-#if 1
-	if (job->state == JOB_SPAWNING) {
+	if (job && job->state == JOB_SPAWNING) {
 		if (job->class->expect == EXPECT_NONE) {
 			nih_assert (process == PROCESS_MAIN);
 			job_change_state (job, job_next_state (job));
 		}
 	}
-#endif
        
 #if 0
 	switch (job->state) {
@@ -3370,24 +3385,6 @@ job_process_close_handler (JobProcessData  *process_data,
 	}
 
 	//job_change_state (job, job_next_state (job));
-
-	/* FIXME:
-	 *
-	 * - nih_free(process_data)" is not called here since
-	 *   job_process_terminated may have freed the job itself and
-	 *   the parent of process_data is the job, hence we may perform
-	 *   a double-free here!
-	 *
-	 *   FIXME: needs tests.
-	 */
-
-	process_data->valid = FALSE;
-
-	/* FIXME */
-#if 0
-	nih_free (process_data);
-	job->process_data[process] = NULL;
-#endif
 }
 
 
@@ -3419,7 +3416,6 @@ job_process_run_bottom (JobProcessData *process_data)
 	if (script && shell_fd != -1) {
 		NihIo *io;
 
-		nih_assert (shell_fd != -1);
 
 		/* Put the entire script into an NihIo send buffer and
 		 * then mark it for closure so that the shell gets EOF
@@ -3430,6 +3426,7 @@ job_process_run_bottom (JobProcessData *process_data)
 			NihError *err;
 
 			err = nih_error_get ();
+
 			if (err->number != ENOMEM)
 				nih_assert_not_reached ();
 			nih_free (err);
@@ -3451,6 +3448,12 @@ job_process_run_bottom (JobProcessData *process_data)
 		io->watch->events &= ~NIH_IO_READ;
 
 		nih_io_shutdown (io);
+
+		/* Invalidate now that we've sent the script to the
+		 * child.
+		 */
+		process_data->shell_fd = -1;
+		process_data->valid = FALSE;
 	}
 
 	/* Success, so change the job state */
@@ -3494,6 +3497,7 @@ job_process_data_new (void         *parent,
 	JobProcessData *process_data;
 
 	nih_assert (job);
+	nih_assert (job_process_fd != -1);
 
 	process_data = NIH_MUST (nih_new (parent, JobProcessData));
 	if (! process_data)
@@ -3559,6 +3563,9 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 	if (! state_set_json_int_var_from_obj (json, process_data, shell_fd))
 		goto error;
 
+	if (! state_set_json_int_var_from_obj (json, process_data, valid))
+		goto error;
+
 	if (! state_set_json_int_var_from_obj (json, process_data, job_process_fd))
 		goto error;
 
@@ -3572,7 +3579,7 @@ error:
 /**
  * job_process_data_deserialise:
  *
- * @parent: parent pointer (FIXME: unused),
+ * @parent: parent pointer,
  * @job: job,
  * @json: JSON-serialised JobProcessData object to deserialise.
  *
