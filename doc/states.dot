@@ -20,13 +20,12 @@
  */
 
 digraph {
-	rankdir=LR;
 	edge [fontsize=10];
 
 	waiting [shape=diamond];
 	starting [label="starting\n(emit starting)"];
-	security [label="security"];
 	security_spawning [label="security-spawning"];
+	security [label="security"];
 	pre_starting [label="pre-starting"];
 	pre_start [label="pre-start"];
 	spawning [label="spawning"];
@@ -43,44 +42,45 @@ digraph {
 	post_stop [label="post-stop"];
 	emit_stopped [shape=rectangle,label="emit stopped"];
 
-	waiting -> starting [color=green];
+	constraint=false;
+	waiting -> starting [color=green,weight=10];
 
-	starting -> security_spawning [color=green];
+	starting -> security_spawning [color=green,weight=10];
 	starting -> stopping [color=red];
 
-	security_spawning -> security [color=green];
+	security_spawning -> security [color=green,weight=10];
 	security_spawning -> stopping [color=red];
 
-	security -> pre_starting [color=green];
+	security -> pre_starting [color=green,weight=10];
 	security -> stopping [color=red];
 
-	pre_starting -> pre_start [color=green];
+	pre_starting -> pre_start [color=green,weight=10];
 	pre_starting -> stopping [color=red];
 
-	pre_start -> spawning [color=green];
+	pre_start -> spawning [color=green,weight=10];
 	pre_start -> stopping [color=red];
 
-	spawning -> spawned [color=green];
+	spawning -> spawned [color=green,weight=10];
 	spawning -> stopping [color=red];
 
-	spawned -> post_starting [color=green];
+	spawned -> post_starting [color=green,weight=10];
 	spawned -> stopping [color=red];
 
-	post_starting -> post_start [color=green];
+	post_starting -> post_start [color=green,weight=10];
 	post_starting -> stopping [color=red];
 
-	post_start -> emit_started -> running [color=green];
+	post_start -> emit_started -> running [color=green,weight=10];
 	post_start -> stopping [color=red];
 
-	running -> pre_stopping [color=red,label="pid > 0"];
-	running -> stopping [color=red,label="pid == 0"];
-	running -> stopping [color=green,label="respawn"];
+	running -> pre_stopping [color=red,fontcolor=red,label="pid > 0",weight=10];
+	running -> stopping [color=red,fontcolor=red,label="pid == 0"];
+	running -> stopping [color=green,fontcolor=darkgreen,label="respawn"];
 
-	pre_stopping -> pre_stop [color=green];
-	pre_stopping -> pre_stop [color=red];
+	pre_stopping -> pre_stop [color=green,weight=10];
+	pre_stopping -> pre_stop [color=red,weight=10];
 
 	pre_stop -> running [color=green];
-	pre_stop -> stopping [color=red];
+	pre_stop -> stopping [color=red,weight=10];
 
 	stopping -> killed [color=green];
 	stopping -> killed [color=red];
@@ -88,11 +88,11 @@ digraph {
 	killed -> post_stopping [color=green];
 	killed -> post_stopping [color=red];
 
-	post_stopping -> post_stop [color=green];
+	post_stopping -> post_stop [color=green,weight=10];
 	post_stopping -> waiting [color=red];
 
 	post_stop -> starting [color=green];
-	post_stop -> emit_stopped [color=red];
+	post_stop -> emit_stopped [color=red,weight=10];
 
 	emit_stopped -> waiting [color=red];
 }
