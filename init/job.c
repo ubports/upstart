@@ -427,12 +427,11 @@ job_change_state (Job      *job,
 		case JOB_PRE_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SECURITY);
+			/* spawn pre-start asynchronously, child
+			 * watcher asynchronously will change goal to
+			 * stop if spawning fails */
 			if (job->class->process[PROCESS_PRE_START]) {
-				if (job_process_run (job, PROCESS_PRE_START) < 0) {
-					job_failed (job, PROCESS_PRE_START, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
+			    job_process_start (job, PROCESS_PRE_START);
 			}	
 			state = job_next_state (job);
 			break;
@@ -440,6 +439,9 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_STARTING);
 
+			/* if no pre-start process, go to next
+			 * state. otherwise async child watcher will
+			 * trigger us to go to the next state */
 			if (! job->class->process[PROCESS_PRE_START])
 			    state = job_next_state (job);
 			break;
