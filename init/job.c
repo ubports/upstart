@@ -427,22 +427,21 @@ job_change_state (Job      *job,
 		case JOB_PRE_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SECURITY);
-			state = job_next_state (job);
-			break;
-		case JOB_PRE_START:
-			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_PRE_STARTING);
-
 			if (job->class->process[PROCESS_PRE_START]) {
 				if (job_process_run (job, PROCESS_PRE_START) < 0) {
 					job_failed (job, PROCESS_PRE_START, -1);
 					job_change_goal (job, JOB_STOP);
 					state = job_next_state (job);
 				}
-			} else {
-				state = job_next_state (job);
-			}
+			}	
+			state = job_next_state (job);
+			break;
+		case JOB_PRE_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_PRE_STARTING);
 
+			if (! job->class->process[PROCESS_PRE_START])
+			    state = job_next_state (job);
 			break;
 		case JOB_SPAWNED:
 			nih_assert (job->goal == JOB_START);
@@ -511,6 +510,7 @@ job_change_state (Job      *job,
 			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
+				    || (old_state == JOB_PRE_STARTING)
 				    || (old_state == JOB_PRE_START)
 				    || (old_state == JOB_SECURITY)
 				    || (old_state == JOB_SPAWNED)
