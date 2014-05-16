@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright  2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -184,7 +184,8 @@ typedef struct job {
  *  process used to detect child setup errors,
  * @status: exit status or signal in higher byte (iff 
  *  job_process_terminated() ran before the job_register_child_handler()
- *  handlers).
+ *  handlers),
+ * @valid: FALSE once the data has been handled, else TRUE.
  *
  * Used to keep track of asynchronously started job processes.
  **/
@@ -195,6 +196,7 @@ typedef struct job_process_data {
 	int            shell_fd;
 	int            job_process_fd;
 	int            status;
+	int            valid;
 } JobProcessData;
 
 /**

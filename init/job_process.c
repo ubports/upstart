@@ -2922,9 +2922,6 @@ job_process_trace_fork (Job         *job,
 
 	nih_assert (job != NULL);
 
-	/* FIXME */
-	//nih_message ("XXX:%s:%d:", __func__, __LINE__);
-
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
@@ -3279,6 +3276,8 @@ job_process_child_reader (JobProcessData  *process_data,
 	 */
 
 	nih_io_shutdown (io);
+
+	process_data->valid = FALSE;
 }
 
 /**
@@ -3382,6 +3381,8 @@ job_process_close_handler (JobProcessData  *process_data,
 	 *   FIXME: needs tests.
 	 */
 
+	process_data->valid = FALSE;
+
 	/* FIXME */
 #if 0
 	nih_free (process_data);
@@ -3450,7 +3451,6 @@ job_process_run_bottom (JobProcessData *process_data)
 		io->watch->events &= ~NIH_IO_READ;
 
 		nih_io_shutdown (io);
-		nih_message ("XXX:%s:%d:", __func__, __LINE__);
 	}
 
 	/* Success, so change the job state */
@@ -3504,6 +3504,7 @@ job_process_data_new (void         *parent,
 
 	process_data->script = NULL;
 	process_data->shell_fd = -1;
+	process_data->valid = TRUE;
 
 	process_data->job = job;
 	process_data->status = 0;
@@ -3547,7 +3548,7 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 	if (! state_set_json_string_var_from_obj (json, process_data, script))
 		goto error;
 
-	if (process_data->shell_fd != -1) {
+	if (process_data->shell_fd != -1 && process_data->valid) {
 		/* Clear the cloexec flag to ensure the descriptor
 		 * remains open across a re-exec.
 		 */
@@ -3608,7 +3609,10 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 	if (! state_get_json_int_var_to_obj (json, process_data, shell_fd))
 		goto error;
 
-	if (process_data->shell_fd != -1) {
+	if (! state_get_json_int_var_to_obj (json, process_data, valid))
+		goto error;
+
+	if (process_data->shell_fd != -1 && process_data->valid) {
 		/* Reset the cloexec flag to ensure the descriptor
 		 * is not leaked to any child processes.
 		 */
