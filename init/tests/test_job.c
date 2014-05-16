@@ -1059,7 +1059,7 @@ test_change_state (void)
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_PRE_START);
+		job_change_state (job, JOB_PRE_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_PRE_START);
@@ -1125,7 +1125,7 @@ test_change_state (void)
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_PRE_START);
+		job_change_state (job, JOB_PRE_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1200,7 +1200,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_PRE_START);
+			job_change_state (job, JOB_PRE_STARTING);
 		}
 		rewind (output);
 
@@ -4009,13 +4009,13 @@ test_next_state (void)
 	TEST_EQ (job_next_state (job), JOB_SECURITY);
 
 	/* Check that the next state if we're starting a security job is
-	 * pre-start.
+	 * pre-starting.
 	 */
 	TEST_FEATURE ("with security job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_SECURITY;
 
-	TEST_EQ (job_next_state (job), JOB_PRE_START);
+	TEST_EQ (job_next_state (job), JOB_PRE_STARTING);
 
 	/* Check that the next state if we're stopping an security job is
 	 * stopping.
@@ -4025,6 +4025,25 @@ test_next_state (void)
 	job->state = JOB_SECURITY;
 
 	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
+	/* Check that the next state if we're starting a pre-starting job is
+	 * pre-start.
+	 */
+	TEST_FEATURE ("with pre-stating job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_PRE_STARTING;
+
+	TEST_EQ (job_next_state (job), JOB_PRE_START);
+
+	/* Check that the next state if we're stopping a pre-starting job is
+	 * stopping.
+	 */
+	TEST_FEATURE ("with pre-starting job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_PRE_STARTING;
+
+	TEST_EQ (job_next_state (job), JOB_STOPPING);
+
 
 	/* Check that the next state if we're stopping a pre-start job is
 	 * stopping.

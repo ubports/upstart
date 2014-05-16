@@ -424,9 +424,14 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_PRE_START:
+		case JOB_PRE_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SECURITY);
+			state = job_next_state (job);
+			break;
+		case JOB_PRE_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_PRE_STARTING);
 
 			if (job->class->process[PROCESS_PRE_START]) {
 				if (job_process_run (job, PROCESS_PRE_START) < 0) {
@@ -632,6 +637,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_SECURITY:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_PRE_STARTING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_PRE_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
