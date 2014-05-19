@@ -1805,7 +1805,7 @@ test_change_state (void)
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_POST_START);
+		job_change_state (job, JOB_POST_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_POST_START);
@@ -1872,7 +1872,7 @@ test_change_state (void)
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_POST_START);
+		job_change_state (job, JOB_POST_STARTING);
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1920,6 +1920,11 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
+			NIH_MUST (nih_child_add_watch (NULL,
+						-1,
+						NIH_CHILD_ALL,
+						test_job_process_handler,
+						NULL)); 
 		}
 
 		job->goal = JOB_START;
@@ -1936,7 +1941,8 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_POST_START);
+			job_change_state (job, JOB_POST_STARTING);
+			nih_main_loop ();
 		}
 		rewind (output);
 
@@ -4172,11 +4178,21 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're starting a spawned job is
-	 * post-start.
+	 * post-starting.
 	 */
 	TEST_FEATURE ("with spawned job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_STARTING);
+
+
+	/* Check that the next state if we're starting a post-staring job is
+	 * post-start.
+	 */
+	TEST_FEATURE ("with post-starting job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_POST_STARTING;
 
 	TEST_EQ (job_next_state (job), JOB_POST_START);
 

@@ -488,17 +488,22 @@ job_change_state (Job      *job,
 			    state = job_next_state (job);
 			}
 			break;
-		case JOB_POST_START:
+		case JOB_POST_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
-				if (job_process_run (job, PROCESS_POST_START) < 0)
-					state = job_next_state (job);
-			} else {
+			    job_process_start (job, PROCESS_POST_START);
+			}
+			state = job_next_state (job);
+			break;
+		case JOB_POST_START:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_POST_STARTING);
+
+			if (! job->class->process[PROCESS_POST_START]) {
 				state = job_next_state (job);
 			}
-
 			break;
 		case JOB_RUNNING:
 			nih_assert (job->goal == JOB_START);
@@ -711,6 +716,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_SPAWNED:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_POST_STARTING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_POST_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -2577,7 +2591,7 @@ job_child_error_handler (Job *job, ProcessType process)
 		break;
 
 	case PROCESS_POST_START:
-		/* NOP */
+		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_PRE_STOP:
