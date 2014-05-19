@@ -60,7 +60,28 @@
 #include "conf.h"
 #include "control.h"
 #include "state.h"
-#include "tests/test_process_handle.hh"
+
+/**
+ * test_job_process_handler:
+ *
+ * @data: NULL
+ * @pid: process that changed,
+ * @event: event that occurred on the child,
+ * @status: exit status, signal raised or ptrace event.
+ *
+ * Handler that just exits the main loop, insert that to quit main
+ * loop after one iteration which results in process exiting. Needed
+ * since libnih at the moment lacks something like
+ * g_main_context_iteration()
+ **/
+void
+test_job_process_handler (void           *data,
+			  pid_t           pid,
+			  NihChildEvents  event,
+			  int             status)
+{
+	nih_main_loop_exit (0);
+}
 
 
 char *argv0;
@@ -1188,9 +1209,6 @@ test_change_state (void)
 	tmp = class->process[PROCESS_PRE_START];
 	class->process[PROCESS_PRE_START] = fail;
 
-	pid_list = nih_list_new (NULL);
-	TEST_NE_P (pid_list, NULL);
-	
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
@@ -1225,11 +1243,8 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		TEST_DIVERT_STDERR (output) {
-		//FIXME should run without TEST_ALLOC_SAFE
-			TEST_ALLOC_SAFE {
-				job_change_state (job, JOB_PRE_STARTING);
-				nih_main_loop();
-			}
+			job_change_state (job, JOB_PRE_STARTING);
+			nih_main_loop();
 		}
 		rewind (output);
 
