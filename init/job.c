@@ -469,21 +469,21 @@ job_change_state (Job      *job,
 			if (! job->class->process[PROCESS_PRE_START])
 			    state = job_next_state (job);
 			break;
-		case JOB_SPAWNED:
+		case JOB_SPAWNING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
 			if (job->class->process[PROCESS_MAIN]) {
-				if (job_process_run (job, PROCESS_MAIN) < 0) {
-					job_failed (job, PROCESS_MAIN, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				} else if (job->class->expect == EXPECT_NONE)
-					state = job_next_state (job);
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_MAIN);
 			}
-
+			state = job_next_state (job);
+			break;
+		case JOB_SPAWNED:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SPAWNING);
+			if (! job->class->process[PROCESS_MAIN]) {
+			    state = job_next_state (job);
+			}
 			break;
 		case JOB_POST_START:
 			nih_assert (job->goal == JOB_START);
@@ -681,6 +681,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_PRE_START:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SPAWNING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SPAWNING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -2552,6 +2561,7 @@ job_child_error_handler (Job *job, ProcessType process)
 	case PROCESS_MAIN:
 		job_failed (job, PROCESS_MAIN, -1);
 		job_change_goal (job, JOB_STOP);
+		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_POST_START:
@@ -2565,6 +2575,7 @@ job_child_error_handler (Job *job, ProcessType process)
 	case PROCESS_POST_STOP:
 		job_failed (job, PROCESS_POST_STOP, -1);
 		job_change_goal (job, JOB_STOP);
+		job_change_state (job, job_next_state (job));
 		break;
 
 	default:

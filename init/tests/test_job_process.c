@@ -5803,6 +5803,8 @@ test_handler (void)
 		job->exit_status = 0;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		job_change_state (job, job_next_state(job));
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
