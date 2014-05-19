@@ -1,3 +1,10 @@
+upstart (1.12.1-0ubuntu7) utopic; urgency=medium
+
+  * debian/upstart-xsessions: Run unity8-x11 and unity8-mir sessions in a user
+    session.
+
+ -- Iain Lane <iain.lane@canonical.com>  Fri, 16 May 2014 18:13:14 +0100
+
 upstart (1.12.1-0ubuntu6) utopic; urgency=medium
 
   * Map force-reload to restart command in init-functions hook.
