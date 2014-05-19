@@ -4078,11 +4078,20 @@ test_next_state (void)
 
 
 	/* Check that the next state if we're starting a starting job is
-	 * security.
+	 * sec-spawning.
 	 */
 	TEST_FEATURE ("with starting job and a goal of start");
 	job->goal = JOB_START;
 	job->state = JOB_STARTING;
+
+	TEST_EQ (job_next_state (job), JOB_SECURITY_SPAWNING);
+
+	/* Check that the next state if we're starting a sec-spawning job is
+	 * security.
+	 */
+	TEST_FEATURE ("with starting job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_SECURITY_SPAWNING;
 
 	TEST_EQ (job_next_state (job), JOB_SECURITY);
 

@@ -432,21 +432,24 @@ job_change_state (Job      *job,
 			job->blocker = job_emit_event (job);
 
 			break;
-		case JOB_SECURITY:
+		case JOB_SECURITY_SPAWNING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
 			if (job->class->process[PROCESS_SECURITY]
 			    && apparmor_available()) {
-				if (job_process_run (job, PROCESS_SECURITY) < 0) {
-					job_failed (job, PROCESS_SECURITY, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-			} else {
+			    job_process_start (job, PROCESS_SECURITY);
+			}
+			state = job_next_state (job);
+			break;
+		case JOB_SECURITY:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SECURITY_SPAWNING);
+
+			if (! (job->class->process[PROCESS_SECURITY]
+			       && apparmor_available())) {
 				state = job_next_state (job);
 			}
-
 			break;
 		case JOB_PRE_STARTING:
 			nih_assert (job->goal == JOB_START);
@@ -654,6 +657,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_STARTING:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_STOPPING;
+		case JOB_START:
+			return JOB_SECURITY_SPAWNING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_SECURITY_SPAWNING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;

@@ -1,3 +1,6 @@
+/*
+ * FIXME: test_job_process has been left behind
+ */
 /* upstart
  *
  * test_job_process.c - test suite for init/job_process.c
