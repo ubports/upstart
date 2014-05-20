@@ -1330,6 +1330,8 @@ job_process_spawn_with_fd (Job          *job,
 
 		*job_process_fd = fds[0];
 
+		nih_io_set_cloexec (*job_process_fd);
+
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
@@ -3555,10 +3557,14 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 		goto error;
 
 	if (process_data->shell_fd != -1 && process_data->valid) {
-		/* Clear the cloexec flag to ensure the descriptor
-		 * remains open across a re-exec.
+
+		/* Clear the cloexec flag to ensure the descriptors
+		 * remains open across the re-exec.
 		 */
 		if (state_modify_cloexec (process_data->shell_fd, FALSE) < 0)
+			goto error;
+
+		if (state_modify_cloexec (process_data->job_process_fd, FALSE) < 0)
 			goto error;
 	}
 
@@ -3622,10 +3628,13 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 		goto error;
 
 	if (process_data->shell_fd != -1 && process_data->valid) {
-		/* Reset the cloexec flag to ensure the descriptor
-		 * is not leaked to any child processes.
+		/* Reset the cloexec flag to ensure the descriptors
+		 * are not leaked to any child processes.
 		 */
 		if (state_modify_cloexec (process_data->shell_fd, TRUE) < 0)
+			goto error;
+
+		if (state_modify_cloexec (process_data->job_process_fd, TRUE) < 0)
 			goto error;
 	}
 
