@@ -61,28 +61,19 @@
 #include "control.h"
 #include "state.h"
 
-/**
- * test_job_process_handler:
- *
- * @data: NULL
- * @pid: process that changed,
- * @event: event that occurred on the child,
- * @status: exit status, signal raised or ptrace event.
- *
- * Handler that just exits the main loop, insert that to quit main
- * loop after one iteration which results in process exiting. Needed
- * since libnih at the moment lacks something like
- * g_main_context_iteration()
- **/
 void
-test_job_process_handler (void           *data,
-			  pid_t           pid,
-			  NihChildEvents  event,
-			  int             status)
+job_quit_with_state (void *data, NihMainLoopFunc *loop)
 {
-	nih_main_loop_exit (0);
+    Job *job;
+    job = (Job *)data;
+    nih_main_loop_exit (job->state);
 }
 
+void
+timeout_quit_zero (void *data, NihTimerCb *timer)
+{
+    nih_main_loop_exit (0);
+}
 
 char *argv0;
 
@@ -1142,11 +1133,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1163,7 +1150,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_PRE_STARTING);
-		nih_main_loop ();
+		while (nih_main_loop () < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1222,17 +1209,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-
-			/* Register another handler to be called after the primary
-			 * Upstart handler to allow the test to exit the main loop
-			 * quickly on success.
-			 */
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
-
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1250,7 +1227,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_PRE_STARTING);
-			nih_main_loop();
+			while (nih_main_loop() < JOB_STOPPING) {}
 		}
 		rewind (output);
 
@@ -1321,6 +1298,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1337,7 +1315,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1390,11 +1368,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1411,7 +1385,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1476,11 +1450,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1497,7 +1467,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1621,16 +1591,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-
-			/* Register another handler to be called after the primary
-			 * Upstart handler to allow the test to exit the main loop
-			 * quickly on success.
-			 */
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL));
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1648,7 +1609,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_SPAWNING);
-			nih_main_loop();
+			while (nih_main_loop() < JOB_STOPPING) {}
 		}
 		rewind (output);
 
@@ -1920,11 +1881,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1942,7 +1899,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_POST_STARTING);
-			nih_main_loop ();
+			while (nih_main_loop () < JOB_RUNNING) { }
 		}
 		rewind (output);
 
@@ -2432,11 +2389,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_STOP;
@@ -2454,7 +2407,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_PRE_STOPPING);
-			nih_main_loop ();
+			while (nih_main_loop () < JOB_STOPPING) {}
 		}
 		rewind (output);
 
@@ -3190,7 +3143,7 @@ test_change_state (void)
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
 
-		job_change_state (job, JOB_POST_STOP);
+		job_change_state (job, JOB_POST_STOPPING);
 
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_POST_STOP);
@@ -3258,7 +3211,7 @@ test_change_state (void)
 
 		TEST_FREE_TAG (job);
 
-		job_change_state (job, JOB_POST_STOP);
+		job_change_state (job, JOB_POST_STOPPING);
 
 		TEST_FREE (job);
 
@@ -3293,7 +3246,10 @@ test_change_state (void)
 	TEST_FEATURE ("killed to post-stop for failed process");
 	tmp = class->process[PROCESS_POST_STOP];
 	class->process[PROCESS_POST_STOP] = fail;
+	NihTimer * timer;
 
+	/* FIXME this is very slow, as we wait 1s per TEST_ALLOC_FAIL itteration... */
+	nih_message ("  Running. Respect the timer.");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
@@ -3301,6 +3257,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
+			timer = nih_timer_add_timeout (NULL, 1, (NihTimerCb)timeout_quit_zero, NULL);
 		}
 
 		job->goal = JOB_START;
@@ -3317,10 +3274,15 @@ test_change_state (void)
 
 		TEST_FREE_TAG (job);
 
+		TEST_FREE_TAG (timer);
+
 		TEST_DIVERT_STDERR (output) {
-			job_change_state (job, JOB_POST_STOP);
+			job_change_state (job, JOB_POST_STOPPING);
+			nih_main_loop ();
 		}
 		rewind (output);
+
+		TEST_FREE (timer);
 
 		TEST_FREE (job);
 
@@ -4341,6 +4303,16 @@ test_next_state (void)
 	job->goal = JOB_START;
 	job->state = JOB_KILLED;
 
+	TEST_EQ (job_next_state (job), JOB_POST_STOPPING);
+
+
+	/* Check that the next state if we're starting a post-stopping
+	 * job is post-stop.
+	 */
+	TEST_FEATURE ("with post-stopping job and a goal of start");
+	job->goal = JOB_START;
+	job->state = JOB_POST_STOPPING;
+
 	TEST_EQ (job_next_state (job), JOB_POST_STOP);
 
 
@@ -4350,6 +4322,16 @@ test_next_state (void)
 	TEST_FEATURE ("with killed job and a goal of stop");
 	job->goal = JOB_STOP;
 	job->state = JOB_KILLED;
+
+	TEST_EQ (job_next_state (job), JOB_POST_STOPPING);
+
+
+	/* Check that the next state if we're stopping a post-stopping
+	 * job is post-stop.
+	 */
+	TEST_FEATURE ("with post-stopping job and a goal of stop");
+	job->goal = JOB_STOP;
+	job->state = JOB_POST_STOPPING;
 
 	TEST_EQ (job_next_state (job), JOB_POST_STOP);
 
