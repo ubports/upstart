@@ -1942,7 +1942,9 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_POST_STARTING);
-			nih_main_loop ();
+			while (job->state != JOB_RUNNING) {
+			    nih_main_loop ();
+			}
 		}
 		rewind (output);
 
@@ -2454,7 +2456,9 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_PRE_STOPPING);
-			nih_main_loop ();
+			while (job->state != JOB_STOPPING) {
+			    nih_main_loop ();
+			}
 		}
 		rewind (output);
 
