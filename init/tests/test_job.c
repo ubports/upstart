@@ -3248,6 +3248,8 @@ test_change_state (void)
 	class->process[PROCESS_POST_STOP] = fail;
 	NihTimer * timer;
 
+	/* FIXME this is very slow, as we wait 1s per TEST_ALLOC_FAIL itteration... */
+	nih_message ("  Running. Respect the timer.");
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
@@ -3255,7 +3257,6 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			/* FIXME this is very slow, as we wait 1s per TEST_ALLOC_FAIL itteration... */
 			timer = nih_timer_add_timeout (NULL, 1, (NihTimerCb)timeout_quit_zero, NULL);
 		}
 
