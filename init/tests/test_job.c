@@ -61,28 +61,6 @@
 #include "control.h"
 #include "state.h"
 
-/**
- * test_job_process_handler:
- *
- * @data: NULL
- * @pid: process that changed,
- * @event: event that occurred on the child,
- * @status: exit status, signal raised or ptrace event.
- *
- * Handler that just exits the main loop, insert that to quit main
- * loop after one iteration which results in process exiting. Needed
- * since libnih at the moment lacks something like
- * g_main_context_iteration()
- **/
-void
-test_job_process_handler (void           *data,
-			  pid_t           pid,
-			  NihChildEvents  event,
-			  int             status)
-{
-	nih_main_loop_exit (0);
-}
-
 void
 job_quit_with_state (void *data, NihMainLoopFunc *loop)
 {
@@ -1225,17 +1203,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-
-			/* Register another handler to be called after the primary
-			 * Upstart handler to allow the test to exit the main loop
-			 * quickly on success.
-			 */
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
-
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1253,7 +1221,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_PRE_STARTING);
-			nih_main_loop();
+			while (nih_main_loop() < JOB_STOPPING) {}
 		}
 		rewind (output);
 
@@ -1324,6 +1292,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1340,7 +1309,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1393,11 +1362,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1414,7 +1379,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1479,11 +1444,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1500,7 +1461,7 @@ test_change_state (void)
 		job->exit_status = 0;
 
 		job_change_state (job, JOB_SPAWNING);
-		nih_main_loop();
+		while (nih_main_loop() < JOB_RUNNING) {}
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -1624,16 +1585,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-
-			/* Register another handler to be called after the primary
-			 * Upstart handler to allow the test to exit the main loop
-			 * quickly on success.
-			 */
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL));
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1651,7 +1603,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_SPAWNING);
-			nih_main_loop();
+			while (nih_main_loop() < JOB_STOPPING) {}
 		}
 		rewind (output);
 
@@ -1923,11 +1875,7 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			NIH_MUST (nih_child_add_watch (NULL,
-						-1,
-						NIH_CHILD_ALL,
-						test_job_process_handler,
-						NULL)); 
+			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
 		}
 
 		job->goal = JOB_START;
@@ -1945,9 +1893,7 @@ test_change_state (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_POST_STARTING);
-			while (job->state != JOB_RUNNING) {
-			    nih_main_loop ();
-			}
+			while (nih_main_loop () < JOB_RUNNING) { }
 		}
 		rewind (output);
 
