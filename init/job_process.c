@@ -3377,7 +3377,6 @@ job_process_close_handler (JobProcessData  *process_data,
 	case JOB_POST_STARTING:
 	case JOB_PRE_STOPPING:
 	case JOB_POST_STOPPING:
-	case JOB_POST_STOP:
 		job_process_terminated (job, process, status, TRUE);
 		break;
 
