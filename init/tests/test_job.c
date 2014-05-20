@@ -69,6 +69,12 @@ job_quit_with_state (void *data, NihMainLoopFunc *loop)
     nih_main_loop_exit (job->state);
 }
 
+void
+timeout_quit_zero (void *data, NihTimerCb *timer)
+{
+    nih_main_loop_exit (0);
+}
+
 char *argv0;
 
 static int state_fd = -1;
@@ -3240,6 +3246,7 @@ test_change_state (void)
 	TEST_FEATURE ("killed to post-stop for failed process");
 	tmp = class->process[PROCESS_POST_STOP];
 	class->process[PROCESS_POST_STOP] = fail;
+	NihTimer * timer;
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
@@ -3248,7 +3255,8 @@ test_change_state (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, cause);
 			event_block (cause);
 			nih_list_add (&job->blocking, &blocked->entry);
-			TEST_NE_P (nih_main_loop_add_func (job, job_quit_with_state, job), NULL);
+			/* FIXME this is very slow, as we wait 1s per TEST_ALLOC_FAIL itteration... */
+			timer = nih_timer_add_timeout (NULL, 1, (NihTimerCb)timeout_quit_zero, NULL);
 		}
 
 		job->goal = JOB_START;
@@ -3265,11 +3273,15 @@ test_change_state (void)
 
 		TEST_FREE_TAG (job);
 
+		TEST_FREE_TAG (timer);
+
 		TEST_DIVERT_STDERR (output) {
 			job_change_state (job, JOB_POST_STOPPING);
-			while (nih_main_loop () != JOB_WAITING) {}
+			nih_main_loop ();
 		}
 		rewind (output);
+
+		TEST_FREE (timer);
 
 		TEST_FREE (job);
 
