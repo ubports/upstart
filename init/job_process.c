@@ -1785,8 +1785,6 @@ job_process_error_read (int fd)
 {
 	JobProcessWireError  wire_err;
 	ssize_t              len;
-	JobProcessError     *err;
-	const char          *res;
 
 	/* Read the error from the pipe; a zero read indicates that the
 	 * exec succeeded so we return success, otherwise if we don't receive

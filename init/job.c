@@ -571,6 +571,7 @@ job_change_state (Job      *job,
 			}
 
 			break;
+		case JOB_POST_STOPPING:
 		case JOB_POST_STOP:
 			nih_assert (old_state == JOB_KILLED);
 
