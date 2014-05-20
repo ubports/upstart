@@ -562,7 +562,6 @@ job_change_state (Job      *job,
 			break;
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
-
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
 				job_process_kill (job, PROCESS_MAIN);
@@ -572,19 +571,19 @@ job_change_state (Job      *job,
 
 			break;
 		case JOB_POST_STOPPING:
-		case JOB_POST_STOP:
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->class->process[PROCESS_POST_STOP]) {
-				if (job_process_run (job, PROCESS_POST_STOP) < 0) {
-					job_failed (job, PROCESS_POST_STOP, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_POST_STOP);
 			}
+			state = job_next_state (job);
+			break;
+		case JOB_POST_STOP:
+			nih_assert (old_state == JOB_POST_STOPPING);
 
+			if (! job->class->process[PROCESS_POST_STOP]) {
+			    state = job_next_state (job);
+			}
 			break;
 		case JOB_WAITING:
 			nih_assert (job->goal == JOB_STOP);
@@ -766,7 +765,14 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_PRE_STOPPING:
-	    return JOB_PRE_STOP;
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_PRE_STOP;
+		case JOB_START:
+			return JOB_PRE_STOP;
+		default:
+			nih_assert_not_reached ();
+		}
 	case JOB_PRE_STOP:
 		switch (job->goal) {
 		case JOB_STOP:
@@ -789,6 +795,15 @@ job_next_state (Job *job)
 			nih_assert_not_reached ();
 		}
 	case JOB_KILLED:
+		switch (job->goal) {
+		case JOB_STOP:
+			return JOB_POST_STOPPING;
+		case JOB_START:
+			return JOB_POST_STOPPING;
+		default:
+			nih_assert_not_reached ();
+		}
+	case JOB_POST_STOPPING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_POST_STOP;
