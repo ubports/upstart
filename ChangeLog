@@ -1,3 +1,9 @@
+2014-05-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: Add support for '--prepend-confdir'.
+	* init/man/init.8: Add '--prepend-confdir'.
+	* init/tests/test_main.c: Add tests for '--prepend-confdir'.
+
 2014-05-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: add '--append-confdir' command-line option (LP: #1315060).
