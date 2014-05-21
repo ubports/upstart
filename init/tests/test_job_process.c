@@ -1134,8 +1134,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1202,8 +1201,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1270,8 +1268,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1338,8 +1335,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1401,8 +1397,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1438,8 +1433,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1475,8 +1469,7 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
