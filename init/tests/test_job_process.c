@@ -385,7 +385,7 @@ close_all_files (void)
  * (Such tests are handled in the bundled test_user_sessions.sh script).
  */
 void
-test_run (void)
+test_start (void)
 {
 	char             dirname[PATH_MAX];
 	JobClass        *class = NULL;
@@ -394,7 +394,7 @@ test_run (void)
 	struct stat      statbuf;
 	char             filename[PATH_MAX], buf[80];
 	char             function[PATH_MAX];
-	int              ret = -1, status, first;
+	int              ret = -1, status;
 	siginfo_t        info;
 	char             filebuf[1024];
 	struct passwd   *pwd;
@@ -409,7 +409,7 @@ test_run (void)
 	log_unflushed_init ();
 	job_class_init ();
 
-	TEST_FUNCTION ("job_process_run");
+	TEST_FUNCTION ("job_process_start");
 
 	TEST_FILENAME (filename);
 	program_name = "test";
@@ -443,8 +443,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -478,8 +477,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -520,8 +518,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -560,8 +557,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -601,8 +597,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -648,8 +643,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -704,8 +698,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -761,8 +754,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_PRE_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_PRE_STOP);
 
 		TEST_NE (job->pid[PROCESS_PRE_STOP], 0);
 
@@ -819,8 +811,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
@@ -870,36 +861,11 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-		/* Loop until we've fed all of the data. */
-		first = TRUE;
-		for (;;) {
-			fd_set readfds, writefds, exceptfds;
-			int    nfds;
-
-			nfds = 0;
-			FD_ZERO (&readfds);
-			FD_ZERO (&writefds);
-			FD_ZERO (&exceptfds);
-
-			nih_io_select_fds (&nfds, &readfds,
-					   &writefds, &exceptfds);
-			if (! nfds) {
-				if (first)
-					TEST_FAILED ("expected to have "
-						     "data to feed.");
-				break;
-			}
-			first = FALSE;
-
-			select (nfds, &readfds, &writefds, &exceptfds, NULL);
-
-			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-		}
+		TEST_WATCH_LOOP ();
 
 		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -938,8 +904,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -978,8 +943,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_PRE_START);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_PRE_START);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -1020,8 +984,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);
@@ -1071,8 +1034,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);
@@ -1120,11 +1082,12 @@ test_run (void)
 		}
 
 		TEST_DIVERT_STDERR (output) {
-			ret = job_process_run (job, PROCESS_MAIN);
+			job_process_start (job, PROCESS_MAIN);
+			TEST_WATCH_LOOP ();
+			event_poll ();
 		}
 		rewind (output);
-		TEST_LT (ret, 0);
-
+		
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
 		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
@@ -9159,7 +9122,7 @@ test_utmp (void)
 void
 run_tests (void)
 {
-	test_run ();
+	test_start ();
 	test_spawn ();
 	test_log_path ();
 	test_kill ();
