@@ -238,8 +238,6 @@ void        job_failed          (Job *job, ProcessType process, int status);
 void        job_finished        (Job *job, int failed);
 
 Event      *job_emit_event      (Job *job);
-Event      *job_emit_event_with_state (Job *job, JobState state);
-
 
 const char *job_name            (Job *job);
 
