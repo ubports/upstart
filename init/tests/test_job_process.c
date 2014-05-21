@@ -3045,8 +3045,9 @@ test_start (void)
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3094,8 +3095,8 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3106,10 +3107,10 @@ test_start (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+		TEST_WATCH_UPDATE ();
 
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
@@ -3120,8 +3121,11 @@ test_start (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
+		TEST_WATCH_UPDATE ();
+
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3174,8 +3178,9 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3186,8 +3191,8 @@ test_start (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
+		TEST_WATCH_UPDATE ();
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
@@ -3205,6 +3210,7 @@ test_start (void)
 
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
+		event_poll ();
 	}
 	fclose (output);
 
