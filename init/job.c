@@ -74,14 +74,6 @@ static JobGoal job_goal_str_to_enum (const char *goal)
 	__attribute__ ((warn_unused_result));
 
 static const char *
-job_state_enum_to_str (JobState state)
-	__attribute__ ((warn_unused_result));
-
-static JobState
-job_state_str_to_enum (const char *state)
-	__attribute__ ((warn_unused_result));
-
-static const char *
 job_trace_state_enum_to_str (TraceState state)
 	__attribute__ ((warn_unused_result));
 
@@ -96,6 +88,30 @@ job_serialise_kill_timer (NihTimer *timer)
 static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
+
+int
+job_destroy (Job *job)
+{
+	int  i;
+
+	nih_assert (job);
+
+	/* Free any associated NihIo's to avoid the handlers getting
+	 * called potentially after the job has been freed.
+	 */
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (job->process_data && job->process_data[i]) {
+			nih_free (job->process_data[i]);
+
+			job->process_data[i] = NULL;
+		}
+	}
+
+	nih_list_destroy (&job->entry);
+
+	return 0;
+}
+
 
 /**
  * job_new:
@@ -129,7 +145,7 @@ job_new (JobClass   *class,
 
 	nih_list_init (&job->entry);
 
-	nih_alloc_set_destructor (job, nih_list_destroy);
+	nih_alloc_set_destructor (job, job_destroy);
 
 	job->name = nih_strdup (job, name);
 	if (! job->name)
@@ -211,6 +227,24 @@ job_new (JobClass   *class,
 		job_register (job, conn, TRUE);
 	}
 
+	/* Since some job processes can run in parallel, we must ensure
+	 * that the asynchronous-spawning of such job processes is
+	 * handled by providing a handler for each pid.
+	 *
+	 * Strictly, this is only necessary for certain combinations of
+	 * job processes (such as PROCESS_MAIN and PROCESS_POST_START),
+	 * however for consistency with other entities (such as Log), we
+	 * create a slot for all job processes since there is minimal
+	 * overhead (a single pointer) for those job processes tha
+	 * cannot run in parallel with others.
+	 */
+	job->process_data = nih_alloc (job, sizeof (JobProcessData *) * PROCESS_LAST);
+	if (! job->process_data)
+		goto error;
+
+	for (i = 0; i < PROCESS_LAST; i++)
+		job->process_data[i] = NULL;
+
 	return job;
 
 error:
@@ -277,8 +311,6 @@ job_change_goal (Job     *job,
 		 JobGoal  goal)
 {
 	nih_assert (job != NULL);
-
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
 
 	if (job->goal == goal)
 		return;
@@ -348,9 +380,6 @@ job_change_state (Job      *job,
 {
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, new state=%s", __func__, __LINE__,
-			job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (state));
-
 	while (job->state != state) {
 		JobState old_state;
 		int      unused;
@@ -362,9 +391,6 @@ job_change_state (Job      *job,
 
 		old_state = job->state;
 		job->state = state;
-
-		nih_message ("XXX:%s:%d:job '%s': goal=%s, state=%s, old state=%s", __func__, __LINE__,
-				job_name (job), job_goal_name (job->goal), job_state_name (job->state), job_state_name (old_state));
 
 		NIH_LIST_FOREACH (control_conns, iter) {
 			NihListEntry   *entry = (NihListEntry *)iter;
@@ -410,102 +436,78 @@ job_change_state (Job      *job,
 			job->blocker = job_emit_event (job);
 
 			break;
-		case JOB_SECURITY_SETUP:
+		case JOB_SECURITY_SPAWNING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_STARTING);
 
 			if (job->class->process[PROCESS_SECURITY]
 			    && apparmor_available()) {
-				if (job_process_run (job, PROCESS_SECURITY) < 0) {
-					job_failed (job, PROCESS_SECURITY, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-
-				if (job_needs_cgroups (job))
-					break;
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_SECURITY);
 			}
-
-			break;
-
-		case JOB_SECURITY:
-			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SECURITY_SETUP);
-
 			state = job_next_state (job);
 			break;
-		case JOB_PRE_START_SETUP:
+		case JOB_SECURITY:
 			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SECURITY);
+			nih_assert (old_state == JOB_SECURITY_SPAWNING);
 
-			if (job->class->process[PROCESS_PRE_START]) {
-				if (job_process_run (job, PROCESS_PRE_START) < 0) {
-					job_failed (job, PROCESS_PRE_START, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-
-				if (job_needs_cgroups (job))
-					break;
-			} else {
+			if (! (job->class->process[PROCESS_SECURITY]
+			       && apparmor_available())) {
 				state = job_next_state (job);
 			}
-
+			break;
+		case JOB_PRE_STARTING:
+			nih_assert (job->goal == JOB_START);
+			nih_assert (old_state == JOB_SECURITY);
+			/* spawn pre-start asynchronously, child
+			 * watcher asynchronously will change goal to
+			 * stop if spawning fails */
+			if (job->class->process[PROCESS_PRE_START]) {
+			    job_process_start (job, PROCESS_PRE_START);
+			}	
+			state = job_next_state (job);
 			break;
 		case JOB_PRE_START:
 			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_PRE_START_SETUP);
+			nih_assert (old_state == JOB_PRE_STARTING);
 
-			state = job_next_state (job);
+			/* if no pre-start process, go to next
+			 * state. otherwise async child watcher will
+			 * trigger us to go to the next state */
+			if (! job->class->process[PROCESS_PRE_START])
+			    state = job_next_state (job);
 			break;
-		case JOB_SETUP:
+		case JOB_SPAWNING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
 			if (job->class->process[PROCESS_MAIN]) {
-				if (job_process_run (job, PROCESS_MAIN) < 0) {
-					job_failed (job, PROCESS_MAIN, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-			       
-				if (job_needs_cgroups (job)) {
-					break;
-				} else if (job->class->expect == EXPECT_NONE) {
-					state = job_next_state (job);
-				}
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_MAIN);
 			}
+			state = job_next_state (job);
 			break;
 		case JOB_SPAWNED:
 			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_SETUP);
-
-			state = job_next_state (job);
+			nih_assert (old_state == JOB_SPAWNING);
+			if (! job->class->process[PROCESS_MAIN]) {
+			    state = job_next_state (job);
+			}
 			break;
-		case JOB_POST_START_SETUP:
+		case JOB_POST_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
-				if (job_process_run (job, PROCESS_POST_START) < 0)
-					state = job_next_state (job);
-
-				if (job_needs_cgroups (job))
-					break;
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_POST_START);
 			}
-
+			state = job_next_state (job);
 			break;
 		case JOB_POST_START:
 			nih_assert (job->goal == JOB_START);
-			nih_assert (old_state == JOB_POST_START_SETUP);
+			nih_assert (old_state == JOB_POST_STARTING);
 
-			state = job_next_state (job);
+			if (! job->class->process[PROCESS_POST_START]) {
+				state = job_next_state (job);
+			}
 			break;
 		case JOB_RUNNING:
 			nih_assert (job->goal == JOB_START);
@@ -532,39 +534,31 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_PRE_STOP_SETUP:
+		case JOB_PRE_STOPPING:
 			nih_assert (job->goal == JOB_STOP);
 			nih_assert (old_state == JOB_RUNNING);
 
 			if (job->class->process[PROCESS_PRE_STOP]) {
-				if (job_process_run (job, PROCESS_PRE_STOP) < 0)
-					state = job_next_state (job);
-
-				if (job_needs_cgroups (job))
-					break;
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_PRE_STOP);
 			}
-
+			state = job_next_state (job);
 			break;
 		case JOB_PRE_STOP:
 			nih_assert (job->goal == JOB_STOP);
-			nih_assert (old_state == JOB_PRE_STOP_SETUP);
+			nih_assert (old_state == JOB_PRE_STOPPING);
 
-			state = job_next_state (job);
+			if (! job->class->process[PROCESS_PRE_STOP]) {
+			    state = job_next_state (job);
+			}
 			break;
 		case JOB_STOPPING:
 			nih_assert ((old_state == JOB_STARTING)
-				    || (old_state == JOB_PRE_START_SETUP)
+				    || (old_state == JOB_PRE_STARTING)
 				    || (old_state == JOB_PRE_START)
-				    || (old_state == JOB_SECURITY_SETUP)
 				    || (old_state == JOB_SECURITY)
-				    || (old_state == JOB_SETUP)
 				    || (old_state == JOB_SPAWNED)
-				    || (old_state == JOB_POST_START_SETUP)
 				    || (old_state == JOB_POST_START)
 				    || (old_state == JOB_RUNNING)
-				    || (old_state == JOB_PRE_STOP_SETUP)
 				    || (old_state == JOB_PRE_STOP));
 
 			job->blocker = job_emit_event (job);
@@ -572,7 +566,6 @@ job_change_state (Job      *job,
 			break;
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
-
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
 				job_process_kill (job, PROCESS_MAIN);
@@ -581,26 +574,20 @@ job_change_state (Job      *job,
 			}
 
 			break;
-		case JOB_POST_STOP_SETUP:
+		case JOB_POST_STOPPING:
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->class->process[PROCESS_POST_STOP]) {
-				if (job_process_run (job, PROCESS_POST_STOP) < 0) {
-					job_failed (job, PROCESS_POST_STOP, -1);
-					job_change_goal (job, JOB_STOP);
-					state = job_next_state (job);
-				}
-
-				if (job_needs_cgroups (job))
-					break;
-			} else {
-				state = job_next_state (job);
+			    job_process_start (job, PROCESS_POST_STOP);
 			}
-
+			state = job_next_state (job);
 			break;
 		case JOB_POST_STOP:
-			nih_assert (old_state == JOB_POST_STOP_SETUP);
-			state = job_next_state (job);
+			nih_assert (old_state == JOB_POST_STOPPING);
+
+			if (! job->class->process[PROCESS_POST_STOP]) {
+			    state = job_next_state (job);
+			}
 			break;
 		case JOB_WAITING:
 			nih_assert (job->goal == JOB_STOP);
@@ -673,8 +660,6 @@ job_next_state (Job *job)
 {
 	nih_assert (job != NULL);
 
-	nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-
 	switch (job->state) {
 	case JOB_WAITING:
 		switch (job->goal) {
@@ -690,11 +675,11 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
-			return JOB_SECURITY_SETUP;
+			return JOB_SECURITY_SPAWNING;
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_SECURITY_SETUP:
+	case JOB_SECURITY_SPAWNING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -708,11 +693,11 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
-			return JOB_PRE_START_SETUP;
+			return JOB_PRE_STARTING;
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_PRE_START_SETUP:
+	case JOB_PRE_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -726,11 +711,11 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
-			return JOB_SETUP;
+			return JOB_SPAWNING;
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_SETUP:
+	case JOB_SPAWNING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
@@ -744,19 +729,16 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
-			return JOB_POST_START_SETUP;
+			return JOB_POST_STARTING;
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_POST_START_SETUP:
+	case JOB_POST_STARTING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_STOPPING;
 		case JOB_START:
 			return JOB_POST_START;
-		case JOB_RESPAWN:
-			job_change_goal (job, JOB_START);
-			return JOB_STOPPING;
 		default:
 			nih_assert_not_reached ();
 		}
@@ -777,7 +759,7 @@ job_next_state (Job *job)
 		case JOB_STOP:
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
-				return JOB_PRE_STOP_SETUP;
+				return JOB_PRE_STOPPING;
 			} else {
 				return JOB_STOPPING;
 			}
@@ -786,15 +768,12 @@ job_next_state (Job *job)
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_PRE_STOP_SETUP:
+	case JOB_PRE_STOPPING:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_STOPPING;
+			return JOB_PRE_STOP;
 		case JOB_START:
 			return JOB_PRE_STOP;
-		case JOB_RESPAWN:
-			job_change_goal (job, JOB_START);
-			return JOB_STOPPING;
 		default:
 			nih_assert_not_reached ();
 		}
@@ -822,13 +801,13 @@ job_next_state (Job *job)
 	case JOB_KILLED:
 		switch (job->goal) {
 		case JOB_STOP:
-			return JOB_POST_STOP_SETUP;
+			return JOB_POST_STOPPING;
 		case JOB_START:
-			return JOB_POST_STOP_SETUP;
+			return JOB_POST_STOPPING;
 		default:
 			nih_assert_not_reached ();
 		}
-	case JOB_POST_STOP_SETUP:
+	case JOB_POST_STOPPING:
 		switch (job->goal) {
 		case JOB_STOP:
 			return JOB_POST_STOP;
@@ -1004,7 +983,22 @@ job_finished (Job *job,
 
 /**
  * job_emit_event:
- * @job: job generating the event.
+ * @job: job generating the event,
+ *
+ * Compat function, for migration to job_emit_event_with_state.
+ *
+ * Returns: new Event in the queue.
+ **/
+Event *
+job_emit_event (Job *job)
+{
+    return job_emit_event_with_state (job, job->state);
+}
+
+/**
+ * job_emit_event_with_state:
+ * @job: job generating the event,
+ * @state: state job is moving to.
  *
  * Called from a state change because it believes an event should be
  * emitted.  Constructs the event with the right arguments and environment
@@ -1022,7 +1016,7 @@ job_finished (Job *job,
  * Returns: new Event in the queue.
  **/
 Event *
-job_emit_event (Job *job)
+job_emit_event_with_state (Job *job, JobState state)
 {
 	Event           *event;
 	const char      *name;
@@ -1033,7 +1027,7 @@ job_emit_event (Job *job)
 
 	nih_assert (job != NULL);
 
-	switch (job->state) {
+	switch (state) {
 	case JOB_STARTING:
 		name = JOB_STARTING_EVENT;
 		block = TRUE;
@@ -1233,34 +1227,34 @@ job_state_name (JobState state)
 		return N_("waiting");
 	case JOB_STARTING:
 		return N_("starting");
-	case JOB_SECURITY_SETUP:
-		return N_("security-setup");
+	case JOB_SECURITY_SPAWNING:
+		return N_("security-spawning");
 	case JOB_SECURITY:
 		return N_("security");
-	case JOB_PRE_START_SETUP:
-		return N_("pre-start-setup");
+	case JOB_PRE_STARTING:
+		return N_("pre-starting");
 	case JOB_PRE_START:
 		return N_("pre-start");
-	case JOB_SETUP:
-		return N_("setup");
+	case JOB_SPAWNING:
+		return N_("spawning");
 	case JOB_SPAWNED:
 		return N_("spawned");
-	case JOB_POST_START_SETUP:
-		return N_("post-start-setup");
+	case JOB_POST_STARTING:
+		return N_("post-starting");
 	case JOB_POST_START:
 		return N_("post-start");
 	case JOB_RUNNING:
 		return N_("running");
-	case JOB_PRE_STOP_SETUP:
-		return N_("pre-stop-setup");
+	case JOB_PRE_STOPPING:
+		return N_("pre-stopping");
 	case JOB_PRE_STOP:
 		return N_("pre-stop");
 	case JOB_STOPPING:
 		return N_("stopping");
 	case JOB_KILLED:
 		return N_("killed");
-	case JOB_POST_STOP_SETUP:
-		return N_("post-stop-setup");
+	case JOB_POST_STOPPING:
+		return N_("post-stopping");
 	case JOB_POST_STOP:
 		return N_("post-stop");
 	default:
@@ -1285,34 +1279,34 @@ job_state_from_name (const char *state)
 		return JOB_WAITING;
 	} else if (! strcmp (state, "starting")) {
 		return JOB_STARTING;
-	} else if (! strcmp (state, "security-setup")) {
-		return JOB_SECURITY_SETUP;
+	} else if (! strcmp (state, "security-spawning")) {
+		return JOB_SECURITY_SPAWNING;
 	} else if (! strcmp (state, "security")) {
 		return JOB_SECURITY;
-	} else if (! strcmp (state, "pre-start-setup")) {
-		return JOB_PRE_START_SETUP;
+	} else if (! strcmp (state, "pre-starting")) {
+		return JOB_PRE_STARTING;
 	} else if (! strcmp (state, "pre-start")) {
 		return JOB_PRE_START;
-	} else if (! strcmp (state, "setup")) {
-		return JOB_SETUP;
+	} else if (! strcmp (state, "spawning")) {
+		return JOB_SPAWNING;
 	} else if (! strcmp (state, "spawned")) {
 		return JOB_SPAWNED;
-	} else if (! strcmp (state, "post-start-setup")) {
-		return JOB_POST_START_SETUP;
+	} else if (! strcmp (state, "post-starting")) {
+		return JOB_POST_STARTING;
 	} else if (! strcmp (state, "post-start")) {
 		return JOB_POST_START;
 	} else if (! strcmp (state, "running")) {
 		return JOB_RUNNING;
-	} else if (! strcmp (state, "pre-stop-setup")) {
-		return JOB_PRE_STOP_SETUP;
+	} else if (! strcmp (state, "pre-stopping")) {
+		return JOB_PRE_STOPPING;
 	} else if (! strcmp (state, "pre-stop")) {
 		return JOB_PRE_STOP;
 	} else if (! strcmp (state, "stopping")) {
 		return JOB_STOPPING;
 	} else if (! strcmp (state, "killed")) {
 		return JOB_KILLED;
-	} else if (! strcmp (state, "post-stop-setup")) {
-		return JOB_POST_STOP_SETUP;
+	} else if (! strcmp (state, "post-stopping")) {
+		return JOB_POST_STOPPING;
 	} else if (! strcmp (state, "post-stop")) {
 		return JOB_POST_STOP;
 	} else {
@@ -1796,6 +1790,7 @@ job_serialise (const Job *job)
 	json_object      *json_pid;
 	json_object      *json_fds;
 	json_object      *json_logs;
+	json_object      *json_handler_data;
 
 	nih_assert (job);
 
@@ -1941,6 +1936,33 @@ job_serialise (const Job *job)
 
 	json_object_object_add (json, "log", json_logs);
 
+	json_handler_data = json_object_new_array ();
+
+	if (! json_handler_data)
+		return json;
+
+	for (int process = 0; process < PROCESS_LAST; process++) {
+		json_object *json_data = NULL;
+
+		/* Only bother serialising if the process data hasn't
+		 * been handled yet.
+		 */
+		if (job->process_data[process] && job->process_data[process]->valid) {
+
+			json_data = job_process_data_serialise (job, 
+					job->process_data[process]);
+
+			if (! json_data)
+				goto error;
+
+		}
+
+		if (json_object_array_add (json_handler_data, json_data) < 0)
+			goto error;
+	}
+
+	json_object_object_add (json, "process_data", json_handler_data);
+
 	return json;
 
 error:
@@ -2004,6 +2026,7 @@ job_deserialise (JobClass *parent, json_object *json)
 	json_object    *json_fds;
 	json_object    *json_pid;
 	json_object    *json_logs;
+	json_object    *json_process_data;
 	json_object    *json_stop_on = NULL;
 	size_t          len;
 	int             ret;
@@ -2232,6 +2255,38 @@ job_deserialise (JobClass *parent, json_object *json)
 		}
 	}
 
+
+	if (json_object_object_get_ex (json, "process_data", &json_process_data)) {
+		if (! state_check_json_type (json_process_data, array))
+			goto error;
+
+		for (int process = 0; process < PROCESS_LAST; process++) {
+			json_object  *json_data = NULL;
+
+			json_data = json_object_array_get_idx (json_process_data, process);
+
+			if (json_data) {
+				/* NULL if there was no process_data for this job process, or we failed to
+				 * deserialise it; either way, this should be non-fatal.
+				 */
+				job->process_data[process] =
+					job_process_data_deserialise (job->process_data, job, json_data);
+
+				if (! job->process_data[process])
+					goto error;
+
+				/* Recreate watch */
+				if (job->process_data[process]->valid) {
+					job_register_child_handler (job->process_data[process],
+							job->process_data[process]->job_process_fd,
+							job->process_data[process]);
+				}
+			} else {
+				job->process_data[process] = NULL;
+			}
+		}
+	}
+
 	return job;
 
 error:
@@ -2333,25 +2388,25 @@ job_goal_str_to_enum (const char *goal)
  *
  * Returns: string representation of @state, or NULL if not known.
  **/
-static const char *
+const char *
 job_state_enum_to_str (JobState state)
 {
 	state_enum_to_str (JOB_WAITING, state);
 	state_enum_to_str (JOB_STARTING, state);
+	state_enum_to_str (JOB_SECURITY_SPAWNING, state);
 	state_enum_to_str (JOB_SECURITY, state);
-	state_enum_to_str (JOB_SECURITY_SETUP, state);
-	state_enum_to_str (JOB_PRE_START_SETUP, state);
+	state_enum_to_str (JOB_PRE_STARTING, state);
 	state_enum_to_str (JOB_PRE_START, state);
-	state_enum_to_str (JOB_SETUP, state);
+	state_enum_to_str (JOB_SPAWNING, state);
 	state_enum_to_str (JOB_SPAWNED, state);
-	state_enum_to_str (JOB_POST_START_SETUP, state);
+	state_enum_to_str (JOB_POST_STARTING, state);
 	state_enum_to_str (JOB_POST_START, state);
 	state_enum_to_str (JOB_RUNNING, state);
-	state_enum_to_str (JOB_PRE_STOP_SETUP, state);
+	state_enum_to_str (JOB_PRE_STOPPING, state);
 	state_enum_to_str (JOB_PRE_STOP, state);
 	state_enum_to_str (JOB_STOPPING, state);
 	state_enum_to_str (JOB_KILLED, state);
-	state_enum_to_str (JOB_POST_STOP_SETUP, state);
+	state_enum_to_str (JOB_POST_STOPPING, state);
 	state_enum_to_str (JOB_POST_STOP, state);
 
 	return NULL;
@@ -2366,25 +2421,25 @@ job_state_enum_to_str (JobState state)
  *
  * Returns: JobState representation of @state, or -1 if not known.
  **/
-static JobState
+JobState
 job_state_str_to_enum (const char *state)
 {
 	state_str_to_enum (JOB_WAITING, state);
 	state_str_to_enum (JOB_STARTING, state);
-	state_str_to_enum (JOB_SECURITY_SETUP, state);
+	state_str_to_enum (JOB_SECURITY_SPAWNING, state);
 	state_str_to_enum (JOB_SECURITY, state);
-	state_str_to_enum (JOB_PRE_START_SETUP, state);
+	state_str_to_enum (JOB_PRE_STARTING, state);
 	state_str_to_enum (JOB_PRE_START, state);
-	state_str_to_enum (JOB_SETUP, state);
+	state_str_to_enum (JOB_SPAWNING, state);
 	state_str_to_enum (JOB_SPAWNED, state);
-	state_str_to_enum (JOB_POST_START_SETUP, state);
+	state_str_to_enum (JOB_POST_STARTING, state);
 	state_str_to_enum (JOB_POST_START, state);
 	state_str_to_enum (JOB_RUNNING, state);
-	state_str_to_enum (JOB_PRE_STOP_SETUP, state);
+	state_str_to_enum (JOB_PRE_STOPPING, state);
 	state_str_to_enum (JOB_PRE_STOP, state);
 	state_str_to_enum (JOB_STOPPING, state);
 	state_str_to_enum (JOB_KILLED, state);
-	state_str_to_enum (JOB_POST_STOP_SETUP, state);
+	state_str_to_enum (JOB_POST_STOPPING, state);
 	state_str_to_enum (JOB_POST_STOP, state);
 
 	return -1;
@@ -2566,35 +2621,54 @@ job_needs_cgroups (const Job *job)
 }
 
 /**
- * job_in_setup_state:
+ * job_child_error_handler:
  *
- * @job: job.
+ * @job: job,
+ * @process: process that failed to start.
  *
- * Determine if the specified job is in one of the "mezzanine" setup
- * states.
- *
- * Returns: TRUE if @job is in a setup phase, else FALSE.
+ * JobProcessErrorHandler that deals with errors resulting from
+ * a failure to start a job process.
  **/
-int
-job_in_setup_state (const Job *job)
+void
+job_child_error_handler (Job *job, ProcessType process)
 {
-	int  ret;
-
 	nih_assert (job);
+	nih_assert (process > PROCESS_INVALID);
+	nih_assert (process < PROCESS_LAST);
 
-	switch (job->state) {
-	case JOB_SECURITY_SETUP:
-	case JOB_PRE_START_SETUP:
-	case JOB_SETUP:
-	case JOB_POST_START_SETUP:
-	case JOB_PRE_STOP_SETUP:
-	case JOB_POST_STOP_SETUP:
-		ret = TRUE;
+	switch (process) {
+	case PROCESS_SECURITY:
+		job_failed (job, PROCESS_SECURITY, -1);
+		job_change_goal (job, JOB_STOP);
 		break;
+
+	case PROCESS_PRE_START:
+		job_failed (job, PROCESS_PRE_START, -1);
+		job_change_goal (job, JOB_STOP);
+		job_change_state (job, job_next_state (job));
+		break;
+
+	case PROCESS_MAIN:
+		job_failed (job, PROCESS_MAIN, -1);
+		job_change_goal (job, JOB_STOP);
+		job_change_state (job, job_next_state (job));
+		break;
+
+	case PROCESS_POST_START:
+		job_change_state (job, job_next_state (job));
+		break;
+
+	case PROCESS_PRE_STOP:
+		job_change_state (job, job_next_state (job));
+		break;
+
+	case PROCESS_POST_STOP:
+		job_failed (job, PROCESS_POST_STOP, -1);
+		job_change_goal (job, JOB_STOP);
+		job_change_state (job, job_next_state (job));
+		break;
+
 	default:
-		ret = FALSE;
-		break;
+		nih_assert_not_reached ();
 	}
-
-	return ret;
 }

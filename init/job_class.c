@@ -2641,14 +2641,14 @@ job_class_prepare_reexec (void)
 				if (fd < 0)
 					continue;
 
-				if (state_toggle_cloexec (fd, FALSE) < 0)
+				if (state_modify_cloexec (fd, FALSE) < 0)
 					goto error;
 
 				fd = log->fd;
 				if (fd < 0)
 					continue;
 
-				if (state_toggle_cloexec (fd, FALSE) < 0)
+				if (state_modify_cloexec (fd, FALSE) < 0)
 					goto error;
 			}
 		}

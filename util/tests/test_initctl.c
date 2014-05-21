@@ -11535,7 +11535,7 @@ test_quiesce (void)
 	TEST_NE_P (sessiondir, NULL);
 	
 	cmd = nih_sprintf (NULL, "rm %s/upstart/sessions/*.session 2>/dev/null", sessiondir);
-	system (cmd);
+	assert0 (system (cmd));
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);

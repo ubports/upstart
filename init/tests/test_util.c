@@ -1,5 +1,6 @@
-#include "test_util.h"
 #include "test_util_common.h"
+#undef PACKAGE_COPYRIGHT
+#include "test_util.h"
 #include <nih/logging.h>
 #include <nih/test.h>
 

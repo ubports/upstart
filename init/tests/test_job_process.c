@@ -1,3 +1,6 @@
+/*
+ * FIXME: test_job_process has been left behind
+ */
 /* upstart
  *
  * test_job_process.c - test suite for init/job_process.c
@@ -146,33 +149,6 @@ static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
-
-/**
- * fd_valid:
- * @fd: file descriptor.
- *
- * Return 1 if @fd is valid, else 0.
- **/
-static int
-fd_valid (int fd)
-{
-	int flags = 0;
-
-	if (fd < 0)
-		return 0;
-
-	errno = 0;
-	flags = fcntl (fd, F_GETFL);
-
-	if (flags < 0)
-		return 0;
-
-	/* redundant really */
-	if (errno == EBADF)
-		return 0;
-
-	return 1;
-}
 
 static void
 child (enum child_tests  test,
@@ -5830,6 +5806,8 @@ test_handler (void)
 		job->exit_status = 0;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		job_change_state (job, job_next_state(job));
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);

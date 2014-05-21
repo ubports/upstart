@@ -20,76 +20,79 @@
  */
 
 digraph {
-	rankdir=LR;
 	edge [fontsize=10];
 
 	waiting [shape=diamond];
 	starting [label="starting\n(emit starting)"];
-	security_setup [label="security-setup"];
+	security_spawning [label="security-spawning"];
 	security [label="security"];
-	pre_start_setup [label="pre-start-setup"];
+	pre_starting [label="pre-starting"];
 	pre_start [label="pre-start"];
-	setup [label="setup"];
+	spawning [label="spawning"];
 	spawned [label="spawned\n(wait for pid)"];
-	post_start_setup [label="post-start-setup"];
+	post_starting [label="post-starting"];
 	post_start [label="post-start"];
 	emit_started [shape=rectangle,label="emit started"];
 	running [shape=diamond];
-	pre_stop_setup [label="pre-stop-setup"];
+	pre_stopping [label="pre-stopping"];
 	pre_stop [label="pre-stop"];
 	stopping [label="stopping\n(emit stopping)"];
 	killed [label="killed\n(wait for SIGCHLD)"];
-	post_stop_setup [label="post-stop-setup"];
+	post_stopping [label="post-stopping"];
 	post_stop [label="post-stop"];
 	emit_stopped [shape=rectangle,label="emit stopped"];
 
-	waiting -> starting [color=green];
+	constraint=false;
+	waiting -> starting [color=green,weight=10];
 
-	starting -> security_setup [color=green];
+	starting -> security_spawning [color=green,weight=10];
 	starting -> stopping [color=red];
 
-	security_setup -> security [color=green];
-	security_setup -> stopping [color=red];
+	security_spawning -> security [color=green,weight=10];
+	security_spawning -> stopping [color=red];
 
-	security -> pre_start_setup [color=green];
+	security -> pre_starting [color=green,weight=10];
 	security -> stopping [color=red];
 
-	pre_start_setup -> pre_start [color=green];
-	pre_start_setup -> stopping [color=red];
+	pre_starting -> pre_start [color=green,weight=10];
+	pre_starting -> stopping [color=red];
 
-	pre_start -> setup [color=green];
+	pre_start -> spawning [color=green,weight=10];
 	pre_start -> stopping [color=red];
 
-	setup -> spawned [color=green];
-	setup -> stopping [color=red];
+	spawning -> spawned [color=green,weight=10];
+	spawning -> stopping [color=red];
 
-	spawned -> post_start_setup [color=green];
+	spawned -> post_starting [color=green,weight=10];
 	spawned -> stopping [color=red];
 
-	post_start_setup -> post_start [color=green];
-	post_start_setup -> stopping [color=red];
+	post_starting -> post_start [color=green,weight=10];
+	post_starting -> stopping [color=red];
 
-	post_start -> emit_started -> running [color=green];
+	post_start -> emit_started -> running [color=green,weight=10];
 	post_start -> stopping [color=red];
 
-	running -> pre_stop_setup [color=red,label="pid > 0"];
-	running -> stopping [color=red,label="pid == 0"];
-	running -> stopping [color=green,label="respawn"];
+	running -> pre_stopping [color=red,fontcolor=red,label="pid > 0",weight=10];
+	running -> stopping [color=red,fontcolor=red,label="pid == 0"];
+	running -> stopping [color=green,fontcolor=darkgreen,label="respawn"];
 
-	pre_stop_setup -> pre_stop [color=green];
-	pre_stop_setup -> stopping [color=red];
+	pre_stopping -> pre_stop [color=green,weight=10];
+	pre_stopping -> pre_stop [color=red,weight=10];
 
 	pre_stop -> running [color=green];
-	pre_stop -> stopping [color=red];
+	pre_stop -> stopping [color=red,weight=10];
 
 	stopping -> killed [color=green];
 	stopping -> killed [color=red];
-	killed -> post_stop_setup [color=green];
-	killed -> post_stop_setup [color=red];
 
-	post_stop_setup -> post_stop [color=green];
+	killed -> post_stopping [color=green];
+	killed -> post_stopping [color=red];
+
+	post_stopping -> post_stop [color=green,weight=10];
+	post_stopping -> post_stop [color=red];
 
 	post_stop -> starting [color=green];
-	post_stop -> emit_stopped [color=red];
+	post_stop -> emit_stopped [color=red,weight=10];
+
 	emit_stopped -> waiting [color=red];
 }

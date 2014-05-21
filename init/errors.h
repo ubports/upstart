@@ -36,6 +36,8 @@ enum {
 
 	/* Errors while handling job processes */
 	JOB_PROCESS_ERROR,
+	JOB_PROCESS_INVALID_SETUID,
+	JOB_PROCESS_INVALID_SETGID,
 
 	/* Errors while parsing configuration files */
 	PARSE_ILLEGAL_INTERVAL,
@@ -54,7 +56,7 @@ enum {
 	CONTROL_NAME_TAKEN,
 
 	/* Errors while manipulating cgroups */
-	CGROUP_ERROR,
+	CGROUP_ERROR
 };
 
 /* Error strings for defined messages */
