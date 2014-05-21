@@ -1118,11 +1118,6 @@ job_process_start (Job                    *job,
 		nih_free (err);
 	}
 
-/* FIXME */
-#if 0
-	nih_assert (job_process_fd != -1);
-#endif
-
 	nih_info (_("%s %s process (%d)"),
 		  job_name (job), process_name (process), job->pid[process]);
 
@@ -2430,17 +2425,6 @@ job_process_terminated (Job         *job,
 		return;
 	}
 
-#if 0
-	if (job->state == JOB_SECURITY ||
-			job->state == JOB_PRE_START ||
-			job->state == JOB_SPAWNED ||
-			job->state == JOB_POST_START ||
-			job->state == JOB_PRE_STOP ||
-			job->state == JOB_POST_STOP) {
-		nih_assert (job->process_data);
-		nih_assert (job->process_data->process == process);
-	}
-#endif
 	switch (process) {
 	case PROCESS_MAIN:
 		nih_assert ((job->state == JOB_RUNNING)
@@ -3334,41 +3318,10 @@ job_process_close_handler (JobProcessData  *process_data,
 		}
 	}
        
-#if 0
-	switch (job->state) {
-	case JOB_SPAWNING:
-		if (job->class->expect == EXPECT_NONE) {
-			nih_assert (process == PROCESS_MAIN);
-			job_change_state (job, job_next_state (job));
-		}
-		break;
-
-	case JOB_SECURITY_SPAWNING:
-	case JOB_PRE_STARTING:
-	case JOB_POST_STARTING:
-	case JOB_PRE_STOPPING:
-	case JOB_POST_STOPPING:
-		job_change_state (job, job_next_state (job));
-		break;
-
-	default:
-		/* NOP */
-		break;
-	}
-#endif
-
-#if 0
-	else {
-		job_change_state (job, job_next_state (job));
-	}
-#endif
-
 	/* Don't change the jobs goal yet as the process may not have
 	 * actually terminted (and hence will have
 	 * job_process_terminated() called on it again later).
 	 */
-	//job_process_terminated (job, process, status, TRUE);
-
 	switch (job->state) {
 		/* FIXME: BUG: incomplete list of states!!!! */
 	case JOB_SECURITY_SPAWNING:
@@ -3384,8 +3337,6 @@ job_process_close_handler (JobProcessData  *process_data,
 		/* NOP */
 		break;
 	}
-
-	//job_change_state (job, job_next_state (job));
 }
 
 
