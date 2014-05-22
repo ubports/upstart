@@ -1234,8 +1234,7 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_FALSE (job->process_data[PROCESS_PRE_START]->valid);
-		// FIXME shouldn't it be zero at this point?
-		TEST_NE (job->pid[PROCESS_PRE_START], 0);
+		TEST_EQ (job->pid[PROCESS_PRE_START], 0);
 
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);
@@ -1616,8 +1615,7 @@ test_change_state (void)
 		TEST_EQ (job->goal, JOB_STOP);
 		TEST_EQ (job->state, JOB_STOPPING);
 		TEST_FALSE (job->process_data[PROCESS_MAIN]->valid);
-		// FIXME shouldn't it be zero at this point?
-		TEST_NE (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
 		TEST_EQ (cause->blockers, 0);
 		TEST_EQ (cause->failed, TRUE);

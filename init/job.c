@@ -2595,6 +2595,8 @@ job_child_error_handler (Job *job, ProcessType process)
 	nih_assert (process > PROCESS_INVALID);
 	nih_assert (process < PROCESS_LAST);
 
+	job->pid[process] = 0;
+
 	switch (process) {
 	case PROCESS_SECURITY:
 		job_failed (job, PROCESS_SECURITY, -1);
