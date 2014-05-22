@@ -138,11 +138,7 @@ typedef void (*JobProcessErrorHandler) (Job *job, JobState state, ProcessType pr
 
 NIH_BEGIN_EXTERN
 
-int    job_process_run     (Job *job, ProcessType process);
-void
-job_process_start (Job                    *job,
-		   ProcessType             process);
-
+void   job_process_start      (Job *job, ProcessType process);
 void   job_process_run_bottom (JobProcessData *handler_data);
 
 void   job_process_child_reader (JobProcessData *handler_data, NihIo *io,

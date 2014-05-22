@@ -88,6 +88,41 @@
 }
 
 /**
+ * TEST_WATCH_LOOP:
+ * 
+ * Loop for NihIo object Updates, and process them until no watches
+ * left.
+ */
+#define TEST_WATCH_LOOP()                                            \
+{							             \
+	/* Loop until we've fed all of the data. */                  \
+	int first = TRUE;                                            \
+	for (;;) {                                                   \
+		fd_set readfds, writefds, exceptfds;                 \
+		int    nfds;					     \
+								     \
+		nfds = 0;					     \
+		FD_ZERO (&readfds);				     \
+		FD_ZERO (&writefds);				     \
+		FD_ZERO (&exceptfds);				     \
+								     \
+		nih_io_select_fds (&nfds, &readfds,		     \
+				   &writefds, &exceptfds);	     \
+		if (! nfds) {					     \
+		    if (first)					     \
+			TEST_FAILED ("expected to have "	     \
+				     "data to feed.");		     \
+		    break;					     \
+		}						     \
+		first = FALSE;					     \
+									\
+		select (nfds, &readfds, &writefds, &exceptfds, NULL);	\
+								     \
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
+	}							     \
+}
+
+/**
  * _TEST_WATCH_UPDATE:
  * @force: if TRUE, force an update,
  * @timeout: struct timeval pointer, or NULL if no timeout required.
