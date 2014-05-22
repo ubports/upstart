@@ -4483,34 +4483,35 @@ test_spawn (void)
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_LOG;
 	job   = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
 
 	TEST_NE_P (job->log, NULL);
 	TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
 	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
+	job->process_data[PROCESS_MAIN] = NIH_MUST (
+		job_process_data_new (job->process_data, job, PROCESS_MAIN, job_process_fd));
 	TEST_WATCH_UPDATE ();
 	TEST_NE (pid, 0);
 
 	TEST_GT (waitpid (-1, NULL, 0), 0);
 
+	NihIo *io = nih_io_reopen (job, job_process_fd, NIH_IO_STREAM, NULL, NULL, NULL, NULL);
+	TEST_NE_P (io, NULL);
 	buffer = read_from_fd (NULL, job_process_fd);
 	TEST_NE_P (buffer, NULL);
-	job_process_error_handler (buffer->buf, buffer->len);
+	TEST_NE_P (job->process_data[PROCESS_MAIN], NULL);
+	TEST_TRUE (job->process_data[PROCESS_MAIN]->valid);
+	
+
+	TEST_NE_P (job->log[PROCESS_MAIN], NULL);
+
+	job_process_child_reader (job->process_data[PROCESS_MAIN], io, buffer->buf, buffer->len);
 
 	/* The log should have been allocated in job_process_spawn,
 	 * but then freed on error.
 	 */
-	// FIXME should be TEST_EQ_P
-	TEST_NE_P (job->log[PROCESS_MAIN], NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, JOB_PROCESS_ERROR);
-	TEST_ALLOC_SIZE (err, sizeof (JobProcessError));
-
-	perr = (JobProcessError *)err;
-	TEST_EQ (perr->type, JOB_PROCESS_ERROR_EXEC);
-	TEST_EQ (perr->arg, 0);
-	TEST_EQ (perr->errnum, ENOENT);
-	nih_free (perr);
+	TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
 
 	/* Check that we can spawn a job and pause it
 	 */
