@@ -1730,10 +1730,8 @@ test_finished (void)
 			nih_hash_add (job_classes, &class->entry);
 		}
 
-		//FIXME must run without TEST_ALLOC_SAFE
-		TEST_ALLOC_SAFE {
-		    event_poll ();
-		}
+		event_poll ();
+
 		TEST_FREE (event);
 
 		TEST_HASH_NOT_EMPTY (class->instances);

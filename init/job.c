@@ -95,14 +95,15 @@ job_destroy (Job *job)
 	/* Free any associated NihIo's to avoid the handlers getting
 	 * called potentially after the job has been freed.
 	 */
-	for (i = 0; i < PROCESS_LAST; i++) {
-		if (job->process_data && job->process_data[i]) {
-			nih_free (job->process_data[i]);
+	if (job->process_data) {
+		for (i = 0; i < PROCESS_LAST; i++) {
+			if (job->process_data[i]) {
+				nih_free (job->process_data[i]);
 
-			job->process_data[i] = NULL;
+				job->process_data[i] = NULL;
+			}
 		}
 	}
-
 	nih_list_destroy (&job->entry);
 
 	return 0;
@@ -140,6 +141,9 @@ job_new (JobClass   *class,
 		return NULL;
 
 	nih_list_init (&job->entry);
+
+	/* Ensure unset before destructor could possibly be called */
+	job->process_data = NULL;
 
 	nih_alloc_set_destructor (job, job_destroy);
 
