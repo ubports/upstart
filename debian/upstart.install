@@ -15,4 +15,3 @@ debian/upstart-xsessions etc/
 usr/share/man/man5/*
 usr/share/man/man7/*
 usr/share/man/man8/*
-debian/01-upstart-lsb lib/lsb/init-functions.d/

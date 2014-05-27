@@ -1,3 +1,9 @@
+upstart (1.12.1-0ubuntu8) UNRELEASED; urgency=medium
+
+  * Drop the 01-upstart-lsb hook as it's now part of lsb.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 May 2014 16:14:12 +0200
+
 upstart (1.12.1-0ubuntu7) utopic; urgency=medium
 
   * debian/upstart-xsessions: Run unity8-x11 and unity8-mir sessions in a user
