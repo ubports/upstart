@@ -1,3 +1,29 @@
+2014-06-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* dbus/com.ubuntu.Upstart.xml: Added 'SetEnvMulti' and 'UnsetEnvMulti'
+	  methods to allow multiple job environment variables to be
+	  set/unset simultaneously (LP: #1324096).
+	* init/control.c:
+	  - control_set_env_multi(): Implementation for 'SetEnvMulti'.
+	  - control_set_env(): Retained 'SetEnv' implementation that now calls
+	    control_set_env_multi().
+	  - control_unset_env_multi(): Implementation for 'UnSetEnvMulti'.
+	  - control_unset_env(): Retained 'UnSetEnv' implementation that now calls
+	    control_unset_env_multi().
+	* util/initctl.c:
+	  - set_env_action(): Updated to call set_env_multi_sync().
+	  - unset_env_action(): Updated to call unset_env_multi_sync().
+	* util/man/initctl.8: Updated to document ability for 'set-env' and
+	  'unset-env' to set and unset multiple variables simultaneously.
+	* util/tests/test_initctl.c: Added new tests:
+	  - "multiple set-env in 'name=value' form"
+	  - "multiple set-env in 'name=' form"
+	  - "multiple set-env in 'name' form"
+	  - "set-env for multiple already set variables"
+	  - "set-env with multiple variables, some already set"
+	  - "set-env with multiple variables in different forms"
+	  - "set-env --retain with multiple variables, some already set"
+
 2014-05-09  Dimitri John Ledkov  <xnox@ubuntu.com>
 
 	* util/reboot.c: only use rebootcommand code path in runlevels 0,
