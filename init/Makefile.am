@@ -10,7 +10,7 @@ AM_CFLAGS = \
 	$(DBUS_CFLAGS) \
 	$(JSON_CFLAGS) \
 	$(CGMANAGER_CFLAGS)
-AM_LIBADD = -lcgmanager $(NIH_LIBS) $(NIH_DBUS_LIBS)
+AM_LIBADD = $(CGMANAGER_LIBS) $(NIH_LIBS) $(NIH_DBUS_LIBS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -467,8 +467,10 @@ test_xdg_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
-	-lcgmanager \
 	-lrt
+if ENABLE_CGROUPS
+test_xdg_LDADD += $(CGMANAGER_LIBS)
+endif
 
 test_cgroup_SOURCES = tests/test_cgroup.c
 test_cgroup_LDADD = \

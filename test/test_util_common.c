@@ -53,7 +53,9 @@
 #include "dbus/upstart.h"
 
 #include <nih-dbus/dbus_connection.h>
+#ifdef ENABLE_CGROUPS
 #include <cgmanager/cgmanager-client.h>
+#endif
 
 #include "test_util_common.h"
 
