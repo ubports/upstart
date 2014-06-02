@@ -107,6 +107,10 @@
       <arg name="address" type="s" direction="in" />
     </method>
 
+    <method name="NotifyCGroupManagerAddress">
+      <arg name="address" type="s" direction="in" />
+    </method>
+
     <method name="EndSession"/>
 
     <!-- Basic information about Upstart -->

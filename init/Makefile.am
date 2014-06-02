@@ -8,7 +8,9 @@ AM_CFLAGS = \
 	$(NIH_CFLAGS) \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(JSON_CFLAGS)
+	$(JSON_CFLAGS) \
+	$(CGMANAGER_CFLAGS)
+AM_LIBADD = -lcgmanager $(NIH_LIBS) $(NIH_DBUS_LIBS)
 
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
@@ -65,14 +67,19 @@ nodist_init_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
+
 init_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
+	$(CGMANAGER_LIBS) \
 	-lrt
 
+if ENABLE_CGROUPS
+init_SOURCES +=	cgroup.c cgroup.h
+endif
 
 com_ubuntu_Upstart_OUTPUTS = \
 	com.ubuntu.Upstart.c \
@@ -166,6 +173,10 @@ upstart_test_programs = \
 	test_control \
 	test_main
 
+if ENABLE_CGROUPS
+upstart_test_programs += test_cgroup
+endif
+
 if ENABLE_TAP_OUTPUT
 LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
 else
@@ -227,6 +238,9 @@ test_process_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_process_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_job_class_SOURCES = tests/test_job_class.c
 test_job_class_LDADD = \
@@ -241,6 +255,9 @@ test_job_class_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_job_class_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_job_process_SOURCES = tests/test_job_process.c
 test_job_process_LDADD = \
@@ -256,6 +273,9 @@ test_job_process_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt -lutil
+if ENABLE_CGROUPS
+test_job_process_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_job_SOURCES = tests/test_job.c
 test_job_LDADD = \
@@ -271,6 +291,9 @@ test_job_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_job_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_log_SOURCES = tests/test_log.c
 test_log_LDADD = \
@@ -286,6 +309,9 @@ test_log_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt -lutil
+if ENABLE_CGROUPS
+test_log_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_state_SOURCES = tests/test_state.c tests/test_util.c tests/test_util.h
 test_state_LDADD = \
@@ -301,6 +327,9 @@ test_state_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt -lutil
+if ENABLE_CGROUPS
+test_state_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_event_SOURCES = tests/test_event.c
 test_event_LDADD = \
@@ -315,6 +344,9 @@ test_event_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_event_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_event_operator_SOURCES = tests/test_event_operator.c tests/test_util.c tests/test_util.h
 test_event_operator_LDADD = \
@@ -330,6 +362,9 @@ test_event_operator_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_event_operator_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_blocked_SOURCES = tests/test_blocked.c
 test_blocked_LDADD = \
@@ -344,6 +379,9 @@ test_blocked_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_blocked_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_parse_job_SOURCES = tests/test_parse_job.c
 test_parse_job_LDADD = \
@@ -353,11 +391,15 @@ test_parse_job_LDADD = \
 	session.o log.o state.o xdg.o apparmor.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_parse_job_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_parse_conf_SOURCES = tests/test_parse_conf.c
 test_parse_conf_LDADD = \
@@ -372,6 +414,9 @@ test_parse_conf_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_parse_conf_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 check_LTLIBRARIES = tests/libwrap_inotify.la
 tests_libwrap_inotify_la_SOURCES = tests/wrap_inotify.c
@@ -392,6 +437,9 @@ test_conf_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_conf_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_conf_static_SOURCES = tests/test_conf_static.c
 test_conf_static_LDADD = \
@@ -406,6 +454,9 @@ test_conf_static_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_conf_static_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_xdg_SOURCES = tests/test_xdg.c
 test_xdg_LDADD = \
@@ -416,6 +467,23 @@ test_xdg_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \
+	-lcgmanager \
+	-lrt
+
+test_cgroup_SOURCES = tests/test_cgroup.c
+test_cgroup_LDADD = \
+	system.o environ.o process.o \
+	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
+	parse_job.o parse_conf.o conf.o control.o quiesce.o \
+	session.o log.o state.o xdg.o apparmor.o cgroup.o \
+	com.ubuntu.Upstart.o \
+	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a \
+	$(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) \
+	$(DBUS_LIBS) \
+	$(JSON_LIBS) \
+	$(CGMANAGER_LIBS) \
 	-lrt
 
 test_control_SOURCES = tests/test_control.c
@@ -431,6 +499,9 @@ test_control_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_control_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 test_main_SOURCES = tests/test_main.c
 test_main_LDADD = \
@@ -446,6 +517,9 @@ test_main_LDADD = \
 	$(DBUS_LIBS) \
 	$(JSON_LIBS) \
 	-lrt
+if ENABLE_CGROUPS
+test_main_LDADD += cgroup.o $(CGMANAGER_LIBS)
+endif
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(initconfdir)

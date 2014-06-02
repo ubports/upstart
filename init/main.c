@@ -140,6 +140,10 @@ extern DBusBusType  dbus_bus_type;
 extern mode_t       initial_umask;
 extern int          debug_stanza_enabled;
 
+#ifdef ENABLE_CGROUPS
+extern int          disable_cgroups;
+#endif /* ENABLE_CGROUPS */
+
 /**
  * options:
  *
@@ -151,6 +155,11 @@ static NihOption options[] = {
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
+
+#ifdef ENABLE_CGROUPS
+	{ 0, "no-cgroups", N_("do not support cgroups"),
+		NULL, NULL, &disable_cgroups, NULL },
+#endif /* ENABLE_CGROUPS */
 
 	{ 0, "no-dbus", N_("do not connect to a D-Bus bus"),
 		NULL, NULL, &disable_dbus, NULL },

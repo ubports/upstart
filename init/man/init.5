@@ -1,4 +1,4 @@
-.TH init 5 2013-01-25 "Upstart"
+.TH init 5 2014-05-09 "Upstart"
 .\"
 .SH NAME
 init \- Upstart init daemon job configuration
@@ -508,8 +508,8 @@ If only \'KEY\' is given, then the value is taken from the
 daemon's own environment.
 .\"
 .TP
-.B export \fIKEY\fR
-Exports the value of an environment variable into the
+.B export \fIKEY\fR...
+Exports the value of one or more environment variables into the
 .BR starting (7),
 .BR started (7),
 .BR stopping (7)
@@ -520,6 +520,14 @@ events for this job
 and to all resultant events
 .ft
 (not just those relating to the current job).
+
+Note that each
+.I KEY
+is the
+.I name
+of a variable; it is
+.B not
+prefixed with a dollar (\(aq$\(aq) sign.
 .RE
 
 The first two categories above comprise the
@@ -971,6 +979,197 @@ stanza are unspecified, all job processes will run with their group ID set
 to 0 (root) in the case of system jobs, and as the primary group of the
 user in the case of User Session jobs.
 .\"
+.TP
+.B cgroup \fICONTROLLER \fR[ \fINAME \fR] \fR[ \fIKEY VALUE \fR]
+Specify the control group all job processes will run in and optionally
+specify a setting for the particular cgroup.
+
+This stanza will be ignored if the version of Upstart is new
+enough to support cgroups but has been built without cgroup support.
+
+This stanza will also be ignored if the
+.BR init (8)
+daemon has had cgroup support disabled at boot time (see \fBinit\fR
+(8)).
+
+A job which specifies this stanza will not be started until both its
+.B start on
+condition is met
+.I and
+the address of the cgroup manager has been communicated to the
+.BR init (8)
+daemon using the
+.BR initctl (8)
+command
+.BR notify\-cgroup\-manager\-address "."
+
+If only
+the cgroup controller (such as \fImemory\fR, \fIcpuset\fR, \fIblkio\fR)
+is specified, a job-specific cgroup will be created and the job
+processes placed in it. The form of this cgroup is
+.sp
+.B upstart/$UPSTART_JOB
+.sp
+or if the job specifies the
+.B instance
+stanza the group will be the expanded value of:
+.sp
+.B upstart/$UPSTART_JOB-$UPSTART_INSTANCE
+.sp
+Any forward slashes in
+.B $UPSTART_JOB
+and
+.B $UPSTART_INSTANCE
+will be replaced with underscore (\(aq_\(aq) characters.
+
+This default cgroup for the job may be specified explicitly
+within a
+.B NAME
+using the special variable
+.BR $UPSTART_CGROUP "."
+This variable is
+.I not
+an environment variable and is only valid within the context of the
+.B cgroup
+stanza.
+
+If
+.B NAME
+is not specified or does not contain
+.BR $UPSTART_CGROUP ","
+the job processes will not be placed in an upstart-specific
+
+Note that this special variable cannot be specified with enclosing
+braces around the name.
+
+No validation is performed on the specified values until the job is due
+to be started.
+
+If the
+.B CONTROLLER
+is invalid, or the
+.B NAME
+cannot be created or the
+.B KEY
+or
+.B VALUE
+are invalid, the job will be failed.
+
+The
+.B NAME
+argument may contain any valid variable and can also contain forward
+slashes to run the job processes in a sub-cgroup.
+
+If any argument contains space characters, it must be quoted.
+
+If a
+.B KEY
+is specified, a
+.B VALUE
+must also be specified (even it is simply an empty string).
+
+The stanza maybe specified multiple times. The last occurence will be
+used except in the scenario where each occurence specifies a different
+.B KEY
+in which case all the keys and values will be applied.
+
+It is not an error if
+.B NAME
+already exists.
+
+Valid syntax:
+
+.RS
+
+Implicit NAME, no setting.
+.RS
+.nf
+.B cgroup CONTROLLER
+.fi
+.RE
+
+Explicit name, no setting.
+.RS
+.nf
+.B cgroup CONTROLLER NAME
+.fi
+.RE
+
+Implicit name with setting.
+.RS
+.nf
+.B cgroup CONTROLLER KEY VALUE
+.fi
+.RE
+
+Explicit name with setting.
+.RS
+.nf
+.B cgroup CONTROLLER NAME KEY VALUE
+.fi
+.RE
+
+.RE
+
+.RS
+Examples:
+
+.IP \[bu]
+Run all job processes in the default
+.B cpu
+cgroup controller group.
+.sp
+.RS
+.nf
+.B cgroup cpu
+.fi
+.RE
+
+.IP \[bu]
+As above.
+.sp
+.RS
+.nf
+.B cgroup cpu $UPSTART_CGROUP
+.fi
+.RE
+
+.IP \[bu]
+As above.
+.sp
+.RS
+.nf
+\fBcgroup cpu "$UPSTART_CGROUP"\fR
+.fi
+.RE
+
+.IP \[bu]
+Attempt to place the job processes in a non-job-specific
+cgroup.
+.sp
+.RS
+.nf
+\fBcgroup cpu "a-well-known-cgroup"\fR
+.fi
+.RE
+
+.IP \[bu]
+The job will only start once the manager is up and running and will have
+a 50MB memory limit, be restricted to CPU ids 0 and 1 and have a 1MB/s
+write limit to the block device 8:16. The job will fail to start if the
+system has less than 50MB of RAM or less than 2 CPUs.
+.sp
+.RS
+.nf
+.B cgroup memory $UPSTART_CGROUP limit_in_bytes 52428800
+.B cgroup cpuset $UPSTART_CGROUP cpus 0-1
+\fBcgroup blkio slowio throttle.write_bps_device "8:16 1048576"\fR
+.fi
+.RE
+
+.RE
+
+.\"
 .SS Override File Handling
 Override files allow a jobs environment to be changed without modifying
 the jobs configuration file. Rules governing override files:
@@ -1216,6 +1415,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .SH SEE ALSO
 
 .BR apparmor (7),
+.BR cgmanager (8),
 .BR init (8),
 .BR initctl (8),
 .BR prctl (2),

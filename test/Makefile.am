@@ -8,6 +8,7 @@ AM_CFLAGS = \
 	$(NIH_DBUS_CFLAGS) \
 	$(DBUS_CFLAGS)
 
+AM_LIBADD = -lcgmanager $(NIH_LIBS) $(NIH_DBUS_LIBS)
 AM_CPPFLAGS = \
 	-DLOCALEDIR="\"$(localedir)\"" \
 	-DSBINDIR="\"$(sbindir)\"" \
@@ -36,4 +37,5 @@ tests: $(check_PROGRAMS)
 test_util_check_env_SOURCES = tests/test_util_check_env.c
 test_util_check_env_LDADD = \
 	libtest_util_common.a \
-	$(NIH_LIBS)
+	-lcgmanager \
+	$(NIH_LIBS) $(NIH_DBUS_LIBS)

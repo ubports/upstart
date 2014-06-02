@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009,2010,2011 Canonical Ltd.
+ * Copyright  2009,2010,2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -95,7 +95,10 @@ typedef enum job_process_error_type {
 	JOB_PROCESS_ERROR_ALLOC,
 	JOB_PROCESS_ERROR_INITGROUPS,
 	JOB_PROCESS_ERROR_GETGRGID,
-	JOB_PROCESS_ERROR_SECURITY
+	JOB_PROCESS_ERROR_SECURITY,
+	JOB_PROCESS_ERROR_CGROUP_MGR_CONNECT,
+	JOB_PROCESS_ERROR_CGROUP_SETUP,
+	JOB_PROCESS_ERROR_CGROUP_ENTER
 } JobProcessErrorType;
 
 /**

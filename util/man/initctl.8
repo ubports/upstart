@@ -1,4 +1,4 @@
-.TH initctl 8 2012-12-20 "Upstart"
+.TH initctl 8 2014-05-09 "Upstart"
 .\"
 .SH NAME
 initctl \- init daemon control tool
@@ -580,6 +580,13 @@ If specified, treat \fIany\fP unknown jobs and events as errors.
 .RE
 .\"
 .TP
+.B notify\-cgroup\-manager\-address
+.I ADDRESS
+Specify the D-Bus address on which the cgroup manager can be
+contacted. This command should only be run when the cgroup manager has
+started to accept connections.
+.\"
+.TP
 .B notify\-disk\-writeable
 Notify the
 .BR init (8)
@@ -800,6 +807,7 @@ This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 .\"
 .SH SEE ALSO
+.BR cgmanager (8)
 .BR init (5)
 .BR init (8)
 .BR telinit (8)
