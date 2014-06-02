@@ -54,11 +54,6 @@
 
 #include <cgmanager/cgmanager-client.h>
 
-/* FIXME */
-#if 0
-#include "early_assert.c"
-#endif
-
 /**
  * disable_cgroups:
  *
@@ -118,15 +113,6 @@ CGroup *
 cgroup_new (void *parent, const char *controller)
 {
 	CGroup *cgroup;
-
-	/* FIXME */
-#if 0
-	static int done = 0;
-	if (! done) {
-		nih_log_set_logger (nih_logger_james);
-		done = 1;
-	}
-#endif
 
 	nih_assert (controller);
 
@@ -453,10 +439,6 @@ cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
 			if (! cgroup_create (cgroup->controller, cgpath))
 				return FALSE;
 
-			/* FIXME */
-#if 1
-			nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, cgroup->controller, cgpath);
-#endif
 			if (! cgroup_settings_apply (cgroup->controller,
 						cgpath,
 						&cgname->settings))
@@ -1364,21 +1346,10 @@ cgroup_settings_apply (const char  *controller,
 	nih_assert (settings);
 	nih_assert (cgroup_manager);
 
-	/* FIXME */
-#if 1
-	nih_message ("XXX:%s:%d: controller='%s', path='%s'", __func__, __LINE__, controller, path);
-#endif
-
 	NIH_LIST_FOREACH (settings, iter) {
 		nih_local char *setting_key = NULL;
 
 		CGroupSetting *setting = (CGroupSetting *)iter;
-
-		/* FIXME */
-#if 1
-		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s'",
-				__func__, __LINE__, controller, path, setting->key, setting->value ? setting->value : "");
-#endif
 
 		/* setting files in a cgroup directory take the form "controller.key" */
 		setting_key = nih_sprintf (NULL, "%s.%s",
@@ -1386,26 +1357,12 @@ cgroup_settings_apply (const char  *controller,
 		if (! setting_key)
 			nih_return_no_memory_error (FALSE);
 
-/* FIXME */
-#if 1
-		nih_message ("XXX:%s:%d: controller='%s', path='%s', setting: key='%s', value='%s', setting_key='%s'",
-				__func__, __LINE__,
-				controller, path,
-				setting->key,
-				setting->value ? setting->value : "",
-				setting_key);
-#endif
-
 		ret = cgmanager_set_value_sync (NULL,
 				cgroup_manager,
 				controller,
 				path,
 				setting_key,
 				setting->value ? setting->value : "");
-		/* FIXME */
-#if 1
-		nih_message ("XXX:%s:%d:ret=%d", __func__, __LINE__, ret);
-#endif
 
 		if (ret < 0)
 			return FALSE;

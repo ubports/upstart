@@ -65,11 +65,6 @@
 
 #include <json.h>
 
-/* FIXME */
-#if 0
-#include "early_assert-2.c"
-#endif
-
 extern json_object *json_classes;
 extern int user_mode;
 extern int no_inherit_env;
@@ -122,11 +117,6 @@ job_class_init (void)
 {
 	if (! job_classes)
 		job_classes = NIH_MUST (nih_hash_string_new (NULL, 0));
-
-	/* FIXME */
-#if 0
-	nih_log_set_logger (nih_logger_james2);
-#endif
 }
 
 /**
@@ -2716,7 +2706,12 @@ job_class_get_index (const JobClass *class)
 	return -1;
 }
 
-/* FIXME: document */
+/**
+ * job_class_induct_job:
+ * @class: Start a job of a given class
+ *
+ * Returns: TRUE on success, otherwise FALSE.
+ **/
 int
 job_class_induct_job (JobClass *class)
 {
@@ -2782,10 +2777,6 @@ job_class_induct_job (JobClass *class)
 		event_operator_events (job->class->start_on,
 				job, &job->blocking);
 
-		/* FIXME */
-#if 1
-		nih_message ("XXX:%s:%d: ", __func__, __LINE__);
-#endif
 		job_change_goal (job, JOB_START);
 	}
 
@@ -2797,7 +2788,13 @@ job_class_induct_job (JobClass *class)
 
 #ifdef ENABLE_CGROUPS
 
-/* FIXME: document */
+/**
+ * job_class_induct_jobs:
+ *
+ * Start all jobs waiting on a cgmanager.
+ *
+ * Returns: TRUE on success, otherwise FALSE.
+ **/
 int
 job_class_induct_jobs (void)
 {
