@@ -1,3 +1,6 @@
+/*
+ * FIXME: test_job_process has been left behind
+ */
 /* upstart
  *
  * test_job_process.c - test suite for init/job_process.c
@@ -146,33 +149,6 @@ static char *argv0;
 
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
-
-/**
- * fd_valid:
- * @fd: file descriptor.
- *
- * Return 1 if @fd is valid, else 0.
- **/
-static int
-fd_valid (int fd)
-{
-	int flags = 0;
-
-	if (fd < 0)
-		return 0;
-
-	errno = 0;
-	flags = fcntl (fd, F_GETFL);
-
-	if (flags < 0)
-		return 0;
-
-	/* redundant really */
-	if (errno == EBADF)
-		return 0;
-
-	return 1;
-}
 
 static void
 child (enum child_tests  test,
@@ -409,7 +385,7 @@ close_all_files (void)
  * (Such tests are handled in the bundled test_user_sessions.sh script).
  */
 void
-test_run (void)
+test_start (void)
 {
 	char             dirname[PATH_MAX];
 	JobClass        *class = NULL;
@@ -418,7 +394,7 @@ test_run (void)
 	struct stat      statbuf;
 	char             filename[PATH_MAX], buf[80];
 	char             function[PATH_MAX];
-	int              ret = -1, status, first;
+	int              status;
 	siginfo_t        info;
 	char             filebuf[1024];
 	struct passwd   *pwd;
@@ -433,7 +409,7 @@ test_run (void)
 	log_unflushed_init ();
 	job_class_init ();
 
-	TEST_FUNCTION ("job_process_run");
+	TEST_FUNCTION ("job_process_start");
 
 	TEST_FILENAME (filename);
 	program_name = "test";
@@ -467,8 +443,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -502,8 +477,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -544,8 +518,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -584,8 +557,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -625,8 +597,7 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -672,8 +643,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -728,8 +698,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -785,8 +754,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_PRE_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_PRE_STOP);
 
 		TEST_NE (job->pid[PROCESS_PRE_STOP], 0);
 
@@ -843,8 +811,7 @@ test_run (void)
 						   "CRACKLE=FIZZ"));
 		}
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
@@ -894,36 +861,11 @@ test_run (void)
 			job->state = JOB_SPAWNED;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
-		/* Loop until we've fed all of the data. */
-		first = TRUE;
-		for (;;) {
-			fd_set readfds, writefds, exceptfds;
-			int    nfds;
-
-			nfds = 0;
-			FD_ZERO (&readfds);
-			FD_ZERO (&writefds);
-			FD_ZERO (&exceptfds);
-
-			nih_io_select_fds (&nfds, &readfds,
-					   &writefds, &exceptfds);
-			if (! nfds) {
-				if (first)
-					TEST_FAILED ("expected to have "
-						     "data to feed.");
-				break;
-			}
-			first = FALSE;
-
-			select (nfds, &readfds, &writefds, &exceptfds, NULL);
-
-			nih_io_handle_fds (&readfds, &writefds, &exceptfds);
-		}
+		TEST_WATCH_LOOP ();
 
 		waitpid (job->pid[PROCESS_MAIN], &status, 0);
 		TEST_TRUE (WIFEXITED (status));
@@ -962,8 +904,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -1002,8 +943,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_PRE_START);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_PRE_START);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NONE);
@@ -1044,8 +984,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);
@@ -1095,8 +1034,7 @@ test_run (void)
 			job->trace_state = TRACE_NORMAL;
 		}
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_EQ (job->trace_forks, 0);
 		TEST_EQ (job->trace_state, TRACE_NEW);
@@ -1122,7 +1060,7 @@ test_run (void)
 	}
 
 	/* Check that if we try and run a command that doesn't exist,
-	 * job_process_run() raises a ProcessError and the command doesn't
+	 * job_process_start() raises a ProcessError and the command doesn't
 	 * have any stored process id for it.
 	 */
 	TEST_FEATURE ("with no such file");
@@ -1144,11 +1082,12 @@ test_run (void)
 		}
 
 		TEST_DIVERT_STDERR (output) {
-			ret = job_process_run (job, PROCESS_MAIN);
+			job_process_start (job, PROCESS_MAIN);
+			TEST_WATCH_LOOP ();
+			event_poll ();
 		}
 		rewind (output);
-		TEST_LT (ret, 0);
-
+		
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
 		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
@@ -1195,8 +1134,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1263,8 +1201,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1331,8 +1268,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1399,8 +1335,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1462,8 +1397,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1499,8 +1433,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1536,8 +1469,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1583,10 +1515,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/* XXX: call 0: async process setup */
+	TEST_WATCH_UPDATE ();
 
 	/* XXX: call 1: wait for script write to child shell */
 	TEST_WATCH_UPDATE ();
@@ -1613,10 +1547,10 @@ test_run (void)
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
-	 * continue since job_process_run() calls job_process_spawn()
+	 * continue since job_process_start() calls job_process_spawn()
 	 * repeatedly until it works, but the alloc fails in log_new()
 	 * invoked by job_process_spawn() such that when we've left
-	 * job_process_run(), it's too late.
+	 * job_process_start(), it's too late.
 	 *
 	 * However, we test this scenario in test_spawn() so all is not
 	 * lost.
@@ -1637,8 +1571,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -1695,10 +1628,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/*  wait for read from pty allowing logger to write to log file */
 	TEST_WATCH_UPDATE ();
@@ -1779,10 +1714,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/*  wait for read from pty allowing logger to write to log file */
 	TEST_WATCH_UPDATE ();
@@ -1861,10 +1798,10 @@ test_run (void)
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
-	 * continue since job_process_run() calls job_process_spawn()
+	 * continue since job_process_start() calls job_process_spawn()
 	 * repeatedly until it works, but the alloc fails in log_new()
 	 * invoked by job_process_spawn() such that when we've left
-	 * job_process_run(), it's too late.
+	 * job_process_start(), it's too late.
 	 *
 	 * However, we test this scenario in test_spawn() so all is not
 	 * lost.
@@ -1885,10 +1822,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/* XXX: call 1: wait for script write to child shell */
 	TEST_WATCH_UPDATE ();
@@ -1948,10 +1887,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/*  wait for read from pty allowing logger to write to log file */
 	TEST_WATCH_UPDATE ();
@@ -2017,10 +1958,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/* XXX: call 1: wait for script write to child shell */
 	TEST_WATCH_UPDATE ();
@@ -2064,10 +2007,10 @@ test_run (void)
 
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
-	 * continue since job_process_run() calls job_process_spawn()
+	 * continue since job_process_start() calls job_process_spawn()
 	 * repeatedly until it works, but the alloc fails in log_new()
 	 * invoked by job_process_spawn() such that when we've left
-	 * job_process_run(), it's too late.
+	 * job_process_start(), it's too late.
 	 *
 	 * However, we test this scenario in test_spawn() so all is not
 	 * lost.
@@ -2088,8 +2031,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2135,7 +2077,7 @@ test_run (void)
 	 * XXX: TEST_WATCH_UPDATE() *TWICE* to ensure select(2) is
 	 * XXX: called twice.
 	 *
-	 * This is required since job_process_run() uses an NihIo object
+	 * This is required since job_process_start() uses an NihIo object
 	 * to squirt the script to the shell sub-process and this
 	 * triggers select to return when the data is written to the shell.
 	 * However, we don't care about that directly - we care more about
@@ -2144,7 +2086,7 @@ test_run (void)
 	 * written.
 	 *
 	 * Note that the 2nd call to TEST_WATCH_UPDATE would not be
-	 * required should job_process_run() simple invoke write(2) to
+	 * required should job_process_start() simple invoke write(2) to
 	 * send the data.
 	 */
 
@@ -2165,10 +2107,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
+
+	/*  wait for process to setup */
+	TEST_WATCH_UPDATE ();
 
 	/* XXX: call 1: wait for script write to child shell */
 	TEST_WATCH_UPDATE ();
@@ -2227,8 +2171,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2287,8 +2230,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2352,8 +2294,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2414,11 +2355,11 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
+	TEST_WATCH_UPDATE ();
 	TEST_WATCH_UPDATE ();
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
 	TEST_TRUE (WIFEXITED (status));
@@ -2474,8 +2415,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2537,8 +2477,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2597,11 +2536,11 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
+	TEST_WATCH_UPDATE ();
 	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -2659,8 +2598,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2725,8 +2663,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2787,11 +2724,11 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
+	TEST_WATCH_UPDATE ();
 	TEST_WATCH_UPDATE ();
 
 	waitpid (job->pid[PROCESS_MAIN], &status, 0);
@@ -2851,8 +2788,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2913,8 +2849,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -2973,8 +2908,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3037,8 +2971,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3112,8 +3045,9 @@ test_run (void)
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3161,8 +3095,8 @@ test_run (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3173,10 +3107,10 @@ test_run (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
+		TEST_WATCH_UPDATE ();
 
 		/* Flush the io so that the shell on the client side
 		 * gets the data (the script to execute).
@@ -3187,8 +3121,11 @@ test_run (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
+		TEST_WATCH_UPDATE ();
+
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3241,8 +3178,9 @@ test_run (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3253,8 +3191,8 @@ test_run (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
+		TEST_WATCH_UPDATE ();
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
@@ -3272,6 +3210,7 @@ test_run (void)
 
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3325,8 +3264,8 @@ test_run (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3337,8 +3276,8 @@ test_run (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
+		TEST_WATCH_UPDATE ();
 
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
@@ -3351,8 +3290,11 @@ test_run (void)
 		TEST_TRUE (WIFEXITED (status));
 		TEST_EQ (WEXITSTATUS (status), 0);
 
+		TEST_WATCH_UPDATE ();
+
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
+		event_poll ();
 	}
 	fclose (output);
 
@@ -3405,8 +3347,8 @@ test_run (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
+		TEST_WATCH_UPDATE ();
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3417,12 +3359,13 @@ test_run (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
+		TEST_WATCH_UPDATE ();
 
 		/* Again, no file expected */
 		TEST_EQ (stat (filename, &statbuf), -1);
 		TEST_EQ (errno, ENOENT);
+		event_poll ();
 	}
 	fclose (output);
 	nih_free (class);
@@ -3463,8 +3406,7 @@ test_run (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		ret = job_process_run (job, PROCESS_MAIN);
-		TEST_EQ (ret, 0);
+		job_process_start (job, PROCESS_MAIN);
 
 		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3483,8 +3425,8 @@ test_run (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
-		ret = job_process_run (job, PROCESS_POST_STOP);
-		TEST_LT (ret, 0);
+		job_process_start (job, PROCESS_POST_STOP);
+		TEST_WATCH_UPDATE ();
 
 		TEST_EQ (job->pid[PROCESS_POST_STOP], 0);
 	}
@@ -3524,8 +3466,8 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
+	TEST_WATCH_UPDATE ();
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3585,8 +3527,8 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
+	TEST_WATCH_UPDATE ();
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3648,8 +3590,8 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
+	TEST_WATCH_UPDATE ();
 
 	TEST_NE (job->pid[PROCESS_MAIN], 0);
 
@@ -3728,8 +3670,7 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
 
 	/* Wait for process to avoid any possibility of EAGAIN in
 	 * log_read_watch().
@@ -3802,8 +3743,9 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
+	TEST_WATCH_UPDATE ();
+	TEST_WATCH_UPDATE ();
 
 	pid = job->pid[PROCESS_MAIN];
 
@@ -3933,8 +3875,8 @@ test_run (void)
 		TEST_EQ_P (job->log[i], NULL);
 	}
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_MAIN);
+	TEST_WATCH_UPDATE ();
 
 	pid = job->pid[PROCESS_MAIN];
 
@@ -4006,8 +3948,7 @@ test_run (void)
 		}
 
 		TEST_DIVERT_STDERR (output) {
-			ret = job_process_run (job, PROCESS_MAIN);
-			TEST_EQ (ret, 0);
+			job_process_start (job, PROCESS_MAIN);
 		}
 		fclose (output);
 
@@ -4064,13 +4005,8 @@ test_run (void)
 		}
 
 		TEST_DIVERT_STDERR (output) {
-			ret = job_process_run (job, PROCESS_MAIN);
-			if (geteuid() == 0 || getuid() == pwd->pw_uid) {
-				TEST_EQ (ret, 0);
-			}
-			else {
-				TEST_EQ (ret, -1);
-			}
+			job_process_start (job, PROCESS_MAIN);
+			TEST_WATCH_UPDATE ();
 		}
 
 		if (geteuid() == 0 || getuid() == pwd->pw_uid) {
@@ -4081,12 +4017,14 @@ test_run (void)
 		}
 		else {
 			TEST_EQ (stat (filename, &statbuf), -1);
+			event_poll ();
 		}
 
 		unlink (filename);
 		nih_free (class);
-
 	}
+
+	/* FIXME with async spawn this test is racy */
 
 	/************************************************************/
 	TEST_FEATURE ("with multiple processes and log");
@@ -4128,13 +4066,12 @@ test_run (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
-	ret = job_process_run (job, PROCESS_MAIN);
-	TEST_EQ (ret, 0);
-
+	job_process_start (job, PROCESS_MAIN);
+	while (stat (filename, &statbuf) != 0) {
+		TEST_WATCH_UPDATE ();
+	}
 	pid = job->pid[PROCESS_MAIN];
 	TEST_GT (pid, 0);
-
-	TEST_WATCH_UPDATE ();
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -4148,8 +4085,8 @@ test_run (void)
 
 	TEST_EQ (fclose (output), 0);
 
-	ret = job_process_run (job, PROCESS_POST_START);
-	TEST_EQ (ret, 0);
+	job_process_start (job, PROCESS_POST_START);
+	TEST_WATCH_UPDATE ();
 
 	pid = job->pid[PROCESS_POST_START];
 	TEST_GT (pid, 0);
@@ -4244,6 +4181,8 @@ test_spawn (void)
 	int               status;
 	struct stat       statbuf;
 	int               ret;
+	int               job_process_fd = -1;
+	nih_local NihIoBuffer *buffer = NULL;
 
 	log_unflushed_init ();
 
@@ -4257,7 +4196,7 @@ test_spawn (void)
 	 */
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
 
-	TEST_FUNCTION ("job_process_spawn");
+	TEST_FUNCTION ("job_process_spawn_with_fd");
 	TEST_FILENAME (filename);
 
 	args[0] = argv0;
@@ -4278,7 +4217,7 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job   = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4319,7 +4258,7 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4351,7 +4290,7 @@ test_spawn (void)
 	class->console = CONSOLE_LOG;
 	job = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4398,7 +4337,7 @@ test_spawn (void)
 	class->chdir = "/tmp";
 	job = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4430,7 +4369,7 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job   = job_new (class, "");
 
-	pid = job_process_spawn (job, args, env, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, env, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4460,7 +4399,7 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job   = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -4483,7 +4422,7 @@ test_spawn (void)
 	class = job_class_new (NULL, "test", NULL);
 	job   = job_new (class, "");
 	class->console = CONSOLE_NONE;
-	pid = job_process_spawn (job, args, NULL, TRUE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, TRUE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	assert0 (waitid (P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED));
@@ -4516,8 +4455,12 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job   = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_LT (pid, 0);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
+	TEST_NE (pid, 0);
+
+	buffer = read_from_fd (NULL, job_process_fd);
+	TEST_NE_P (buffer, NULL);
+	job_process_error_handler (buffer->buf, buffer->len);
 
 	err = nih_error_get ();
 	TEST_EQ (err->number, JOB_PROCESS_ERROR);
@@ -4528,6 +4471,7 @@ test_spawn (void)
 	TEST_EQ (perr->arg, 0);
 	TEST_EQ (perr->errnum, ENOENT);
 	nih_free (perr);
+	nih_free (buffer);
 
 	/************************************************************/
 	TEST_FEATURE ("with no such file, no shell and console log");
@@ -4539,28 +4483,35 @@ test_spawn (void)
 	class = job_class_new (NULL, "test", NULL);
 	class->console = CONSOLE_LOG;
 	job   = job_new (class, "");
+	job->goal = JOB_START;
+	job->state = JOB_SPAWNED;
 
 	TEST_NE_P (job->log, NULL);
 	TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-	TEST_LT (pid, 0);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
+	job->process_data[PROCESS_MAIN] = NIH_MUST (
+		job_process_data_new (job->process_data, job, PROCESS_MAIN, job_process_fd));
+	TEST_WATCH_UPDATE ();
+	TEST_NE (pid, 0);
 
 	TEST_GT (waitpid (-1, NULL, 0), 0);
+
+	NihIo *io = nih_io_reopen (job, job_process_fd, NIH_IO_STREAM, NULL, NULL, NULL, NULL);
+	TEST_NE_P (io, NULL);
+	buffer = read_from_fd (NULL, job_process_fd);
+	TEST_NE_P (buffer, NULL);
+	TEST_NE_P (job->process_data[PROCESS_MAIN], NULL);
+	TEST_TRUE (job->process_data[PROCESS_MAIN]->valid);
+	
+
+	TEST_NE_P (job->log[PROCESS_MAIN], NULL);
+
+	job_process_child_reader (job->process_data[PROCESS_MAIN], io, buffer->buf, buffer->len);
 
 	/* The log should have been allocated in job_process_spawn,
 	 * but then freed on error.
 	 */
 	TEST_EQ_P (job->log[PROCESS_MAIN], NULL);
-
-	err = nih_error_get ();
-	TEST_EQ (err->number, JOB_PROCESS_ERROR);
-	TEST_ALLOC_SIZE (err, sizeof (JobProcessError));
-
-	perr = (JobProcessError *)err;
-	TEST_EQ (perr->type, JOB_PROCESS_ERROR_EXEC);
-	TEST_EQ (perr->arg, 0);
-	TEST_EQ (perr->errnum, ENOENT);
-	nih_free (perr);
 
 	/* Check that we can spawn a job and pause it
 	 */
@@ -4577,7 +4528,7 @@ test_spawn (void)
 	args[1] = function;
 	args[2] = NULL;
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	/* Ensure process is still running after some period of time.
@@ -4614,7 +4565,7 @@ test_spawn (void)
 	class->console = CONSOLE_NONE;
 	job = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4669,7 +4620,7 @@ test_spawn (void)
 	class->console = CONSOLE_LOG;
 	job = job_new (class, "");
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	waitpid (pid, NULL, 0);
@@ -4742,8 +4693,8 @@ test_spawn (void)
 	args[2] = filebuf;
 	args[3] = NULL;
 
-	job->pid[PROCESS_MAIN] = job_process_spawn (job, args, NULL,
-			FALSE, -1, PROCESS_MAIN);
+	job->pid[PROCESS_MAIN] = job_process_spawn_with_fd (job, args, NULL,
+							    FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	pid = job->pid[PROCESS_MAIN];
 	TEST_GT (pid, 0);
 
@@ -4769,8 +4720,8 @@ test_spawn (void)
 	args[2] = filebuf;
 	args[3] = NULL;
 
-	job->pid[PROCESS_POST_START] = job_process_spawn (job, args, NULL,
-			FALSE, -1, PROCESS_POST_START);
+	job->pid[PROCESS_POST_START] = job_process_spawn_with_fd (job, args, NULL,
+								  FALSE, -1, PROCESS_POST_START, &job_process_fd);
 	pid = job->pid[PROCESS_POST_START];
 	TEST_GT (pid, 0);
 
@@ -4867,7 +4818,7 @@ test_spawn (void)
 			NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
 		}
 
-		pid = job_process_spawn (job, args_array, NULL, FALSE, -1, PROCESS_MAIN);
+		pid = job_process_spawn_with_fd (job, args_array, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 
 		if (test_alloc_failed) {
 			TEST_LT (pid, 0);
@@ -4934,7 +4885,7 @@ test_spawn (void)
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL_ARG));
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
 
-	pid = job_process_spawn (job, args_array, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args_array, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	TEST_EQ (waitpid (pid, &status, 0), pid);
@@ -4990,7 +4941,7 @@ test_spawn (void)
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, TEST_SHELL_ARG));
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, script));
 
-	pid = job_process_spawn (job, args_array, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args_array, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	TEST_EQ (waitpid (pid, &status, 0), pid);
@@ -5043,7 +4994,7 @@ test_spawn (void)
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, "-en"));
 	NIH_MUST (nih_str_array_add (&args_array, NULL, &argc, "\\000"));
 
-	pid = job_process_spawn (job, args_array, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args_array, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	TEST_EQ (waitpid (pid, &status, 0), pid);
@@ -5098,7 +5049,7 @@ test_spawn (void)
 	args[3] = filebuf;
 	args[4] = NULL;
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	TEST_NE (waitpid (pid, &status, 0), -1);
@@ -5161,7 +5112,7 @@ test_spawn (void)
 	args[3] = filebuf;
 	args[4] = NULL;
 
-	pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
+	pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
 	TEST_GT (pid, 0);
 
 	TEST_WATCH_UPDATE ();
@@ -5243,8 +5194,13 @@ test_spawn (void)
 				}
 			}
 
-			pid = job_process_spawn (job, args, NULL, FALSE, -1, PROCESS_MAIN);
-			TEST_LT (pid, 0);
+			pid = job_process_spawn_with_fd (job, args, NULL, FALSE, -1, PROCESS_MAIN, &job_process_fd);
+			TEST_WATCH_UPDATE ();
+			TEST_NE (pid, 0);
+
+			buffer = read_from_fd (NULL, job_process_fd);
+			TEST_NE_P (buffer, NULL);
+			job_process_error_handler (buffer->buf, buffer->len);
 
 			/* Ensure logging disabled in failure scenarios */
 			TEST_EQ (class->console, CONSOLE_NONE);
@@ -5830,6 +5786,8 @@ test_handler (void)
 		job->exit_status = 0;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
+		TEST_EQ (job->state, JOB_SPAWNED);
+		job_change_state (job, job_next_state(job));
 
 		TEST_EQ (job->goal, JOB_START);
 		TEST_EQ (job->state, JOB_RUNNING);
@@ -9181,7 +9139,7 @@ test_utmp (void)
 void
 run_tests (void)
 {
-	test_run ();
+	test_start ();
 	test_spawn ();
 	test_log_path ();
 	test_kill ();

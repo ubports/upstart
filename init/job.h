@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2010 Canonical Ltd.
+ * Copyright  2010 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -66,14 +66,20 @@ typedef enum job_goal {
 typedef enum job_state {
 	JOB_WAITING,
 	JOB_STARTING,
+	JOB_SECURITY_SPAWNING,
 	JOB_SECURITY,
+	JOB_PRE_STARTING,
 	JOB_PRE_START,
+	JOB_SPAWNING,
 	JOB_SPAWNED,
+	JOB_POST_STARTING,
 	JOB_POST_START,
 	JOB_RUNNING,
+	JOB_PRE_STOPPING,
 	JOB_PRE_STOP,
 	JOB_STOPPING,
 	JOB_KILLED,
+	JOB_POST_STOPPING,
 	JOB_POST_STOP
 } JobState;
 
@@ -91,6 +97,7 @@ typedef enum trace_state {
 	TRACE_NORMAL
 } TraceState;
 
+typedef struct job_process_data JobProcessData;
 
 /**
  * Job:
@@ -119,48 +126,101 @@ typedef enum trace_state {
  * @respawn_count: number of respawns since @respawn_time,
  * @trace_forks: number of forks traced,
  * @trace_state: state of trace,
- * @log: pointer to array of log objects for handling job output.
+ * @log: pointer to array of log objects for handling job output,
+ * @process_data: transitory async job process metadata.
  *
  * This structure holds the state of an active job instance being tracked
  * by the init daemon, the configuration details of the job are available
  * from the @class member.
  **/
 typedef struct job {
-	NihList         entry;
+	NihList          entry;
 
-	char           *name;
-	JobClass       *class;
-	char           *path;
+	char            *name;
+	JobClass        *class;
+	char            *path;
 
-	JobGoal         goal;
-	JobState        state;
-	char          **env;
+	JobGoal          goal;
+	JobState         state;
+	char           **env;
 
-	char          **start_env;
-	char          **stop_env;
-	EventOperator  *stop_on;
+	char           **start_env;
+	char           **stop_env;
+	EventOperator   *stop_on;
 
-	int            *fds;
-	size_t          num_fds;
+	int             *fds;
+	size_t           num_fds;
 
-	pid_t          *pid;
-	Event          *blocker;
-	NihList         blocking;
+	pid_t           *pid;
+	Event           *blocker;
+	NihList          blocking;
 
-	NihTimer       *kill_timer;
-	ProcessType     kill_process;
+	NihTimer        *kill_timer;
+	ProcessType      kill_process;
 
-	int             failed;
-	ProcessType     failed_process;
-	int             exit_status;
+	int              failed;
+	ProcessType      failed_process;
+	int              exit_status;
 
-	time_t          respawn_time;
-	int             respawn_count;
+	time_t           respawn_time;
+	int              respawn_count;
 
-	int             trace_forks;
-	TraceState      trace_state;
-	Log           **log;
+	int              trace_forks;
+	TraceState       trace_state;
+	Log            **log;
+	JobProcessData **process_data;
+
 } Job;
+
+/**
+ * JobProcessData:
+ *
+ * @job: job,
+ * @process: job process to run,
+ * @script: optional script that job should run with,
+ * @shell_fd: file descriptor attached to child that @script should be
+ * written to (or -1 when @script is NULL),
+ * @job_process_fd: open readable file descriptor attached to the child
+ *  process used to detect child setup errors,
+ * @status: exit status or signal in higher byte (iff 
+ *  job_process_terminated() ran before the job_register_child_handler()
+ *  handlers),
+ * @valid: FALSE once the data has been handled, else TRUE.
+ *
+ * Used to keep track of asynchronously started job processes.
+ **/
+typedef struct job_process_data {
+	Job           *job;
+	ProcessType    process;
+	char          *script;
+	int            shell_fd;
+	int            job_process_fd;
+	int            status;
+	int            valid;
+} JobProcessData;
+
+/**
+ * job_register_child_handler:
+ *
+ * @_parent: parent pointer,
+ * @_fd: file descriptor to monitor,
+ * @_data: data to pass to nih_io_reopen().
+ *
+ * Register a watcher to monitor the job process child error file
+ * descriptor @_fd.
+ **/
+#define job_register_child_handler(_parent, _fd, _data) \
+	 while (! nih_io_reopen (_parent, _fd, NIH_IO_STREAM, \
+			(NihIoReader)job_process_child_reader, \
+			(NihIoCloseHandler)job_process_close_handler, \
+			NULL, \
+			_data)) { \
+		NihError *err; \
+		err = nih_error_get (); \
+		if (err->number != ENOMEM) \
+			nih_assert_not_reached (); \
+		nih_free (err); \
+	 }
 
 
 NIH_BEGIN_EXTERN
@@ -178,7 +238,6 @@ void        job_failed          (Job *job, ProcessType process, int status);
 void        job_finished        (Job *job, int failed);
 
 Event      *job_emit_event      (Job *job);
-
 
 const char *job_name            (Job *job);
 
@@ -227,6 +286,16 @@ Job *       job_find            (const Session *session,
 				 const char     *job_class,
 				 const char     *job_name)
 	__attribute__ ((warn_unused_result));
+
+const char *
+job_state_enum_to_str (JobState state)
+	__attribute__ ((warn_unused_result));
+
+JobState
+job_state_str_to_enum (const char *state)
+	__attribute__ ((warn_unused_result));
+
+void job_child_error_handler (Job *job, ProcessType process);
 
 NIH_END_EXTERN
 

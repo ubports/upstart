@@ -265,6 +265,7 @@ test_job_LDADD = \
 	session.o log.o state.o xdg.o apparmor.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS) \

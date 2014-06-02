@@ -28,6 +28,10 @@
 #include <nih/string.h>
 #include <nih/signal.h>
 #include <nih/logging.h>
+#include <nih/timer.h>
+#include <nih/io.h>
+#include <nih/child.h>
+#include <nih/main.h>
 #include <nih-dbus/test_dbus.h>
 
 #include <dbus/dbus.h>
@@ -986,7 +990,7 @@ test_common_cleanup (void)
 
 			/* Clean up if tests forgot to */
 			cmd = NIH_MUST (nih_sprintf (NULL, "rm %s/*.session 2>/dev/null", path));
-			system (cmd);
+			assert0 (system (cmd));
 
 			/* Remove the directory tree the first Session Init created */
 			assert0 (rmdir (path));
@@ -1002,4 +1006,90 @@ test_common_cleanup (void)
 		saved_xdg_runtime_dir = NULL;
 
 	}
+}
+
+/**
+ * timer_cb:
+ *
+ * @data: unused,
+ * @timer: timer.
+ *
+ * Exit main loop with an error value indicating that the expected main
+ * loop events/actions were not performed within the expected time.
+ **/
+void
+timer_cb (void *data, NihTimer *timer)
+{
+	nih_assert (timer);
+
+	/* Return non-zero to denote failure */
+	nih_main_loop_exit (42);
+}
+
+/**
+ * fd_valid:
+ * @fd: file descriptor.
+ *
+ * Return 1 if @fd is valid, else 0.
+ **/
+int
+fd_valid (int fd)
+{
+	int flags = 0;
+
+	if (fd < 0)
+		return 0;
+
+	errno = 0;
+	flags = fcntl (fd, F_GETFL);
+
+	if (flags < 0)
+		return 0;
+
+	/* redundant really */
+	if (errno == EBADF)
+		return 0;
+
+	return 1;
+}
+
+/**
+ * read_from_fd:
+ *
+ * @parent: parent,
+ * @fd: open file descriptor.
+ *
+ * Read from the specified fd, close the fd and return the data.
+ *
+ * Returns: Newly-allocated NihIoBuffer representing data read from @fd.
+ *
+ **/
+NihIoBuffer *
+read_from_fd (void *parent, int fd)
+{
+	NihIoBuffer *buffer = NULL;
+	ssize_t      len;
+
+	assert (fd >= 0);
+
+	buffer = nih_io_buffer_new (parent);
+	nih_assert (buffer);
+
+	while (TRUE) {
+
+		nih_assert (! nih_io_buffer_resize (buffer, 1024));
+
+		len = read (fd,
+				buffer->buf + buffer->len,
+				buffer->size - buffer->len);
+
+		if (len <= 0)
+			break;
+		else if (len > 0)
+			buffer->len += len;
+	}
+
+	close (fd);
+
+	return buffer;
 }
