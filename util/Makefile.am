@@ -219,6 +219,10 @@ test_initctl_LDADD = \
 	$(NIH_LIBS) \
 	$(NIH_DBUS_LIBS) \
 	$(DBUS_LIBS)
+if ENABLE_CGROUPS
+test_initctl_LDADD += $(CGMANAGER_LIBS)
+endif
+
 
 test_utmp_SOURCES = tests/test_utmp.c
 test_utmp_LDADD = \
