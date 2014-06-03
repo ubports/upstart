@@ -330,6 +330,40 @@ test_cgroup_job_start (void)
 	assert0 (unlink (logfile_name));
 
 	/*******************************************************************/
+	TEST_FEATURE ("Ensure bogus cgroups don't crash init");
+
+	contents = nih_sprintf (NULL, 
+			"cgroup name\n"
+			"\n"
+			"exec echo hello\n");
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "cgroup-name.conf", contents);
+
+	logfile_name = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"cgroup-name.log"));
+
+	cmd = nih_sprintf (NULL, "%s status %s 2>&1", get_initctl (), "cgroup-name");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+
+	/* job is not running yet */
+	TEST_EQ_STR (output[0], "cgroup-name stop/waiting");
+	nih_free (output);
+
+	TEST_FALSE (file_exists (logfile_name));
+
+	cmd = nih_sprintf (NULL, "%s start %s 2>&1", get_initctl (), "cgroup-name");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 1);
+
+        TEST_EQ_STR (output[0], "initctl: Job failed to start");
+
+	DELETE_FILE (confdir, "cgroup-name.conf");
+	/*******************************************************************/
 
 	STOP_UPSTART (upstart_pid);
 	TEST_DBUS_END (dbus_pid);
