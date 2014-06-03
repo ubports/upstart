@@ -2793,7 +2793,7 @@ job_class_induct_job (JobClass *class)
  *
  * Start all jobs waiting on a cgmanager.
  *
- * Returns: TRUE on success, otherwise FALSE.
+ * Returns: TRUE on success, if induction of any job fails returns FALSE.
  **/
 int
 job_class_induct_jobs (void)
@@ -2801,6 +2801,8 @@ job_class_induct_jobs (void)
 	nih_assert (cgroup_manager_available ());
 
 	job_class_init ();
+
+	int success = TRUE;
 
 	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
 		JobClass *class = (JobClass *)iter;
@@ -2814,7 +2816,7 @@ job_class_induct_jobs (void)
 		nih_assert (class->start_on->value);
 
 		if (! job_class_induct_job (class))
-			return FALSE;
+			success = FALSE;
 
 		/* Unref the events that were ref'ed
 		 * whilst waiting for the cgroup manager
@@ -2824,7 +2826,7 @@ job_class_induct_jobs (void)
 		class->cgmanager_wait = FALSE;
 	}
 
-	return TRUE;
+	return success;
 }
 
 /**
