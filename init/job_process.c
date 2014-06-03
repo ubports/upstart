@@ -1236,6 +1236,22 @@ job_process_error_handler (const char *buf, size_t len)
 				  err, _("unable to switch security profile: %s"),
 				  strerror (err->errnum)));
 		break;
+	case JOB_PROCESS_ERROR_CGROUP_MGR_CONNECT:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to connect to CGManager: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP_SETUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setup cgroup: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP_ENTER:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to enter cgroup: %s"),
+				  strerror (err->errnum)));
+		break;
+
 	default:
 		nih_assert_not_reached ();
 	}
