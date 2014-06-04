@@ -380,11 +380,18 @@ job_change_state (Job      *job,
 {
 	nih_assert (job != NULL);
 
+	/* We may not be blocked by any events when doing first
+	 * transition */
+	nih_assert (job->blocker == NULL);
+
 	while (job->state != state) {
 		JobState old_state;
 		int      unused;
 
-		nih_assert (job->blocker == NULL);
+		/* If we got blocked during async spawns, stop
+		 * transitions */
+		if (job->blocker)
+		    return;
 
 		nih_info (_("%s state changed from %s to %s"), job_name (job),
 			  job_state_name (job->state), job_state_name (state));
