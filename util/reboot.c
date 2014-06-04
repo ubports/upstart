@@ -188,7 +188,7 @@ main (int   argc,
 		mode = POWEROFF;
 
 	/* Check for rebootcommand to pass in the syscall */
-	if ((mode == REBOOT) && args && *args) {
+	if ((mode == REBOOT) && force && args && *args) {
 		mode = REBOOTCOMMAND;
 		rebootcommand = *args;
 	}

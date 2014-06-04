@@ -446,7 +446,7 @@ job_change_state (Job      *job,
 
 			if (job->class->process[PROCESS_SECURITY]
 			    && apparmor_available()) {
-			    job_process_start (job, PROCESS_SECURITY);
+				job_process_start (job, PROCESS_SECURITY);
 			}
 			state = job_next_state (job);
 			break;
@@ -466,7 +466,7 @@ job_change_state (Job      *job,
 			 * watcher asynchronously will change goal to
 			 * stop if spawning fails */
 			if (job->class->process[PROCESS_PRE_START]) {
-			    job_process_start (job, PROCESS_PRE_START);
+				job_process_start (job, PROCESS_PRE_START);
 			}	
 			state = job_next_state (job);
 			break;
@@ -478,14 +478,14 @@ job_change_state (Job      *job,
 			 * state. otherwise async child watcher will
 			 * trigger us to go to the next state */
 			if (! job->class->process[PROCESS_PRE_START])
-			    state = job_next_state (job);
+				state = job_next_state (job);
 			break;
 		case JOB_SPAWNING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_PRE_START);
 
 			if (job->class->process[PROCESS_MAIN]) {
-			    job_process_start (job, PROCESS_MAIN);
+				job_process_start (job, PROCESS_MAIN);
 			}
 			state = job_next_state (job);
 			break;
@@ -493,7 +493,7 @@ job_change_state (Job      *job,
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNING);
 			if (! job->class->process[PROCESS_MAIN]) {
-			    state = job_next_state (job);
+				state = job_next_state (job);
 			}
 			break;
 		case JOB_POST_STARTING:
@@ -501,7 +501,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_SPAWNED);
 
 			if (job->class->process[PROCESS_POST_START]) {
-			    job_process_start (job, PROCESS_POST_START);
+				job_process_start (job, PROCESS_POST_START);
 			}
 			state = job_next_state (job);
 			break;
@@ -543,7 +543,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_RUNNING);
 
 			if (job->class->process[PROCESS_PRE_STOP]) {
-			    job_process_start (job, PROCESS_PRE_STOP);
+				job_process_start (job, PROCESS_PRE_STOP);
 			}
 			state = job_next_state (job);
 			break;
@@ -582,7 +582,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_KILLED);
 
 			if (job->class->process[PROCESS_POST_STOP]) {
-			    job_process_start (job, PROCESS_POST_STOP);
+				job_process_start (job, PROCESS_POST_STOP);
 			}
 			state = job_next_state (job);
 			break;
@@ -590,7 +590,7 @@ job_change_state (Job      *job,
 			nih_assert (old_state == JOB_POST_STOPPING);
 
 			if (! job->class->process[PROCESS_POST_STOP]) {
-			    state = job_next_state (job);
+				state = job_next_state (job);
 			}
 			break;
 		case JOB_WAITING:
@@ -986,8 +986,8 @@ job_finished (Job *job,
 
 
 /**
- * job_emit_event_with_state:
- * @job: job generating the event,
+ * job_emit_event:
+ * @job: job generating the event.
  *
  * Called from a state change because it believes an event should be
  * emitted.  Constructs the event with the right arguments and environment
