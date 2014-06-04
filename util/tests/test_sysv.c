@@ -39,6 +39,7 @@
 #include <nih/signal.h>
 #include <nih/child.h>
 #include <nih/main.h>
+#include <nih/logging.h>
 #include <nih/error.h>
 
 #include <nih-dbus/dbus_error.h>
@@ -118,6 +119,11 @@ test_change_runlevel (void)
 				server = nih_dbus_server (dest_address,
 							  my_connect_handler,
 							  NULL);
+				if (! server) {
+				    NihError *err = nih_error_get ();
+				    NihDBusError *dbus_err = (NihDBusError *)err;
+				    nih_message ("%s: %s", dbus_err->name, dbus_err->message);
+				}
 				assert (server != NULL);
 			}
 
