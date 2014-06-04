@@ -13,6 +13,14 @@
 	* init/tests/test_main.c: New Session and System init tests for
 	  '--append-confdir'.
 
+2014-05-09  Dimitri John Ledkov  <xnox@ubuntu.com>
+
+	* util/reboot.c: only use rebootcommand code path in runlevels 0,
+	6 or when force is specified as per intended documented behavior
+	in the manpage. This corrects the bug when rebootcommand mode was
+	used in error whenever an argument to reboot was passed.
+	(LP: #1174272)
+
 2014-05-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* Convert calls to deprecated json_object_object_get() to

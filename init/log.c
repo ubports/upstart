@@ -974,7 +974,7 @@ log_deserialise (const void *parent,
 	nih_assert (io_watch_fd != -1);
 
 	/* re-apply CLOEXEC flag to stop job fd being leaked to children */
-	if (state_toggle_cloexec (io_watch_fd, TRUE) < 0)
+	if (state_modify_cloexec (io_watch_fd, TRUE) < 0)
 		return NULL;
 
 	if (! state_get_json_int_var (json, "uid", uid))
@@ -993,7 +993,7 @@ log_deserialise (const void *parent,
 	 * we would never close the fd.
 	 */
 	if (log->fd != -1)
-		(void)state_toggle_cloexec (log->fd, TRUE);
+		(void)state_modify_cloexec (log->fd, TRUE);
 
 	log->unflushed = nih_io_buffer_new (log);
 	if (! log->unflushed)

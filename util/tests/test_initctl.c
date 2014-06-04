@@ -121,7 +121,7 @@ test_upstart_open (void)
 	TEST_ALLOC_FAIL {
 		use_dbus = FALSE;
 		dest_name = NULL;
-		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
+		dest_address = "unix:abstract=/com/ubuntu/upstart/test_initctl";
 
 		TEST_ALLOC_SAFE {
 			server = nih_dbus_server (dest_address,
@@ -11535,7 +11535,7 @@ test_quiesce (void)
 	TEST_NE_P (sessiondir, NULL);
 	
 	cmd = nih_sprintf (NULL, "rm %s/upstart/sessions/*.session 2>/dev/null", sessiondir);
-	system (cmd);
+	assert0 (system (cmd));
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);

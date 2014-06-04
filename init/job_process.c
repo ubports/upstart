@@ -111,8 +111,6 @@ int disable_respawn = FALSE;
 static void job_process_error_abort     (int fd, JobProcessErrorType type,
 					 int arg)
 	__attribute__ ((noreturn));
-static int  job_process_error_read      (int fd)
-	__attribute__ ((warn_unused_result));
 static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd);
 
 /**
@@ -134,7 +132,7 @@ int no_inherit_env = FALSE;
 /* Prototypes for static functions */
 static void job_process_kill_timer      (Job *job, NihTimer *timer);
 static void job_process_terminated      (Job *job, ProcessType process,
-					 int status);
+					 int status, int state_only);
 static int  job_process_catch_runaway   (Job *job);
 static void job_process_stopped         (Job *job, ProcessType process);
 static void job_process_trace_new       (Job *job, ProcessType process);
@@ -149,8 +147,10 @@ extern int           user_mode;
 extern int           session_end;
 extern time_t        quiesce_phase_time;
 
+
 /**
- * job_process_run:
+ * job_process_start:
+ *
  * @job: job context for process to be run in,
  * @process: job process to run.
  *
@@ -174,27 +174,33 @@ extern time_t        quiesce_phase_time;
  * In either case the shell is run with the -e option so that commands will
  * fail if their exit status is not checked.
  *
- * This function will block until the job_process_spawn() call succeeds or
- * a non-temporary error occurs (such as file not found).  It is up to the
- * called to decide whether non-temporary errors are a reason to change the
- * job state or not.
+ * This function will only block on temporary job_process_spawn_with_fd() error
+ * (for example fork() failure): in normal operation it returns as soon as
+ * the fork() was successful, registering an NihIo which provides
+ * asynchronous handling of the child setup stage. The specified error
+ * handler will be called should child setup fail.
  *
- * Returns: zero on success, negative value on non-temporary error.
+ * It is up to the caller to decide whether non-temporary errors are a reason
+ * to change the job state or not.
  **/
-int
-job_process_run (Job         *job,
-		 ProcessType  process)
+void
+job_process_start (Job                    *job,
+		   ProcessType             process)
 {
-	Process         *proc;
-	nih_local char **argv = NULL;
-	nih_local char **env = NULL;
-	nih_local char  *script = NULL;
-	char           **e;
-	size_t           argc, envc;
-	int              fds[2] = { -1, -1 };
-	int              error = FALSE, trace = FALSE, shell = FALSE;
+	Process            *proc;
+	nih_local char    **argv = NULL;
+	nih_local char    **env = NULL;
+	nih_local char     *script = NULL;
+	char              **e;
+	size_t              argc, envc;
+	int                 fds[2] = { -1, -1 };
+	int                 trace = FALSE, shell = FALSE;
+	int                 job_process_fd = -1;
+	JobProcessData     *process_data = NULL;
 
-	nih_assert (job != NULL);
+	nih_assert (job);
+	nih_assert (process > PROCESS_INVALID);
+	nih_assert (process < PROCESS_LAST);
 
 	proc = job->class->process[process];
 	nih_assert (proc != NULL);
@@ -304,35 +310,14 @@ job_process_run (Job         *job,
 		trace = TRUE;
 
 	/* Spawn the process, repeat until fork() works */
-	while ((job->pid[process] = job_process_spawn (job, argv, env,
-					trace, fds[0], process)) < 0) {
+	while ((job->pid[process] = job_process_spawn_with_fd (job, argv, env,
+					trace, fds[0], process, &job_process_fd)) < 0) {
 		NihError *err;
 
 		err = nih_error_get ();
-		if (err->number == JOB_PROCESS_ERROR) {
-			/* Non-temporary error condition, we're not going
-			 * to be able to spawn this process.  Clean up after
-			 * ourselves before returning.
-			 */
-			if (shell) {
-				close (fds[0]);
-				close (fds[1]);
-			}
-
-			job->pid[process] = 0;
-
-			/* Return non-temporary error condition */
-			nih_warn (_("Failed to spawn %s %s process: %s"),
-				  job_name (job), process_name (process),
-				  err->message);
-			nih_free (err);
-			return -1;
-		} else if (! error)
-			nih_warn ("%s: %s", _("Temporary process spawn error"),
-				  err->message);
+		nih_warn ("%s: %s", _("Temporary process spawn error"),
+				err->message);
 		nih_free (err);
-
-		error = TRUE;
 	}
 
 	nih_info (_("%s %s process (%d)"),
@@ -341,51 +326,50 @@ job_process_run (Job         *job,
 	job->trace_forks = 0;
 	job->trace_state = trace ? TRACE_NEW : TRACE_NONE;
 
-	/* Feed the script to the child process */
 	if (shell) {
-		NihIo *io;
-
 		/* Clean up and close the reading end (we don't need it) */
 		close (fds[0]);
-
-		/* Put the entire script into an NihIo send buffer and
-		 * then mark it for closure so that the shell gets EOF
-		 * and the structure gets cleaned up automatically.
-		 */
-		while (! (io = nih_io_reopen (job, fds[1], NIH_IO_STREAM,
-					      NULL, NULL, NULL, NULL))) {
-			NihError *err;
-
-			err = nih_error_get ();
-			if (err->number != ENOMEM)
-				nih_assert_not_reached ();
-			nih_free (err);
-		}
-
-		/* We're feeding using a pipe, which has a file descriptor
-		 * on the child end even though it open()s it again using
-		 * a path. Instruct the shell to close this extra fd and
-		 * not to leak it.
-		 */
-		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n",
-					 JOB_PROCESS_SCRIPT_FD));
-
-		NIH_ZERO (nih_io_write (io, script, strlen (script)));
-		nih_io_shutdown (io);
 	}
 
-	return 0;
+	/* At this stage, a child process has been spawned, but may not
+	 * yet have been setup appropriately. This operation is handled
+	 * asynchronously since some setup operations may block,
+	 * and even though they are running in a new child process, they could
+	 * still block PID 1 since the latter needs to wait until the
+	 * child is fully setup and the appropriate program has been
+	 * exec'd before marking the job as running.
+	 *
+	 * This is now achieved by creating an NihIo and registering
+	 * appropriate handlers such that notification of successful
+	 * child setup and child error scenarios are handled
+	 * automatically.
+	 *
+	 * job_process_child_reader() handles updating the jobs state.
+	 */
+	process_data = job->process_data[process] =
+		NIH_MUST (job_process_data_new
+				(job->process_data, job, process, job_process_fd));
+
+	if (shell) {
+		process_data->shell_fd = fds[1];
+		process_data->script = script;
+		nih_ref (script, process_data);
+	}
+
+	/* Set up a handler to monitor the child fd asynchronously */
+	job_register_child_handler (job->process_data[process],
+			job_process_fd, process_data);
 }
 
-
 /**
- * job_process_spawn:
+ * job_process_spawn_with_fd:
  * @job: job of process to be spawned,
  * @argv: NULL-terminated list of arguments for the process,
  * @env: NULL-terminated list of environment variables for the process,
  * @trace: whether to trace this process,
  * @script_fd: script file descriptor,
- * @process: job process to spawn.
+ * @process: job process to spawn,
+ * @job_process_fd: readable child setup pipe file descriptor.
  *
  * This function spawns a new process using the class details in @job to set up
  * the environment for it; the process is always a session and process group
@@ -406,26 +390,30 @@ job_process_run (Job         *job,
  *
  * This function only spawns the process, it is up to the caller to ensure
  * that the information is saved into the job and that the process is watched,
- * etc.
+ * etc. Also, it is up to the caller to monitor @job_process_fd to
+ * ensure the child setup was successful; data available to read
+ * indicates a failure to setup the child environment (represented by a
+ * JOB_PROCESS_ERROR error) whereas if the descriptor is simply
+ * closed setup was successful and the caller can then mark the job
+ * process as started.
  *
  * Spawning a process may fail for temporary reasons, usually due to a failure
- * of the fork() syscall or communication with the child; or more permanent
- * reasons such as a failure to setup the child environment.  These latter
- * are always represented by a JOB_PROCESS_ERROR error.
+ * of the fork() syscall.
  *
  * Returns: process id of new process on success, -1 on raised error
  **/
 pid_t
-job_process_spawn (Job          *job,
+job_process_spawn_with_fd (Job          *job,
 		   char * const  argv[],
 		   char * const *env,
 		   int           trace,
 		   int           script_fd,
-		   ProcessType   process)
+		   ProcessType   process,
+		   int          *job_process_fd)
 {
 	sigset_t        child_set, orig_set;
 	pid_t           pid;
-	int             i, fds[2];
+	int             i, fds[2] = { -1, -1 };
 	int             pty_master = -1;
 	int             pty_slave = -1;
 	char            pts_name[PATH_MAX];
@@ -437,7 +425,6 @@ job_process_spawn (Job          *job,
 	gid_t           job_setgid = -1;
 	struct passwd   *pwd = NULL;
 	struct group    *grp = NULL;
-
 
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
@@ -478,7 +465,7 @@ job_process_spawn (Job          *job,
 			nih_free (err);
 			close (fds[0]);
 			close (fds[1]);
-			nih_return_no_memory_error(-1);
+			nih_return_no_memory_error (-1);
 		}
 
 		pty_master = posix_openpt (O_RDWR | O_NOCTTY);
@@ -538,23 +525,10 @@ job_process_spawn (Job          *job,
 		sigprocmask (SIG_SETMASK, &orig_set, NULL);
 		close (fds[1]);
 
-		/* Read error from the pipe, return if one is raised */
-		if (job_process_error_read (fds[0]) < 0) {
-			if (class->console == CONSOLE_LOG) {
-				/* Ensure the pty_master watch gets
-				 * removed and the fd closed.
-				 */
-				nih_free (job->log[process]);
-				job->log[process] = NULL;
-			}
-			close (fds[0]);
-			return -1;
-		}
+		*job_process_fd = fds[0];
 
-		/* Note that pts_master is closed automatically in the parent when the
-		 * log object is destroyed.
-		 */
-		close (fds[0]);
+		nih_io_set_cloexec (*job_process_fd);
+
 		return pid;
 	} else if (pid < 0) {
 		nih_error_raise_system ();
@@ -923,6 +897,10 @@ job_process_spawn (Job          *job,
 	 *   call exec below.
 	 */
 	if (class->debug) {
+		/* Since we have not exec'd at this point, we will still
+		 * have a copy of the parents fds open. As such, re-exec
+		 * will not work.
+		 */
 		close (fds[1]);
 		raise (SIGSTOP);
 	}
@@ -985,9 +963,11 @@ job_process_error_abort (int                 fd,
 	exit (255);
 }
 
+
 /**
- * job_process_error_read:
- * @fd: reading end of pipe.
+ * job_process_error_handler:
+ * @buf: data read from child process,
+ * @len: length of data read as @wire_err.
  *
  * Read from the reading end of the pipe specified by @fd, if we receive
  * data then the child raised a process error which we reconstruct and raise
@@ -996,30 +976,26 @@ job_process_error_abort (int                 fd,
  * The reconstructed error will be of JOB_PROCESS_ERROR type, the human-
  * readable message is generated according to the type of process error
  * and argument passed along with it.
- *
- * Returns: zero if no error was found, or negative value on raised error.
  **/
-static int
-job_process_error_read (int fd)
+void
+job_process_error_handler (const char *buf, size_t len)
 {
-	JobProcessWireError  wire_err;
-	ssize_t              len;
-	JobProcessError     *err;
-	const char          *res;
+	JobProcessWireError  *wire_err;
+	JobProcessError      *err;
+	const char           *res;
+
+	wire_err = (JobProcessWireError *)buf;
+
+	nih_assert (wire_err);
 
 	/* Read the error from the pipe; a zero read indicates that the
 	 * exec succeeded so we return success, otherwise if we don't receive
 	 * a JobProcessWireError structure, we return a temporary error so we
 	 * try again.
 	 */
-	len = read (fd, &wire_err, sizeof (wire_err));
-	if (len == 0) {
-		return 0;
-	} else if (len < 0) {
-		nih_return_system_error (-1);
-	} else if (len != sizeof (wire_err)) {
+	if (len != sizeof (JobProcessWireError)) {
 		errno = EILSEQ;
-		nih_return_system_error (-1);
+		nih_return_system_error ();
 	}
 
 	/* Construct a JobProcessError to be raised containing information
@@ -1028,9 +1004,9 @@ job_process_error_read (int fd)
 	 */
 	err = NIH_MUST (nih_new (NULL, JobProcessError));
 
-	err->type = wire_err.type;
-	err->arg = wire_err.arg;
-	err->errnum = wire_err.errnum;
+	err->type = wire_err->type;
+	err->arg = wire_err->arg;
+	err->errnum = wire_err->errnum;
 
 	err->error.number = JOB_PROCESS_ERROR;
 
@@ -1218,7 +1194,6 @@ job_process_error_read (int fd)
 	}
 
 	nih_error_raise_error (&err->error);
-	return -1;
 }
 
 
@@ -1332,6 +1307,7 @@ job_process_set_kill_timer (Job          *job,
 {
 	nih_assert (job);
 	nih_assert (timeout);
+	nih_assert (job->kill_timer == NULL);
 
 	job->kill_process = process;
 	job->kill_timer = NIH_MUST (nih_timer_add_timeout (
@@ -1462,7 +1438,7 @@ job_process_handler (void           *data,
 				  job_name (job), process_name (process), pid);
 		}
 
-		job_process_terminated (job, process, status);
+		job_process_terminated (job, process, status, FALSE);
 		break;
 	case NIH_CHILD_KILLED:
 	case NIH_CHILD_DUMPED:
@@ -1483,7 +1459,7 @@ job_process_handler (void           *data,
 		}
 
 		status <<= 8;
-		job_process_terminated (job, process, status);
+		job_process_terminated (job, process, status, FALSE);
 		break;
 	case NIH_CHILD_STOPPED:
 		/* Child was stopped by a signal, make sure it was SIGSTOP
@@ -1560,7 +1536,8 @@ job_process_handler (void           *data,
  * job_process_terminated:
  * @job: job that changed,
  * @process: specific process,
- * @status: exit status or signal in higher byte.
+ * @status: exit status or signal in higher byte,
+ * @state_only: if TRUE, only update the jobs state (not its goal).
  *
  * This function is called whenever a @process attached to @job terminates,
  * @status should contain the exit status in the lower byte or signal in
@@ -1572,13 +1549,44 @@ job_process_handler (void           *data,
 static void
 job_process_terminated (Job         *job,
 			ProcessType  process,
-			int          status)
+			int          status,
+			int          state_only)
 {
 	int failed = FALSE, stop = FALSE, state = TRUE;
 	struct utmpx *utmptr;
 	struct timeval tv;
 
 	nih_assert (job != NULL);
+
+	if (job->state == JOB_SECURITY_SPAWNING ||
+			job->state == JOB_PRE_STARTING ||
+			job->state == JOB_SPAWNING ||
+			job->state == JOB_POST_STARTING ||
+			job->state == JOB_PRE_STOPPING ||
+			job->state == JOB_POST_STOPPING) {
+		/* A child process has been spawned by
+		 * job_process_spawn(), but we have not yet received
+		 * confirmation of whether the child setup phase was
+		 * successful or not.
+		 *
+		 * The fact that we are in this function means the child
+		 * setup actually failed, however we handle that
+		 * by waiting for the handlers registered by
+		 * job_register_child_handler() to be called to deal
+		 * with this error.
+		 */
+		nih_assert (job->process_data);
+		nih_assert (job->process_data[process]);
+
+		/* Add the child data for the *second* call to this
+		 * function when the child pipe has been closed.
+		 */
+		job->process_data[process]->status = status;
+
+		job->state = job_next_state (job);
+
+		return;
+	}
 
 	switch (process) {
 	case PROCESS_MAIN:
@@ -1701,7 +1709,7 @@ job_process_terminated (Job         *job,
 		}
 		break;
 	case PROCESS_POST_START:
-		nih_assert (job->state == JOB_POST_START);
+		nih_assert (job->state == JOB_POST_START || job->state == JOB_RUNNING);
 
 		/* We always want to change the state when the post-start
 		 * script terminates; if the main process is running, we'll
@@ -1750,7 +1758,7 @@ job_process_terminated (Job         *job,
 		job->kill_process = PROCESS_INVALID;
 	}
 
-	if (job->class->console == CONSOLE_LOG && job->log[process]) {
+	if (job->class->console == CONSOLE_LOG && job->log[process] && ! state_only) {
 		int  ret;
 
 		/* It is imperative that we free the log at this stage to ensure
@@ -1776,39 +1784,48 @@ job_process_terminated (Job         *job,
 		job->log[process] = NULL;
 	}
 
-	/* Find existing utmp entry for the process pid */
-	setutxent();
-	while ((utmptr = getutxent()) != NULL) {
-		if (utmptr->ut_pid == job->pid[process]) {
-			/* set type and clean ut_user, ut_host,
-			 * ut_time as described in utmp(5)
-			 */
-			utmptr->ut_type = DEAD_PROCESS;
-			memset(utmptr->ut_user, 0, UT_NAMESIZE);
-			memset(utmptr->ut_host, 0, UT_HOSTSIZE);
-			utmptr->ut_time = 0;
-			/* Update existing utmp file. */
-			pututxline(utmptr);
+	if (! state_only) {
+		/* Find existing utmp entry for the process pid */
+		setutxent();
+		while ((utmptr = getutxent()) != NULL) {
+			if (utmptr->ut_pid == job->pid[process]) {
+				/* set type and clean ut_user, ut_host,
+				 * ut_time as described in utmp(5)
+				 */
+				utmptr->ut_type = DEAD_PROCESS;
+				memset(utmptr->ut_user, 0, UT_NAMESIZE);
+				memset(utmptr->ut_host, 0, UT_HOSTSIZE);
+				utmptr->ut_time = 0;
+				/* Update existing utmp file. */
+				pututxline(utmptr);
 
-			/* set ut_time for log */
-			gettimeofday(&tv, NULL);
-			utmptr->ut_tv.tv_sec = tv.tv_sec;
-			utmptr->ut_tv.tv_usec = tv.tv_usec;
-			/* Write wtmp entry */
-			updwtmpx (_PATH_WTMP, utmptr);
+				/* set ut_time for log */
+				gettimeofday(&tv, NULL);
+				utmptr->ut_tv.tv_sec = tv.tv_sec;
+				utmptr->ut_tv.tv_usec = tv.tv_usec;
+				/* Write wtmp entry */
+				updwtmpx (_PATH_WTMP, utmptr);
 
-			break;
+				break;
+			}
 		}
+		endutxent();
+
+		/* Clear the process pid field */
+		job->pid[process] = 0;
 	}
-	endutxent();
-
-	/* Clear the process pid field */
-	job->pid[process] = 0;
-
 
 	/* Mark the job as failed */
 	if (failed)
 		job_failed (job, process, status);
+
+	/* Cancel goal transition if the job state only should be
+	 * changed.
+	 */
+	if (state_only && stop) {
+		stop = 0;
+		nih_assert (! failed);
+	}
 
 	/* Change the goal to stop; normally this doesn't have any
 	 * side-effects, except when we're in the RUNNING state when it'll
@@ -1887,7 +1904,7 @@ job_process_stopped (Job         *job,
 	/* Any process can stop on a signal, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && job->state != JOB_SPAWNED))
 		return;
 
 	/* Send SIGCONT back and change the state to the next one, if this
@@ -1916,14 +1933,16 @@ job_process_trace_new (Job         *job,
 		       ProcessType  process)
 {
 	nih_assert (job != NULL);
+
 	nih_assert ((job->trace_state == TRACE_NEW)
 		    || (job->trace_state == TRACE_NEW_CHILD));
 
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && (job->state != JOB_SPAWNED))) {
 		return;
+	}
 
 	/* Set options so that we are notified when the process forks, and
 	 * get a different kind of notification when it execs to a plain
@@ -1973,7 +1992,7 @@ job_process_trace_new_child (Job         *job,
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED))
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && (job->state != JOB_SPAWNED)))
 		return;
 
 	/* We need to fork at least twice unless we're expecting a
@@ -2018,7 +2037,7 @@ job_process_trace_signal (Job         *job,
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && (job->state != JOB_SPAWNED))
 	    || (job->trace_state != TRACE_NORMAL))
 		return;
 
@@ -2053,9 +2072,10 @@ job_process_trace_fork (Job         *job,
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
-	    || (job->trace_state != TRACE_NORMAL))
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && (job->state != JOB_SPAWNED))
+	    || (job->trace_state != TRACE_NORMAL)) {
 		return;
+	}
 
 	/* Obtain the child process id from the ptrace event. */
 	if (ptrace (PTRACE_GETEVENTMSG, job->pid[process], NULL, &data) < 0) {
@@ -2121,7 +2141,7 @@ job_process_trace_exec (Job         *job,
 	/* Any process can get us to trace them, but we only care about the
 	 * main process when the state is still spawned and we're tracing it.
 	 */
-	if ((process != PROCESS_MAIN) || (job->state != JOB_SPAWNED)
+	if ((process != PROCESS_MAIN) || ((job->state != JOB_SPAWNING) && job->state != JOB_SPAWNED)
 	    || (job->trace_state != TRACE_NORMAL))
 		return;
 
@@ -2176,7 +2196,6 @@ job_process_find (pid_t        pid,
 				if (job->pid[i] == pid) {
 					if (process)
 						*process = i;
-
 					return job;
 				}
 			}
@@ -2315,16 +2334,431 @@ job_process_remap_fd (int *fd, int reserved_fd, int error_fd)
 
 	nih_assert (fd);
 	nih_assert (reserved_fd);
-	nih_assert (error_fd);
+	nih_assert (error_fd >= 0);
 
-	if (*fd != reserved_fd)
+	if (*fd != reserved_fd) {
+		/* fd does not need remapping */
 		return;
+	}
 
 	new = dup (*fd);
 	if (new < 0) {
 		nih_error_raise_system ();
 		job_process_error_abort (error_fd, JOB_PROCESS_ERROR_DUP, 0);
 	}
+
 	close (*fd);
 	*fd = new;
+}
+
+
+/**
+ * job_process_child_reader:
+ *
+ * @process_data: JobProcessHandlerData structure,
+ * @io: NihIo with data to be read,
+ * @buf: buffer data is available in,
+ * @len: bytes in @buf.
+ *
+ * Called automatically when an error occurred setting up the child process.
+ **/
+void
+job_process_child_reader (JobProcessData  *process_data,
+			  NihIo           *io,
+			  const char      *buf,
+			  size_t           len)
+{
+	Job                     *job;
+	ProcessType              process;
+	NihError                *err;
+
+	/* The job is in the process of being killed which must mean all
+	 * the job pids are dead. Hence, there is no point in attempting
+	 * to talk to them.
+	 */
+	if (! process_data)
+		return;
+	if (! process_data->valid)
+		return;
+
+	nih_assert (io);
+	nih_assert (buf);
+
+	job = process_data->job;
+	process = process_data->process;
+
+	/* Construct the NIH error from the data received from
+	 * the child.
+	 */
+	job_process_error_handler (buf, len);
+
+	err = nih_error_get ();
+
+	nih_assert (err->number == JOB_PROCESS_ERROR);
+
+	/* Non-temporary error condition */
+	nih_warn (_("Failed to spawn %s %s process: %s"),
+			job_name (job), process_name (process),
+			err->message);
+	nih_free (err);
+
+	/* Non-temporary error condition, we're not going
+	 * to be able to spawn this job.
+	 */
+	if (process_data->shell_fd != -1) {
+		close (process_data->shell_fd);
+
+		/* Invalidate */
+		process_data->shell_fd = -1;
+	}
+
+	if (job && job->class->console == CONSOLE_LOG && job->log[process]) {
+		/* Ensure the pty_master watch gets
+		 * removed and the fd closed.
+		 */
+		nih_free (job->log[process]);
+		job->log[process] = NULL;
+	}
+
+	/* Now call the handler registered via job_process_start()
+	 * to deal with the error condition.
+	 */
+	job_child_error_handler (job, process);
+
+	/* Note that pts_master is closed automatically in the parent
+	 * when the log object is destroyed.
+	 */
+
+	nih_io_shutdown (io);
+
+	/* Invalidate */
+	process_data->job_process_fd = -1;
+	process_data->valid = FALSE;
+}
+
+/**
+ * @process_data: JobProcessData,
+ * @io: NihIo.
+ *
+ * NihIoCloseHandler called when job process starts successfully.
+ **/
+void
+job_process_close_handler (JobProcessData  *process_data,
+			   NihIo           *io)
+{
+	Job         *job;
+	ProcessType  process;
+	int          status;
+
+	/* The job is in the process of being killed which must mean all
+	 * the job pids are dead. Hence, there is no point in attempting
+	 * to talk to them.
+	 */
+	if (! process_data)
+		return;
+
+	nih_assert (io);
+
+	job = process_data->job;
+	process = process_data->process;
+	status = process_data->status;
+
+	/* Ensure the job process error fd is closed before attempting
+	 * to handle any scripts.
+	 */
+	nih_free (io);
+
+	/* invalidate */
+	process_data->job_process_fd = -1;
+	process_data->valid = FALSE;
+
+	job_process_run_bottom (process_data);
+
+	if (job && job->state == JOB_SPAWNED) {
+		if (job->class->expect == EXPECT_NONE) {
+			if (process == PROCESS_MAIN) {
+				/* Job has not specified expect stanza so will
+				 * not have its state automatically progressed
+				 * by the ptrace handlers, hence bump it
+				 * manually.
+				 */
+				job_change_state (job, job_next_state (job));
+			}
+		}
+	}
+       
+	/* Don't change the jobs goal yet as the process may not have
+	 * actually terminted (and hence will have
+	 * job_process_terminated() called on it again later).
+	 */
+	switch (job->state) {
+	case JOB_SECURITY_SPAWNING:
+	case JOB_PRE_STARTING:
+	case JOB_SPAWNING:
+	case JOB_POST_STARTING:
+	case JOB_PRE_STOPPING:
+	case JOB_POST_STOPPING:
+		job_process_terminated (job, process, status, TRUE);
+		break;
+
+	default:
+		/* NOP */
+		break;
+	}
+}
+
+
+/**
+ * job_process_run_bottom:
+ *
+ * @process_data: JobProcessData.
+ *
+ * Perform final job process setup.
+ **/
+void
+job_process_run_bottom (JobProcessData *process_data)
+{
+	Job          *job;
+	//JobState      state;
+	char         *script;
+	int           shell_fd;
+
+	nih_assert (process_data);
+
+	job = process_data->job;
+	shell_fd = process_data->shell_fd;
+	script = process_data->script;
+	//state = process_data->state;
+
+	/* Handle job process containing a script section by sending the
+	 * script to the child shell.
+	 */
+	if (script && shell_fd != -1) {
+		NihIo *io;
+
+
+		/* Put the entire script into an NihIo send buffer and
+		 * then mark it for closure so that the shell gets EOF
+		 * and the structure gets cleaned up automatically.
+		 */
+		while (! (io = nih_io_reopen (job, shell_fd, NIH_IO_STREAM,
+					      NULL, NULL, NULL, NULL))) {
+			NihError *err;
+
+			err = nih_error_get ();
+
+			if (err->number != ENOMEM)
+				nih_assert_not_reached ();
+			nih_free (err);
+		}
+
+		/* We're feeding using a pipe, which has a file descriptor
+		 * on the child end even though it open()s it again using
+		 * a path. Instruct the shell to close this extra fd and
+		 * not to leak it.
+		 */
+		NIH_ZERO (nih_io_printf (io, "exec %d<&-\n",
+					 JOB_PROCESS_SCRIPT_FD));
+
+		NIH_ZERO (nih_io_write (io, script, strlen (script)));
+
+		/* We're only using the io for writing, so clear the
+		 * default flag.
+		 */
+		io->watch->events &= ~NIH_IO_READ;
+
+		nih_io_shutdown (io);
+
+		/* Invalidate now that we've sent the script to the
+		 * child.
+		 */
+		process_data->shell_fd = -1;
+		process_data->valid = FALSE;
+	}
+
+	/* Success, so change the job state */
+	//job->state = state;
+	//job->state = job_next_state (job);
+
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (job_emit_state_changed (
+					conn, job->path,
+					job_state_name (job->state)));
+	}
+}
+
+
+/**
+ * job_process_data_new:
+ *
+ * @parent: parent pointer,
+ * @job: job,
+ * @process: currently-running job process,
+ * @job_process_fd: error file descriptor connected to job process used
+ * to signal successful job process setup.
+ *
+ * Create a new job process data object to record meta-data for an
+ * asynchronously-started job process. The lifetime of such objects is
+ * limited to the time taken for the job process to fail or indicate
+ * successful startup (both scenarios are handled by @job_process_fd).
+ *
+ * Returns: Newly-allocated JobProcess on success, or NULL on
+ * insufficient memory.
+ **/
+JobProcessData *
+job_process_data_new (void         *parent,
+		      Job          *job,
+		      ProcessType   process,
+		      int           job_process_fd)
+{
+	JobProcessData *process_data;
+
+	nih_assert (job);
+	nih_assert (job_process_fd != -1);
+
+	process_data = NIH_MUST (nih_new (parent, JobProcessData));
+	if (! process_data)
+		return NULL;
+
+	process_data->process = process;
+	process_data->job_process_fd = job_process_fd;
+
+	process_data->script = NULL;
+	process_data->shell_fd = -1;
+	process_data->valid = TRUE;
+
+	process_data->job = job;
+	process_data->status = 0;
+
+	return process_data;
+}
+
+/**
+ * job_process_data_serialise:
+ *
+ * @job: job,
+ * @process_data: job process data.
+ *
+ * Returns: JSON-serialised JobProcessData object, or NULL on error.
+ **/
+json_object *
+job_process_data_serialise (const Job *job, const JobProcessData *process_data)
+{
+	json_object     *json;
+
+	nih_assert (job);
+
+	json = json_object_new_object ();
+	if (! json)
+		return NULL;
+
+	/* Job has no "in-flight" process */
+	if (! process_data)
+		return json;
+
+	/* XXX: Note that Job is not serialised; it's not necessary
+	 * since the JobProcessData itself is serialised within its Job
+	 * and the job pointer can be reinstated on deserialisation.
+	 */
+
+	if (! state_set_json_enum_var (json,
+				process_type_enum_to_str,
+				"process", process_data->process))
+		goto error;
+
+	if (! state_set_json_string_var_from_obj (json, process_data, script))
+		goto error;
+
+	if (process_data->shell_fd != -1 && process_data->valid) {
+
+		/* Clear the cloexec flag to ensure the descriptors
+		 * remains open across the re-exec.
+		 */
+		if (state_modify_cloexec (process_data->shell_fd, FALSE) < 0)
+			goto error;
+
+		if (state_modify_cloexec (process_data->job_process_fd, FALSE) < 0)
+			goto error;
+	}
+
+	if (! state_set_json_int_var_from_obj (json, process_data, shell_fd))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, process_data, valid))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, process_data, job_process_fd))
+		goto error;
+
+	return json;
+
+error:
+	json_object_put (json);
+	return NULL;
+}
+
+/**
+ * job_process_data_deserialise:
+ *
+ * @parent: parent pointer,
+ * @job: job,
+ * @json: JSON-serialised JobProcessData object to deserialise.
+ *
+ * Returns: JobProcessData object, or NULL on error.
+ **/
+JobProcessData *
+job_process_data_deserialise (void *parent, Job *job, json_object *json)
+{
+	JobProcessData  *process_data = NULL;
+	ProcessType      process;
+	int              job_process_fd;
+
+	nih_assert (job);
+	nih_assert (json);
+
+	if (! state_check_json_type (json, object))
+		return NULL;
+
+	if (! state_get_json_enum_var (json,
+				process_type_str_to_enum,
+				"process", process))
+		return NULL;
+
+	if (! state_get_json_int_var (json, "job_process_fd", job_process_fd))
+		return NULL;
+
+	process_data = job_process_data_new (parent, job, process, job_process_fd);
+	if (! process_data)
+		return NULL;
+
+	if (! state_get_json_string_var_to_obj (json, process_data, script))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, process_data, shell_fd))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, process_data, valid))
+		goto error;
+
+	if (process_data->shell_fd != -1 && process_data->valid) {
+		/* Reset the cloexec flag to ensure the descriptors
+		 * are not leaked to any child processes.
+		 */
+		if (state_modify_cloexec (process_data->shell_fd, TRUE) < 0)
+			goto error;
+
+		if (state_modify_cloexec (process_data->job_process_fd, TRUE) < 0)
+			goto error;
+	}
+
+	return process_data;
+
+error:
+	if (process_data)
+		nih_free (process_data);
+
+	return NULL;
 }
