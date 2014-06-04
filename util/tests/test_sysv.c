@@ -97,7 +97,7 @@ test_change_runlevel (void)
 
 
 	TEST_FUNCTION ("sysv_change_runlevel");
-	dest_address = "unix:abstract=/com/ubuntu/upstart/test";
+	dest_address = "unix:abstract=/com/ubuntu/upstart/test_sysv";
 
 	TEST_FILENAME (utmp_file);
 	TEST_FILENAME (wtmp_file);
