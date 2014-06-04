@@ -121,7 +121,7 @@ test_upstart_open (void)
 	TEST_ALLOC_FAIL {
 		use_dbus = FALSE;
 		dest_name = NULL;
-		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
+		dest_address = "unix:abstract=/com/ubuntu/upstart/test_initctl";
 
 		TEST_ALLOC_SAFE {
 			server = nih_dbus_server (dest_address,
