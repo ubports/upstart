@@ -54,6 +54,8 @@
 
 #include <cgmanager/cgmanager-client.h>
 
+extern int          user_mode;
+
 /**
  * disable_cgroups:
  *
@@ -1061,23 +1063,26 @@ cgroup_create (const char *controller, const char *path)
 	nih_assert (path);
 	nih_assert (cgroup_manager);
 
-	pid = getpid ();
+	if (!user_mode) {
+		pid = getpid ();
 
-	/* Escape our existing cgroup for this controller by moving to
-	 * the root cgroup to avoid creating groups below the current
-	 * cgroup.
-	 */
-	ret = cgmanager_move_pid_abs_sync (NULL,
-			cgroup_manager,
-			controller,
-			UPSTART_CGROUP_ROOT,
-			pid);
+		/* Escape our existing cgroup for this controller by moving to
+		 * the root cgroup to avoid creating groups below the current
+		 * cgroup.
+		 */
+		ret = cgmanager_move_pid_abs_sync (NULL,
+						   cgroup_manager,
+						   controller,
+						   UPSTART_CGROUP_ROOT,
+						   pid);
 
-	if (ret < 0)
-		return FALSE;
 
-	nih_debug ("Moved pid %d to root of '%s' controller cgroup",
-			pid, controller);
+		if (ret < 0)
+			return FALSE;
+
+		nih_debug ("Moved pid %d to root of '%s' controller cgroup",
+			   pid, controller);
+	}
 
 
 	/* Ask cgmanager to create the cgroup */
