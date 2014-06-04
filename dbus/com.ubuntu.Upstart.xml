@@ -48,26 +48,26 @@
       <arg name="value" type="s" direction="out" />
     </method>
 
-    <!-- Deprecated - use SetEnvMulti instead -->
+    <!-- Deprecated - use SetEnvList instead -->
     <method name="SetEnv">
       <arg name="job_details" type="as" direction="in" />
       <arg name="var" type="s" direction="in" />
       <arg name="replace" type="b" direction="in" />
     </method>
 
-    <method name="SetEnvMulti">
+    <method name="SetEnvList">
       <arg name="job_details" type="as" direction="in" />
       <arg name="vars" type="as" direction="in" />
       <arg name="replace" type="b" direction="in" />
     </method>
 
-    <!-- Deprecated - use UnSetEnvMulti instead -->
+    <!-- Deprecated - use UnsetEnvList instead -->
     <method name="UnsetEnv">
       <arg name="job_details" type="as" direction="in" />
       <arg name="name" type="s" direction="in" />
     </method>
 
-    <method name="UnsetEnvMulti">
+    <method name="UnsetEnvList">
       <arg name="job_details" type="as" direction="in" />
       <arg name="name" type="as" direction="in" />
     </method>

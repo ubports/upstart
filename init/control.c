@@ -1253,7 +1253,7 @@ control_notify_restarted (void)
 }
 
 /**
- * control_set_env_multi:
+ * control_set_env_list:
  *
  * @data: not used,
  * @message: D-Bus connection and message received,
@@ -1262,7 +1262,7 @@ control_notify_restarted (void)
  * @replace: TRUE if @name should be overwritten if already set, else
  *  FALSE.
  *
- * Implements the SetEnvMulti method of the com.ubuntu.Upstart
+ * Implements the SetEnvList method of the com.ubuntu.Upstart
  * interface.
  *
  * Called to request Upstart store one or more name/value pairs.
@@ -1274,11 +1274,11 @@ control_notify_restarted (void)
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_set_env_multi (void            *data,
-		       NihDBusMessage  *message,
-		       char * const    *job_details,
-		       char * const    *vars,
-		       int              replace)
+control_set_env_list (void            *data,
+		      NihDBusMessage  *message,
+		      char * const    *job_details,
+		      char * const    *vars,
+		      int              replace)
 {
 	Session         *session;
 	Job             *job = NULL;
@@ -1399,18 +1399,18 @@ control_set_env (void            *data,
 
 	NIH_MUST (nih_str_array_add (&vars, NULL, NULL, var));
 
-	return control_set_env_multi (data, message, job_details, vars, replace);
+	return control_set_env_list (data, message, job_details, vars, replace);
 }
 
 /**
- * control_unset_env_multi:
+ * control_unset_env_list:
  *
  * @data: not used,
  * @message: D-Bus connection and message received,
  * @job_details: name and instance of job to apply operation to,
- * @names: variables to clear from the job environment array.
+ * @names: array of variables to clear from the job environment array.
  *
- * Implements the UnsetEnvMulti method of the com.ubuntu.Upstart
+ * Implements the UnsetEnvList method of the com.ubuntu.Upstart
  * interface.
  *
  * Called to request Upstart remove one or more variables from the job
@@ -1419,10 +1419,10 @@ control_set_env (void            *data,
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_unset_env_multi (void            *data,
-			 NihDBusMessage  *message,
-			 char * const    *job_details,
-			 char * const    *names)
+control_unset_env_list (void            *data,
+			NihDBusMessage  *message,
+			char * const    *job_details,
+			char * const    *names)
 {
 	Session         *session;
 	Job             *job = NULL;
@@ -1500,6 +1500,7 @@ error:
 			_("No such variable"), *name);
 	return -1;
 }
+
 /**
  * control_unset_env:
  *
@@ -1522,81 +1523,13 @@ control_unset_env (void            *data,
 		   char * const    *job_details,
 		   const char      *name)
 {
-	Session         *session;
-	Job             *job = NULL;
-	char            *job_name = NULL;
-	char            *instance = NULL;
+	nih_local char **names = NULL;
+	
+	names = NIH_MUST (nih_str_array_new (NULL));
 
-	nih_assert (message);
-	nih_assert (job_details);
+	NIH_MUST (nih_str_array_add (&names, NULL, NULL, name));
 
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
-	}
-
-	if (! name || ! *name) {
-		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-				_("Variable may not be empty string"));
-		return -1;
-	}
-
-	if (job_details[0]) {
-		job_name = job_details[0];
-
-		/* this can be a null value */
-		instance = job_details[1];
-	} else if (getpid () == 1) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissible to modify PID 1 job environment"));
-		return -1;
-	}
-
-	/* Verify that job name is valid */
-	if (job_name && ! strlen (job_name)) {
-		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-					     _("Job may not be empty string"));
-		return -1;
-	}
-
-	/* Get the relevant session */
-	session = session_from_dbus (NULL, message);
-
-	/* Chroot sessions must not be able to influence
-	 * the outside system.
-	 */
-	if (session && session->chroot) {
-		nih_warn (_("Ignoring unset env request from chroot session"));
-		return 0;
-	}
-
-	/* Lookup the job */
-	control_get_job (session, job, job_name, instance);
-
-	if (job) {
-		/* Modify job-specific environment */
-
-		nih_assert (job->env);
-
-		if (! environ_remove (&job->env, job, NULL, name))
-			return -1;
-
-		return 0;
-	}
-
-	if (job_class_environment_unset (name) < 0)
-		goto error;
-
-	return 0;
-
-error:
-	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-			"%s: %s",
-			_("No such variable"), name);
-	return -1;
+	return control_unset_env_list (data, message, job_details, names);
 }
 
 /**

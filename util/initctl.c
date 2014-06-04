@@ -1471,7 +1471,7 @@ set_env_action (NihCommand *command, char * const *args)
 	if (! upstart)
 		return 1;
 
-	ret = upstart_set_env_multi_sync (NULL, upstart, job_details,
+	ret = upstart_set_env_list_sync (NULL, upstart, job_details,
 			args, ! retain_var);
 
 	if (ret < 0)
@@ -1520,7 +1520,7 @@ unset_env_action (NihCommand *command, char * const *args)
 	if (! upstart)
 		return 1;
 
-	if (upstart_unset_env_multi_sync (NULL, upstart, job_details, args) < 0)
+	if (upstart_unset_env_list_sync (NULL, upstart, job_details, args) < 0)
 		goto error;
 
 	return 0;
