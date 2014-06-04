@@ -1,3 +1,18 @@
+2014-05-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: Add support for '--prepend-confdir'.
+	* init/man/init.8: Add '--prepend-confdir'.
+	* init/tests/test_main.c: Add tests for '--prepend-confdir'.
+
+2014-05-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: add '--append-confdir' command-line option (LP: #1315060).
+	* init/man/init.8:
+	  - Document '--append-confdir'.
+	  - Add init(5) reference for '--confdir'.
+	* init/tests/test_main.c: New Session and System init tests for
+	  '--append-confdir'.
+
 2014-05-09  Dimitri John Ledkov  <xnox@ubuntu.com>
 
 	* util/reboot.c: only use rebootcommand code path in runlevels 0,
@@ -10,6 +25,15 @@
 
 	* Convert calls to deprecated json_object_object_get() to
 	  json_object_object_get_ex().
+
+2014-05-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main(): Allow System Init read from multiple
+	  configuration to directories like a Session Init (LP: #1315060).
+	* init/man/init.5: Clarify default directory.
+	* init/man/init.8: Explain new behaviour.
+	* init/tests/test_main.c: test_confdir(): Update tests for new
+	  '--confdir' behaviour of System init.
 
 2014-04-24  James Hunt  <james.hunt@ubuntu.com>
 
