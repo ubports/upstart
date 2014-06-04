@@ -2477,6 +2477,11 @@ job_process_close_handler (JobProcessData  *process_data,
 	if (job && job->state == JOB_SPAWNED) {
 		if (job->class->expect == EXPECT_NONE) {
 			if (process == PROCESS_MAIN) {
+				/* Job has not specified expect stanza so will
+				 * not have its state automatically progressed
+				 * by the ptrace handlers, hence bump it
+				 * manually.
+				 */
 				job_change_state (job, job_next_state (job));
 			}
 		}
