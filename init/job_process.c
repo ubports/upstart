@@ -2476,8 +2476,9 @@ job_process_close_handler (JobProcessData  *process_data,
 
 	if (job && job->state == JOB_SPAWNED) {
 		if (job->class->expect == EXPECT_NONE) {
-			nih_assert (process == PROCESS_MAIN);
-			job_change_state (job, job_next_state (job));
+			if (process == PROCESS_MAIN) {
+				job_change_state (job, job_next_state (job));
+			}
 		}
 	}
        
