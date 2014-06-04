@@ -381,7 +381,8 @@ job_change_state (Job      *job,
 	nih_assert (job != NULL);
 
 	/* We may not be blocked by any events when doing first
-	 * transition */
+	 * transition.
+	 */
 	nih_assert (job->blocker == NULL);
 
 	while (job->state != state) {
@@ -389,7 +390,8 @@ job_change_state (Job      *job,
 		int      unused;
 
 		/* If we got blocked during async spawns, stop
-		 * transitions */
+		 * transitions.
+		 */
 		if (job->blocker)
 		    return;
 

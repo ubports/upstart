@@ -2487,7 +2487,6 @@ job_process_close_handler (JobProcessData  *process_data,
 	 * job_process_terminated() called on it again later).
 	 */
 	switch (job->state) {
-		/* FIXME: BUG: incomplete list of states!!!! */
 	case JOB_SECURITY_SPAWNING:
 	case JOB_PRE_STARTING:
 	case JOB_SPAWNING:
