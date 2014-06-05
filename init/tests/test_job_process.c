@@ -3047,6 +3047,7 @@ test_start (void)
 	TEST_DIVERT_STDERR (output) {
 		job_process_start (job, PROCESS_MAIN);
 		TEST_WATCH_UPDATE ();
+		TEST_WATCH_UPDATE ();
 		event_poll ();
 	}
 	fclose (output);
