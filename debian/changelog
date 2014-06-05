@@ -1,3 +1,9 @@
+upstart (1.12.1-0ubuntu9) UNRELEASED; urgency=medium
+
+  * Add libcgmanager-dev build-dependency.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Thu, 05 Jun 2014 19:04:38 +0100
+
 upstart (1.12.1-0ubuntu8) utopic; urgency=medium
 
   * Drop the 01-upstart-lsb hook as it's now part of lsb.
