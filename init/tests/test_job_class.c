@@ -151,6 +151,8 @@ test_new (void)
 
 		TEST_FALSE (class->deleted);
 
+		TEST_LIST_EMPTY (&class->cgroups);
+
 		nih_free (class);
 	}
 }

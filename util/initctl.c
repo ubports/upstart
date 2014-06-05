@@ -119,26 +119,28 @@ static int    ignored_events_setter (NihOption *option, const char *arg);
 #endif
 
 /* Prototypes for option and command functions */
-int start_action                  (NihCommand *command, char * const *args);
-int stop_action                   (NihCommand *command, char * const *args);
-int restart_action                (NihCommand *command, char * const *args);
-int reload_action                 (NihCommand *command, char * const *args);
-int status_action                 (NihCommand *command, char * const *args);
-int list_action                   (NihCommand *command, char * const *args);
-int emit_action                   (NihCommand *command, char * const *args);
-int reload_configuration_action   (NihCommand *command, char * const *args);
-int version_action                (NihCommand *command, char * const *args);
-int log_priority_action           (NihCommand *command, char * const *args);
-int show_config_action            (NihCommand *command, char * const *args);
-int check_config_action           (NihCommand *command, char * const *args);
-int usage_action                  (NihCommand *command, char * const *args);
-int notify_disk_writeable_action  (NihCommand *command, char * const *args);
-int get_env_action                (NihCommand *command, char * const *args);
-int set_env_action                (NihCommand *command, char * const *args);
-int list_env_action               (NihCommand *command, char * const *args);
-int unset_env_action              (NihCommand *command, char * const *args);
-int reset_env_action              (NihCommand *command, char * const *args);
-int list_sessions_action          (NihCommand *command, char * const *args);
+int start_action                         (NihCommand *command, char * const *args);
+int stop_action                          (NihCommand *command, char * const *args);
+int restart_action                       (NihCommand *command, char * const *args);
+int reload_action                        (NihCommand *command, char * const *args);
+int status_action                        (NihCommand *command, char * const *args);
+int list_action                          (NihCommand *command, char * const *args);
+int emit_action                          (NihCommand *command, char * const *args);
+int reload_configuration_action          (NihCommand *command, char * const *args);
+int version_action                       (NihCommand *command, char * const *args);
+int log_priority_action                  (NihCommand *command, char * const *args);
+int show_config_action                   (NihCommand *command, char * const *args);
+int check_config_action                  (NihCommand *command, char * const *args);
+int usage_action                         (NihCommand *command, char * const *args);
+int notify_disk_writeable_action         (NihCommand *command, char * const *args);
+int notify_dbus_address_action           (NihCommand *command, char * const *args);
+int notify_cgroup_manager_address_action (NihCommand *command, char * const *args);
+int get_env_action                       (NihCommand *command, char * const *args);
+int set_env_action                       (NihCommand *command, char * const *args);
+int list_env_action                      (NihCommand *command, char * const *args);
+int unset_env_action                     (NihCommand *command, char * const *args);
+int reset_env_action                     (NihCommand *command, char * const *args);
+int list_sessions_action                 (NihCommand *command, char * const *args);
 
 /**
  * use_dbus:
@@ -2049,6 +2051,51 @@ error:
 }
 
 /**
+ * notify_cgroup_manager_address_action:
+ * @command: NihCommand invoked,
+ * @args: command-line arguments.
+ *
+ * This function is called for the "notify-cgroup-manager-address" command.
+ *
+ * Returns: command exit status.
+ **/
+int
+notify_cgroup_manager_address_action (NihCommand    *command,
+				      char * const  *args)
+{
+	nih_local NihDBusProxy   *upstart = NULL;
+	NihError                 *err;
+	char                     *address = NULL;
+
+	nih_assert (command != NULL);
+	nih_assert (args != NULL);
+
+	if (! args[0]) {
+		fprintf (stderr, _("%s: missing address\n"), program_name);
+		nih_main_suggest_help ();
+		return 1;
+	}
+
+	address = args[0];
+
+	upstart = upstart_open (NULL);
+	if (! upstart)
+		return 1;
+
+	if (upstart_notify_cgroup_manager_address_sync (NULL, upstart, address) < 0)
+		goto error;
+
+	return 0;
+
+error:
+	err = nih_error_get ();
+	nih_error ("%s", err->message);
+	nih_free (err);
+
+	return 1;
+}
+
+/**
  * list_sessions_action:
  * @command: NihCommand invoked,
  * @args: command-line arguments.
@@ -3255,10 +3302,15 @@ static NihCommand commands[] = {
 	  N_("JOB is the name of the job which usage is to be shown.\n" ),
 	  NULL, usage_options, usage_action },
 
+	{ "notify-cgroup-manager-address", NULL,
+	  N_("Inform Upstart of D-Bus address cgroup manager is available on."),
+	  N_("Run to allow Upstart to provide cgroup stanza support."),
+	  NULL, NULL, notify_cgroup_manager_address_action },
+
 	{ "notify-dbus-address", NULL,
 	  N_("Inform Upstart of D-Bus address to connect to."),
 	  N_("Run to allow Upstart to provide services over D-Bus."),
-	  NULL, NULL, notify_dbus_address_action},
+	  NULL, NULL, notify_dbus_address_action },
 
 	{ "notify-disk-writeable", NULL,
 	  N_("Inform Upstart that disk is now writeable."),

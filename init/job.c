@@ -58,6 +58,10 @@
 #include "state.h"
 #include "apparmor.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 #include "com.ubuntu.Upstart.Job.h"
 #include "com.ubuntu.Upstart.Instance.h"
 
@@ -1361,6 +1365,19 @@ job_start (Job             *job,
 		return -1;
 	}
 
+#ifdef ENABLE_CGROUPS
+	/* Job has specified a cgroup stanza but since the cgroup
+	 * manager has not yet been contacted, the job cannot be started.
+	 */
+	if (job_class_cgroups (job->class) && ! cgroup_manager_available ()) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
+			_("Job cannot be started as cgroup manager not available: %s"),
+			job_name (job));
+		return -1;
+	}
+#endif /* ENABLE_CGROUPS */
+
 	if (wait) {
 		blocked = blocked_new (job, BLOCKED_INSTANCE_START_METHOD,
 				       message);
@@ -2575,6 +2592,30 @@ job_find (const Session  *session,
 
 error:
 	return NULL;
+}
+
+/**
+ * job_needs_cgroups:
+ *
+ * @job: job.
+ *
+ * Determine if specified job requires cgroups.
+ *
+ * Returns: TRUE if @job needs atleast 1 cgroup, else FALSE.
+ **/
+int
+job_needs_cgroups (const Job *job)
+{
+	nih_assert (job);
+
+#ifdef ENABLE_CGROUPS
+	return job_class_cgroups (job->class);
+#else 
+	/* No cgroup support */
+	return FALSE;
+
+#endif /* ENABLE_CGROUPS */
+
 }
 
 /**

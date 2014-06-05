@@ -63,6 +63,10 @@
 
 #include "com.ubuntu.Upstart.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 /* Prototypes for static functions */
 static int   control_server_connect      (DBusServer *server, DBusConnection *conn);
 static void  control_disconnected        (DBusConnection *conn);
@@ -970,6 +974,64 @@ control_notify_dbus_address (void            *data,
 
 	if (control_bus_open () < 0)
 		return -1;
+
+	return 0;
+}
+
+/**
+ * control_notify_cgroup_manager_address:
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @address: D-Bus address that cgroup manager is connected to.
+ *
+ * Implements the NotifyCGroupManagerAddress method of the
+ * com.ubuntu.Upstart interface.
+ *
+ * Called to allow the cgroup manager to be contacted,
+ * thus enabling the cgroup stanza.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_notify_cgroup_manager_address (void            *data,
+				       NihDBusMessage  *message,
+				       const char      *address)
+{
+	nih_assert (message);
+	nih_assert (address);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to notify cgroup manager address"));
+		return -1;
+	}
+
+#ifdef ENABLE_CGROUPS
+	if (! cgroup_support_enabled ())
+		return 0;
+
+	/* Already called */
+	if (cgroup_manager_available ())
+		return 0;
+
+	if (! cgroup_manager_set_address (address)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+				_("Out of Memory"));
+		return -1;
+	}
+
+	nih_debug ("set cgroup manager address");
+
+	if (! job_class_induct_jobs ()) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_NO_MEMORY,
+				_("Out of Memory"));
+		return -1;
+	}
+
+#else
+	nih_debug ("cgroup support not available");
+#endif /* ENABLE_CGROUPS */
 
 	return 0;
 }

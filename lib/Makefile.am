@@ -112,6 +112,9 @@ test_libupstart_LDADD = \
 	$(DBUS_LIBS) \
 	$(top_builddir)/test/libtest_util_common.a \
 	-lrt
+if ENABLE_CGROUPS
+test_libupstart_LDADD += $(CGMANAGER_LIBS)
+endif
 
 com_ubuntu_Upstart_OUTPUTS = \
 	upstart/com.ubuntu.Upstart.c \

@@ -69,6 +69,9 @@
 #include "xdg.h"
 #include "apparmor.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 /**
  * SHELL_CHARS:
@@ -426,6 +429,10 @@ job_process_spawn_with_fd (Job          *job,
 	struct passwd   *pwd = NULL;
 	struct group    *grp = NULL;
 
+#ifdef ENABLE_CGROUPS
+	int              cgroups_needed = FALSE;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (job != NULL);
 	nih_assert (job->class != NULL);
 	nih_assert (job->log != NULL);
@@ -434,6 +441,21 @@ job_process_spawn_with_fd (Job          *job,
 	class = job->class;
 
 	nih_assert (class != NULL);
+
+#ifdef ENABLE_CGROUPS
+
+	cgroups_needed = job_needs_cgroups (job);
+
+	if (cgroups_needed) {
+		if (! cgroup_support_enabled ())
+			nih_return_error (-1, CGROUP_ERROR, _("cgroup support not available"));
+
+		/* Should never happen */
+		if (! cgroup_manager_available ())
+			nih_return_error (-1, CGROUP_ERROR, _("cgroup manager not available"));
+	}
+
+#endif /* ENABLE_CGROUPS */
 
 	/* Create a pipe to communicate with the child process until it
 	 * execs so we know whether that was successful or an error occurred.
@@ -859,6 +881,21 @@ job_process_spawn_with_fd (Job          *job,
 			}
 		}
 
+#ifdef ENABLE_CGROUPS
+		if (cgroups_needed) {
+			if (cgroup_manager_connect () < 0)
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_MGR_CONNECT, 0);
+
+			if (! cgroup_setup (&job->class->cgroups,
+						env,
+						class->setuid ? job_setuid : geteuid (),
+						class->setgid ? job_setgid : getegid ())) {
+				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_SETUP, 0);
+			}
+
+		}
+#endif /* ENABLE_CGROUPS */
+
 		/* Start dropping privileges */
 		if (job_setgid != (gid_t) -1 && setgid (job_setgid) < 0) {
 			nih_error_raise_system ();
@@ -904,6 +941,16 @@ job_process_spawn_with_fd (Job          *job,
 		close (fds[1]);
 		raise (SIGSTOP);
 	}
+
+#ifdef ENABLE_CGROUPS
+	/* Move the pid into the appropriate cgroups now that 
+	 * the process is running with the correct group and user
+	 * ownership.
+	 */
+	if (cgroups_needed && cgroup_enter_groups (&job->class->cgroups) != TRUE)
+		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_ENTER, 0);
+
+#endif /* ENABLE_CGROUPS */
 
 	/* Set up a process trace if we need to trace forks */
 	if (trace) {
@@ -1189,6 +1236,22 @@ job_process_error_handler (const char *buf, size_t len)
 				  err, _("unable to switch security profile: %s"),
 				  strerror (err->errnum)));
 		break;
+	case JOB_PROCESS_ERROR_CGROUP_MGR_CONNECT:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to connect to CGManager: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP_SETUP:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to setup cgroup: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP_ENTER:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to enter cgroup: %s"),
+				  strerror (err->errnum)));
+		break;
+
 	default:
 		nih_assert_not_reached ();
 	}

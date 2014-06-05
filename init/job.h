@@ -297,6 +297,9 @@ job_state_str_to_enum (const char *state)
 
 void job_child_error_handler (Job *job, ProcessType process);
 
+int job_needs_cgroups (const Job *job)
+	__attribute__ ((warn_unused_result));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

@@ -56,6 +56,10 @@
 #include "control.h"
 #include "parse_job.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 #include "com.ubuntu.Upstart.h"
 #include "com.ubuntu.Upstart.Job.h"
 
@@ -389,6 +393,10 @@ job_class_new (const void *parent,
 	class->usage = NULL;
 
 	class->apparmor_switch = NULL;
+
+	class->cgmanager_wait = FALSE;
+
+	nih_list_init (&class->cgroups);
 
 	return class;
 
@@ -1038,6 +1046,19 @@ job_class_start (JobClass        *class,
 			class->name);
 		return -1;
 	}
+
+#ifdef ENABLE_CGROUPS
+	/* Job has specified a cgroup stanza but since the cgroup
+	 * manager has not yet been contacted, the job cannot be started.
+	 */
+	if (job_class_cgroups (class) && ! cgroup_manager_available ()) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.CGroupManagerNotAvailable",
+			_("Job cannot be started as cgroup manager not available: %s"),
+			class->name);
+		return -1;
+	}
+#endif /* ENABLE_CGROUPS */
 
 	/* Verify that the environment is valid */
 	if (! environ_all_valid (env)) {
@@ -1883,7 +1904,7 @@ error:
  * Returns: JSON-serialised JobClass object, or NULL on error.
  **/
 json_object *
-job_class_serialise (const JobClass *class)
+job_class_serialise (JobClass *class)
 {
 	json_object      *json;
 	json_object      *json_export;
@@ -1895,6 +1916,10 @@ job_class_serialise (const JobClass *class)
 	json_object      *json_start_on;
 	json_object      *json_stop_on;
 	int               session_index;
+
+#ifdef ENABLE_CGROUPS
+	json_object      *json_cgroups;
+#endif /* ENABLE_CGROUPS */
 
 	nih_assert (class);
 	nih_assert (job_classes);
@@ -2051,6 +2076,17 @@ job_class_serialise (const JobClass *class)
 
 	if (! state_set_json_string_var_from_obj (json, class, apparmor_switch))
 		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, class, cgmanager_wait))
+		goto error;
+
+#ifdef ENABLE_CGROUPS
+	json_cgroups = cgroup_serialise_all (&class->cgroups);
+	if (! json_cgroups)
+		goto error;
+
+	json_object_object_add (json, "cgroups", json_cgroups);
+#endif /* ENABLE_CGROUPS */
 
 	return json;
 
@@ -2384,6 +2420,17 @@ job_class_deserialise (json_object *json)
 	if (job_deserialise_all (class, json) < 0)
 		goto error;
 
+#ifdef ENABLE_CGROUPS
+	if (json_object_object_get_ex (json, "cgmanager_wait", NULL)) {
+
+		if (cgroup_deserialise_all (class, &class->cgroups, json) < 0)
+			goto error;
+
+		if (! state_get_json_int_var_to_obj (json, class, cgmanager_wait))
+			goto error;
+	}
+#endif /* ENABLE_CGROUPS */
+
 	return class;
 
 error:
@@ -2658,3 +2705,150 @@ job_class_get_index (const JobClass *class)
 
 	return -1;
 }
+
+/**
+ * job_class_induct_job:
+ * @class: Start a job of a given class
+ *
+ * Returns: TRUE on success, otherwise FALSE.
+ **/
+int
+job_class_induct_job (JobClass *class)
+{
+	nih_local char **env = NULL;
+	nih_local char  *name = NULL;
+	size_t           len;
+	Job             *job;
+
+	nih_assert (class);
+
+	job_class_init ();
+
+	/* Construct the environment for the new instance
+	 * from the class and the start events.
+	 */
+	env = NIH_MUST (job_class_environment (
+				NULL, class, &len));
+	NIH_MUST (event_operator_environment (class->start_on,
+				&env, NULL, &len,
+				"UPSTART_EVENTS"));
+
+	/* Expand the instance name against the environment */
+	name = NIH_SHOULD (environ_expand (NULL,
+				class->instance,
+				env));
+	if (! name) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_warn (_("Failed to obtain %s instance: %s"),
+				class->name, err->message);
+		nih_free (err);
+
+		event_operator_reset (class->start_on);
+		return FALSE;
+	}
+
+	/* Locate the current instance or create a new one */
+	job = (Job *)nih_hash_lookup (class->instances, name);
+	if (! job)
+		job = NIH_MUST (job_new (class, name));
+
+	nih_debug ("New instance %s", job_name (job));
+
+	/* Start the job with the environment we want */
+	if (job->goal != JOB_START) {
+		if (job->start_env)
+			nih_unref (job->start_env, job);
+
+		job->start_env = env;
+		nih_ref (job->start_env, job);
+
+		nih_discard (env);
+		env = NULL;
+
+		job_finished (job, FALSE);
+
+		NIH_MUST (event_operator_fds (class->start_on, job,
+					&job->fds, &job->num_fds,
+					&job->start_env, &len,
+					"UPSTART_FDS"));
+
+		event_operator_events (job->class->start_on,
+				job, &job->blocking);
+
+		job_change_goal (job, JOB_START);
+	}
+
+	event_operator_reset (class->start_on);
+
+	return TRUE;
+}
+
+
+#ifdef ENABLE_CGROUPS
+
+/**
+ * job_class_induct_jobs:
+ *
+ * Start all jobs waiting on a cgmanager.
+ *
+ * Returns: TRUE on success, if induction of any job fails returns FALSE.
+ **/
+int
+job_class_induct_jobs (void)
+{
+	nih_assert (cgroup_manager_available ());
+
+	job_class_init ();
+
+	int success = TRUE;
+
+	NIH_HASH_FOREACH_SAFE (job_classes, iter) {
+		JobClass *class = (JobClass *)iter;
+
+		if (! class->start_on)
+			continue;
+
+		if (! class->cgmanager_wait)
+			continue;
+
+		nih_assert (class->start_on->value);
+
+		if (! job_class_induct_job (class))
+			success = FALSE;
+
+		/* Unref the events that were ref'ed
+		 * whilst waiting for the cgroup manager
+		 * to become available.
+		 */
+		event_operator_reset (class->start_on);
+		class->cgmanager_wait = FALSE;
+	}
+
+	return success;
+}
+
+/**
+ * job_class_cgroups:
+ *
+ * @class: JobClass.
+ *
+ * Determine if the specified class needs cgroup support.
+ *
+ * Returns TRUE if cgroups are required, else FALSE.
+ *
+ **/
+int
+job_class_cgroups (JobClass *class)
+{
+	nih_assert (class);
+
+	if (NIH_LIST_EMPTY (&class->cgroups))
+		return FALSE;
+
+	return TRUE;
+
+}
+
+#endif /* ENABLE_CGROUPS */

@@ -1,5 +1,5 @@
 '\" t
-.TH init 8 2013-12-20 "Upstart"
+.TH init 8 2014-05-09 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -298,6 +298,19 @@ stanza. This could be used for example to set the default to
 .BR init (5)
 for all possible values of
 .BR console "."
+.\"
+.TP
+.B \-\-no-cgroups
+Do not honour the
+.B cgroup
+stanza. If specified, this stanza will be ignored for any job which
+specifies it: the job processes will
+.I not
+be placed in the cgroup specified by the stanza and the job itself will
+not wait until the cgroup manager has started before starting itself.
+See
+.BR init (5)
+for further details.
 .\"
 .TP
 .B \-\-no\-dbus
