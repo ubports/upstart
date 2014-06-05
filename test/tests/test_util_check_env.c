@@ -165,18 +165,24 @@ test_checks (void)
 
 
 #ifdef ENABLE_CGROUPS
-	TEST_FEATURE ("checking for cgmanager");
-	ret = connect_to_cgmanager();
-	switch(ret) {
-	case -2: TEST_FAILED("Found no cgroup manager"); break;
-	case -1: TEST_FAILED("Error connecting to cgmanager"); break;
-	case 0: print_my_cgroup(); break;
-	default: TEST_FAILED("Unknown error from connect_to_cgmanager: %d", ret);
-	}
+	struct stat buffer;
+	int         status;
+	if (stat("/sys/fs/cgroup/cgmanager/sock", &buffer) == 0) {
+		TEST_FEATURE ("checking for cgmanager");
+		ret = connect_to_cgmanager();
+		switch(ret) {
+		case -2: TEST_FAILED("Found no cgroup manager"); break;
+		case -1: TEST_FAILED("Error connecting to cgmanager"); break;
+		case 0: print_my_cgroup(); break;
+		default: TEST_FAILED("Unknown error from connect_to_cgmanager: %d", ret);
+		}
 
-	TEST_FEATURE("cgroup sandbox");
-	TEST_EQ(check_cgroup_sandbox(), 0);
-	disconnect_cgmanager();
+		TEST_FEATURE("cgroup sandbox");
+		TEST_EQ(check_cgroup_sandbox(), 0);
+		disconnect_cgmanager();
+	} else {
+		nih_warn ("Skipping CGManager tests, CGManager socket not found");
+	}
 #endif /* ENABLE_CGROUPS */
 
 }
