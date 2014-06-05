@@ -1393,6 +1393,11 @@ control_set_env (void            *data,
 		 const char      *var,
 		 int              replace)
 {
+	if (! var) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					_("Variable may not be empty string"));
+		return -1;
+	}
 	nih_local char **vars = NULL;
 	
 	vars = NIH_MUST (nih_str_array_new (NULL));
@@ -1523,6 +1528,11 @@ control_unset_env (void            *data,
 		   char * const    *job_details,
 		   const char      *name)
 {
+	if (! name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					_("Variable may not be empty string"));
+		return -1;
+	}
 	nih_local char **names = NULL;
 	
 	names = NIH_MUST (nih_str_array_new (NULL));
