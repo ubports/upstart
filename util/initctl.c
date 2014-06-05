@@ -1451,7 +1451,6 @@ set_env_action (NihCommand *command, char * const *args)
 {
 	nih_local NihDBusProxy  *upstart = NULL;
 	NihError                *err;
-	char                    *envvar;
 	nih_local char         **job_details = NULL;
 	int                      ret;
 
@@ -1468,14 +1467,12 @@ set_env_action (NihCommand *command, char * const *args)
 	if (! job_details)
 		return 1;
 
-	envvar = args[0];
-
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return 1;
 
-	ret = upstart_set_env_sync (NULL, upstart, job_details,
-			envvar, ! retain_var);
+	ret = upstart_set_env_list_sync (NULL, upstart, job_details,
+			args, ! retain_var);
 
 	if (ret < 0)
 		goto error;
@@ -1504,15 +1501,12 @@ unset_env_action (NihCommand *command, char * const *args)
 {
 	nih_local NihDBusProxy  *upstart = NULL;
 	NihError                *err;
-	char                    *name;
 	nih_local char         **job_details = NULL;
 
 	nih_assert (command != NULL);
 	nih_assert (args != NULL);
 
-	name = args[0];
-
-	if (! name) {
+	if (! args[0]) {
 		fprintf (stderr, _("%s: missing variable name\n"), program_name);
 		nih_main_suggest_help ();
 		return 1;
@@ -1526,7 +1520,7 @@ unset_env_action (NihCommand *command, char * const *args)
 	if (! upstart)
 		return 1;
 
-	if (upstart_unset_env_sync (NULL, upstart, job_details, name) < 0)
+	if (upstart_unset_env_list_sync (NULL, upstart, job_details, args) < 0)
 		goto error;
 
 	return 0;
@@ -3247,13 +3241,13 @@ static NihCommand commands[] = {
 	  &env_group, reset_env_options, reset_env_action },
 
 	{ "set-env", N_("VARIABLE[=VALUE]"),
-	  N_("Set a job environment variable."),
-	  N_("Adds or updates a variable in the job environment table."),
+	  N_("Set one or more job environment variables."),
+	  N_("Adds or updates variables in the job environment table."),
 	  &env_group, set_env_options, set_env_action },
 
 	{ "unset-env", N_("VARIABLE"),
-	  N_("Remove a job environment variable."),
-	  N_("Discards the specified variable from the job environment table."),
+	  N_("Remove one or more job environment variables."),
+	  N_("Discards variables from the job environment table."),
 	  &env_group, unset_env_options, unset_env_action },
 
 	{ "usage",  N_("JOB"),

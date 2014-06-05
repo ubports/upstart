@@ -170,6 +170,13 @@ int control_notify_dbus_address (void   *data,
 		     const char *address)
 	__attribute__ ((warn_unused_result));
 
+int control_set_env_multi (void           *data,
+		 NihDBusMessage *message,
+		 char * const    *job_details,
+		 char * const    *vars,
+		 int             replace)
+	__attribute__ ((warn_unused_result));
+
 int control_set_env (void           *data,
 		 NihDBusMessage *message,
 		 char * const    *job_details,
@@ -193,6 +200,12 @@ int control_list_env (void             *data,
 int control_reset_env (void           *data,
 		 NihDBusMessage   *message,
 		 char * const    *job_details)
+	__attribute__ ((warn_unused_result));
+
+int control_unset_env_multi (void            *data,
+		   NihDBusMessage  *message,
+		   char * const    *job_details,
+		   char * const    *names)
 	__attribute__ ((warn_unused_result));
 
 int control_unset_env (void            *data,

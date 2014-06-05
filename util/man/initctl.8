@@ -655,9 +655,9 @@ run from within a job.
 .\"
 .TP
 .B set\-env
-.RI [ OPTIONS "] " VARIABLE[=VALUE]
+.RI [ OPTIONS "] " VARIABLE[=VALUE] " ..."
 
-Adds or updates a variable in a job environment table. Variables set
+Adds or updates one or more variables in a job environment table. Variables set
 in this way will apply to all the subsequently-starting processes for a
 job.
 
@@ -670,7 +670,7 @@ for further details.
 .B OPTIONS
 .RS
 .IP "\fB\-r\fP, \fB\-\-retain\fP"
-If the specified variable is already set, do not modify it.
+If any of the specified variables are already set, do not modify them.
 .RE
 .RS
 .IP "\fB\-g\fP, \fB\-\-global\fP"
@@ -688,10 +688,11 @@ for further details.
 .\"
 .TP
 .B unset\-env
-.RI [ OPTIONS "] " VARIABLE
+.RI [ OPTIONS "] " VARIABLE " ..."
 
-Remove the specified variable from a job environment table. If the
-variable does not already exist in the table, no change will be made.
+Remove the specified variables from a job environment table. If any of
+the variables specified do not already exist in the table, those
+variables will be ignored.
 
 This command is only permitted when running in
 .B User Session Mode.
@@ -702,7 +703,7 @@ for further details.
 .B OPTIONS
 .RS
 .IP "\fB\-r\fP, \fB\-\-retain\fP"
-If the specified variable is already set, do not modify it.
+If any of the specified variables are already set, do not unset them.
 .RE
 .RS
 .IP "\fB\-g\fP, \fB\-\-global\fP"

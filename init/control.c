@@ -1253,6 +1253,119 @@ control_notify_restarted (void)
 }
 
 /**
+ * control_set_env_list:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @vars: array of name[/value] pairs of environment variables to set,
+ * @replace: TRUE if @name should be overwritten if already set, else
+ *  FALSE.
+ *
+ * Implements the SetEnvList method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart store one or more name/value pairs.
+ *
+ * If @job_details is empty, change will be applied to all job
+ * environments, else only apply changes to specific job environment
+ * encoded within @job_details.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_set_env_list (void            *data,
+		      NihDBusMessage  *message,
+		      char * const    *job_details,
+		      char * const    *vars,
+		      int              replace)
+{
+	Session         *session;
+	Job             *job = NULL;
+	char            *job_name = NULL;
+	char            *instance = NULL;
+	char * const    *var;
+
+	nih_assert (message);
+	nih_assert (job_details);
+	nih_assert (vars);
+
+	if (! control_check_permission (message)) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("You do not have permission to modify job environment"));
+		return -1;
+	}
+
+	if (job_details[0]) {
+		job_name = job_details[0];
+
+		/* this can be a null value */
+		instance = job_details[1];
+	} else if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
+	/* Verify that job name is valid */
+	if (job_name && ! strlen (job_name)) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					     _("Job may not be empty string"));
+		return -1;
+	}
+
+	/* Get the relevant session */
+	session = session_from_dbus (NULL, message);
+
+	/* Chroot sessions must not be able to influence
+	 * the outside system.
+	 */
+	if (session && session->chroot) {
+		nih_warn (_("Ignoring set env request from chroot session"));
+		return 0;
+	}
+
+	/* Lookup the job */
+	control_get_job (session, job, job_name, instance);
+
+	for (var = vars; var && *var; var++) {
+		nih_local char *envvar = NULL;
+
+		if (! *var) {
+			nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					_("Variable may not be empty string"));
+			return -1;
+		}
+
+		/* If variable does not contain a delimiter, add one to ensure
+		 * it gets entered into the job environment table. Without the
+		 * delimiter, the variable will be silently ignored unless it's
+		 * already set in inits environment. But in that case there is
+		 * no point in setting such a variable to its already existing
+		 * value.
+		 */
+		if (! strchr (*var, '=')) {
+			envvar = NIH_MUST (nih_sprintf (NULL, "%s=", *var));
+		} else {
+			envvar = NIH_MUST (nih_strdup (NULL, *var));
+		}
+
+		if (job) {
+			/* Modify job-specific environment */
+			nih_assert (job->env);
+
+			NIH_MUST (environ_add (&job->env, job, NULL, replace, envvar));
+		} else if (job_class_environment_set (envvar, replace) < 0) {
+			nih_return_no_memory_error (-1);
+		}
+	}
+
+	return 0;
+}
+
+/**
  * control_set_env:
  *
  * @data: not used,
@@ -1280,128 +1393,57 @@ control_set_env (void            *data,
 		 const char      *var,
 		 int              replace)
 {
-	Session         *session;
-	Job             *job = NULL;
-	char            *job_name = NULL;
-	char            *instance = NULL;
-	nih_local char  *envvar = NULL;
-
-	nih_assert (message);
-	nih_assert (job_details);
-
-	if (! control_check_permission (message)) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("You do not have permission to modify job environment"));
-		return -1;
-	}
-
-	if (job_details[0]) {
-		job_name = job_details[0];
-
-		/* this can be a null value */
-		instance = job_details[1];
-	} else if (getpid () == 1) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissible to modify PID 1 job environment"));
-		return -1;
-	}
-
-	if (! var || ! *var) {
+	nih_local char **vars = NULL;
+	
+	if (! var) {
 		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-				_("Variable may not be empty string"));
+					_("Variable may not be empty string"));
 		return -1;
 	}
 
-	/* Verify that job name is valid */
-	if (job_name && ! strlen (job_name)) {
-		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-					     _("Job may not be empty string"));
-		return -1;
-	}
+	vars = NIH_MUST (nih_str_array_new (NULL));
 
-	/* Get the relevant session */
-	session = session_from_dbus (NULL, message);
+	NIH_MUST (nih_str_array_add (&vars, NULL, NULL, var));
 
-	/* Chroot sessions must not be able to influence
-	 * the outside system.
-	 */
-	if (session && session->chroot) {
-		nih_warn (_("Ignoring set env request from chroot session"));
-		return 0;
-	}
-
-	/* Lookup the job */
-	control_get_job (session, job, job_name, instance);
-
-	/* If variable does not contain a delimiter, add one to ensure
-	 * it gets entered into the job environment table. Without the
-	 * delimiter, the variable will be silently ignored unless it's
-	 * already set in inits environment. But in that case there is
-	 * no point in setting such a variable to its already existing
-	 * value.
-	 */
-	if (! strchr (var, '='))
-		envvar = NIH_MUST (nih_sprintf (NULL, "%s=", var));
-	else
-		envvar = NIH_MUST (nih_strdup (NULL, var));
-
-	if (job) {
-		/* Modify job-specific environment */
-
-		nih_assert (job->env);
-
-		NIH_MUST (environ_add (&job->env, job, NULL, replace, envvar));
-		return 0;
-	}
-
-	if (job_class_environment_set (envvar, replace) < 0)
-		nih_return_no_memory_error (-1);
-
-	return 0;
+	return control_set_env_list (data, message, job_details, vars, replace);
 }
 
 /**
- * control_unset_env:
+ * control_unset_env_list:
  *
  * @data: not used,
  * @message: D-Bus connection and message received,
  * @job_details: name and instance of job to apply operation to,
- * @name: variable to clear from the job environment array.
+ * @names: array of variables to clear from the job environment array.
  *
- * Implements the UnsetEnv method of the com.ubuntu.Upstart
+ * Implements the UnsetEnvList method of the com.ubuntu.Upstart
  * interface.
  *
- * Called to request Upstart remove a particular variable from the job
+ * Called to request Upstart remove one or more variables from the job
  * environment array.
  *
  * Returns: zero on success, negative value on raised error.
  **/
 int
-control_unset_env (void            *data,
-		   NihDBusMessage  *message,
-		   char * const    *job_details,
-		   const char      *name)
+control_unset_env_list (void            *data,
+			NihDBusMessage  *message,
+			char * const    *job_details,
+			char * const    *names)
 {
 	Session         *session;
 	Job             *job = NULL;
 	char            *job_name = NULL;
 	char            *instance = NULL;
+	char * const    *name;
 
 	nih_assert (message);
 	nih_assert (job_details);
+	nih_assert (names);
 
 	if (! control_check_permission (message)) {
 		nih_dbus_error_raise_printf (
 			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
 			_("You do not have permission to modify job environment"));
-		return -1;
-	}
-
-	if (! name || ! *name) {
-		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
-				_("Variable may not be empty string"));
 		return -1;
 	}
 
@@ -1438,27 +1480,68 @@ control_unset_env (void            *data,
 	/* Lookup the job */
 	control_get_job (session, job, job_name, instance);
 
-	if (job) {
-		/* Modify job-specific environment */
-
-		nih_assert (job->env);
-
-		if (! environ_remove (&job->env, job, NULL, name))
+	for (name = names; name && *name; name++) {
+		if (! *name) {
+			nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					_("Variable may not be empty string"));
 			return -1;
+		}
 
-		return 0;
+		if (job) {
+			/* Modify job-specific environment */
+			nih_assert (job->env);
+
+			if (! environ_remove (&job->env, job, NULL, *name))
+				return -1;
+		} else if (job_class_environment_unset (*name) < 0) {
+			goto error;
+		}
 	}
-
-	if (job_class_environment_unset (name) < 0)
-		goto error;
 
 	return 0;
 
 error:
 	nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
 			"%s: %s",
-			_("No such variable"), name);
+			_("No such variable"), *name);
 	return -1;
+}
+
+/**
+ * control_unset_env:
+ *
+ * @data: not used,
+ * @message: D-Bus connection and message received,
+ * @job_details: name and instance of job to apply operation to,
+ * @name: variable to clear from the job environment array.
+ *
+ * Implements the UnsetEnv method of the com.ubuntu.Upstart
+ * interface.
+ *
+ * Called to request Upstart remove a particular variable from the job
+ * environment array.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+int
+control_unset_env (void            *data,
+		   NihDBusMessage  *message,
+		   char * const    *job_details,
+		   const char      *name)
+{
+	nih_local char **names = NULL;
+
+	if (! name) {
+		nih_dbus_error_raise_printf (DBUS_ERROR_INVALID_ARGS,
+					_("Variable may not be empty string"));
+		return -1;
+	}
+	
+	names = NIH_MUST (nih_str_array_new (NULL));
+
+	NIH_MUST (nih_str_array_add (&names, NULL, NULL, name));
+
+	return control_unset_env_list (data, message, job_details, names);
 }
 
 /**
