@@ -89,7 +89,19 @@ static NihTimer *
 job_deserialise_kill_timer (json_object *json)
 	__attribute__ ((warn_unused_result));
 
-int
+static int 
+job_destroy (Job *job);
+
+/**
+ * job_destroy:
+ *
+ * @job: Job.
+ *
+ * Called automatically when Job is being destroyed.
+ *
+ * Returns: 0 always.
+ **/
+static int
 job_destroy (Job *job)
 {
 	int  i;
