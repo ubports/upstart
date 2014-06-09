@@ -2253,7 +2253,6 @@ job_deserialise (JobClass *parent, json_object *json)
 		}
 	}
 
-
 	if (json_object_object_get_ex (json, "process_data", &json_process_data)) {
 		if (! state_check_json_type (json_process_data, array))
 			goto error;

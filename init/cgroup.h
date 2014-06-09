@@ -4,12 +4,6 @@
  * 	- add missing states for other job processes.
  * 	- add serialisation / deserialisation support!
  *
- * - XXX: block job from starting unless cgroup_support_enabled() and
- *   cgmanager_connected().
- *
- *   - XXX: need to avoid events being destroyed if a job needs them but
- *     it is blocked on the cgmanager starting!!
- *
  * - test scenarios:
  *   - setuid + cgroup
  *   - setgid + cgroup

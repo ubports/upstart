@@ -546,7 +546,6 @@ error:
 	return NULL;
 }
 
-
 /**
  * cgroup_name_serialise_all:
  *
@@ -1084,7 +1083,6 @@ cgroup_create (const char *controller, const char *path)
 			   pid, controller);
 	}
 
-
 	/* Ask cgmanager to create the cgroup */
 	ret = cgmanager_create_sync (NULL,
 			cgroup_manager,
@@ -1371,7 +1369,6 @@ cgroup_settings_apply (const char  *controller,
 
 		if (ret < 0)
 			return FALSE;
-
 	}
 
 	nih_debug ("Applied cgroup settings to '%s' controller cgroup '%s'",

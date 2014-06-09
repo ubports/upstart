@@ -2582,7 +2582,6 @@ void
 job_process_run_bottom (JobProcessData *process_data)
 {
 	Job          *job;
-	//JobState      state;
 	char         *script;
 	int           shell_fd;
 
@@ -2591,7 +2590,6 @@ job_process_run_bottom (JobProcessData *process_data)
 	job = process_data->job;
 	shell_fd = process_data->shell_fd;
 	script = process_data->script;
-	//state = process_data->state;
 
 	/* Handle job process containing a script section by sending the
 	 * script to the child shell.
@@ -2638,10 +2636,6 @@ job_process_run_bottom (JobProcessData *process_data)
 		process_data->shell_fd = -1;
 		process_data->valid = FALSE;
 	}
-
-	/* Success, so change the job state */
-	//job->state = state;
-	//job->state = job_next_state (job);
 
 	NIH_LIST_FOREACH (control_conns, iter) {
 		NihListEntry   *entry = (NihListEntry *)iter;

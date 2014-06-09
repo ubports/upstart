@@ -2,7 +2,7 @@
  *
  * test_cgroup.c - test suite for init/cgroup.c
  *
- * Copyright  2013 Canonical Ltd.
+ * Copyright © 2013-2014 Canonical Ltd.
  * Author: James Hunt <james.hunt@canonical.com>.
  *
  * This program is free software; you can redistribute it and/or modify
