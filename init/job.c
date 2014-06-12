@@ -483,9 +483,11 @@ job_change_state (Job      *job,
 		case JOB_PRE_STARTING:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SECURITY);
+
 			/* spawn pre-start asynchronously, child
 			 * watcher asynchronously will change goal to
-			 * stop if spawning fails */
+			 * stop if spawning fails.
+			 */
 			if (job->class->process[PROCESS_PRE_START]) {
 				job_process_start (job, PROCESS_PRE_START);
 			}	
@@ -513,9 +515,11 @@ job_change_state (Job      *job,
 		case JOB_SPAWNED:
 			nih_assert (job->goal == JOB_START);
 			nih_assert (old_state == JOB_SPAWNING);
+
 			if (! job->class->process[PROCESS_MAIN]) {
 				state = job_next_state (job);
 			}
+
 			break;
 		case JOB_POST_STARTING:
 			nih_assert (job->goal == JOB_START);
@@ -591,6 +595,7 @@ job_change_state (Job      *job,
 			break;
 		case JOB_KILLED:
 			nih_assert (old_state == JOB_STOPPING);
+
 			if (job->class->process[PROCESS_MAIN]
 			    && (job->pid[PROCESS_MAIN] > 0)) {
 				job_process_kill (job, PROCESS_MAIN);
