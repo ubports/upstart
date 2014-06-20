@@ -1,8 +1,16 @@
 upstart (1.12.1-0ubuntu9) UNRELEASED; urgency=medium
 
+  [ Dimitri John Ledkov ]
   * Add libcgmanager-dev build-dependency.
 
- -- Dimitri John Ledkov <xnox@ubuntu.com>  Thu, 05 Jun 2014 19:04:38 +0100
+  [ Iain Lane ]
+  * xsession-init: Set $GNOME_DESKTOP_SESSION_ID if we are launching a
+    gnome-session session. Some applications (Qt4) require this to be set to
+    any value to detect the environment in use. It was historically set by
+    gnome-session but now this is no longer the root of the session so not all
+    user processes are guaranteed to have it. (LP: #1305294)
+
+ -- Iain Lane <iain.lane@canonical.com>  Fri, 20 Jun 2014 11:11:19 +0100
 
 upstart (1.12.1-0ubuntu8) utopic; urgency=medium
 
