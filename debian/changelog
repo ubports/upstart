@@ -1,3 +1,10 @@
+upstart (1.12.1-0ubuntu11) utopic; urgency=medium
+
+  * Do not fail xsession-init pre-start, if SESSIONTYPE is unset, or
+    setting deprecated gnome-session variable fails for any reason.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 20 Jun 2014 19:07:03 +0100
+
 upstart (1.12.1-0ubuntu10) utopic; urgency=medium
 
   * Revert spurious +x -> -x change on daily upstart cron file.
