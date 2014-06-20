@@ -1,4 +1,4 @@
-upstart (1.12.1-0ubuntu9) UNRELEASED; urgency=medium
+upstart (1.12.1-0ubuntu9) utopic; urgency=medium
 
   [ Dimitri John Ledkov ]
   * Add libcgmanager-dev build-dependency.
@@ -10,7 +10,7 @@ upstart (1.12.1-0ubuntu9) UNRELEASED; urgency=medium
     gnome-session but now this is no longer the root of the session so not all
     user processes are guaranteed to have it. (LP: #1305294)
 
- -- Iain Lane <iain.lane@canonical.com>  Fri, 20 Jun 2014 11:11:19 +0100
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 20 Jun 2014 11:13:27 +0100
 
 upstart (1.12.1-0ubuntu8) utopic; urgency=medium
 
