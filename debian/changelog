@@ -1,6 +1,8 @@
 upstart (1.12.1-0ubuntu10) UNRELEASED; urgency=medium
 
   * Revert spurious +x -> -x change on daily upstart cron file.
+  * Cherrypick reboot command fix to not process REBOOTCOMMAND argument
+    when in runlevels 2-5 and without using force flag. (LP: #1174272)
 
  -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 20 Jun 2014 11:58:10 +0100
 
