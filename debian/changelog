@@ -1,3 +1,9 @@
+upstart (1.12.1-0ubuntu10) UNRELEASED; urgency=medium
+
+  * Revert spurious +x -> -x change on daily upstart cron file.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 20 Jun 2014 11:58:10 +0100
+
 upstart (1.12.1-0ubuntu9) utopic; urgency=medium
 
   [ Dimitri John Ledkov ]
