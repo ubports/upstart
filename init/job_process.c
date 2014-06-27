@@ -2636,15 +2636,6 @@ job_process_run_bottom (JobProcessData *process_data)
 		process_data->shell_fd = -1;
 		process_data->valid = FALSE;
 	}
-
-	NIH_LIST_FOREACH (control_conns, iter) {
-		NihListEntry   *entry = (NihListEntry *)iter;
-		DBusConnection *conn = (DBusConnection *)entry->data;
-
-		NIH_ZERO (job_emit_state_changed (
-					conn, job->path,
-					job_state_name (job->state)));
-	}
 }
 
 
