@@ -2459,6 +2459,9 @@ job_process_child_reader (JobProcessData  *process_data,
 
 	nih_assert (err->number == JOB_PROCESS_ERROR);
 
+	/* Wilco. Out. */
+	nih_io_buffer_shrink (io->recv_buf, len);
+
 	/* Non-temporary error condition */
 	nih_warn (_("Failed to spawn %s %s process: %s"),
 			job_name (job), process_name (process),
@@ -2491,12 +2494,12 @@ job_process_child_reader (JobProcessData  *process_data,
 	/* Note that pts_master is closed automatically in the parent
 	 * when the log object is destroyed.
 	 */
+	process_data->valid = FALSE;
 
 	nih_io_shutdown (io);
 
 	/* Invalidate */
 	process_data->job_process_fd = -1;
-	process_data->valid = FALSE;
 }
 
 /**
@@ -2519,6 +2522,8 @@ job_process_close_handler (JobProcessData  *process_data,
 	 */
 	if (! process_data)
 		return;
+	if (! process_data->valid)
+		return;
 
 	nih_assert (io);
 
@@ -2528,6 +2533,11 @@ job_process_close_handler (JobProcessData  *process_data,
 
 	/* Ensure the job process error fd is closed before attempting
 	 * to handle any scripts.
+	 */
+	/* XXX: is this actually allowed to be called from closed
+	 * handler? since read handler calls io_shutdown, which calls
+	 * close handler, which then aborts here. At the moment,
+	 * return upon !process_data->valid protects from this.
 	 */
 	nih_free (io);
 

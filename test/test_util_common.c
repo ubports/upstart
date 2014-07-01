@@ -1000,7 +1000,7 @@ test_common_cleanup (void)
 			nih_local char *cmd = NULL;
 
 			/* Clean up if tests forgot to */
-			cmd = NIH_MUST (nih_sprintf (NULL, "rm %s/*.session 2>/dev/null", path));
+			cmd = NIH_MUST (nih_sprintf (NULL, "rm -f %s/*.session 2>/dev/null", path));
 			assert0 (system (cmd));
 
 			/* Remove the directory tree the first Session Init created */

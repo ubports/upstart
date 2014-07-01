@@ -150,6 +150,31 @@ static char *argv0;
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
 
+static int child_exit_status;
+
+/**
+ * test_job_process_handler:
+ *
+ * @data: existing NihList that this function will add entries to,
+ * @pid: process that changed,
+ * @event: event that occurred on the child,
+ * @status: exit status, signal raised or ptrace event.
+ *
+ * Handler that just sets some globals and requests the main loop to
+ * exit to allow the test that installs it to check the values passed to
+ * this function as appropriate.
+ **/
+void
+test_job_process_handler (void           *data,
+			  pid_t           pid,
+			  NihChildEvents  event,
+			  int             status)
+{
+	child_exit_status = status;
+	nih_main_loop_exit (0);
+}
+
+
 static void
 child (enum child_tests  test,
        const char       *filename)
@@ -1059,6 +1084,25 @@ test_start (void)
 		nih_free (class);
 	}
 
+	NIH_MUST (nih_child_add_watch (NULL,
+				-1,
+				NIH_CHILD_ALL,
+				job_process_handler,
+				NULL)); 
+	/* Register another handler to be called after the primary
+	 * Upstart handler to allow the test to exit the main loop
+	 * quickly on success.
+	 */
+	NIH_MUST (nih_child_add_watch (NULL,
+				-1,
+				NIH_CHILD_ALL,
+				test_job_process_handler,
+				NULL)); 
+	/* Process the event queue each time through the main loop */
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
+					  NULL));
+
+
 	/* Check that if we try and run a command that doesn't exist,
 	 * job_process_start() raises a ProcessError and the command doesn't
 	 * have any stored process id for it.
@@ -1070,6 +1114,7 @@ test_start (void)
 
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
+			TEST_HASH_EMPTY (job_classes);
 			class = job_class_new (NULL, "test", NULL);
 			class->console = CONSOLE_NONE;
 			class->process[PROCESS_MAIN] = process_new (class);
@@ -1079,12 +1124,17 @@ test_start (void)
 			job = job_new (class, "foo");
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
+
+			nih_hash_add (job_classes, &class->entry);
+			child_exit_status = 0;
 		}
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			TEST_WATCH_LOOP ();
-			event_poll ();
+			pid = job->pid[PROCESS_MAIN];
+			TEST_NE (pid, -1);
+			TEST_EQ (nih_main_loop (), 0);
+			TEST_EQ (child_exit_status, 255);
 		}
 		rewind (output);
 		
@@ -3042,14 +3092,22 @@ test_start (void)
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
 
+	/* XXX: Manually add the class so job_process_find() works */
+	nih_hash_add (job_classes, &class->entry);
+
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
+	child_exit_status = 0;
 	TEST_DIVERT_STDERR (output) {
 		job_process_start (job, PROCESS_MAIN);
-		TEST_WATCH_UPDATE ();
-		TEST_WATCH_UPDATE ();
-		event_poll ();
+		pid = job->pid[PROCESS_MAIN];
+		TEST_NE (pid, -1);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status, 255);
 	}
+
+	TEST_FILE_END (output);
+
 	fclose (output);
 
 	/* We don't expect a logfile to be written since there is no
@@ -3089,6 +3147,9 @@ test_start (void)
 
 	job = job_new (class, "");
 
+	/* XXX: Manually add the class so job_process_find() works */
+	nih_hash_add (job_classes, &class->entry);
+
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
@@ -3096,8 +3157,10 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
+		child_exit_status = 0;
 		job_process_start (job, PROCESS_MAIN);
-		TEST_WATCH_UPDATE ();
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status, 255);
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3171,6 +3234,8 @@ test_start (void)
 	TEST_EQ (errno, ENOENT);
 
 	job = job_new (class, "");
+	/* XXX: Manually add the class so job_process_find() works */
+	nih_hash_add (job_classes, &class->entry);
 
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
@@ -3179,9 +3244,10 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
+		child_exit_status = 0;
 		job_process_start (job, PROCESS_MAIN);
-		TEST_WATCH_UPDATE ();
-		TEST_WATCH_UPDATE ();
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_NE (child_exit_status, 0);
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3192,26 +3258,16 @@ test_start (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
+		child_exit_status = 0;
 		job_process_start (job, PROCESS_POST_STOP);
-		TEST_WATCH_UPDATE ();
-
 		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
 
-		/* Flush the io so that the shell on the client side
-		 * gets the data (the script to execute).
-		 */
-		TEST_WATCH_UPDATE ();
-
-		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
+		TEST_EQ (nih_main_loop (), 0);
 		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		/* Allow the log to be written */
-		TEST_WATCH_UPDATE ();
-
+		TEST_EQ (WEXITSTATUS(child_exit_status), 0);
+		fflush(NULL);
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
-		event_poll ();
 	}
 	fclose (output);
 
