@@ -1430,7 +1430,7 @@ cgroup_enter_groups (NihList  *cgroups)
  *
  * Change the user and group ownership of @path below @controller.
  *
- * Returns: TRUE on success, else FALSE.
+ * Returns: TRUE on success, FALSE on raised error.
  **/
 int
 cgroup_chown (const char  *controller,
