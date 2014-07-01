@@ -1,21 +1,3 @@
-/* TODO:FIXME:XXX:
- * 
- * - *_SETUP states:
- * 	- add missing states for other job processes.
- * 	- add serialisation / deserialisation support!
- *
- * - test scenarios:
- *   - setuid + cgroup
- *   - setgid + cgroup
- *   - setuid + cgroup + fork
- *   - setgid + cgroup + fork
- *   - setuid + cgroup + daemon
- *   - setgid + cgroup + daemon
- *   - ensure *ALL* job pids are put into the cgroup.
- *
- * - test_state.c: test re-exec with cgroups.
- */
-
 /* upstart
  *
  * cgroup.c - cgroup support.
