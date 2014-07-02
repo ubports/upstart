@@ -1,3 +1,16 @@
+2014-07-02  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/tests/data/upstart-1.13.json: Updated with new content containing
+	  both more cgroup stanza jobs and a job with a job process whose
+	  child setup is "in-flight", representing the JobProcessData in the
+	  JSON as 'process_data'.
+	* init/tests/test_state.c: test_cgroup_and_process_data_state():
+	  - Renamed from test_cgroup_state().
+	  - Made cgroup guards more fine-grainded to ensure this test always
+	    runs, but only tests cgroup content if built with cgroup support.
+	  - Pre-process the JSON to pass a valid fd to allow the deserialisation
+	    of the JobProcessData to succeed.
+
 2014-06-04  James Hunt  <james.hunt@ubuntu.com>
 
 	* dbus/com.ubuntu.Upstart.xml: Renamed SetEnvMulti to SetEnvList and
