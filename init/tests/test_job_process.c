@@ -125,6 +125,30 @@
 		TEST_EQ (ok, TRUE); \
 	} while (0)
 
+
+/* 
+ * Register regular child handler.
+ * Register another handler to be called after the primary
+ * Upstart handler to allow the test to exit the main loop
+ * quickly on success.
+ * Process the event queue each time through the main loop
+ */
+
+#define TEST_INSTALL_CHILD_HANDLERS()		                \
+	NIH_MUST (nih_child_add_watch (NULL,			\
+				       -1,			\
+				       NIH_CHILD_ALL,		\
+				       job_process_handler,	\
+				       NULL));			\
+	NIH_MUST (nih_child_add_watch (NULL,			\
+				       -1,			\
+				       NIH_CHILD_ALL,		\
+				       test_job_process_handler,\
+				       NULL));			\
+	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll, \
+					  NULL))
+
+
 /* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
  * kills whatever had /dev/console (usually X).
@@ -150,7 +174,8 @@ static char *argv0;
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
 
-static int child_exit_status;
+static int   child_exit_status;
+static pid_t child_watch_pid;
 
 /**
  * test_job_process_handler:
@@ -170,8 +195,10 @@ test_job_process_handler (void           *data,
 			  NihChildEvents  event,
 			  int             status)
 {
-	child_exit_status = status;
-	nih_main_loop_exit (0);
+	if (pid == child_watch_pid) {
+		child_exit_status = status;
+		nih_main_loop_exit (0);
+	}
 }
 
 
@@ -1084,24 +1111,6 @@ test_start (void)
 		nih_free (class);
 	}
 
-	NIH_MUST (nih_child_add_watch (NULL,
-				-1,
-				NIH_CHILD_ALL,
-				job_process_handler,
-				NULL)); 
-	/* Register another handler to be called after the primary
-	 * Upstart handler to allow the test to exit the main loop
-	 * quickly on success.
-	 */
-	NIH_MUST (nih_child_add_watch (NULL,
-				-1,
-				NIH_CHILD_ALL,
-				test_job_process_handler,
-				NULL)); 
-	/* Process the event queue each time through the main loop */
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll,
-					  NULL));
-
 
 	/* Check that if we try and run a command that doesn't exist,
 	 * job_process_start() raises a ProcessError and the command doesn't
@@ -1109,6 +1118,9 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with no such file");
 	TEST_HASH_EMPTY (job_classes);
+
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
 
 	output = tmpfile ();
 
@@ -1131,8 +1143,8 @@ test_start (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			pid = job->pid[PROCESS_MAIN];
-			TEST_NE (pid, -1);
+			child_watch_pid = job->pid[PROCESS_MAIN];
+			TEST_GT (child_watch_pid, 0);
 			TEST_EQ (nih_main_loop (), 0);
 			TEST_EQ (child_exit_status, 255);
 		}
@@ -1150,6 +1162,8 @@ test_start (void)
 	}
 
 	TEST_EQ (rmdir (dirname), 0);
+
+	TEST_RESET_MAIN_LOOP ();
 
 	TEST_FILENAME (dirname);       
 	TEST_EQ (mkdir (dirname, 0755), 0);
@@ -3071,6 +3085,9 @@ test_start (void)
 	TEST_FEATURE ("with single-line command running an invalid command");
 	TEST_HASH_EMPTY (job_classes);
 
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 	class = job_class_new (NULL, "buzz", NULL);
 	TEST_NE_P (class, NULL);
 
@@ -3100,8 +3117,8 @@ test_start (void)
 	child_exit_status = 0;
 	TEST_DIVERT_STDERR (output) {
 		job_process_start (job, PROCESS_MAIN);
-		pid = job->pid[PROCESS_MAIN];
-		TEST_NE (pid, -1);
+		child_watch_pid = job->pid[PROCESS_MAIN];
+		TEST_GT (child_watch_pid, 0);
 		TEST_EQ (nih_main_loop (), 0);
 		TEST_EQ (child_exit_status, 255);
 	}
@@ -3117,10 +3134,13 @@ test_start (void)
 	TEST_EQ (errno, ENOENT);
 
 	nih_free (class);
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a 1-line post-stop script");
 	TEST_HASH_EMPTY (job_classes);
+
+	TEST_INSTALL_CHILD_HANDLERS ();
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3159,6 +3179,8 @@ test_start (void)
 
 		child_exit_status = 0;
 		job_process_start (job, PROCESS_MAIN);
+		child_watch_pid = job->pid[PROCESS_MAIN];
+		TEST_GT (child_watch_pid, 0);
 		TEST_EQ (nih_main_loop (), 0);
 		TEST_EQ (child_exit_status, 255);
 
@@ -3171,25 +3193,15 @@ test_start (void)
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
 
+		child_exit_status = 0;
 		job_process_start (job, PROCESS_POST_STOP);
-
-		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
-		TEST_WATCH_UPDATE ();
-
-		/* Flush the io so that the shell on the client side
-		 * gets the data (the script to execute).
-		 */
-		TEST_WATCH_UPDATE ();
-
-		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		TEST_WATCH_UPDATE ();
+		child_watch_pid = job->pid[PROCESS_POST_STOP];
+		TEST_GT (child_watch_pid, 0);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status, 0);
 
 		/* .. but the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
-		event_poll ();
 	}
 	fclose (output);
 
@@ -3209,6 +3221,9 @@ test_start (void)
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a 2-line post-stop script");
 	TEST_HASH_EMPTY (job_classes);
+
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
 
 	class = job_class_new (NULL, "asterix", NULL);
 	TEST_NE_P (class, NULL);
@@ -3246,8 +3261,11 @@ test_start (void)
 
 		child_exit_status = 0;
 		job_process_start (job, PROCESS_MAIN);
+		child_watch_pid = job->pid[PROCESS_MAIN];
+		TEST_NE (child_watch_pid, 0);
+
 		TEST_EQ (nih_main_loop (), 0);
-		TEST_NE (child_exit_status, 0);
+		TEST_EQ (child_exit_status, 255);
 
 		/* We don't expect a logfile to be written since there is no
 		 * accompanying shell to write the error.
@@ -3260,41 +3278,31 @@ test_start (void)
 
 		child_exit_status = 0;
 		job_process_start (job, PROCESS_POST_STOP);
-		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
-		nih_message("pid %i", job->pid[PROCESS_POST_STOP]);
+		child_watch_pid = job->pid[PROCESS_POST_STOP];
+		TEST_NE (child_watch_pid, 0);
 
 		TEST_EQ (nih_main_loop (), 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS(child_exit_status), 0);
-		fflush(NULL);
-
-		//FIXME the above printed pid just hangs with
-		//descriptors 9 and 10 open to pipes waiting for
-		//script to arrive, investigate by e.g. making the
-		//test hang in a mainloop below
-		//nih_main_loop();
-		
-		//expected asserts are commented out below.
+		TEST_EQ (child_exit_status, 0);
 		
 		/* .. but the post stop should have written data */
-		//TEST_EQ (stat (filename, &statbuf), 0);
-		//FIXME
+		TEST_EQ (stat (filename, &statbuf), 0);
 	}
 	fclose (output);
 
 	/* check file contents */
-	//output = fopen (filename, "r");
-	//TEST_NE_P (output, NULL);
+	output = fopen (filename, "r");
+	TEST_NE_P (output, NULL);
 
-	//CHECK_FILE_EQ (output, "hello\r\n", TRUE);
-	//CHECK_FILE_EQ (output, "world\r\n", TRUE);
+	CHECK_FILE_EQ (output, "hello\r\n", TRUE);
+	CHECK_FILE_EQ (output, "world\r\n", TRUE);
 
-	//TEST_FILE_END (output);
-	//fclose (output);
+	TEST_FILE_END (output);
+	fclose (output);
 
-	//TEST_EQ (unlink (filename), 0);
+	TEST_EQ (unlink (filename), 0);
 
 	nih_free (class);
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then a post-stop command");
