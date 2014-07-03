@@ -2534,11 +2534,6 @@ job_process_close_handler (JobProcessData  *process_data,
 	/* Ensure the job process error fd is closed before attempting
 	 * to handle any scripts.
 	 */
-	/* XXX: is this actually allowed to be called from closed
-	 * handler? since read handler calls io_shutdown, which calls
-	 * close handler, which then aborts here. At the moment,
-	 * return upon !process_data->valid protects from this.
-	 */
 	nih_free (io);
 
 	/* invalidate */
