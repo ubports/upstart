@@ -405,7 +405,9 @@ log_file_open (Log *log)
 	struct stat  statbuf;
 	int          ret = -1;
 	int          mode = LOG_DEFAULT_MODE;
+#if 1
 	mode_t       old;
+#endif
 	int          flags = (O_CREAT | O_APPEND | O_WRONLY |
 			      O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
 
@@ -440,7 +442,11 @@ log_file_open (Log *log)
 	nih_assert (log->fd == -1);
 
 	/* Impose some sane defaults. */
+#if 1
 	old = umask (LOG_DEFAULT_UMASK);
+#else
+	umask (LOG_DEFAULT_UMASK);
+#endif
 
 	/* Non-blocking to avoid holding up the main loop. Without
 	 * this, we'd probably need to spawn a thread to handle
@@ -449,7 +455,9 @@ log_file_open (Log *log)
 	log->fd = open (log->path, flags, mode);
 
 	/* Restore */
+#if 1
 	umask (old);
+#endif
 
 	log->open_errno = errno;
 
