@@ -1,3 +1,12 @@
+2014-07-03  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c:
+	  - job_process_data_serialise(): Serialise status.
+	  - job_process_data_deserialise(): Deserialise status.
+	* init/tests/data/upstart-1.13.json: Add missing JobProcessData->status.
+	* init/tests/test_state.c: test_cgroup_and_process_data_state():
+	  - Ensure JobProcessData recreated in expected form.
+
 2014-07-02  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/data/upstart-1.13.json: Updated with new content containing

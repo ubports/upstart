@@ -4588,6 +4588,9 @@ test_cgroup_and_process_data_state (const char *path)
 	size_t            len;
 	int               fds[2] = { -1, -1 };
 	nih_local char   *read_fd_str = NULL;
+	JobClass         *class;
+	Job              *job;
+	JobProcessData   *process_data;
 
 	nih_assert (path);
 
@@ -4658,6 +4661,26 @@ test_cgroup_and_process_data_state (const char *path)
 	TEST_NE_P (cgroup_manager_address, NULL);
 	TEST_EQ_STR (cgroup_manager_address, cgroup_address);
 #endif /* ENABLE_CGROUPS */
+
+	class = (JobClass *)nih_hash_lookup (job_classes, "upstart-force-slow-child");
+	TEST_NE_P (class, NULL);
+
+	job = (Job *)nih_hash_lookup (class->instances, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_GE (job->pid[PROCESS_MAIN], 1);
+
+	TEST_NE_P (job->process_data, NULL);
+	process_data = job->process_data[PROCESS_MAIN];
+	TEST_NE_P (process_data, NULL);
+
+	TEST_EQ_P (process_data->job, job);
+	TEST_EQ (process_data->process, PROCESS_MAIN);
+	TEST_EQ_P (process_data->script, NULL);
+	TEST_EQ (process_data->shell_fd, -1);
+	TEST_EQ (process_data->job_process_fd, fds[0]);
+	TEST_EQ (process_data->status, 0);
+	TEST_TRUE (process_data->valid);
 
 	TEST_LIST_EMPTY (sessions);
 	TEST_LIST_NOT_EMPTY (events);

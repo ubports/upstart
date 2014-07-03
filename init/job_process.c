@@ -2735,10 +2735,13 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 	if (! state_set_json_int_var_from_obj (json, process_data, shell_fd))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, process_data, valid))
+	if (! state_set_json_int_var_from_obj (json, process_data, job_process_fd))
 		goto error;
 
-	if (! state_set_json_int_var_from_obj (json, process_data, job_process_fd))
+	if (! state_set_json_int_var_from_obj (json, process_data, status))
+		goto error;
+
+	if (! state_set_json_int_var_from_obj (json, process_data, valid))
 		goto error;
 
 	return json;
@@ -2786,6 +2789,9 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, process_data, shell_fd))
+		goto error;
+
+	if (! state_get_json_int_var_to_obj (json, process_data, status))
 		goto error;
 
 	if (! state_get_json_int_var_to_obj (json, process_data, valid))

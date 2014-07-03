@@ -13620,6 +13620,7 @@
                      "script" : null,
                      "job_process_fd" : @JOB_PROCESS_FD@,
                      "process" : "PROCESS_MAIN",
+		     "status" : 0,
                      "shell_fd" : -1
                   },
                   null,
