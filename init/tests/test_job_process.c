@@ -4143,7 +4143,7 @@ test_start (void)
 	job->state = JOB_SPAWNED;
 
 	job_process_start (job, PROCESS_MAIN);
-	while (stat (filename, &statbuf) != 0) {
+	while (stat (filename, &statbuf) != 0 || statbuf.st_size < 9) {
 		TEST_WATCH_UPDATE ();
 	}
 	pid = job->pid[PROCESS_MAIN];
@@ -4155,9 +4155,7 @@ test_start (void)
 	TEST_NE_P (output, NULL);
 
 	/* initial output from main process */
-	CHECK_FILE_EQ (output, "started\r\n", TRUE);
-
-	TEST_FILE_END (output);
+	TEST_FILE_EQ (output, "started\r\n");
 
 	TEST_EQ (fclose (output), 0);
 
@@ -4171,7 +4169,10 @@ test_start (void)
 	waitpid (pid, &status, 0);
 	TEST_TRUE (WIFEXITED (status));
 	TEST_EQ (WEXITSTATUS (status), 0);
-	TEST_WATCH_UPDATE ();
+
+	while (stat (filename, &statbuf) != 0 || statbuf.st_size < 25) {
+		TEST_WATCH_UPDATE ();
+	}
 
 	output = fopen (filename, "r");
 	TEST_NE_P (output, NULL);
