@@ -1,11 +1,8 @@
-/*
- * FIXME: test_job_process has been left behind
- */
 /* upstart
  *
  * test_job_process.c - test suite for init/job_process.c
  *
- * Copyright  2011 Canonical Ltd.
+ * Copyright © 2011-2014 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -5489,10 +5486,15 @@ test_handler (void)
 	unsigned long   data;
 	struct timespec now;
 	char            dirname[PATH_MAX];
+	nih_local char *logfile = NULL;
+	int             fds[2] = { -1, -1};
 
 	TEST_FILENAME (dirname);       
 	TEST_EQ (mkdir (dirname, 0755), 0);
 	TEST_EQ (setenv ("UPSTART_LOGDIR", dirname, 1), 0);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s.log",
+				dirname, "test"));
 
 	TEST_FUNCTION ("job_process_handler");
 	program_name = "test";
@@ -5763,6 +5765,9 @@ test_handler (void)
 	class->process[PROCESS_PRE_START] = process_new (class);
 	class->process[PROCESS_PRE_START]->command = "echo";
 
+	assert0 (pipe (fds));
+	close (fds[1]);
+
 	TEST_ALLOC_FAIL {
 		TEST_ALLOC_SAFE {
 			job = job_new (class, "");
@@ -5770,6 +5775,9 @@ test_handler (void)
 			blocked = blocked_new (job, BLOCKED_EVENT, event);
 			event_block (event);
 			nih_list_add (&job->blocking, &blocked->entry);
+
+			job->process_data[PROCESS_PRE_START] = NIH_MUST (
+					job_process_data_new (job->process_data, job, PROCESS_PRE_START, fds[0]));
 		}
 
 		job->goal = JOB_START;
@@ -5812,9 +5820,12 @@ test_handler (void)
 		nih_free (job);
 	}
 
+	close (fds[0]);
+
 	nih_free (class->process[PROCESS_PRE_START]);
 	class->process[PROCESS_PRE_START] = NULL;
 
+	unlink (logfile);
 
 	/* Check that we can handle a failing pre-start process of the job,
 	 * which changes the goal to stop and transitions a state change in
@@ -5890,6 +5901,7 @@ test_handler (void)
 	nih_free (class->process[PROCESS_PRE_START]);
 	class->process[PROCESS_PRE_START] = NULL;
 
+	unlink (logfile);
 
 	/* Check that we can handle a killed starting task, which should
 	 * act as if it failed.  A different error should be output and
@@ -5964,6 +5976,7 @@ test_handler (void)
 	nih_free (class->process[PROCESS_PRE_START]);
 	class->process[PROCESS_PRE_START] = NULL;
 
+	unlink (logfile);
 
 	/* Check that we can catch the running task of a service stopping
 	 * with an error, and if the job is to be respawned, go into
