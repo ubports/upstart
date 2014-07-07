@@ -11052,6 +11052,8 @@ test_reexec (void)
 	FILE            *file;
 	int              ok;
 	int              ret;
+	mode_t           expected_umask;
+	size_t           len;
 
 	TEST_GROUP ("re-exec support");
 
@@ -11315,6 +11317,80 @@ test_reexec (void)
 	nih_free (output);
 
 	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure re-exec does not disrupt umask");
+
+	contents = nih_sprintf (NULL, "exec sh -c umask");
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "umask.conf", contents);
+	nih_free (contents);
+
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
+
+	cmd = nih_sprintf (NULL, "%s start umask 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	/* Wait for log to be created */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	contents = nih_file_read (NULL, logfile, &len);
+	TEST_NE_P (contents, NULL);
+	TEST_TRUE (len);
+
+	/* overwrite '\n' */
+	contents[len-1] = '\0';
+
+	expected_umask = (mode_t)atoi (contents);
+	assert0 (unlink (logfile));
+	nih_free (contents);
+
+	/* Restart */
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Re-run job */
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* Wait for log to be recreated */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	contents = nih_file_read (NULL, logfile, &len);
+	TEST_NE_P (contents, NULL);
+	TEST_TRUE (len);
+
+	/* overwrite '\n' */
+	contents[len-1] = '\0';
+
+	TEST_EQ (expected_umask, (mode_t)atoi (contents));
+
+	STOP_UPSTART (upstart_pid);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
 
 	/*******************************************************************/
 
