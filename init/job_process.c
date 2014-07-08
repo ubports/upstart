@@ -1474,6 +1474,11 @@ job_process_handler (void           *data,
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
+	
+	/* Child setup process died, before finishing the setup.
+	 */
+	if (job->process_data[process] && job->process_data[process]->valid)
+		return;
 
 	/* Check the job's normal exit clauses to see whether this is a failure
 	 * worth warning about.
@@ -2457,7 +2462,12 @@ job_process_child_reader (JobProcessData  *process_data,
 
 	err = nih_error_get ();
 
-	nih_assert (err->number == JOB_PROCESS_ERROR);
+	if (err->number != JOB_PROCESS_ERROR) {
+		nih_warn ("%s: %s", _("Temporary process spawn error"),
+			  err->message);
+		nih_free (err);
+		return;
+	}
 
 	/* Wilco. Out. */
 	nih_io_buffer_shrink (io->recv_buf, len);

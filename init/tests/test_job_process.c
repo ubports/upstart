@@ -146,6 +146,15 @@
 					  NULL))
 
 
+#define TEST_CLEAR_CHILD_STATUS()				\
+	do {							\
+		child_exit_after = 1;				\
+		for (int _i = 0; _i < PROCESS_LAST; _i++) {	\
+			child_exit_status[_i] = -1;		\
+		}						\
+	} while (0)
+
+
 /* Sadly we can't test everything that job_process_spawn() does simply because
  * a lot of it can only be done by root, or in the case of the console stuff,
  * kills whatever had /dev/console (usually X).
@@ -171,8 +180,8 @@ static char *argv0;
 static int get_available_pty_count (void) __attribute__((unused));
 static void close_all_files (void);
 
-static int   child_exit_status;
-static pid_t child_watch_pid;
+static int child_exit_status[PROCESS_LAST];
+static int child_exit_after;
 
 /**
  * test_job_process_handler:
@@ -192,10 +201,12 @@ test_job_process_handler (void           *data,
 			  NihChildEvents  event,
 			  int             status)
 {
-	if (pid == child_watch_pid) {
-		child_exit_status = status;
+	if (event != NIH_CHILD_EXITED)
+		return;
+	child_exit_after--;
+	child_exit_status[child_exit_after] = status;
+	if (child_exit_after < 1)
 		nih_main_loop_exit (0);
-	}
 }
 
 
@@ -1135,15 +1146,14 @@ test_start (void)
 			job->state = JOB_SPAWNED;
 
 			nih_hash_add (job_classes, &class->entry);
-			child_exit_status = 0;
+			TEST_CLEAR_CHILD_STATUS ();
 		}
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			child_watch_pid = job->pid[PROCESS_MAIN];
-			TEST_GT (child_watch_pid, 0);
+			TEST_GT (job->pid[PROCESS_MAIN], 0);
 			TEST_EQ (nih_main_loop (), 0);
-			TEST_EQ (child_exit_status, 255);
+			TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
 		}
 		rewind (output);
 		
@@ -3111,13 +3121,12 @@ test_start (void)
 
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
-	child_exit_status = 0;
+	TEST_CLEAR_CHILD_STATUS ();
 	TEST_DIVERT_STDERR (output) {
 		job_process_start (job, PROCESS_MAIN);
-		child_watch_pid = job->pid[PROCESS_MAIN];
-		TEST_GT (child_watch_pid, 0);
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (nih_main_loop (), 0);
-		TEST_EQ (child_exit_status, 255);
+		TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
 	}
 
 	TEST_FILE_END (output);
@@ -3174,30 +3183,17 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		child_exit_status = 0;
+		TEST_CLEAR_CHILD_STATUS ();
+		child_exit_after = 2;
 		job_process_start (job, PROCESS_MAIN);
-		child_watch_pid = job->pid[PROCESS_MAIN];
-		TEST_GT (child_watch_pid, 0);
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
 		TEST_EQ (nih_main_loop (), 0);
-		TEST_EQ (child_exit_status, 255);
-
-		/* We don't expect a logfile to be written since there is no
-		 * accompanying shell to write the error.
-		 */
-		TEST_EQ (stat (filename, &statbuf), -1);
-		TEST_EQ (errno, ENOENT);
-
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		child_exit_status = 0;
-		job_process_start (job, PROCESS_POST_STOP);
-		child_watch_pid = job->pid[PROCESS_POST_STOP];
-		TEST_GT (child_watch_pid, 0);
-		TEST_EQ (nih_main_loop (), 0);
-		TEST_EQ (child_exit_status, 0);
-
-		/* .. but the post stop should have written data */
+		/* Check exit status in reverse order */
+		/* Main */
+		TEST_EQ (child_exit_status[1], 255);
+		/* Post-stop */
+		TEST_EQ (child_exit_status[0], 0);
+		/* And the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
 	}
 	fclose (output);
@@ -3256,32 +3252,16 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
-		child_exit_status = 0;
+		TEST_CLEAR_CHILD_STATUS ();
+		child_exit_after = 2;
 		job_process_start (job, PROCESS_MAIN);
-		child_watch_pid = job->pid[PROCESS_MAIN];
-		TEST_NE (child_watch_pid, 0);
+		TEST_NE (job->pid[PROCESS_MAIN], 0);
 
 		TEST_EQ (nih_main_loop (), 0);
-		TEST_EQ (child_exit_status, 255);
-
-		/* We don't expect a logfile to be written since there is no
-		 * accompanying shell to write the error.
-		 */
-		TEST_EQ (stat (filename, &statbuf), -1);
-		TEST_EQ (errno, ENOENT);
-
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		child_exit_status = 0;
-		job_process_start (job, PROCESS_POST_STOP);
-		child_watch_pid = job->pid[PROCESS_POST_STOP];
-		TEST_NE (child_watch_pid, 0);
-
-		TEST_EQ (nih_main_loop (), 0);
-		TEST_EQ (child_exit_status, 0);
+		TEST_EQ (child_exit_status[1], 255);
+		TEST_EQ (child_exit_status[0], 0);
 		
-		/* .. but the post stop should have written data */
+		/* And the post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
 	}
 	fclose (output);
@@ -3522,6 +3502,9 @@ test_start (void)
 	TEST_FEATURE ("with multi-line script running an invalid command");
 	TEST_HASH_EMPTY (job_classes);
 
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 	class = job_class_new (NULL, "blah", NULL);
 	TEST_NE_P (class, NULL);
 
@@ -3538,17 +3521,14 @@ test_start (void)
 	job = job_new (class, "");
 	job->goal = JOB_START;
 	job->state = JOB_SPAWNED;
+	nih_hash_add (job_classes, &class->entry);
+	TEST_CLEAR_CHILD_STATUS ();
+	child_exit_after = 4;
 
 	job_process_start (job, PROCESS_MAIN);
-	TEST_WATCH_UPDATE ();
-
-	TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-	TEST_WATCH_UPDATE ();
-	waitpid (job->pid[PROCESS_MAIN], &status, 0);
-	TEST_TRUE (WIFEXITED (status));
-	TEST_NE (WEXITSTATUS (status), 0);
-	TEST_WATCH_UPDATE ();
+	TEST_GT (job->pid[PROCESS_MAIN], 0);
+	TEST_EQ (nih_main_loop (), 0);
+	TEST_EQ (child_exit_status[0], 127);
 
 	TEST_EQ (stat (filename, &statbuf), 0);
 
@@ -3577,6 +3557,7 @@ test_start (void)
 
 	TEST_EQ (unlink (filename), 0);
 	nih_free (class);
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script that writes 1 line to stdout then 1 line to stderr");
@@ -4052,6 +4033,9 @@ test_start (void)
 	 */
 	TEST_FEATURE ("with setuid");
 	TEST_HASH_EMPTY (job_classes);
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 
 	TEST_NE_P (output, NULL);
 	TEST_ALLOC_FAIL {
@@ -4074,30 +4058,30 @@ test_start (void)
 			job->goal = JOB_START;
 			job->state = JOB_SPAWNED;
 
+			nih_hash_add (job_classes, &class->entry);
+			TEST_CLEAR_CHILD_STATUS ();
+
 			output = tmpfile ();
 		}
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			TEST_WATCH_UPDATE ();
+			TEST_GT (job->pid[PROCESS_MAIN], 0);
+			TEST_EQ (nih_main_loop (), 0);
 		}
 
 		if (geteuid() == 0 || getuid() == pwd->pw_uid) {
-			TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-			waitpid (job->pid[PROCESS_MAIN], NULL, 0);
 			TEST_EQ (stat (filename, &statbuf), 0);
-		}
-		else {
+		} else {
 			TEST_EQ (stat (filename, &statbuf), -1);
-			event_poll ();
 		}
 
 		unlink (filename);
 		nih_free (class);
 	}
+	
+	TEST_RESET_MAIN_LOOP ();
 
-	/* FIXME with async spawn this test is racy */
 
 	/************************************************************/
 	TEST_FEATURE ("with multiple processes and log");
@@ -4137,7 +4121,7 @@ test_start (void)
 
 	job = job_new (class, "");
 	job->goal = JOB_START;
-	job->state = JOB_SPAWNED;
+	job->state = JOB_SPAWNING;
 
 	job_process_start (job, PROCESS_MAIN);
 	while (stat (filename, &statbuf) != 0 || statbuf.st_size < 9) {
@@ -5869,6 +5853,7 @@ test_handler (void)
 		job->failed = FALSE;
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
+		job->process_data[PROCESS_PRE_START]->valid = FALSE;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 		TEST_EQ (job->state, JOB_SPAWNED);
