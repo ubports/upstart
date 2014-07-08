@@ -601,38 +601,44 @@ main (int   argc,
 		}
 	}
 
-	/* Read configuration */
-	if (prepend_conf_dirs[0]) {
-		for (char **d = prepend_conf_dirs; d && *d; d++) {
-			nih_debug ("Prepending configuration directory %s", *d);
-			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+	/* Only honour command-line options affecting configuration
+	 * directories if not restarting, or if performing a stateless
+	 * re-exec.
+	 */
+	if (! restart || (restart && state_fd == -1)) {
+		/* Read configuration */
+		if (prepend_conf_dirs[0]) {
+			for (char **d = prepend_conf_dirs; d && *d; d++) {
+				nih_debug ("Prepending configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
 		}
-	}
 
-	if (! user_mode) {
-		nih_assert (conf_dirs[0]);
+		if (! user_mode) {
+			nih_assert (conf_dirs[0]);
 
-		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+			NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 
-		for (char **d = conf_dirs; d && *d; d++) {
-			nih_debug ("Using configuration directory %s", *d);
-			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			for (char **d = conf_dirs; d && *d; d++) {
+				nih_debug ("Using configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
+		} else {
+			nih_local char **dirs = NULL;
+
+			dirs = NIH_MUST (get_user_upstart_dirs ());
+
+			for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
+				nih_debug ("Using configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
 		}
-	} else {
-		nih_local char **dirs = NULL;
 
-		dirs = NIH_MUST (get_user_upstart_dirs ());
-
-		for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
-			nih_debug ("Using configuration directory %s", *d);
-			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
-		}
-	}
-
-	if (append_conf_dirs[0]) {
-		for (char **d = append_conf_dirs; d && *d; d++) {
-			nih_debug ("Adding configuration directory %s", *d);
-			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		if (append_conf_dirs[0]) {
+			for (char **d = append_conf_dirs; d && *d; d++) {
+				nih_debug ("Adding configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
 		}
 	}
 
@@ -643,6 +649,9 @@ main (int   argc,
 	job_class_environment_init ();
 
 	conf_reload ();
+
+	/* We must have atleast one source of configuration */
+	nih_assert (! NIH_LIST_EMPTY (conf_sources));
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {

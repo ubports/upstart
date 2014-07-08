@@ -1,3 +1,9 @@
+2014-07-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/main.c: main():
+	  - Only create inotify watches if not restarting or if performing a
+	    stateless re-exec (LP: #1338637).
+
 2014-07-07  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/tests/test_job_process.c: test_handler():
