@@ -194,6 +194,10 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 
 void job_process_error_handler (const char *buf, size_t len);
 
+void job_process_error_abort     (int fd, JobProcessErrorType type,
+					 int arg)
+	__attribute__ ((noreturn));
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_PROCESS_H */

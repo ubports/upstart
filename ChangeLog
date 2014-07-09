@@ -1,3 +1,18 @@
+2014-07-09  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/job_process.c: Unhide job_process_error_abort() to allow it to be
+	  called by the tests.
+	* init/tests/test_job_process.c: RESILIENT_TEST_CHILD(): New macro
+	  to work around a bug in NIH's TEST_CHILD() where it doesn't handle
+	  EINTR.
+	* init/tests/test_job_process.c: test_handler(): New tests to ensure
+	  async handling can cope with both 'waitid() before select()' and
+	  vice versa:
+	  - "with child exit notification before child setup success notification"
+	  - "with child exit notification before child setup failure notification"
+	  - "with child setup success notification before child exit notification"
+	  - "with child setup failure notification before child exit notification"
+
 2014-07-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/main.c: main():

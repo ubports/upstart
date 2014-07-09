@@ -111,9 +111,6 @@ char *log_dir = NULL;
 int disable_respawn = FALSE;
 
 /* Prototypes for static functions */
-static void job_process_error_abort     (int fd, JobProcessErrorType type,
-					 int arg)
-	__attribute__ ((noreturn));
 static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd);
 
 /**
@@ -983,7 +980,7 @@ job_process_spawn_with_fd (Job          *job,
  *
  * This function calls the exit() system call, so never returns.
  **/
-static void
+void
 job_process_error_abort (int                 fd,
 			 JobProcessErrorType type,
 			 int                 arg)
