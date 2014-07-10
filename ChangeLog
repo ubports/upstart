@@ -3,6 +3,13 @@
 	* init/main.c: main():
 	  - Only create inotify watches if not restarting or if performing a
 	    stateless re-exec (LP: #1338637).
+	* init/job_process.c:
+	  - job_process_data_serialise():
+	    - Unconditionally toggle CLOEXEC for job_process_fd (LP: #1338968).
+	    - Disregard valid flag when toggling CLOEXEC for script_fd since if
+	      the JobProcessData still exists, we need the fd to persist across
+	      the re-exec.
+	  - job_process_data_deserialise(): As above.
 
 2014-07-07  James Hunt  <james.hunt@ubuntu.com>
 
