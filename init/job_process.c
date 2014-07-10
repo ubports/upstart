@@ -1471,11 +1471,6 @@ job_process_handler (void           *data,
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
-	
-	/* Child setup process died, before finishing the setup.
-	 */
-	if (job->process_data[process] && job->process_data[process]->valid)
-		return;
 
 	/* Check the job's normal exit clauses to see whether this is a failure
 	 * worth warning about.
@@ -2719,6 +2714,8 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 	if (! process_data)
 		return json;
 
+	nih_assert (process_data->job_process_fd != -1);
+
 	/* XXX: Note that Job is not serialised; it's not necessary
 	 * since the JobProcessData itself is serialised within its Job
 	 * and the job pointer can be reinstated on deserialisation.
@@ -2732,17 +2729,16 @@ job_process_data_serialise (const Job *job, const JobProcessData *process_data)
 	if (! state_set_json_string_var_from_obj (json, process_data, script))
 		goto error;
 
-	if (process_data->shell_fd != -1 && process_data->valid) {
-
-		/* Clear the cloexec flag to ensure the descriptors
-		 * remains open across the re-exec.
-		 */
+	/* Clear the cloexec flag to ensure the descriptors
+	 * remains open across the re-exec.
+	 */
+	if (process_data->shell_fd != -1) {
 		if (state_modify_cloexec (process_data->shell_fd, FALSE) < 0)
 			goto error;
-
-		if (state_modify_cloexec (process_data->job_process_fd, FALSE) < 0)
-			goto error;
 	}
+
+	if (state_modify_cloexec (process_data->job_process_fd, FALSE) < 0)
+		goto error;
 
 	if (! state_set_json_int_var_from_obj (json, process_data, shell_fd))
 		goto error;
@@ -2809,16 +2805,16 @@ job_process_data_deserialise (void *parent, Job *job, json_object *json)
 	if (! state_get_json_int_var_to_obj (json, process_data, valid))
 		goto error;
 
-	if (process_data->shell_fd != -1 && process_data->valid) {
-		/* Reset the cloexec flag to ensure the descriptors
-		 * are not leaked to any child processes.
-		 */
+	/* Reset the cloexec flag to ensure the descriptors
+	 * are not leaked to any child processes.
+	 */
+	if (process_data->shell_fd != -1) {
 		if (state_modify_cloexec (process_data->shell_fd, TRUE) < 0)
 			goto error;
-
-		if (state_modify_cloexec (process_data->job_process_fd, TRUE) < 0)
-			goto error;
 	}
+
+	if (state_modify_cloexec (process_data->job_process_fd, TRUE) < 0)
+		goto error;
 
 	return process_data;
 
