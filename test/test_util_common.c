@@ -1097,11 +1097,6 @@ read_from_fd (void *parent, int fd)
 				buffer->size - buffer->len);
 
 		if (len < 0 && errno != EAGAIN && errno != EINTR) {
-#if 0
-			fprintf (stderr, "XXX:%s:%d:len=%d (errno=%d), buffer->len=%d\n",
-					__func__, __LINE__, (int)len, errno,
-					(int)buffer->len);
-#endif
 			break;
 		} else if (! len) {
 			break;

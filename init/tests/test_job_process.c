@@ -8946,8 +8946,12 @@ test_handler (void)
 	TEST_NE_P (job->process_data[PROCESS_MAIN], NULL);
 
 	close (fds[0]);
-	nih_free (job);
 
+	pid = job->pid[PROCESS_MAIN];
+
+	TEST_EQ (timed_waitpid (pid, 5), pid);
+
+	nih_free (job);
 	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
@@ -9012,8 +9016,10 @@ test_handler (void)
 	buffer = read_from_fd (NULL, fds[0]);
 	close (fds[0]);
 
-	nih_free (job);
+	pid = job->pid[PROCESS_MAIN];
+	TEST_EQ (timed_waitpid (pid, 5), pid);
 
+	nih_free (job);
 	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
@@ -9050,7 +9056,6 @@ test_handler (void)
 		execl ("/bin/true", "/bin/true", NULL);
 	}
 	close (fds[1]);
-	pid = job->pid[PROCESS_MAIN];
 
 	job_process_close_handler (job->process_data[PROCESS_MAIN], io);
 
@@ -9067,10 +9072,11 @@ test_handler (void)
 	TEST_EQ (job->process_data[PROCESS_MAIN]->status, 0);
 
 	close (fds[0]);
+
+	pid = job->pid[PROCESS_MAIN];
+	TEST_EQ (timed_waitpid (pid, 5), pid);
+
 	nih_free (job);
-
-	waitpid (pid, &status, 0);
-
 	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
@@ -9106,7 +9112,6 @@ test_handler (void)
 		close (fds[0]);
 		nih_error_raise_no_memory ();
 		job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_SETUP, 0);
-
 	}
 	close (fds[1]);
 	pid = job->pid[PROCESS_MAIN];
@@ -9134,6 +9139,8 @@ test_handler (void)
 	TEST_EQ (job->process_data[PROCESS_MAIN]->status, 0);
 
 	close (fds[0]);
+
+	TEST_EQ (timed_waitpid (pid, 5), pid);
 
 	nih_free (job);
 
