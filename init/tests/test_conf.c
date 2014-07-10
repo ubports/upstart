@@ -4730,9 +4730,6 @@ test_source_reload (void)
 				got = 1;
 				break;
 			}
-			if (job->process_data[PROCESS_MAIN]) {
-				job->process_data[PROCESS_MAIN]->valid = FALSE;
-			}
 		}
 
 		if (got || attempts == JOB_STOP_ATTEMPTS)
@@ -4921,10 +4918,6 @@ test_source_reload (void)
 				got = 1;
 				break;
 			}
-			if (job->process_data[PROCESS_MAIN]) {
-				job->process_data[PROCESS_MAIN]->valid = FALSE;
-			}
-
 		}
 
 		if (got || attempts == JOB_STOP_ATTEMPTS)

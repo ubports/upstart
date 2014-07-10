@@ -1474,11 +1474,6 @@ job_process_handler (void           *data,
 	job = job_process_find (pid, &process);
 	if (! job)
 		return;
-	
-	/* Child setup process died, before finishing the setup.
-	 */
-	if (job->process_data[process] && job->process_data[process]->valid)
-		return;
 
 	/* Check the job's normal exit clauses to see whether this is a failure
 	 * worth warning about.
