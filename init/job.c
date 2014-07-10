@@ -396,11 +396,6 @@ job_change_state (Job      *job,
 {
 	nih_assert (job != NULL);
 
-	/* We may not be blocked by any events when doing first
-	 * transition.
-	 */
-	nih_assert (job->blocker == NULL);
-
 	while (job->state != state) {
 		JobState old_state;
 		int      unused;
