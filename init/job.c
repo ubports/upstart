@@ -355,13 +355,17 @@ job_change_goal (Job     *job,
 	 */
 	switch (goal) {
 	case JOB_START:
-		if (job->state == JOB_WAITING)
+		if (job->state == JOB_WAITING) {
+			nih_assert (job->blocker == NULL);
 			job_change_state (job, job_next_state (job));
+		}
 
 		break;
 	case JOB_STOP:
-		if (job->state == JOB_RUNNING)
+		if (job->state == JOB_RUNNING) {
+			nih_assert (job->blocker == NULL);
 			job_change_state (job, job_next_state (job));
+		}
 
 		break;
 	case JOB_RESPAWN:
@@ -2661,26 +2665,31 @@ job_child_error_handler (Job *job, ProcessType process)
 	case PROCESS_PRE_START:
 		job_failed (job, PROCESS_PRE_START, -1);
 		job_change_goal (job, JOB_STOP);
+		nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_MAIN:
 		job_failed (job, PROCESS_MAIN, -1);
 		job_change_goal (job, JOB_STOP);
+		nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_POST_START:
+		nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_PRE_STOP:
+		nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		break;
 
 	case PROCESS_POST_STOP:
 		job_failed (job, PROCESS_POST_STOP, -1);
 		job_change_goal (job, JOB_STOP);
+		nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		break;
 
