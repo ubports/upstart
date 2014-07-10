@@ -5853,7 +5853,6 @@ test_handler (void)
 		job->failed = FALSE;
 		job->failed_process = PROCESS_INVALID;
 		job->exit_status = 0;
-		job->process_data[PROCESS_PRE_START]->valid = FALSE;
 
 		job_process_handler (NULL, 1, NIH_CHILD_EXITED, 0);
 		TEST_EQ (job->state, JOB_SPAWNED);
