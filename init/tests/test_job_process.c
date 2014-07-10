@@ -8932,20 +8932,16 @@ test_handler (void)
 	TEST_EQ (job->process_data[PROCESS_MAIN]->shell_fd, -1);
 	TEST_EQ_P (job->process_data[PROCESS_MAIN]->script, NULL);
 
-	/* job_process_terminated() should not have been called since
-	 * the childs I/O handlers haven't reacted yet.
+	/* job_process_terminated() should have been called now and the
+	 * status recorded.
 	 */
-	TEST_EQ (job->process_data[PROCESS_MAIN]->status, -1);
+	TEST_EQ (job->process_data[PROCESS_MAIN]->status, 0);
 
 	/* goal should not change until the IO handlers have had a
 	 * chance to run.
 	 */
 	TEST_EQ (job->goal, JOB_START);
-
-	/* No state change either since we're still waiting for the I/O
-	 * handlers to run.
-	 */
-	TEST_EQ (job->state, JOB_SPAWNING);
+	TEST_EQ (job->state, JOB_SPAWNED);
 
 	TEST_NE_P (job->process_data[PROCESS_MAIN], NULL);
 
@@ -8986,7 +8982,7 @@ test_handler (void)
 	TEST_FREE_TAG (job);
 
 	job_process_handler (NULL, job->pid[PROCESS_MAIN],
-			NIH_CHILD_DUMPED, SIGABRT);
+			NIH_CHILD_DUMPED, 255);
 
 	TEST_NOT_FREE (job);
 
@@ -8995,7 +8991,7 @@ test_handler (void)
 	 */
 	TEST_EQ (job->goal, JOB_START);
 
-	TEST_EQ (job->state, JOB_SPAWNING);
+	TEST_EQ (job->state, JOB_SPAWNED);
 	TEST_NE_P (job->process_data[PROCESS_MAIN], NULL);
 
 	/* Still valid because the IO handlers haven't fired yet */
@@ -9005,8 +9001,12 @@ test_handler (void)
 	TEST_EQ (job->process_data[PROCESS_MAIN]->shell_fd, -1);
 	TEST_EQ_P (job->process_data[PROCESS_MAIN]->script, NULL);
 
-	/* job_process_terminated() will not have been called */
-	TEST_EQ (job->process_data[PROCESS_MAIN]->status, 0);
+	/* job_process_terminated() will have been called now */
+	status = job->process_data[PROCESS_MAIN]->status;
+	TEST_GT (status, 0);
+
+	TEST_TRUE (WIFEXITED (status));
+	TEST_EQ (WEXITSTATUS (status), 255);
 
 	/* slurp - don't care about content */
 	buffer = read_from_fd (NULL, fds[0]);
