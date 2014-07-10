@@ -1902,8 +1902,10 @@ job_process_terminated (Job         *job,
 		job_change_goal (job, JOB_STOP);
 	}
 
-	if (state)
+	if (state) {
+                nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
+        }
 }
 
 /**
@@ -1975,6 +1977,7 @@ job_process_stopped (Job         *job,
 	 */
 	if (job->class->expect == EXPECT_STOP) {
 		kill (job->pid[process], SIGCONT);
+                nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 	}
 }
@@ -2072,6 +2075,7 @@ job_process_trace_new_child (Job         *job,
 				  job->pid[process], strerror (errno));
 
 		job->trace_state = TRACE_NONE;
+                nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 		return;
 	}
@@ -2219,6 +2223,7 @@ job_process_trace_exec (Job         *job,
 				  job->pid[process], strerror (errno));
 
 		job->trace_state = TRACE_NONE;
+                nih_assert (job->blocker == NULL);
 		job_change_state (job, job_next_state (job));
 	} else {
 		if (ptrace (PTRACE_CONT, job->pid[process], NULL, 0) < 0)
@@ -2555,6 +2560,7 @@ job_process_close_handler (JobProcessData  *process_data,
 				 * by the ptrace handlers, hence bump it
 				 * manually.
 				 */
+                            nih_assert (job->blocker == NULL);
 				job_change_state (job, job_next_state (job));
 			}
 		}
