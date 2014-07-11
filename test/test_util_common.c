@@ -375,6 +375,8 @@ have_timed_waitpid (void)
  *
  * Simplified waitpid(2) with timeout using a pipe to allow select(2)
  * with timeout to be used to wait for process state change.
+ *
+ * Returns: as waitpid(2).
  **/
 pid_t
 timed_waitpid (pid_t pid, time_t timeout)
@@ -1094,10 +1096,13 @@ read_from_fd (void *parent, int fd)
 				buffer->buf + buffer->len,
 				buffer->size - buffer->len);
 
-		if (len <= 0)
+		if (len < 0 && errno != EAGAIN && errno != EINTR) {
 			break;
-		else if (len > 0)
+		} else if (! len) {
+			break;
+		} else if (len > 0) {
 			buffer->len += len;
+		}
 	}
 
 	close (fd);
