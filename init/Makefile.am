@@ -145,14 +145,15 @@ TEST_DATA_FILES = \
 	$(TEST_DATA_DIR)/upstart-1.6.json \
 	$(TEST_DATA_DIR)/upstart-1.8.json \
 	$(TEST_DATA_DIR)/upstart-pre-security.json \
-	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation-apparmor.json \
 	$(TEST_DATA_DIR)/upstart-1.8+apparmor.json \
+	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation-apparmor.json \
 	$(TEST_DATA_DIR)/upstart-1.8+full_serialisation+apparmor.json \
-	$(TEST_DATA_DIR)/upstart-session.json \
 	$(TEST_DATA_DIR)/upstart-session2.json \
 	$(TEST_DATA_DIR)/upstart-session-infinity.json \
+	$(TEST_DATA_DIR)/upstart-session.json \
 	$(TEST_DATA_DIR)/upstart-1.9.json \
-	$(TEST_DATA_DIR)/upstart-1.11.json
+	$(TEST_DATA_DIR)/upstart-1.11.json \
+	$(TEST_DATA_DIR)/upstart-1.13.json
 
 upstart_test_programs = \
 	test_system \
