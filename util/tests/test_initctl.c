@@ -10968,9 +10968,9 @@ test_list (void)
 	/*******************************************************************/
 	TEST_FEATURE ("single job");
 
-	START_UPSTART (upstart_pid, FALSE);
 	CREATE_FILE (dirname, "foo.conf",
 			"exec echo hello");
+	START_UPSTART (upstart_pid, FALSE);
 
 	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -10984,10 +10984,10 @@ test_list (void)
 	/*******************************************************************/
 	TEST_FEATURE ("3 jobs and re-exec");
 
-	START_UPSTART (upstart_pid, FALSE);
-	CREATE_FILE (dirname, "foo.conf", "exec echo foo");
+        CREATE_FILE (dirname, "foo.conf", "exec echo foo");
 	CREATE_FILE (dirname, "bar.conf", "exec echo bar");
 	CREATE_FILE (dirname, "baz.conf", "exec echo bar");
+	START_UPSTART (upstart_pid, FALSE);
 
 	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -11109,6 +11109,12 @@ test_reexec (void)
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "foo.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12482,6 +12488,12 @@ test_show_config (void)
 			"author \"foo\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12506,6 +12518,12 @@ test_show_config (void)
 			"author \"foo\"\n"
 			"emits \"thing\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12534,6 +12552,12 @@ test_show_config (void)
 			"emits \"thing\"\n"
 			"emits \"thong\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12564,6 +12588,12 @@ test_show_config (void)
 			"start on (A and B)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12592,6 +12622,12 @@ test_show_config (void)
 			"emits \"bong\"\n"
 			"start on (A and B)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12625,6 +12661,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12657,6 +12699,12 @@ test_show_config (void)
 			"stop on (A or B)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12685,6 +12733,12 @@ test_show_config (void)
 			"emits \"bong\"\n"
 			"stop on (A or B)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12717,6 +12771,12 @@ test_show_config (void)
 			"stop on (A or B)\n"
 			"emits \"stime\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12752,6 +12812,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"start on (starting JOB=\"boo\" or B x=y)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12791,6 +12857,12 @@ test_show_config (void)
 			"start on (starting JOB=\"boo\" P=Q c=sea or B x=y)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12829,6 +12901,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"start on A and (B FOO=BAR or starting C x=y)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12875,6 +12953,12 @@ test_show_config (void)
 			"start on (starting mountall or (runlevel [016] and "
 			"(stopped gdm or stopped kdm or stopped xdm A=B or stopping lxdm)))\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13011,6 +13095,12 @@ test_check_config (void)
 			"task\n"
 			"exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -13030,6 +13120,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "baz.conf",
 			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13052,6 +13148,12 @@ test_check_config (void)
 			"task\n"
 			"exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wibble 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13066,6 +13168,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "foo.conf",
 			"start on (fred and wilma)");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wilma,foo,fred 2>&1",
 			get_initctl ());
@@ -13091,6 +13199,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13114,6 +13228,12 @@ test_check_config (void)
                    	"              or stopped lxdm)))");
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -13146,6 +13266,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13169,6 +13295,12 @@ test_check_config (void)
                    	"              or stopped lxdm)))");
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -13202,6 +13334,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "portmap.conf", "exec true");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -13240,6 +13378,12 @@ test_check_config (void)
 			"emits hello");
 	CREATE_FILE (dirname, "gdm.conf", "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config >&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13271,6 +13415,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "portmap.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
 			get_initctl ());
@@ -13313,6 +13463,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13349,6 +13505,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "lxdm.conf", "exec true");
 	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --warn 2>&1",
 			get_initctl ());
@@ -16080,6 +16242,12 @@ test_usage (void)
 			"author \"foo\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -16095,6 +16263,12 @@ test_usage (void)
 
 	CREATE_FILE (dirname, "foo.conf",
 			"usage \"this is usage\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -16112,6 +16286,12 @@ test_usage (void)
 	CREATE_FILE (dirname, "foo.conf",
 			"instance $FOO\n"
 			"usage \"this is usage\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	memset (&command, 0, sizeof command);
 	args[0] = "foo";
@@ -16245,6 +16425,12 @@ test_default_job_env (const char *confdir, const char *logdir,
 	TEST_FEATURE ("ensure job gets given default environment");
 
 	CREATE_FILE (confdir, "foo.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -16392,6 +16578,12 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "empty-env.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start empty-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -17504,6 +17696,12 @@ test_modified_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "modified-env.conf", "exec env");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start modified-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -17629,6 +17827,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "foo.conf", contents);
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 
@@ -17674,6 +17878,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "foo.conf", contents);
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -17704,6 +17914,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "bar.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start bar 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -17787,6 +18003,12 @@ test_no_inherit_job_env (const char *runtimedir, const char *confdir, const char
 	TEST_FEATURE ("ensure '--user --no-inherit-env' provides expected job environment");
 
 	CREATE_FILE (confdir, "foo.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);

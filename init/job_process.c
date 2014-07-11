@@ -111,9 +111,6 @@ char *log_dir = NULL;
 int disable_respawn = FALSE;
 
 /* Prototypes for static functions */
-static void job_process_error_abort     (int fd, JobProcessErrorType type,
-					 int arg)
-	__attribute__ ((noreturn));
 static void job_process_remap_fd        (int *fd, int reserved_fd, int error_fd);
 
 /**
@@ -983,7 +980,7 @@ job_process_spawn_with_fd (Job          *job,
  *
  * This function calls the exit() system call, so never returns.
  **/
-static void
+void
 job_process_error_abort (int                 fd,
 			 JobProcessErrorType type,
 			 int                 arg)
@@ -2457,7 +2454,15 @@ job_process_child_reader (JobProcessData  *process_data,
 
 	err = nih_error_get ();
 
-	nih_assert (err->number == JOB_PROCESS_ERROR);
+	if (err->number != JOB_PROCESS_ERROR) {
+		nih_warn ("%s: %s", _("Temporary process spawn error"),
+			  err->message);
+		nih_free (err);
+		return;
+	}
+
+	/* Wilco. Out. */
+	nih_io_buffer_shrink (io->recv_buf, len);
 
 	/* Non-temporary error condition */
 	nih_warn (_("Failed to spawn %s %s process: %s"),
@@ -2491,12 +2496,12 @@ job_process_child_reader (JobProcessData  *process_data,
 	/* Note that pts_master is closed automatically in the parent
 	 * when the log object is destroyed.
 	 */
+	process_data->valid = FALSE;
 
 	nih_io_shutdown (io);
 
 	/* Invalidate */
 	process_data->job_process_fd = -1;
-	process_data->valid = FALSE;
 }
 
 /**
@@ -2518,6 +2523,8 @@ job_process_close_handler (JobProcessData  *process_data,
 	 * to talk to them.
 	 */
 	if (! process_data)
+		return;
+	if (! process_data->valid)
 		return;
 
 	nih_assert (io);
