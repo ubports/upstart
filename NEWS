@@ -1,4 +1,4 @@
-1.13  xxxx-xx-xx "poor paul pore paw pole pour poll pull poole pool pawl"
+1.13  2014-07-11 "poor paul pore paw pole pour poll pull poole pool pawl"
 
 	* Fix for handling upgrade from non-stateful-re-exec instance to a
 	  stateful-re-exec-capable one (LP:#1303891).
