@@ -135,12 +135,12 @@
 	NIH_MUST (nih_child_add_watch (NULL,			\
 				       -1,			\
 				       NIH_CHILD_ALL,		\
-				       job_process_handler,	\
+				       test_job_process_handler,\
 				       NULL));			\
 	NIH_MUST (nih_child_add_watch (NULL,			\
 				       -1,			\
 				       NIH_CHILD_ALL,		\
-				       test_job_process_handler,\
+				       job_process_handler,	\
 				       NULL));			\
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll, \
 					  NULL))
@@ -148,6 +148,9 @@
 
 #define TEST_CLEAR_CHILD_STATUS()				\
 	do {							\
+		TEST_EQ (waitid (P_ALL, 0, &siginfo, WEXITED | WNOWAIT), -1); \
+		TEST_EQ (errno, ECHILD);			\
+		errno = 0;					\
 		child_exit_after = 1;				\
 		for (int _i = 0; _i < PROCESS_LAST; _i++) {	\
 			child_exit_status[_i] = -1;		\
@@ -3310,6 +3313,9 @@ test_start (void)
 
 	job = job_new (class, "");
 
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
@@ -3317,37 +3323,19 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
+		TEST_CLEAR_CHILD_STATUS ();
+		child_exit_after = 2;
+
 		job_process_start (job, PROCESS_MAIN);
-		TEST_WATCH_UPDATE ();
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		TEST_EQ (child_exit_status[1], 255);
+		TEST_EQ (child_exit_status[0], 0);
 
-		/* We don't expect a logfile to be written since there is no
-		 * accompanying shell to write the error.
-		 */
-		TEST_EQ (stat (filename, &statbuf), -1);
-		TEST_EQ (errno, ENOENT);
-
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		job_process_start (job, PROCESS_POST_STOP);
-		TEST_WATCH_UPDATE ();
-
-		TEST_NE (job->pid[PROCESS_POST_STOP], 0);
-
-		/* Flush the io so that the shell on the client side
-		 * gets the data (the script to execute).
-		 */
-		TEST_WATCH_UPDATE ();
-
-		waitpid (job->pid[PROCESS_POST_STOP], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		TEST_WATCH_UPDATE ();
-
-		/* .. but the post stop should have written data */
+		/* The post stop should have written data */
 		TEST_EQ (stat (filename, &statbuf), 0);
-		event_poll ();
+
 	}
 	fclose (output);
 
@@ -3363,6 +3351,8 @@ test_start (void)
 	TEST_EQ (unlink (filename), 0);
 
 	nih_free (class);
+
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running an invalid command, then an invalid post-stop command");
@@ -3393,6 +3383,9 @@ test_start (void)
 
 	job = job_new (class, "");
 
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
@@ -3400,28 +3393,23 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
+		TEST_CLEAR_CHILD_STATUS ();
+		child_exit_after = 2;
+
 		job_process_start (job, PROCESS_MAIN);
-		TEST_WATCH_UPDATE ();
-
-		/* We don't expect a logfile to be written since there is no
-		 * accompanying shell to write the error.
-		 */
-		TEST_EQ (stat (filename, &statbuf), -1);
-		TEST_EQ (errno, ENOENT);
-
-		job->goal = JOB_STOP;
-		job->state = JOB_POST_STOP;
-
-		job_process_start (job, PROCESS_POST_STOP);
-		TEST_WATCH_UPDATE ();
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status[1], 255);
+		TEST_EQ (child_exit_status[0], 255);
 
 		/* Again, no file expected */
 		TEST_EQ (stat (filename, &statbuf), -1);
 		TEST_EQ (errno, ENOENT);
-		event_poll ();
 	}
 	fclose (output);
 	nih_free (class);
+
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line command running a valid command, then a 1-line invalid post-stop command");
@@ -3452,6 +3440,9 @@ test_start (void)
 
 	job = job_new (class, "");
 
+	TEST_RESET_MAIN_LOOP ();
+	TEST_INSTALL_CHILD_HANDLERS ();
+
 	output = tmpfile ();
 	TEST_NE_P (output, NULL);
 	TEST_DIVERT_STDERR (output) {
@@ -3459,29 +3450,26 @@ test_start (void)
 		job->goal = JOB_START;
 		job->state = JOB_SPAWNED;
 
+		TEST_CLEAR_CHILD_STATUS ();
+
 		job_process_start (job, PROCESS_MAIN);
-
-		TEST_NE (job->pid[PROCESS_MAIN], 0);
-
-		waitpid (job->pid[PROCESS_MAIN], &status, 0);
-		TEST_TRUE (WIFEXITED (status));
-		TEST_EQ (WEXITSTATUS (status), 0);
-
-		/* Flush the io so that the shell on the client side
-		 * gets the data (the script to execute).
-		 */
-		TEST_WATCH_UPDATE ();
+		TEST_GT (job->pid[PROCESS_MAIN], 0);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status[0], 0);
+		TEST_EQ (child_exit_status[1], -1);
 
 		/* Expect a log file */
 		TEST_EQ (stat (filename, &statbuf), 0);
 
 		job->goal = JOB_STOP;
 		job->state = JOB_POST_STOP;
+		
+		TEST_CLEAR_CHILD_STATUS ();
 
 		job_process_start (job, PROCESS_POST_STOP);
-		TEST_WATCH_UPDATE ();
-
-		TEST_EQ (job->pid[PROCESS_POST_STOP], 0);
+		TEST_GT (job->pid[PROCESS_POST_STOP], 0);
+		TEST_EQ (nih_main_loop (), 0);
+		TEST_EQ (child_exit_status[0], 255);
 	}
 	fclose (output);
 
@@ -3497,6 +3485,8 @@ test_start (void)
 	TEST_EQ (unlink (filename), 0);
 
 	nih_free (class);
+
+	TEST_RESET_MAIN_LOOP ();
 
 	/************************************************************/
 	TEST_FEATURE ("with multi-line script running an invalid command");
@@ -3523,7 +3513,6 @@ test_start (void)
 	job->state = JOB_SPAWNED;
 	nih_hash_add (job_classes, &class->entry);
 	TEST_CLEAR_CHILD_STATUS ();
-	child_exit_after = 4;
 
 	job_process_start (job, PROCESS_MAIN);
 	TEST_GT (job->pid[PROCESS_MAIN], 0);
