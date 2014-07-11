@@ -1,6 +1,21 @@
-1.13  xxxx-xx-xx ""
+1.13  xxxx-xx-xx "poor paul pore paw pole pour poll pull poole pool pawl"
 
-	* NEWS: Begin new release.
+	* Fix for handling upgrade from non-stateful-re-exec instance to a
+	  stateful-re-exec-capable one (LP:#1303891).
+	* Disable chroot sessions by default. A new '--chroot-sessions'
+	  command-line option restores the old default behaviour.
+	* New tests and improved documentation.
+	* Fix for Session Init umask change on re-exec (LP: #1302117).
+	* Allow '--confdir' to look for system jobs in multiple
+	  locations, which also adds new command-line options
+	  '--append-confdir' and '--prepend-confdir' for full flexibility
+	  (LP: #1315060).
+	* Allow initctl(8) commands 'set-env' and 'unset-env' to operate on
+	  multiple environment variables (LP: #1324096).
+	* Support for cgroups via a new 'cgroup' stanza. This makes use of
+	  cgmanager(8) and is available to both System and Session Inits.
+	  Support for cgroups can be disabled at built-time if required. See
+	  init(5) for 'cgroup' stanza syntax and examples.
 
 1.12.1  2014-03-11 "Standing Room Only"
 

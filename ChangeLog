@@ -1,3 +1,7 @@
+2014-07-11  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.13
+
 2014-07-09  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/job_process.c: Unhide job_process_error_abort() to allow it to be
