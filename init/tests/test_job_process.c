@@ -151,11 +151,6 @@
 				       NIH_CHILD_ALL,		\
 				       test_job_process_handler,\
 				       NULL));			\
-	NIH_MUST (nih_child_add_watch (NULL,			\
-				       -1,			\
-				       NIH_CHILD_ALL,		\
-				       job_process_handler,	\
-				       NULL));			\
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll, \
 					  NULL))
 
