@@ -1202,12 +1202,14 @@ test_start (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			TEST_GT (job->pid[PROCESS_MAIN], 0);
+			pid = job->pid[PROCESS_MAIN];
+			TEST_GT (pid, 0);
 			TEST_EQ (nih_main_loop (), 0);
 			TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
+			job_process_handler (NULL, pid, NIH_CHILD_EXITED, 255);
 		}
 		rewind (output);
-		
+
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 
 		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
