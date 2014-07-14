@@ -1,6 +1,7 @@
 upstart (1.13-0ubuntu1) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * Cherry-pick arm64 test_job_process unit test fix.
 
  -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 14 Jul 2014 13:47:58 +0100
 

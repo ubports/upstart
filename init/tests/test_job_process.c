@@ -1192,17 +1192,22 @@ test_start (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			TEST_GT (job->pid[PROCESS_MAIN], 0);
+			pid = job->pid[PROCESS_MAIN];
+			TEST_GT (pid, 0);
 			TEST_EQ (nih_main_loop (), 0);
 			TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
 		}
 		rewind (output);
 		
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
+		TEST_GT (sprintf (buffer, "test: test (foo) main process (%i) terminated with status 255\n", pid), 0);
 
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
-				       "process: unable to execute: "
-				       "No such file or directory\n"));
+		TEST_GT (fgets (filebuf, sizeof (filebuf), output), 0);
+
+		TEST_TRUE (strcmp (filebuf, ("test: Failed to spawn test (foo) main "
+						"process: unable to execute: "
+						"No such file or directory\n")) == 0
+			   || strcmp (filebuf, buffer) == 0);
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
