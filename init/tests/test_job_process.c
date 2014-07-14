@@ -1192,7 +1192,8 @@ test_start (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			TEST_GT (job->pid[PROCESS_MAIN], 0);
+			pid = job->pid[PROCESS_MAIN];
+			TEST_GT (pid, 0);
 			TEST_EQ (nih_main_loop (), 0);
 			TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
 		}
