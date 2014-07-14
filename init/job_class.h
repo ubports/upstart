@@ -163,9 +163,13 @@ typedef enum console_type {
  * @chdir: working directory of process,
  * @setuid: user name to drop to before starting process,
  * @setgid: group name to drop to before starting process,
- * @deleted: whether job should be deleted when finished.
- * @usage: usage text - how to control job
- * @apparmor_switch: AppArmor profile to switch to before starting job
+ * @deleted: whether job should be deleted when finished,
+ * @usage: usage text - how to control job,
+ * @apparmor_switch: AppArmor profile to switch to before starting job,
+ * @cgroups: list of CGroup objects representing the cgroups the
+ *  job is required to run in,
+ * @cgmanager_wait: TRUE if job waiting for cgroup manager to be
+ * available.
  *
  * This structure holds the configuration of a known task or service that
  * should be tracked by the init daemon; as tasks and services are
@@ -226,6 +230,8 @@ typedef struct job_class {
 	char           *usage;
 
 	char	       *apparmor_switch;
+	NihList         cgroups;
+	int             cgmanager_wait;
 } JobClass;
 
 
@@ -347,7 +353,7 @@ job_class_expect_type_str_to_enum (const char *name)
 ConsoleType job_class_console_type         (const char *console)
 	__attribute__ ((warn_unused_result));
 
-json_object *job_class_serialise (const JobClass *class)
+json_object *job_class_serialise (JobClass *class)
 	__attribute__ ((warn_unused_result));
 
 JobClass *job_class_deserialise (json_object *json)
@@ -381,6 +387,19 @@ void       job_class_event_block (void *parent, JobClass *old, JobClass *new);
 ssize_t
 job_class_get_index (const JobClass *class)
 	__attribute__ ((warn_unused_result));
+
+int job_class_induct_job (JobClass *class)
+	__attribute__ ((warn_unused_result));
+
+#ifdef ENABLE_CGROUPS
+
+int job_class_induct_jobs (void)
+	__attribute__ ((warn_unused_result));
+
+int job_class_cgroups (JobClass *class)
+	__attribute__ ((warn_unused_result));
+
+#endif /* ENABLE_CGROUPS */
 
 NIH_END_EXTERN
 

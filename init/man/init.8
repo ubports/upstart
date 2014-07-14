@@ -1,5 +1,5 @@
 '\" t
-.TH init 8 2013-12-20 "Upstart"
+.TH init 8 2014-05-09 "Upstart"
 .\"
 .SH NAME
 init \- Upstart process management daemon
@@ -253,21 +253,41 @@ Options are passed to
 by placing them on the kernel command-line.
 .\"
 .TP
-.B \-\-chroot-sessions
-Enable chroot session support. See
-.B Chroot Support
-in
-.BR init (5) "" "."
+.B \-\-append-confdir \fIdirectory\fP
+Add the specified directory to the default directory or directories
+that job configuration files will be read from. This option may be
+specified multiple times which will result in job configuration files
+being loaded from each directory specified (which must exist).
+Directories will be searched for jobs in the specified order after the
+default directories have been searched.
+
+Note that if this option is used in combination with
+.BR \-\-confdir ","
+or
+.BR \-\-prepend\-confdir ","
+regardless of the order of the options on the command-line, the append
+directories will be added
+.I after
+the other directories.
 .\"
 .TP
 .B \-\-confdir \fIdirectory\fP
 Read job configuration files from a directory other than the default
-(\fI/etc/init\fP for process ID 1).
+(\fI/etc/init\fP for process ID 1). This option may be specified
+multiple times which will result in job configuration files being
+loaded from each directory specified (which must exist). Directories
+will be searched for jobs in the specified order.
 
-When running as process ID 1, the last directory specified will be used.
+In the case that multiple directories specify a job of the same name,
+the first job encountered will be honoured.
 
-In user session mode, multiple directories will be honoured and job
-configuration files loaded from the directories in the order specified.
+See section
+.B User Session Mode
+in
+.BR init (5)
+for the ordered list of default configuration directories a
+Session Init will consider.
+
 .\"
 .TP
 .B \-\-default-console \fIvalue\fP
@@ -278,6 +298,19 @@ stanza. This could be used for example to set the default to
 .BR init (5)
 for all possible values of
 .BR console "."
+.\"
+.TP
+.B \-\-no-cgroups
+Do not honour the
+.B cgroup
+stanza. If specified, this stanza will be ignored for any job which
+specifies it: the job processes will
+.I not
+be placed in the cgroup specified by the stanza and the job itself will
+not wait until the cgroup manager has started before starting itself.
+See
+.BR init (5)
+for further details.
 .\"
 .TP
 .B \-\-no\-dbus
@@ -305,7 +338,7 @@ for further details.
 .\"
 .TP
 .B \-\-no\-sessions
-Disable chroot sessions (default).
+Disable chroot sessions.
 .\"
 .TP
 .B \-\-no\-startup\-event
@@ -313,6 +346,24 @@ Suppress emission of the initial startup event. This option should only
 be used for testing since it will stop the 
 .BR init (8)
 daemon from starting \fBany\fP jobs automatically.
+.\"
+.TP
+.B \-\-prepend-confdir \fIdirectory\fP
+Add the specified directory to the directory or directories
+that job configuration files will be read from. This option may be
+specified multiple times which will result in job configuration files
+being loaded from each directory specified (which must exist).
+Directories will be searched for jobs in the specified order before the
+default directories have been searched.
+
+Note that if this option is used in combination with
+.BR \-\-confdir ","
+or
+.BR \-\-append\-confdir ","
+regardless of the order of the options on the command-line, the prepend
+directories will be added
+.I before 
+the other directories.
 .\"
 .TP
 .B \-\-session

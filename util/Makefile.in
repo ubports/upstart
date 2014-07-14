@@ -83,6 +83,7 @@ sbin_PROGRAMS = initctl$(EXEEXT) reboot$(EXEEXT) runlevel$(EXEEXT) \
 TESTS = test_initctl$(EXEEXT) test_utmp$(EXEEXT) test_sysv$(EXEEXT) \
 	test_telinit$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
+@ENABLE_CGROUPS_TRUE@am__append_1 = $(CGMANAGER_LIBS)
 subdir = util
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp $(dist_man_MANS) \
@@ -141,11 +142,12 @@ telinit_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 am_test_initctl_OBJECTS = test_initctl-test_initctl.$(OBJEXT) \
 	test_initctl-initctl.$(OBJEXT) test_initctl-xdg.$(OBJEXT)
 test_initctl_OBJECTS = $(am_test_initctl_OBJECTS)
+@ENABLE_CGROUPS_TRUE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
 test_initctl_DEPENDENCIES = com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
 test_initctl_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_initctl_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -457,6 +459,8 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CGMANAGER_CFLAGS = @CGMANAGER_CFLAGS@
+CGMANAGER_LIBS = @CGMANAGER_LIBS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -733,14 +737,10 @@ test_initctl_SOURCES = \
 	$(top_srcdir)/init/xdg.c $(top_srcdir)/init/xdg.h
 
 test_initctl_CFLAGS = $(AM_CFLAGS) -DTEST
-test_initctl_LDADD = \
-	com.ubuntu.Upstart.o \
-	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
-	$(top_builddir)/test/libtest_util_common.a \
-	$(NIH_LIBS) \
-	$(NIH_DBUS_LIBS) \
-	$(DBUS_LIBS)
-
+test_initctl_LDADD = com.ubuntu.Upstart.o com.ubuntu.Upstart.Job.o \
+	com.ubuntu.Upstart.Instance.o \
+	$(top_builddir)/test/libtest_util_common.a $(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) $(DBUS_LIBS) $(am__append_1)
 test_utmp_SOURCES = tests/test_utmp.c
 test_utmp_LDADD = \
 	utmp.o \

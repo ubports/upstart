@@ -300,7 +300,7 @@ test_pending (void)
 		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->state, JOB_SPAWNED);
 		TEST_GT (job->pid[PROCESS_MAIN], 0);
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);
@@ -1739,7 +1739,7 @@ test_finished (void)
 		job = (Job *)nih_hash_lookup (class->instances, "");
 
 		TEST_EQ (job->goal, JOB_START);
-		TEST_EQ (job->state, JOB_RUNNING);
+		TEST_EQ (job->state, JOB_SPAWNED);
 		TEST_GT (job->pid[PROCESS_MAIN], 0);
 
 		waitpid (job->pid[PROCESS_MAIN], NULL, 0);

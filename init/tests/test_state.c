@@ -51,6 +51,13 @@
 #include "test_util_common.h"
 #include "test_util.h"
 
+#ifdef ENABLE_CGROUPS
+
+#include "cgroup.h"
+extern char *cgroup_manager_address;
+
+#endif /* ENABLE_CGROUPS */
+
 #ifndef TEST_DATA_DIR
 #error ERROR: TEST_DATA_DIR not defined
 #endif
@@ -158,6 +165,7 @@ void test_upstart_full_serialise_without_apparmor_upgrade (const char *path);
 void test_upstart_full_serialise_with_apparmor_upgrade (const char *path);
 void test_reload_signal_state (const char *path);
 void test_job_environ_upgrade (const char *path);
+void test_cgroup_and_process_data_state (const char *path);
 
 ConfSource * conf_source_from_path (const char *path,
 				    ConfSourceType type,
@@ -204,6 +212,7 @@ TestDataFile test_data_files[] = {
 	{ "upstart-session-infinity.json", test_session_upgrade_stale },
 	{ "upstart-1.9.json", test_reload_signal_state },
 	{ "upstart-1.11.json", test_job_environ_upgrade },
+	{ "upstart-1.13.json", test_cgroup_and_process_data_state },
 
 	{ NULL, NULL }
 };
@@ -4545,6 +4554,151 @@ test_job_environ_upgrade (const char *path)
 	job_classes = NULL;
 	events = NULL;
 	sessions = NULL;
+
+	conf_init ();
+	job_class_init ();
+	event_init ();
+	session_init ();
+}
+
+/**
+ * test_cgroup_and_process_data_state:
+ *
+ * @path: full path to JSON data file to deserialise.
+ *
+ * Test that Upstart can deserialise:
+ *
+ * - cgroup stanzas (if cgroups enabled).
+ * - the cgroup manager address (if cgroups enabled).
+ * - JobProcessData encoded as "process_data" in JSON.
+ **/
+void
+test_cgroup_and_process_data_state (const char *path)
+{
+#ifdef ENABLE_CGROUPS
+	nih_local char   *cgroup_address = NULL;
+	const char       *address;
+	json_object      *json_value = NULL;
+#endif /* ENABLE_CGROUPS */
+
+	nih_local char   *json_string = NULL;
+	nih_local char   *processed_json_string = NULL;
+	json_object      *json = NULL;
+	struct stat       statbuf;
+	size_t            len;
+	int               fds[2] = { -1, -1 };
+	nih_local char   *read_fd_str = NULL;
+	JobClass         *class;
+	Job              *job;
+	JobProcessData   *process_data;
+
+	nih_assert (path);
+
+	conf_init ();
+	session_init ();
+	event_init ();
+	control_init ();
+	job_class_init ();
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_EMPTY (events);
+	TEST_LIST_EMPTY (conf_sources);
+	TEST_HASH_EMPTY (job_classes);
+
+#ifdef ENABLE_CGROUPS
+	cgroup_manager_address = NULL;
+#endif /* ENABLE_CGROUPS */
+
+	/* Check data file exists */
+	TEST_EQ (stat (path, &statbuf), 0);
+
+	json_string = nih_file_read (NULL, path, &len);
+	TEST_NE_P (json_string, NULL);
+
+	/* The JSON contains a "process_data" object that represents a
+	 * JobProcessData object denoting a job process whose child
+	 * setup phase is still "in-flight" (ongoing).
+	 *
+	 * The problem is that when the JobProcessData object is
+	 * reconstructed, Upstart will attempt to operate on the
+	 * job_process_fd file descriptor so that fd must be valid at
+	 * the time the test is run.
+	 *
+	 * The solution is to create a valid fd and rewrite the JSON to
+	 * specify that valid fd.
+	 */
+	assert0 (pipe (fds));
+
+	read_fd_str = nih_sprintf (NULL, "%d", fds[0]);
+	TEST_NE_P (read_fd_str, NULL);
+
+	/* Replace @CHROOT_PATH@ with our temporary path */
+	processed_json_string = search_and_replace (NULL, json_string,
+			"@JOB_PROCESS_FD@",
+			read_fd_str);
+	TEST_NE_P (processed_json_string, NULL);
+
+	/* Read the json, checking for expected content */
+	json = json_tokener_parse (processed_json_string);
+	TEST_NE_P (json, NULL);
+
+#ifdef ENABLE_CGROUPS
+	/* Ensure it's there */
+	TEST_TRUE (json_object_object_get_ex (json, "cgroup_manager_address", &json_value));
+
+	address = json_object_get_string (json_value);
+	TEST_NE_P (address, NULL);
+	cgroup_address = NIH_MUST (nih_strdup (NULL, address));
+
+	/* free the JSON */
+	json_object_put (json);
+#endif /* ENABLE_CGROUPS */
+
+	/* Recreate state from JSON data file */
+	assert0 (state_from_string (processed_json_string));
+
+#ifdef ENABLE_CGROUPS
+	TEST_NE_P (cgroup_manager_address, NULL);
+	TEST_EQ_STR (cgroup_manager_address, cgroup_address);
+#endif /* ENABLE_CGROUPS */
+
+	class = (JobClass *)nih_hash_lookup (job_classes, "upstart-force-slow-child");
+	TEST_NE_P (class, NULL);
+
+	job = (Job *)nih_hash_lookup (class->instances, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_GE (job->pid[PROCESS_MAIN], 1);
+
+	TEST_NE_P (job->process_data, NULL);
+	process_data = job->process_data[PROCESS_MAIN];
+	TEST_NE_P (process_data, NULL);
+
+	TEST_EQ_P (process_data->job, job);
+	TEST_EQ (process_data->process, PROCESS_MAIN);
+	TEST_EQ_P (process_data->script, NULL);
+	TEST_EQ (process_data->shell_fd, -1);
+	TEST_EQ (process_data->job_process_fd, fds[0]);
+	TEST_EQ (process_data->status, 0);
+	TEST_TRUE (process_data->valid);
+
+	TEST_LIST_EMPTY (sessions);
+	TEST_LIST_NOT_EMPTY (events);
+	TEST_HASH_NOT_EMPTY (job_classes);
+	TEST_LIST_NOT_EMPTY (conf_sources);
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+	nih_free (events);
+	nih_free (sessions);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+	events = NULL;
+	sessions = NULL;
+
+	close (fds[0]);
+	close (fds[1]);
 
 	conf_init ();
 	job_class_init ();

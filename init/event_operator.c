@@ -1022,7 +1022,7 @@ event_operator_deserialise (void *parent, json_object *json)
 	if (! state_check_json_type (json, object))
 		goto error;
 
-	if (json_object_object_get (json, "name")) {
+	if (json_object_object_get_ex (json, "name", NULL)) {
 		if (! state_get_json_string_var_strict (json, "name", NULL, name))
 			goto error;
 	}
@@ -1032,7 +1032,7 @@ event_operator_deserialise (void *parent, json_object *json)
 				"type", type))
 		goto error;
 
-	if (json_object_object_get (json, "env")) {
+	if (json_object_object_get_ex (json, "env", NULL)) {
 		json_object  *json_env;
 		if (! state_get_json_var_full (json, "env", array, json_env))
 			goto error;
@@ -1054,7 +1054,7 @@ event_operator_deserialise (void *parent, json_object *json)
 	if (! state_get_json_int_var_to_obj (json, oper, value))
 		goto error;
 
-	if (json_object_object_get (json, "event")) {
+	if (json_object_object_get_ex (json, "event", NULL)) {
 		int event_index;
 
 		if (! state_get_json_int_var (json, "event", event_index))

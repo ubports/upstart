@@ -72,6 +72,72 @@ check_for_overlayfs (void)
 	return found;
 }
 
+#ifdef ENABLE_CGROUPS
+
+void print_my_cgroup(void)
+{
+	char *str;
+	str = get_pid_cgroup("freezer", getpid());
+	if (str) {
+		nih_warn("I am in freezer cgroup: %s", str);
+		TEST_EQ_STR(str, "/");
+		nih_free(str);
+	} else {
+		TEST_FAILED("Failed to get my freezer cgroup");
+	}
+}
+
+char *get_my_cgroup()
+{
+	char line[1024], *ret = NULL;
+	FILE *f = fopen("/proc/self/cgroup", "r");
+
+	while (fgets(line, 1024, f)) {
+		char *p, *p2;
+		if ((p = strchr(line, ':')) == NULL)
+			continue;
+		p++;
+		if ((p2 = strchr(p, ':')) == NULL)
+			continue;
+		if (strncmp(p, "name=", 5) == 0)
+			continue;
+		ret = NIH_MUST( nih_strdup(NULL, p2+1) );
+		break;
+	}
+	fclose(f);
+	return ret;
+}
+
+int check_cgroup_sandbox(void)
+{
+	char *cg_prev = NULL, *cg_post = NULL;
+	int ret = -1;
+
+	cg_prev = get_my_cgroup();
+	if (!cg_prev)
+		return -1;
+	if (setup_cgroup_sandbox() < 0) {
+		nih_free(cg_prev);
+		return -1;
+	}
+	cg_post = get_my_cgroup();
+	if (!cg_post) {
+		nih_free(cg_prev);
+		return -1;
+	}
+	/* we should have moved cgroups, so the two should be different */
+	if (strcmp(cg_prev, cg_post) != 0) {
+		nih_warn("setup_cgroup_sandbox moved me from %s to %s",
+				cg_prev, cg_post);
+		ret = 0;
+	}
+	nih_free(cg_prev);
+	nih_free(cg_post);
+	return ret;
+}
+
+#endif /* ENABLE_CGROUPS */
+
 /**
  * test_checks:
  *
@@ -80,6 +146,8 @@ check_for_overlayfs (void)
 void
 test_checks (void)
 {
+	int ret;
+
 	TEST_GROUP ("test environment");
 
 	/*
@@ -94,6 +162,27 @@ test_checks (void)
 		nih_warn ("This environment will probably cause tests to fail mysteriously!!");
 		nih_warn ("See bug LP:#882147 for further details.");
 	}
+
+
+#ifdef ENABLE_CGROUPS
+	if (file_exists ("/sys/fs/cgroup/cgmanager/sock")) {
+		TEST_FEATURE ("checking for cgmanager");
+		ret = connect_to_cgmanager ();
+		switch (ret) {
+		case -2: TEST_FAILED ("Found no cgroup manager"); break;
+		case -1: TEST_FAILED ("Error connecting to cgmanager"); break;
+		case 0: print_my_cgroup (); break;
+		default: TEST_FAILED ("Unknown error from connect_to_cgmanager: %d", ret);
+		}
+
+		TEST_FEATURE ("cgroup sandbox");
+		TEST_EQ (check_cgroup_sandbox (), 0);
+		disconnect_cgmanager ();
+	} else {
+		nih_warn ("Skipping CGManager tests, CGManager socket not found");
+	}
+#endif /* ENABLE_CGROUPS */
+
 }
 
 int

@@ -82,6 +82,7 @@ build_triplet = @build@
 host_triplet = @host@
 TESTS = test_libupstart$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1)
+@ENABLE_CGROUPS_TRUE@am__append_1 = $(CGMANAGER_LIBS)
 subdir = lib
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/libupstart.pc.in.in $(top_srcdir)/depcomp \
@@ -157,10 +158,12 @@ am__objects_4 =
 am_test_libupstart_OBJECTS = test_libupstart.$(OBJEXT) \
 	$(am__objects_4)
 test_libupstart_OBJECTS = $(am_test_libupstart_OBJECTS)
+@ENABLE_CGROUPS_TRUE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
 test_libupstart_DEPENDENCIES = $(lib_LTLIBRARIES) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) \
-	$(top_builddir)/test/libtest_util_common.a
+	$(top_builddir)/test/libtest_util_common.a \
+	$(am__DEPENDENCIES_2)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -413,6 +416,8 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CGMANAGER_CFLAGS = @CGMANAGER_CFLAGS@
+CGMANAGER_LIBS = @CGMANAGER_LIBS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -618,14 +623,10 @@ EXTRA_DIST = \
 @ENABLE_TAP_OUTPUT_TRUE@LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tap-driver.sh
 check_SCRIPTS = run_abi_checker.sh
 test_libupstart_SOURCES = tests/test_libupstart.c $(lib_LTLIBRARIES)
-test_libupstart_LDADD = \
-	$(lib_LTLIBRARIES) \
-	$(NIH_LIBS) \
-	$(NIH_DBUS_LIBS) \
-	$(DBUS_LIBS) \
-	$(top_builddir)/test/libtest_util_common.a \
-	-lrt
-
+test_libupstart_LDADD = $(lib_LTLIBRARIES) $(NIH_LIBS) \
+	$(NIH_DBUS_LIBS) $(DBUS_LIBS) \
+	$(top_builddir)/test/libtest_util_common.a -lrt \
+	$(am__append_1)
 com_ubuntu_Upstart_OUTPUTS = \
 	upstart/com.ubuntu.Upstart.c \
 	upstart/com.ubuntu.Upstart.h

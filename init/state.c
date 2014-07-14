@@ -48,6 +48,10 @@
 #include "conf.h"
 #include "control.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
+
 json_object *json_sessions = NULL;
 json_object *json_events = NULL;
 json_object *json_classes = NULL;
@@ -55,6 +59,10 @@ json_object *json_conf_sources = NULL;
 
 extern char *log_dir;
 extern char *control_bus_address;
+
+#ifdef ENABLE_CGROUPS
+extern char *cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
 
 /**
  * args_copy:
@@ -344,6 +352,10 @@ state_to_string (char **json_string, size_t *len)
 	json_object  *json_control_bus_address;
 	const char   *value;
 
+#ifdef ENABLE_CGROUPS
+	json_object  *json_cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (json_string);
 	nih_assert (len);
 
@@ -381,6 +393,22 @@ state_to_string (char **json_string, size_t *len)
 	}
 
 	json_object_object_add (json, "control_bus_address", json_control_bus_address);
+
+#ifdef ENABLE_CGROUPS
+	json_cgroup_manager_address = cgroup_manager_serialise ();
+
+	/* Take care to distinguish between memory failure and an
+	 * as-yet-not-set cgroup manager address.
+	 */
+	if (! json_cgroup_manager_address && cgroup_manager_address) {
+		nih_error ("%s %s",
+				_("Failed to serialise"),
+			       _("cgroup manager address"));
+		goto error;
+	}
+
+	json_object_object_add (json, "cgroup_manager_address", json_cgroup_manager_address);
+#endif /* ENABLE_CGROUPS */
 
 	json_job_environ = job_class_serialise_job_environ ();
 
@@ -446,6 +474,10 @@ state_from_string (const char *state)
 	json_object              *json_control_bus_address;
 	enum json_tokener_error   error;
 
+#ifdef ENABLE_CGROUPS
+	json_object              *json_cgroup_manager_address;
+#endif /* ENABLE_CGROUPS */
+
 	nih_assert (state);
 
 	/* This function is called before conf_source_new (), so setup
@@ -489,10 +521,25 @@ state_from_string (const char *state)
 		nih_warn ("%s", _("No control details present in state data"));
 	}
 
+#ifdef ENABLE_CGROUPS
+	ret = json_object_object_get_ex (json, "cgroup_manager_address", &json_cgroup_manager_address);
+
+	if (json_cgroup_manager_address) {
+		if (cgroup_manager_deserialise (json_cgroup_manager_address) < 0) {
+			nih_error ("%s %s",
+					_("Failed to deserialise"),
+					_("cgroup manager address"));
+			goto out;
+		}
+	} else if (! ret) {
+		nih_warn ("No %s in state data", _("cgroup manager address"));
+	}
+#endif /* ENABLE_CGROUPS */
+
 	/* Again, we cannot error here since older JSON state data did
 	 * not encode ConfSource or ConfFile objects.
 	 */
-	if (json_object_object_get (json, "conf_sources")) {
+	if (json_object_object_get_ex (json, "conf_sources", NULL)) {
 		if (conf_source_deserialise_all (json) < 0) {
 			nih_error ("%s ConfSources", _("Failed to deserialise"));
 			goto out;
@@ -501,9 +548,7 @@ state_from_string (const char *state)
 		nih_warn ("%s", _("No ConfSources present in state data"));
 	}
 
-	json_job_environ = json_object_object_get (json, "job_environment");
-
-	if (json_job_environ) {
+	if (json_object_object_get_ex (json, "job_environment", &json_job_environ)) {
 		if (job_class_deserialise_job_environ (json_job_environ) < 0) {
 			nih_error ("%s global job environment",
 					_("Failed to deserialise"));
@@ -534,7 +579,7 @@ out:
 
 
 /**
- * state_toggle_cloexec:
+ * state_modify_cloexec:
  *
  * @fd: file descriptor,
  * @set: set close-on-exec flag if TRUE, clear if FALSE.
@@ -544,7 +589,7 @@ out:
  * Returns: 0 on success, -1 on error.
  **/
 int
-state_toggle_cloexec (int fd, int set)
+state_modify_cloexec (int fd, int set)
 {
 	long   flags;
 	int    ret;
@@ -1066,9 +1111,7 @@ state_rlimit_deserialise_all (json_object *json, const void *parent,
 	nih_assert (parent);
 	nih_assert (rlimits);
 
-	json_limits = json_object_object_get (json, "limits");
-
-	if (! json_limits)
+	if (! json_object_object_get_ex (json, "limits", &json_limits))
 		goto error;
 
 	if (! state_check_json_type (json_limits, array))
@@ -1330,8 +1373,7 @@ state_deserialise_resolve_deps (json_object *json)
 			if (! state_check_json_type (json_job, object))
 				goto error;
 
-			json_blocking = json_object_object_get (json_job, "blocking");
-			if (! json_blocking)
+			if (! json_object_object_get_ex (json_job, "blocking", &json_blocking))
 				continue;
 
 			if (! state_get_json_string_var_strict (json_job, "name", NULL, job_name))
@@ -1598,8 +1640,7 @@ state_deserialise_blocked (void *parent, json_object *json,
 	if (blocked_type == (BlockedType)-1)
 		goto error;
 
-	json_blocked_data = json_object_object_get (json, "data");
-	if (! json_blocked_data)
+	if (! json_object_object_get_ex (json, "data", &json_blocked_data))
 		goto error;
 
 	switch (blocked_type) {
@@ -1776,11 +1817,10 @@ state_deserialise_blocking (void *parent, NihList *list, json_object *json)
 	nih_assert (list);
 	nih_assert (json);
 
-	json_blocking = json_object_object_get (json, "blocking");
-
-	/* parent is not blocking anything */
-	if (! json_blocking)
+	if (! json_object_object_get_ex (json, "blocking", &json_blocking)) {
+		/* parent is not blocking anything */
 		return 0;
+	}
 
 	for (int i = 0; i < json_object_array_length (json_blocking); i++) {
 		json_object * json_blocked;

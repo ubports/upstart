@@ -1,6 +1,6 @@
 /* upstart
  *
- * Copyright © 2009-2011 Canonical Ltd.
+ * Copyright  2009-2011 Canonical Ltd.
  * Author: Scott James Remnant <scott@netsplit.com>.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 # include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -38,17 +39,12 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <dirent.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
-
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
 
 #include <linux/kd.h>
 
@@ -89,10 +85,12 @@ static void hup_handler     (void *data, NihSignal *signal);
 static void usr1_handler    (void *data, NihSignal *signal);
 #endif /* DEBUG */
 
-static void handle_confdir      (void);
-static void handle_logdir       (void);
-static int  console_type_setter (NihOption *option, const char *arg);
-static int  conf_dir_setter     (NihOption *option, const char *arg);
+static void handle_confdir          (void);
+static void handle_logdir           (void);
+static int  console_type_setter     (NihOption *option, const char *arg);
+static int  conf_dir_setter         (NihOption *option, const char *arg);
+static int  prepend_conf_dir_setter (NihOption *option, const char *arg);
+static int  append_conf_dir_setter  (NihOption *option, const char *arg);
 
 
 /**
@@ -109,6 +107,22 @@ static int state_fd = -1;
  * Array of full paths to job configuration file directories.
  **/
 static char **conf_dirs = NULL;
+
+/**
+ * prepend_conf_dirs:
+ *
+ * Array of full paths to job configuration file directories that will
+ * be added to before the other values in conf_dirs.
+ **/
+static char **prepend_conf_dirs = NULL;
+
+/**
+ * append_conf_dirs:
+ *
+ * Array of full paths to job configuration file directories that will
+ * be added to conf_dirs.
+ **/
+static char **append_conf_dirs = NULL;
 
 /**
  * initial_event:
@@ -144,17 +158,35 @@ extern DBusBusType  dbus_bus_type;
 extern mode_t       initial_umask;
 extern int          debug_stanza_enabled;
 
+#ifdef ENABLE_CGROUPS
+extern int          disable_cgroups;
+#endif /* ENABLE_CGROUPS */
+
 /**
  * options:
  *
  * Command-line options we accept.
  **/
 static NihOption options[] = {
+	{ 0, "append-confdir", N_("specify additional directory to load configuration files from"),
+		NULL, "DIR", NULL, append_conf_dir_setter },
+
+	{ 0, "chroot-sessions", N_("enable chroot sessions"),
+		NULL, NULL, &chroot_sessions, NULL },
+
 	{ 0, "confdir", N_("specify alternative directory to load configuration files from"),
 		NULL, "DIR", NULL, conf_dir_setter },
 
 	{ 0, "default-console", N_("default value for console stanza"),
 		NULL, "VALUE", NULL, console_type_setter },
+
+	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
+		NULL, "DIR", &log_dir, NULL },
+
+#ifdef ENABLE_CGROUPS
+	{ 0, "no-cgroups", N_("do not support cgroups"),
+		NULL, NULL, &disable_cgroups, NULL },
+#endif /* ENABLE_CGROUPS */
 
 	{ 0, "no-dbus", N_("do not connect to a D-Bus bus"),
 		NULL, NULL, &disable_dbus, NULL },
@@ -162,17 +194,14 @@ static NihOption options[] = {
 	{ 0, "no-inherit-env", N_("jobs will not inherit environment of init"),
 		NULL, NULL, &no_inherit_env , NULL },
 
-	{ 0, "logdir", N_("specify alternative directory to store job output logs in"),
-		NULL, "DIR", &log_dir, NULL },
-
 	{ 0, "no-log", N_("disable job logging"),
 		NULL, NULL, &disable_job_logging, NULL },
 
-	{ 0, "chroot-sessions", N_("enable chroot sessions"),
-		NULL, NULL, &chroot_sessions, NULL },
-
 	{ 0, "no-startup-event", N_("do not emit any startup event (for testing)"),
 		NULL, NULL, &disable_startup_event, NULL },
+
+	{ 0, "prepend-confdir", N_("specify additional initial directory to load configuration files from"),
+		NULL, "DIR", NULL, prepend_conf_dir_setter },
 
 	/* Must be specified for both stateful and stateless re-exec */
 	{ 0, "restart", N_("flag a re-exec has occurred"),
@@ -207,27 +236,10 @@ main (int   argc,
 {
 	char **args = NULL;
 	int    ret;
-#ifdef HAVE_SELINUX
-	int    enforce = 0;
-
-	if (getenv ("SELINUX_INIT") == NULL) {
-		putenv ("SELINUX_INIT=YES");
-		if (selinux_init_load_policy (&enforce) == 0 ) {
-			execv (argv[0], argv);
-		} else {
-			if (enforce > 0) {
-				/* SELinux in enforcing mode but load_policy
-				 * failed. At this point, we probably can't
-				 * open /dev/console, so log() won't work.
-				 */
-				fprintf (stderr, "Unable to load SELinux Policy. Machine is in enforcing mode. Halting now.\n");
-				exit (1);
-			}
-		}
-	}
-#endif /* HAVE_SELINUX */
 
 	conf_dirs = NIH_MUST (nih_str_array_new (NULL));
+	append_conf_dirs = NIH_MUST (nih_str_array_new (NULL));
+	prepend_conf_dirs = NIH_MUST (nih_str_array_new (NULL));
 
 	args_copy = NIH_MUST (nih_str_array_copy (NULL, NULL, argv));
 
@@ -363,16 +375,23 @@ main (int   argc,
 		 * resetting it to sane defaults unless we're inheriting from another
 		 * init process which we know left it in a sane state.
 		 */
-		if (system_setup_console (CONSOLE_NONE, (! restart)) < 0) {
+		if (system_setup_console (CONSOLE_OUTPUT, (! restart)) < 0) {
 			NihError *err;
 
 			err = nih_error_get ();
 
-			nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
-				   err->message);
+			nih_warn ("%s: %s", _("Unable to initialize console, will try /dev/null"),
+				  err->message);
 			nih_free (err);
 	
-			exit (1);
+			if (system_setup_console (CONSOLE_NONE, FALSE) < 0) {
+				err = nih_error_get ();
+				nih_fatal ("%s: %s", _("Unable to initialize console as /dev/null"),
+					   err->message);
+				nih_free (err);
+	
+				exit (1);
+			}
 		}
 
 		/* Set the PATH environment variable */
@@ -582,42 +601,57 @@ main (int   argc,
 		}
 	}
 
-	/* Read configuration */
-	if (! user_mode) {
-		char   *conf_dir;
-		int     len = 0;
+	/* Only honour command-line options affecting configuration
+	 * directories if not restarting, or if performing a stateless
+	 * re-exec.
+	 */
+	if (! restart || (restart && state_fd == -1)) {
+		/* Read configuration */
+		if (prepend_conf_dirs[0]) {
+			for (char **d = prepend_conf_dirs; d && *d; d++) {
+				nih_debug ("Prepending configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
+		}
 
-		nih_assert (conf_dirs[0]);
+		if (! user_mode) {
+			nih_assert (conf_dirs[0]);
 
-		/* Count entries */
-		for (char **d = conf_dirs; d && *d; d++, len++)
-			;
+			NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
 
-		nih_assert (len);
+			for (char **d = conf_dirs; d && *d; d++) {
+				nih_debug ("Using configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
+		} else {
+			nih_local char **dirs = NULL;
 
-		/* Use last value specified */
-		conf_dir = conf_dirs[len-1];
+			dirs = NIH_MUST (get_user_upstart_dirs ());
 
-		NIH_MUST (conf_source_new (NULL, CONFFILE, CONF_FILE));
+			for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
+				nih_debug ("Using configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
+		}
 
-		nih_debug ("Using configuration directory %s", conf_dir);
-		NIH_MUST (conf_source_new (NULL, conf_dir, CONF_JOB_DIR));
-	} else {
-		nih_local char **dirs = NULL;
-
-		dirs = NIH_MUST (get_user_upstart_dirs ());
-
-		for (char **d = conf_dirs[0] ? conf_dirs : dirs; d && *d; d++) {
-			nih_debug ("Using configuration directory %s", *d);
-			NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+		if (append_conf_dirs[0]) {
+			for (char **d = append_conf_dirs; d && *d; d++) {
+				nih_debug ("Adding configuration directory %s", *d);
+				NIH_MUST (conf_source_new (NULL, *d, CONF_JOB_DIR));
+			}
 		}
 	}
 
 	nih_free (conf_dirs);
+	nih_free (prepend_conf_dirs);
+	nih_free (append_conf_dirs);
 
 	job_class_environment_init ();
 
 	conf_reload ();
+
+	/* We must have atleast one source of configuration */
+	nih_assert (! NIH_LIST_EMPTY (conf_sources));
 
 	/* Create a listening server for private connections. */
 	if (use_session_bus == FALSE) {
@@ -681,16 +715,6 @@ main (int   argc,
 	 * init daemon that exec'd us
 	 */
 	if (! restart) {
-		DIR                *piddir;
-
-		/* Look in well-known locations for pid files.
-		 *
-		 * Try /run (the newer) location first, but fall back to
-		 * the original location for older systems.
-		 */
-		const char * const  pid_paths[] = { "/run/initramfs/", "/dev/.initramfs/", NULL };
-		const char * const *pid_path;
-
 		if (disable_startup_event) {
 			nih_debug ("Startup event disabled");
 		} else {
@@ -699,68 +723,6 @@ main (int   argc,
 				? initial_event
 				: STARTUP_EVENT,
 				NULL));
-                }
-
-		for (pid_path = pid_paths; pid_path && *pid_path; pid_path++) {
-			struct dirent *ent;
-
-			/* Total hack, look for .pid files in known
-			 * locations - if there's a job config for them pretend
-			 * that we started it and it has that pid.
-			 */
-			piddir = opendir (*pid_path);
-			if (! piddir)
-				continue;
-
-			while ((ent = readdir (piddir)) != NULL) {
-				char      path[PATH_MAX];
-				char *    ptr;
-				FILE *    pidfile;
-				pid_t     pid;
-				JobClass *class;
-				Job *     job;
-
-				if (ent->d_name[0] == '.')
-					continue;
-
-				strcpy (path, *pid_path);
-				strcat (path, ent->d_name);
-
-				ptr = strrchr (ent->d_name, '.');
-				if ((! ptr) || strcmp (ptr, ".pid"))
-					continue;
-
-				*ptr = '\0';
-				pidfile = fopen (path, "r");
-				if (! pidfile)
-					continue;
-
-				pid = -1;
-				if (fscanf (pidfile, "%d", &pid))
-					;
-				fclose (pidfile);
-
-				if ((pid < 0) || (kill (pid, 0) < 0))
-					continue;
-
-				class = (JobClass *)nih_hash_lookup (job_classes, ent->d_name);
-				if (! class)
-					continue;
-				if (! class->process[PROCESS_MAIN])
-					continue;
-				if (strlen (class->instance))
-					continue;
-
-				job = NIH_MUST (job_new (class, ""));
-				job->goal = JOB_START;
-				job->state = JOB_RUNNING;
-				job->pid[PROCESS_MAIN] = pid;
-
-				nih_debug ("%s inherited from initramfs with pid %d", class->name, pid);
-			}
-
-			closedir (piddir);
-			break;
 		}
 
 	} else {
@@ -1190,6 +1152,40 @@ conf_dir_setter (NihOption *option, const char *arg)
 	nih_assert (option);
 
 	NIH_MUST (nih_str_array_add (&conf_dirs, NULL, NULL, arg));
+
+	return 0;
+}
+
+/**  
+ * NihOption setter function to handle selection of configuration file
+ * directories.
+ *
+ * Returns: 0 on success, -1 on invalid console type.
+ **/
+static int
+prepend_conf_dir_setter (NihOption *option, const char *arg)
+{
+	nih_assert (prepend_conf_dirs);
+	nih_assert (option);
+
+	NIH_MUST (nih_str_array_add (&prepend_conf_dirs, NULL, NULL, arg));
+
+	return 0;
+}
+
+/**  
+ * NihOption setter function to handle selection of configuration file
+ * directories.
+ *
+ * Returns: 0 on success, -1 on invalid console type.
+ **/
+static int
+append_conf_dir_setter (NihOption *option, const char *arg)
+{
+	nih_assert (append_conf_dirs);
+	nih_assert (option);
+
+	NIH_MUST (nih_str_array_add (&append_conf_dirs, NULL, NULL, arg));
 
 	return 0;
 }

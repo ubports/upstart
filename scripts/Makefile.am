@@ -12,24 +12,24 @@ install_scripts = \
 	upstart-monitor.py
 
 noinst_SCRIPTS = \
-	pyupstart.py
+	pyupstart.py \
+	pyupstartvars.py
 
 CLEANFILES = \
-	pyupstart.py
+	pyupstartvars.py pyupstartvars.py.tmp
 
 EXTRA_DIST = \
 	$(install_scripts) \
-	pyupstart.py.in \
+	pyupstart.py \
 	tests/__init__.py \
 	tests/test_pyupstart_session_init.py \
 	tests/test_pyupstart_system_init.py
 
-pyupstart.py: pyupstart.py.in Makefile
-	sed -e 's|[@]built_init_binary[@]|$(UPSTART_BINARY)|g' \
-	    -e 's|[@]built_initctl_binary[@]|$(INITCTL_BINARY)|g' \
-	    -e 's|[@]built_file_bridge_binary[@]|$(FILE_BRIDGE_BINARY)|g' \
-	    $< > $@
-	chmod +x $@
+pyupstartvars.py: Makefile
+	echo "BUILT_UPSTART = '$(UPSTART_BINARY)'" > pyupstartvars.py.tmp
+	echo "BUILT_INITCTL = '$(INITCTL_BINARY)'" >> pyupstartvars.py.tmp
+	echo "BUILT_FILE_BRIDGE = '$(FILE_BRIDGE_BINARY)'" >> pyupstartvars.py.tmp
+	mv pyupstartvars.py.tmp pyupstartvars.py
 
 dist_man_MANS = \
   man/initctl2dot.8 \
