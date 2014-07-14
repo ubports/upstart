@@ -204,7 +204,7 @@ upstart_out="$(mktemp --tmpdir "${script_name}-upstart-output.XXXXXXXXXX")"
 debug "upstart_out=$upstart_out"
 
 upstart_cmd=$(printf \
-    "%s --user --no-dbus --no-sessions --no-startup-event --verbose --confdir %s" \
+    "%s --user --no-dbus --no-startup-event --verbose --confdir %s" \
         "$upstart_path" \
         "$confdir")
 debug "upstart_cmd=$upstart_cmd"

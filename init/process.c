@@ -267,9 +267,7 @@ process_deserialise_all (json_object *json, const void *parent,
 	nih_assert (parent);
 	nih_assert (processes);
 
-	json_processes = json_object_object_get (json, "process");
-
-	if (! json_processes)
+	if (! json_object_object_get_ex (json, "process", &json_processes))
 		goto error;
 
 	if (! state_check_json_type (json_processes, array))

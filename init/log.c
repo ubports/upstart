@@ -405,6 +405,7 @@ log_file_open (Log *log)
 	struct stat  statbuf;
 	int          ret = -1;
 	int          mode = LOG_DEFAULT_MODE;
+	mode_t       old;
 	int          flags = (O_CREAT | O_APPEND | O_WRONLY |
 			      O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
 
@@ -439,13 +440,16 @@ log_file_open (Log *log)
 	nih_assert (log->fd == -1);
 
 	/* Impose some sane defaults. */
-	umask (LOG_DEFAULT_UMASK);
+	old = umask (LOG_DEFAULT_UMASK);
 
 	/* Non-blocking to avoid holding up the main loop. Without
 	 * this, we'd probably need to spawn a thread to handle
 	 * job logging.
 	 */
 	log->fd = open (log->path, flags, mode);
+
+	/* Restore */
+	umask (old);
 
 	log->open_errno = errno;
 
@@ -949,7 +953,6 @@ log_deserialise (const void *parent,
 	nih_local char  *unflushed = NULL;
 	int              ret;
 	size_t           len;
-	json_object     *json_unflushed;
 	nih_local char  *path = NULL;
 	int              io_watch_fd = -1;
 	uid_t            uid = (uid_t)-1;
@@ -975,7 +978,7 @@ log_deserialise (const void *parent,
 	nih_assert (io_watch_fd != -1);
 
 	/* re-apply CLOEXEC flag to stop job fd being leaked to children */
-	if (state_toggle_cloexec (io_watch_fd, TRUE) < 0)
+	if (state_modify_cloexec (io_watch_fd, TRUE) < 0)
 		return NULL;
 
 	if (! state_get_json_int_var (json, "uid", uid))
@@ -994,14 +997,13 @@ log_deserialise (const void *parent,
 	 * we would never close the fd.
 	 */
 	if (log->fd != -1)
-		(void)state_toggle_cloexec (log->fd, TRUE);
+		(void)state_modify_cloexec (log->fd, TRUE);
 
 	log->unflushed = nih_io_buffer_new (log);
 	if (! log->unflushed)
 		goto error;
 
-	json_unflushed = json_object_object_get (json, "unflushed");
-	if (json_unflushed) {
+	if (json_object_object_get_ex (json, "unflushed", NULL)) {
 		if (! state_get_json_string_var_strict (json, "unflushed", NULL, unflushed_hex))
 			goto error;
 

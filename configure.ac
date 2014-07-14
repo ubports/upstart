@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT([upstart], [1.12.1], [upstart-devel@lists.ubuntu.com])
+AC_INIT([upstart], [1.13], [upstart-devel@lists.ubuntu.com])
 NIH_COPYRIGHT([[Copyright © 2006-2014 Canonical Ltd., 2011 Scott James Remnant]])
 AC_CONFIG_SRCDIR([init/main.c])
 AC_CONFIG_MACRO_DIR([m4])
@@ -77,6 +77,16 @@ AM_CONDITIONAL([ENABLE_DCONF_BRIDGE], [test "$have_dconf" = yes &&
 have_tap=no
 AM_CONDITIONAL([ENABLE_TAP_OUTPUT], [test "$have_tap" = "yes"])
 
+AC_ARG_ENABLE([cgroups],
+	AS_HELP_STRING([--disable-cgroups],
+		[Disable support for Linux cgroups]),
+		[enable_cgroups=no], [enable_cgroups=yes])
+PKG_CHECK_MODULES([CGMANAGER], [libcgmanager], [have_cgmanager=yes], [have_cgmanager=no])
+AM_CONDITIONAL([ENABLE_CGROUPS], [test "$enable_cgroups" = yes && test "$have_cgmanager" = yes])
+
+if test "$enable_cgroups" = yes && test "$have_cgmanager" = yes; then
+	AC_DEFINE([ENABLE_CGROUPS], [1], [Build with Cgroup CGManager support])
+fi
 
 # Reasons for requiring this library version:
 #

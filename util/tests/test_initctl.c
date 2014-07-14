@@ -121,7 +121,7 @@ test_upstart_open (void)
 	TEST_ALLOC_FAIL {
 		use_dbus = FALSE;
 		dest_name = NULL;
-		dest_address = "unix:abstract=/com/ubuntu/upstart/test";
+		dest_address = "unix:abstract=/com/ubuntu/upstart/test_initctl";
 
 		TEST_ALLOC_SAFE {
 			server = nih_dbus_server (dest_address,
@@ -8462,12 +8462,20 @@ test_reload_action (void)
 	FILE *          output;
 	FILE *          errors;
 	pid_t           server_pid;
+	pid_t           proc_pid;
 	DBusMessage *   method_call;
 	DBusMessage *   reply = NULL;
 	const char *    name_value;
 	char **         args_value;
 	int             args_elements;
 	const char *    str_value;
+	const char *    interface;
+	const char *    property;
+	DBusMessageIter iter;
+	DBusMessageIter subiter;
+	DBusMessageIter arrayiter;
+	DBusMessageIter structiter;
+	int32_t         int32_value;
 	NihCommand      command;
 	char *          args[4];
 	int             ret = 0;
@@ -9136,6 +9144,231 @@ test_reload_action (void)
 
 		kill (server_pid, SIGTERM);
 		waitpid (server_pid, NULL, 0);
+	}
+
+
+	/* Check that if an error is received from the Reload call,
+	 * the fallback path is used to query main pid and SIGHUP
+	 * that.
+	 */
+	TEST_FEATURE ("with error reply to Reload");
+	TEST_ALLOC_FAIL {
+		TEST_CHILD (proc_pid) {
+			pause ();
+		}
+
+		TEST_CHILD (server_pid) {
+			/* Expect the GetJobByName method call on the
+			 * manager object, make sure the job name is passed
+			 * and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART,
+								"GetJobByName"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART);
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &name_value,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ_STR (name_value, "test");
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the GetInstance method call on the
+			 * job object, make sure the environment args are
+			 * passed and reply with a path.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_JOB,
+								"GetInstance"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &args_value, &args_elements,
+							  DBUS_TYPE_INVALID));
+
+			TEST_EQ (args_elements, 0);
+			dbus_free_string_array (args_value);
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_method_return (method_call);
+
+				str_value = DBUS_PATH_UPSTART "/jobs/test/_";
+
+				dbus_message_append_args (reply,
+							  DBUS_TYPE_OBJECT_PATH, &str_value,
+							  DBUS_TYPE_INVALID);
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Reload method call against job
+			 * instance and reply with an error.
+			 */
+			TEST_DBUS_MESSAGE (server_conn, method_call);
+
+			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_UPSTART_INSTANCE,
+								"Reload"));
+
+			TEST_EQ_STR (dbus_message_get_path (method_call),
+							    DBUS_PATH_UPSTART "/jobs/test/_");
+
+			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_INVALID));
+
+			TEST_ALLOC_SAFE {
+				reply = dbus_message_new_error (method_call,
+								DBUS_ERROR_UNKNOWN_METHOD,
+								"Unknown method");
+			}
+
+			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			/* Expect the Get call for the processes, reply with
+			 * a main process pid.
+			 */
+ 			TEST_DBUS_MESSAGE (server_conn, method_call);
+ 
+ 			TEST_TRUE (dbus_message_is_method_call (method_call,
+								DBUS_INTERFACE_PROPERTIES,
+								"Get"));
+ 			TEST_EQ_STR (dbus_message_get_path (method_call),
+ 							    DBUS_PATH_UPSTART "/jobs/test/_");
+ 
+ 			TEST_TRUE (dbus_message_get_args (method_call, NULL,
+							  DBUS_TYPE_STRING, &interface,
+							  DBUS_TYPE_STRING, &property,
+ 							  DBUS_TYPE_INVALID));
+
+ 			TEST_ALLOC_SAFE {
+ 				reply = dbus_message_new_method_return (method_call);
+
+				dbus_message_iter_init_append (reply, &iter);
+
+				dbus_message_iter_open_container (&iter, DBUS_TYPE_VARIANT,
+								  (DBUS_TYPE_ARRAY_AS_STRING
+								   DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &subiter);
+
+				dbus_message_iter_open_container (&subiter, DBUS_TYPE_ARRAY,
+								  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+								   DBUS_TYPE_STRING_AS_STRING
+								   DBUS_TYPE_INT32_AS_STRING
+								   DBUS_STRUCT_END_CHAR_AS_STRING),
+								  &arrayiter);
+
+				dbus_message_iter_open_container (&arrayiter, DBUS_TYPE_STRUCT,
+								  NULL,
+								  &structiter);
+
+				str_value = "main";
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_STRING,
+								&str_value);
+
+				int32_value = proc_pid;
+				dbus_message_iter_append_basic (&structiter, DBUS_TYPE_INT32,
+								&int32_value);
+
+				dbus_message_iter_close_container (&arrayiter, &structiter);
+
+				dbus_message_iter_close_container (&subiter, &arrayiter);
+
+				dbus_message_iter_close_container (&iter, &subiter);
+ 			}
+ 
+ 			dbus_connection_send (server_conn, reply, NULL);
+			dbus_connection_flush (server_conn);
+
+			dbus_message_unref (method_call);
+			dbus_message_unref (reply);
+
+			TEST_DBUS_CLOSE (server_conn);
+
+			dbus_shutdown ();
+
+			exit (0);
+		}
+
+		memset (&command, 0, sizeof command);
+
+		args[0] = "test";
+		args[1] = NULL;
+
+		TEST_DIVERT_STDOUT (output) {
+			TEST_DIVERT_STDERR (errors) {
+				ret = reload_action (&command, args);
+			}
+		}
+		rewind (output);
+		rewind (errors);
+
+		if (test_alloc_failed
+		    && (ret != 0)) {
+			TEST_FILE_END (output);
+			TEST_FILE_RESET (output);
+
+			TEST_FILE_EQ (errors, "test: Cannot allocate memory\n");
+			TEST_FILE_END (errors);
+			TEST_FILE_RESET (errors);
+
+			kill (server_pid, SIGTERM);
+			waitpid (server_pid, NULL, 0);
+			kill (proc_pid, SIGTERM);
+			waitpid (proc_pid, NULL, 0);
+			continue;
+		}
+
+		TEST_EQ (ret, 0);
+
+		TEST_FILE_END (output);
+		TEST_FILE_RESET (output);
+
+		TEST_FILE_END (errors);
+		TEST_FILE_RESET (errors);
+
+		waitpid (server_pid, &status, 0);
+		TEST_TRUE (WIFEXITED (status));
+		TEST_EQ (WEXITSTATUS (status), 0);
+
+		kill (proc_pid, SIGTERM);
+		waitpid (proc_pid, NULL, 0);
+		continue;
+
 	}
 
 
@@ -10735,9 +10968,9 @@ test_list (void)
 	/*******************************************************************/
 	TEST_FEATURE ("single job");
 
-	START_UPSTART (upstart_pid, FALSE);
 	CREATE_FILE (dirname, "foo.conf",
 			"exec echo hello");
+	START_UPSTART (upstart_pid, FALSE);
 
 	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -10751,10 +10984,10 @@ test_list (void)
 	/*******************************************************************/
 	TEST_FEATURE ("3 jobs and re-exec");
 
-	START_UPSTART (upstart_pid, FALSE);
-	CREATE_FILE (dirname, "foo.conf", "exec echo foo");
+        CREATE_FILE (dirname, "foo.conf", "exec echo foo");
 	CREATE_FILE (dirname, "bar.conf", "exec echo bar");
 	CREATE_FILE (dirname, "baz.conf", "exec echo bar");
+	START_UPSTART (upstart_pid, FALSE);
 
 	cmd = nih_sprintf (NULL, "%s list 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -10819,6 +11052,8 @@ test_reexec (void)
 	FILE            *file;
 	int              ok;
 	int              ret;
+	mode_t           expected_umask;
+	size_t           len;
 
 	TEST_GROUP ("re-exec support");
 
@@ -10874,6 +11109,12 @@ test_reexec (void)
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "foo.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -11082,6 +11323,80 @@ test_reexec (void)
 	nih_free (output);
 
 	STOP_UPSTART (upstart_pid);
+
+	/*******************************************************************/
+	TEST_FEATURE ("ensure re-exec does not disrupt umask");
+
+	contents = nih_sprintf (NULL, "exec sh -c umask");
+	TEST_NE_P (contents, NULL);
+
+	CREATE_FILE (confdir, "umask.conf", contents);
+	nih_free (contents);
+
+	start_upstart_common (&upstart_pid, TRUE, TRUE, confdir, logdir, NULL);
+
+	cmd = nih_sprintf (NULL, "%s start umask 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	logfile = NIH_MUST (nih_sprintf (NULL, "%s/%s",
+				logdir,
+				"umask.log"));
+
+	/* Wait for log to be created */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	contents = nih_file_read (NULL, logfile, &len);
+	TEST_NE_P (contents, NULL);
+	TEST_TRUE (len);
+
+	/* overwrite '\n' */
+	contents[len-1] = '\0';
+
+	expected_umask = (mode_t)atoi (contents);
+	assert0 (unlink (logfile));
+	nih_free (contents);
+
+	/* Restart */
+	REEXEC_UPSTART (upstart_pid, TRUE);
+
+	/* Re-run job */
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	nih_free (output);
+
+	/* Wait for log to be recreated */
+	ok = FALSE;
+	for (int i = 0; i < 5; i++) {
+		sleep (1);
+		if (! stat (logfile, &statbuf)) {
+			ok = TRUE;
+			break;
+		}
+	}
+	TEST_EQ (ok, TRUE);
+
+	contents = nih_file_read (NULL, logfile, &len);
+	TEST_NE_P (contents, NULL);
+	TEST_TRUE (len);
+
+	/* overwrite '\n' */
+	contents[len-1] = '\0';
+
+	TEST_EQ (expected_umask, (mode_t)atoi (contents));
+
+	STOP_UPSTART (upstart_pid);
+
+	DELETE_FILE (confdir, "umask.conf");
+	assert0 (unlink (logfile));
 
 	/*******************************************************************/
 
@@ -11302,7 +11617,7 @@ test_quiesce (void)
 	TEST_NE_P (sessiondir, NULL);
 	
 	cmd = nih_sprintf (NULL, "rm %s/upstart/sessions/*.session 2>/dev/null", sessiondir);
-	system (cmd);
+	assert0 (system (cmd));
 
 	/* Use the "secret" interface */
 	TEST_EQ (setenv ("UPSTART_CONFDIR", confdir, 1), 0);
@@ -12173,6 +12488,12 @@ test_show_config (void)
 			"author \"foo\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12197,6 +12518,12 @@ test_show_config (void)
 			"author \"foo\"\n"
 			"emits \"thing\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12225,6 +12552,12 @@ test_show_config (void)
 			"emits \"thing\"\n"
 			"emits \"thong\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12255,6 +12588,12 @@ test_show_config (void)
 			"start on (A and B)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12283,6 +12622,12 @@ test_show_config (void)
 			"emits \"bong\"\n"
 			"start on (A and B)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12316,6 +12661,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12348,6 +12699,12 @@ test_show_config (void)
 			"stop on (A or B)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12376,6 +12733,12 @@ test_show_config (void)
 			"emits \"bong\"\n"
 			"stop on (A or B)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12408,6 +12771,12 @@ test_show_config (void)
 			"stop on (A or B)\n"
 			"emits \"stime\"\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12443,6 +12812,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"start on (starting JOB=\"boo\" or B x=y)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12482,6 +12857,12 @@ test_show_config (void)
 			"start on (starting JOB=\"boo\" P=Q c=sea or B x=y)\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12520,6 +12901,12 @@ test_show_config (void)
 			"emits \"stime\"\n"
 			"start on A and (B FOO=BAR or starting C x=y)\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12566,6 +12953,12 @@ test_show_config (void)
 			"start on (starting mountall or (runlevel [016] and "
 			"(stopped gdm or stopped kdm or stopped xdm A=B or stopping lxdm)))\n"
 			"description \"wibble\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s show-config foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12702,6 +13095,12 @@ test_check_config (void)
 			"task\n"
 			"exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -12721,6 +13120,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "baz.conf",
 			"emits wibble");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12743,6 +13148,12 @@ test_check_config (void)
 			"task\n"
 			"exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wibble 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12757,6 +13168,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "foo.conf",
 			"start on (fred and wilma)");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=wilma,foo,fred 2>&1",
 			get_initctl ());
@@ -12782,6 +13199,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12805,6 +13228,12 @@ test_check_config (void)
                    	"              or stopped lxdm)))");
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -12837,6 +13266,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "gdm.conf"     , "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12860,6 +13295,12 @@ test_check_config (void)
                    	"              or stopped lxdm)))");
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -12893,6 +13334,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "portmap.conf", "exec true");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --ignore-events=runlevel 2>&1",
 			get_initctl ());
@@ -12931,6 +13378,12 @@ test_check_config (void)
 			"emits hello");
 	CREATE_FILE (dirname, "gdm.conf", "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config >&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -12962,6 +13415,12 @@ test_check_config (void)
 
 	CREATE_FILE (dirname, "mountall.conf", "exec true");
 	CREATE_FILE (dirname, "portmap.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
 			get_initctl ());
@@ -13004,6 +13463,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s check-config 2>&1",
 			get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -13040,6 +13505,12 @@ test_check_config (void)
 	CREATE_FILE (dirname, "lxdm.conf", "exec true");
 	CREATE_FILE (dirname, "wibble.conf", "emits wibble");
 	CREATE_FILE (dirname, "beano.conf", "exec true");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s check-config --warn 2>&1",
 			get_initctl ());
@@ -15771,6 +16242,12 @@ test_usage (void)
 			"author \"foo\"\n"
 			"description \"wibble\"");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &lines);
@@ -15786,6 +16263,12 @@ test_usage (void)
 
 	CREATE_FILE (dirname, "foo.conf",
 			"usage \"this is usage\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s usage foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -15803,6 +16286,12 @@ test_usage (void)
 	CREATE_FILE (dirname, "foo.conf",
 			"instance $FOO\n"
 			"usage \"this is usage\"");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	memset (&command, 0, sizeof command);
 	args[0] = "foo";
@@ -15937,6 +16426,12 @@ test_default_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "foo.conf", "exec env");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -16059,6 +16554,17 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
 
+	/* ensure unset-env (multiple variables) tolerates empty environment */
+	cmd = nih_sprintf (NULL, "%s unset-env %s %s 2>&1", get_initctl (), "foo", "bar");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	/* Although 2 variables have been specified, since neither is
+	 * set, we only expect 1 error for the first variable.
+	 */
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+
 	/*******************************************************************/
 	TEST_FEATURE ("ensure job runs in empty environment");
 
@@ -16072,6 +16578,12 @@ test_clear_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "empty-env.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start empty-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -16119,6 +16631,12 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	nih_local char  *cmd = NULL;
 	nih_local char  *name = NULL;
 	nih_local char  *value = NULL;
+	nih_local char  *name2 = NULL;
+	nih_local char  *value2 = NULL;
+	nih_local char  *name3 = NULL;
+	nih_local char  *value3 = NULL;
+	nih_local char  *name4 = NULL;
+	nih_local char  *value4 = NULL;
 	char           **output;
 	nih_local char  *logfile = NULL;
 	size_t           line_count;
@@ -16148,9 +16666,17 @@ test_modified_job_env (const char *confdir, const char *logdir,
 
 	name = NIH_MUST (nih_strdup (NULL, "foo"));
 	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+	value2 = NIH_MUST (nih_strdup (NULL, "qux"));
 
 	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", get_initctl (),
 			name, value);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s 2>&1", get_initctl (),
+			name2, value2);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 0);
@@ -16163,7 +16689,15 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	TEST_EQ_STR (output[0], value);
 	nih_free (output);
 
-	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s %s 2>&1", get_initctl (), name, name2);
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 0);
@@ -16174,6 +16708,65 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("multiple set-env in 'name=value' form");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+	value2 = NIH_MUST (nih_strdup (NULL, "qux"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s %s=%s 2>&1", get_initctl (),
+			name, value, name2, value2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s %s 2>&1", get_initctl (), name, name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
 	nih_free (output);
 
 	/*******************************************************************/
@@ -16214,6 +16807,67 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	nih_free (output);
 
 	/*******************************************************************/
+	TEST_FEATURE ("multiple set-env in 'name=' form");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s= %s= 2>&1", get_initctl (),
+			name, name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	/*******************************************************************/
 	TEST_FEATURE ("set-env in 'name' form");
 
 	name = NIH_MUST (nih_strdup (NULL, "foo"));
@@ -16247,6 +16901,68 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("multiple set-env in 'name' form");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+
+	cmd = nih_sprintf (NULL, "%s set-env %s %s 2>&1", get_initctl (),
+			name, name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
 	nih_free (output);
 
 	/*******************************************************************/
@@ -16303,6 +17019,344 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	nih_free (output);
 
 	/*******************************************************************/
+	TEST_FEATURE ("set-env for multiple already set variables");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+	value2 = NIH_MUST (nih_strdup (NULL, "qux"));
+
+	/* set them */
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s %s=%s 2>&1", get_initctl (),
+			name, value, name2, value2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check them */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	/* set them again */
+	cmd = nih_sprintf (NULL, "%s set-env %s=%s %s=%s 2>&1", get_initctl (),
+			name, value, name2, value2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check again */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env with multiple variables, some already set");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+	value2 = NIH_MUST (nih_strdup (NULL, "qux"));
+	name3 = NIH_MUST (nih_strdup (NULL, "hello"));
+	value3 = NIH_MUST (nih_strdup (NULL, "world"));
+	name4 = NIH_MUST (nih_strdup (NULL, "bonjour"));
+	value4 = NIH_MUST (nih_strdup (NULL, "tout le monde"));
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: hello");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: bonjour");
+	nih_free (output);
+
+	/* set 2 variables initially */
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' %s='%s' 2>&1", get_initctl (),
+			name3, value3, name4, value4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check them */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value4);
+	nih_free (output);
+
+	/* set them all */
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' %s='%s' %s='%s' %s='%s' 2>&1", get_initctl (),
+			name, value, name3, value3, name2, value2, name4, value4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check again */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value4);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: hello");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: bonjour");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env with multiple variables in different forms");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name2 = NIH_MUST (nih_strdup (NULL, "baz"));
+	value2 = NIH_MUST (nih_strdup (NULL, "qux"));
+
+	name3 = NIH_MUST (nih_strdup (NULL, "name-equals"));
+	name4 = NIH_MUST (nih_strdup (NULL, "just-name"));
+
+	/* set them all */
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' %s= %s %s='%s' 2>&1", get_initctl (),
+			name, value, name3, name4, name2, value2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	/* nul string value expected if none specified when set */
+	TEST_EQ_STR (output[0], "");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: name-equals");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: just-name");
+	nih_free (output);
+
+	/*******************************************************************/
 	TEST_FEATURE ("set-env --retain");
 
 	name = NIH_MUST (nih_strdup (NULL, "foo"));
@@ -16351,6 +17405,151 @@ test_modified_job_env (const char *confdir, const char *logdir,
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
 	TEST_EQ (line_count, 1);
 	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	/*******************************************************************/
+	TEST_FEATURE ("set-env --retain with multiple variables, some already set");
+
+	name = NIH_MUST (nih_strdup (NULL, "foo"));
+	value = NIH_MUST (nih_strdup (NULL, "bar"));
+	name3 = NIH_MUST (nih_strdup (NULL, "hello"));
+	value3 = NIH_MUST (nih_strdup (NULL, "world"));
+	name4 = NIH_MUST (nih_strdup (NULL, "bonjour"));
+	value4 = NIH_MUST (nih_strdup (NULL, "tout le monde"));
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: hello");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: bonjour");
+	nih_free (output);
+
+	/* set 2 variables initially */
+	cmd = nih_sprintf (NULL, "%s set-env %s='%s' %s='%s' 2>&1", get_initctl (),
+			name3, value3, name4, value4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check them */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+
+	TEST_EQ_STR (output[0], value4);
+	nih_free (output);
+
+	/* set them all */
+	cmd = nih_sprintf (NULL, "%s set-env --retain %s='%s' %s='%s' %s='%s' %s='%s' 2>&1",
+			get_initctl (), name, value, name3, "AAAA", name2, value2, name4, "BBBB");
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	/* check that the original values did *NOT* change */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value3);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value4);
+	nih_free (output);
+
+	/* Check that the initially-not set variables were set */
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], value2);
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s unset-env %s 2>&1", get_initctl (), name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: foo");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name2);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: baz");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name3);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: hello");
+	nih_free (output);
+
+	cmd = nih_sprintf (NULL, "%s get-env %s 2>&1", get_initctl (),
+			name4);
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 1);
+	TEST_EQ_STR (output[0], "initctl: No such variable: bonjour");
 	nih_free (output);
 
 	/*******************************************************************/
@@ -16497,6 +17696,12 @@ test_modified_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "modified-env.conf", "exec env");
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start modified-env 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -16622,6 +17827,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "foo.conf", contents);
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 
@@ -16667,6 +17878,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 
 	CREATE_FILE (confdir, "foo.conf", contents);
 
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
+
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
 	RUN_COMMAND (NULL, cmd, &output, &line_count);
@@ -16697,6 +17914,12 @@ test_global_and_local_job_env (const char *confdir, const char *logdir,
 	TEST_NE_P (contents, NULL);
 
 	CREATE_FILE (confdir, "bar.conf", contents);
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &line_count);
+	TEST_EQ (line_count, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start bar 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -16780,6 +18003,12 @@ test_no_inherit_job_env (const char *runtimedir, const char *confdir, const char
 	TEST_FEATURE ("ensure '--user --no-inherit-env' provides expected job environment");
 
 	CREATE_FILE (confdir, "foo.conf", "exec env");
+
+	cmd = nih_sprintf (NULL, "%s reload-configuration 2>&1", get_initctl ());
+	TEST_NE_P (cmd, NULL);
+	RUN_COMMAND (NULL, cmd, &output, &lines);
+	TEST_EQ (lines, 0);
+	nih_free (output);
 
 	cmd = nih_sprintf (NULL, "%s start foo 2>&1", get_initctl ());
 	TEST_NE_P (cmd, NULL);
@@ -17030,7 +18259,10 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	nih_local char  **extra = NULL;
+	extra = NIH_MUST (nih_str_array_new (NULL));
+	NIH_MUST (nih_str_array_add (&extra, NULL, NULL,"--no-startup-event"));
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
@@ -17100,7 +18332,7 @@ test_dbus_connection (void)
 	assert0 (unsetenv ("DBUS_SYSTEM_BUS_ADDRESS"));
 	assert0 (unsetenv ("DBUS_SESSION_BUS_ADDRESS"));
 
-	START_UPSTART (upstart_pid, TRUE);
+	start_upstart_common (&(upstart_pid), TRUE, FALSE, NULL, NULL, extra);
 
 	/* Pass the first D-Bus session bus address to the Session Init */
 	cmd = nih_sprintf (NULL, "%s notify-dbus-address \"%s\" 2>&1",
@@ -17186,8 +18418,10 @@ main (int   argc,
 	test_version_action ();
 	test_log_priority_action ();
 	test_usage ();
+
 	test_job_env ();
 	test_reexec ();
+
 	test_list_sessions ();
 	if (have_timed_waitpid ()) {
 		test_quiesce ();

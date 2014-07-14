@@ -6,6 +6,13 @@
 #include <sys/wait.h>
 
 #include <nih-dbus/test_dbus.h>
+#include <nih/timer.h>
+#include <nih/main.h>
+#include <nih/child.h>
+#include <nih/io.h>
+#include <nih/list.h>
+#include <nih/hash.h>
+#include <nih/tree.h>
 
 /**
  * TEST_DIR_MODE:
@@ -34,6 +41,16 @@
 
 #define TEST_QUIESCE_TOTAL_WAIT_TIME (TEST_EXIT_TIME + TEST_QUIESCE_KILL_PHASE)
 
+/**
+ * TEST_MAIN_LOOP_TIMEOUT_SECS:
+ *
+ * Number of seconds to wait until the main loop is exited in error.
+ *
+ * To avoid a test failure, all main loops must exit within this
+ * number of seconds.
+ **/
+#define TEST_MAIN_LOOP_TIMEOUT_SECS    5
+
 /* A 'reasonable' path, but which also contains a marker at the end so
  * we know when we're looking at a PATH these tests have set.
  */
@@ -42,6 +59,11 @@
 /* Default value for TERM if not already set */
 #define TEST_INITCTL_DEFAULT_TERM "linux"
 
+#ifdef ENABLE_CGROUPS
+
+#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
+
+#endif /* ENABLE_CGROUPS */
 
 /* TEST_ENSURE_CLEAN_ENV:
  *
@@ -71,6 +93,41 @@
 	if (events) {                                                \
 		TEST_LIST_EMPTY (events);                            \
 	}                                                            \
+}
+
+/**
+ * TEST_WATCH_LOOP:
+ * 
+ * Loop for NihIo object Updates, and process them until no watches
+ * left.
+ */
+#define TEST_WATCH_LOOP()                                            \
+{							             \
+	/* Loop until we've fed all of the data. */                  \
+	int first = TRUE;                                            \
+	for (;;) {                                                   \
+		fd_set readfds, writefds, exceptfds;                 \
+		int    nfds;					     \
+								     \
+		nfds = 0;					     \
+		FD_ZERO (&readfds);				     \
+		FD_ZERO (&writefds);				     \
+		FD_ZERO (&exceptfds);				     \
+								     \
+		nih_io_select_fds (&nfds, &readfds,		     \
+				   &writefds, &exceptfds);	     \
+		if (! nfds) {					     \
+		    if (first)					     \
+			TEST_FAILED ("expected to have "	     \
+				     "data to feed.");		     \
+		    break;					     \
+		}						     \
+		first = FALSE;					     \
+									\
+		select (nfds, &readfds, &writefds, &exceptfds, NULL);	\
+								     \
+		nih_io_handle_fds (&readfds, &writefds, &exceptfds); \
+	}							     \
 }
 
 /**
@@ -167,6 +224,30 @@
                                                                      \
 	TEST_EQ (count, 0);                                          \
 }
+
+/**
+ * TEST_RESET_MAIN_LOOP:
+ * 
+ * Reset main loop and associated test variables.
+ **/
+#define TEST_RESET_MAIN_LOOP() \
+	if (nih_main_loop_functions) { \
+		nih_free (nih_main_loop_functions); \
+		nih_main_loop_functions = NULL; \
+	} \
+	if (nih_child_watches) { \
+		nih_free (nih_child_watches); \
+		nih_child_watches = NULL; \
+	} \
+	if (nih_timers) { \
+		nih_free (nih_timers); \
+		nih_timers = NULL; \
+	} \
+	nih_child_init (); \
+	nih_main_loop_init (); \
+	nih_timer_init (); \
+	nih_io_init ()
+
 
 /**
  * obj_string_check:
@@ -672,6 +753,18 @@
 
 extern int test_user_mode;
 
+/**
+ * NihTreeHandler:
+ * @node: tree entry being visited,
+ * @data: data pointer.
+ *
+ * A tree handler is a function called for each tree node
+ * when iterating over a tree.
+ *
+ * Returns: TRUE if tree entry process correctly, else FALSE.
+ **/
+typedef int (*NihTreeHandler) (NihTree *node, void *data);
+
 /* Prototypes */
 int set_upstart_session (pid_t session_init_pid)
 	__attribute__ ((warn_unused_result));
@@ -702,10 +795,10 @@ pid_t job_to_pid (const char *job)
 int string_check (const char *a, const char *b)
 	__attribute__ ((warn_unused_result));
 
-const char * get_upstart_binary (void)
+const char *get_upstart_binary (void)
 	__attribute__ ((warn_unused_result));
 
-const char * get_initctl_binary (void)
+const char *get_initctl_binary (void)
 	__attribute__ ((warn_unused_result));
 
 int strcmp_compar (const void *a, const void *b)
@@ -730,5 +823,58 @@ int file_exists (const char *path)
 void test_common_setup (void);
 
 void test_common_cleanup (void);
+
+void timer_cb (void *data, NihTimer *timer);
+
+void test_job_process_handler (void *data, pid_t pid,
+			  NihChildEvents event, int status);
+
+void test_main_loop_func (void *data, NihMainLoopFunc *self);
+
+int fd_valid (int fd)
+	__attribute__ ((warn_unused_result));
+
+NihIoBuffer *read_from_fd (void *parent, int fd)
+	__attribute__ ((warn_unused_result));
+
+typedef int (*NihListHandler) (NihList *entry, void *data);
+
+int test_list_handler_generic (NihList *entry, void *data)
+    __attribute__ ((unused, noinline));
+
+int test_list_foreach (const NihList *list, size_t *len,
+		NihListHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_list_count (const NihList *list)
+	__attribute__((warn_unused_result, unused));
+
+NihList *test_list_get_index (NihList *list, size_t count)
+	__attribute__((warn_unused_result, unused));
+
+int test_hash_foreach (const NihHash *hash, size_t *len,
+		NihListHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_hash_count (const NihHash *hash)
+	__attribute__((warn_unused_result, unused));
+
+int test_tree_foreach (NihTree *tree, size_t *len,
+		NihTreeHandler handler, void *data)
+	__attribute__((unused));
+
+size_t test_tree_count (NihTree *tree)
+	__attribute__((warn_unused_result, unused));
+
+int connect_to_cgmanager (void)
+	__attribute__((warn_unused_result));
+
+void disconnect_cgmanager (void);
+
+char *get_pid_cgroup (const char *controller, pid_t pid)
+	__attribute__((warn_unused_result));
+
+int setup_cgroup_sandbox (void)
+	__attribute__((warn_unused_result));
 
 #endif /* TEST_UTIL_COMMON_H */

@@ -47,6 +47,9 @@
 #include "errors.h"
 #include "apparmor.h"
 
+#ifdef ENABLE_CGROUPS
+#include "cgroup.h"
+#endif /* ENABLE_CGROUPS */
 
 /* Prototypes for static functions */
 static int            parse_exec        (Process *process,
@@ -240,6 +243,18 @@ static int stanza_usage       (JobClass *class, NihConfigStanza *stanza,
 			       size_t *pos, size_t *lineno)
 	__attribute__ ((warn_unused_result));
 
+static int stanza_cgroup      (JobClass *class, NihConfigStanza *stanza,
+			       const char *file, size_t len,
+			       size_t *pos, size_t *lineno)
+	__attribute__ ((warn_unused_result));
+static int parse_cgroup       (JobClass        *class,
+			       NihConfigStanza *stanza,
+			       const char      *file,
+			       size_t           len,
+			       size_t          *pos,
+			       size_t          *lineno)
+	__attribute__ ((warn_unused_result));
+
 /**
  * debug_stanza_enabled:
  *
@@ -288,6 +303,7 @@ static NihConfigStanza stanzas[] = {
 	{ "manual",      (NihConfigHandler)stanza_manual      },
 	{ "usage",       (NihConfigHandler)stanza_usage       },
 	{ "apparmor",    (NihConfigHandler)stanza_apparmor    },
+	{ "cgroup",      (NihConfigHandler)stanza_cgroup      },
 
 	NIH_CONFIG_LAST
 };
@@ -452,7 +468,7 @@ parse_script (Process         *process,
 
 /**
  * parse_process:
- * @job: job class being parsed,
+ * @class: job class being parsed,
  * @process: which process is being parsed,
  * @stanza: stanza found,
  * @file: file or string to parse,
@@ -1062,6 +1078,103 @@ parse_on_collect (JobClass       *class,
 	return 0;
 }
 
+/**
+ * parse_cgroup:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * This function is used to parse the arguments to a cgroup stanza
+ * from @file.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+static int
+parse_cgroup (JobClass        *class,
+	      NihConfigStanza *stanza,
+	      const char      *file,
+	      size_t           len,
+	      size_t          *pos,
+	      size_t          *lineno)
+{
+	char            *arg2;
+	char            *arg3;
+	nih_local char  *controller = NULL;
+	nih_local char  *name = NULL;
+	nih_local char  *key = NULL;
+	nih_local char  *value = NULL;
+
+	nih_assert (class);
+	nih_assert (stanza);
+	nih_assert (file);
+	nih_assert (pos);
+
+	/* XXX: Note that if cgroups are *NOT* enabled, we still need to
+	 * parse the cgroup stanzas tokens (to consume that input) - we
+	 * just don't add use those tokens to create a Cgroup object.
+	 */
+	if (! nih_config_has_token (file, len, pos, lineno))
+		nih_return_error (-1, NIH_CONFIG_EXPECTED_TOKEN,
+				  _(NIH_CONFIG_EXPECTED_TOKEN_STR));
+
+	controller = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! controller)
+		return -1;
+
+	if (! nih_config_has_token (file, len, pos, lineno)) {
+		/* Only a controller was specified */
+		goto out;
+	}
+
+	arg2 = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg2)
+		return -1;
+
+	if (! nih_config_has_token (file, len, pos, lineno)) {
+		/* Controller + name specified */
+		name = arg2;
+		nih_ref (name, arg2);
+		goto out;
+	}
+
+	arg3 = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! arg3)
+		return -1;
+
+	if (! nih_config_has_token (file, len, pos, lineno)) {
+		/* Controller + key/value pair specified */
+		key = arg2;
+		nih_ref (key , arg2);
+
+		value = arg3;
+		nih_ref (value, arg3);
+
+		goto out;
+	}
+
+	/* Controller + name + key/value pair specified */
+
+	value = nih_config_next_arg (NULL, file, len, pos, lineno);
+	if (! value)
+		return -1;
+
+	key = arg3;
+	nih_ref (key, arg3);
+
+	name = arg2;
+	nih_ref (name, arg2);
+
+out:
+#ifdef ENABLE_CGROUPS
+	if (! cgroup_add (class, &class->cgroups, controller, name, key, value))
+			nih_return_no_memory_error (-1);
+#endif /* ENABLE_CGROUPS */
+
+	return nih_config_skip_comment (file, len, pos, lineno);
+}
 
 /**
  * stanza_debug:
@@ -1074,7 +1187,7 @@ parse_on_collect (JobClass       *class,
  *
  * Parse a debug stanza from @file. No parameters are supported.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero always.
  **/
 static int
 stanza_debug (JobClass           *class,
@@ -1107,7 +1220,7 @@ stanza_debug (JobClass           *class,
  *
  * Parse a manual stanza from @file. No parameters are supported.
  *
- * Returns: zero on success, negative value on error.
+ * Returns: zero always.
  **/
 static int
 stanza_manual (JobClass           *class,
@@ -2910,4 +3023,33 @@ stanza_usage (JobClass        *class,
 		return -1;
 
 	return nih_config_skip_comment (file, len, pos, lineno);
+}
+
+/**
+ * stanza_cgroup:
+ * @class: job class being parsed,
+ * @stanza: stanza found,
+ * @file: file or string to parse,
+ * @len: length of @file,
+ * @pos: offset within @file,
+ * @lineno: line number.
+ *
+ * Parse a cgroup stanza from @file.
+ *
+ * Returns: zero on success, negative value on error.
+ **/
+static int
+stanza_cgroup (JobClass        *class,
+	      NihConfigStanza  *stanza,
+	      const char       *file,
+	      size_t            len,
+	      size_t           *pos,
+	      size_t           *lineno)
+{
+	nih_assert (class);
+	nih_assert (stanza);
+	nih_assert (file);
+	nih_assert (pos);
+
+	return parse_cgroup (class, stanza, file, len, pos, lineno);
 }

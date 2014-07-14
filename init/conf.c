@@ -1526,10 +1526,8 @@ conf_source_deserialise_all (json_object *json)
 
 	nih_assert (NIH_LIST_EMPTY (conf_sources));
 
-	json_conf_sources = json_object_object_get (json, "conf_sources");
-
-	if (! json_conf_sources)
-			goto error;
+	if (! json_object_object_get_ex (json, "conf_sources", &json_conf_sources))
+		goto error;
 
 	if (! state_check_json_type (json_conf_sources, array))
 		goto error;
@@ -1770,10 +1768,8 @@ conf_file_deserialise_all (ConfSource *source, json_object *json)
 
 	conf_init ();
 
-	json_conf_files = json_object_object_get (json, "conf_files");
-
-	if (! json_conf_files)
-			goto error;
+	if (! json_object_object_get_ex (json, "conf_files", &json_conf_files))
+		goto error;
 
 	if (! state_check_json_type (json_conf_files, array))
 		goto error;
