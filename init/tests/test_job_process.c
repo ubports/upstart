@@ -145,15 +145,6 @@
 	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll, \
 					  NULL))
 
-#define TEST_INSTALL_CHILD_HANDLERS_WITHOUT_JOB_PROCESS()	\
-	NIH_MUST (nih_child_add_watch (NULL,			\
-				       -1,			\
-				       NIH_CHILD_ALL,		\
-				       test_job_process_handler,\
-				       NULL));			\
-	NIH_MUST (nih_main_loop_add_func (NULL, (NihMainLoopCb)event_poll, \
-					  NULL))
-
 
 #define TEST_CLEAR_CHILD_STATUS()				\
 	do {							\
@@ -515,7 +506,6 @@ test_start (void)
 	pid_t            pid;
 	int              i;
 	siginfo_t        siginfo;
-	NihList         *removed_watch;
 
 	log_unflushed_init ();
 	job_class_init ();
@@ -1175,11 +1165,11 @@ test_start (void)
 	 * job_process_start() raises a ProcessError and the command doesn't
 	 * have any stored process id for it.
 	 */
-	TEST_FEATURE ("with no such file (read error)");
+	TEST_FEATURE ("with no such file");
 	TEST_HASH_EMPTY (job_classes);
 
 	TEST_RESET_MAIN_LOOP ();
-	TEST_INSTALL_CHILD_HANDLERS_WITHOUT_JOB_PROCESS ();
+	TEST_INSTALL_CHILD_HANDLERS ();
 
 	output = tmpfile ();
 
@@ -1202,67 +1192,21 @@ test_start (void)
 
 		TEST_DIVERT_STDERR (output) {
 			job_process_start (job, PROCESS_MAIN);
-			pid = job->pid[PROCESS_MAIN];
-			TEST_GT (pid, 0);
+			TEST_GT (job->pid[PROCESS_MAIN], 0);
 			TEST_EQ (nih_main_loop (), 0);
 			TEST_EQ (child_exit_status[PROCESS_MAIN], 255);
-			job_process_handler (NULL, pid, NIH_CHILD_EXITED, 255);
-		}
-		rewind (output);
-
-		TEST_EQ (job->pid[PROCESS_MAIN], 0);
-
-		TEST_FILE_EQ (output, ("test: Failed to spawn test (foo) main "
-				       "process: unable to execute: "
-				       "No such file or directory\n"));
-		TEST_FILE_END (output);
-		TEST_FILE_RESET (output);
-
-		nih_free (class);
-	}
-
-	TEST_RESET_MAIN_LOOP ();
-
-	TEST_FEATURE ("with no such file (child abort)");
-	TEST_HASH_EMPTY (job_classes);
-
-	TEST_RESET_MAIN_LOOP ();
-	TEST_INSTALL_CHILD_HANDLERS_WITHOUT_JOB_PROCESS ();
-
-	output = tmpfile ();
-
-	TEST_ALLOC_FAIL {
-		TEST_ALLOC_SAFE {
-			TEST_HASH_EMPTY (job_classes);
-			class = job_class_new (NULL, "test", NULL);
-			class->console = CONSOLE_NONE;
-			class->process[PROCESS_MAIN] = process_new (class);
-			class->process[PROCESS_MAIN]->script = FALSE;
-			class->process[PROCESS_MAIN]->command = filename;
-
-			job = job_new (class, "foo");
-			job->goal = JOB_START;
-			job->state = JOB_SPAWNED;
-
-			nih_hash_add (job_classes, &class->entry);
-			TEST_CLEAR_CHILD_STATUS ();
-		}
-
-		TEST_DIVERT_STDERR (output) {
-			job_process_start (job, PROCESS_MAIN);
-			pid = job->pid[PROCESS_MAIN];
-			TEST_GT (pid, 0);
-			waitpid (pid, &status, 0);
-			TEST_TRUE (WIFEXITED (status));
-			TEST_EQ (WEXITSTATUS (status), 255);
-			job_process_handler (NULL, pid, NIH_CHILD_EXITED, 255);
-			event_poll ();
 		}
 		rewind (output);
 		
 		TEST_EQ (job->pid[PROCESS_MAIN], 0);
 		TEST_GT (sprintf (buffer, "test: test (foo) main process (%i) terminated with status 255\n", pid), 0);
-		TEST_FILE_EQ (output, buffer);
+
+		TEST_GT (fgets (filebuf, sizeof (filebuf), output), 0);
+
+		TEST_TRUE (strcmp (filebuf, ("test: Failed to spawn test (foo) main "
+						"process: unable to execute: "
+						"No such file or directory\n")) == 0
+			   || strcmp (filebuf, buffer) == 0);
 		TEST_FILE_END (output);
 		TEST_FILE_RESET (output);
 
