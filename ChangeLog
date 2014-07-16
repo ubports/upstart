@@ -1,5 +1,9 @@
 2014-07-16  James Hunt  <james.hunt@ubuntu.com>
 
+	* NEWS: Release 1.13.1
+
+2014-07-16  James Hunt  <james.hunt@ubuntu.com>
+
 	* init/environ.c: environ_remove():
 	  - Ensure removed entry is deref'd (LP: #1222705).
 	  - Avoid recreating array.
