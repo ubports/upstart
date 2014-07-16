@@ -176,9 +176,7 @@ environ_remove (char        ***env,
 {
 	size_t    _len;
 	size_t    keylen;
-	size_t    new_len = 0;
 	char    **e;
-	char    **new_env;
 
 	nih_assert (env);
 	nih_assert (str);
@@ -195,10 +193,6 @@ environ_remove (char        ***env,
 	if (*len < 1)
 		return NULL;
 
-	new_env = nih_str_array_new (NULL);
-	if (! new_env)
-		return NULL;
-
 	for (e = *env; e && *e; e++) {
 		keylen = strcspn (*e, "=");
 
@@ -206,17 +200,17 @@ environ_remove (char        ***env,
 		 * name=value pair, or a bare name), so don't copy it to
 		 * the new environment.
 		 */
-		if (! strncmp (str, *e, keylen))
-			continue;
+		if (! strncmp (str, *e, keylen)) {
+			nih_unref (*e, *env);
 
-		if (! environ_add (&new_env, parent, &new_len, TRUE, *e))
-			return NULL;
+			/* shuffle up the remaining entries */
+			memmove (e, e + 1, (char *)(*env + *len) - (char *)e);
+
+			(*len)--;
+		}
 	}
 
-	*env = new_env;
-	*len = new_len;
-
-	return new_env;
+	return *env;
 }
 
 /**

@@ -618,8 +618,10 @@ test_add (void)
 void
 test_remove (void)
 {
-	char   **env = NULL, **ret;
-	size_t   len = 0;
+	char    **env = NULL;
+	char     *removed = NULL;
+	char    **ret = NULL;
+	size_t    len = 0;
 
 	TEST_FUNCTION ("environ_remove");
 
@@ -688,6 +690,9 @@ test_remove (void)
 			TEST_ALLOC_PARENT (env[0], env);
 			TEST_ALLOC_SIZE (env[0], 8);
 			TEST_EQ_STR (env[0], "FOO=BAR");
+			removed = env[0];
+			TEST_FREE_TAG (removed);
+
 			TEST_EQ_P (env[1], NULL);
 		}
 
@@ -713,6 +718,7 @@ test_remove (void)
 		TEST_NE_P (ret, NULL);
 		TEST_EQ (len, 0);
 		TEST_EQ_P (env[0], NULL);
+		TEST_FREE (removed);
 
 		nih_free (env);
 	}
@@ -730,6 +736,9 @@ test_remove (void)
 			TEST_ALLOC_PARENT (env[0], env);
 			TEST_ALLOC_SIZE (env[0], 8);
 			TEST_EQ_STR (env[0], "FOO=BAR");
+			removed = env[0];
+			TEST_FREE_TAG (removed);
+
 			TEST_EQ_P (env[1], NULL);
 		}
 
@@ -755,6 +764,7 @@ test_remove (void)
 		TEST_NE_P (ret, NULL);
 		TEST_EQ (len, 0);
 		TEST_EQ_P (env[0], NULL);
+		TEST_FREE (removed);
 
 		nih_free (env);
 	}
@@ -781,6 +791,8 @@ test_remove (void)
 			TEST_ALLOC_PARENT (env[0], env);
 			TEST_ALLOC_SIZE (env[0], 8);
 			TEST_EQ_STR (env[0], "FOO=BAR");
+			removed = env[0];
+			TEST_FREE_TAG (removed);
 
 			TEST_ALLOC_PARENT (env[1], env);
 			TEST_ALLOC_SIZE (env[1], 8);
@@ -816,6 +828,7 @@ test_remove (void)
 		TEST_ALLOC_PARENT (env[0], env);
 		TEST_ALLOC_SIZE (env[0], 8);
 		TEST_EQ_STR (env[0], "BAZ=QUX");
+		TEST_FREE (removed);
 
 		TEST_EQ_P (env[1], NULL);
 
@@ -852,6 +865,8 @@ test_remove (void)
 			TEST_ALLOC_PARENT (env[0], env);
 			TEST_ALLOC_SIZE (env[0], 8);
 			TEST_EQ_STR (env[0], "UPSTART_TEST_VARIABLE=foo");
+			removed = env[0];
+			TEST_FREE_TAG (removed);
 
 			TEST_ALLOC_PARENT (env[1], env);
 			TEST_ALLOC_SIZE (env[1], 8);
@@ -887,6 +902,7 @@ test_remove (void)
 		TEST_ALLOC_PARENT (env[0], env);
 		TEST_ALLOC_SIZE (env[0], 8);
 		TEST_EQ_STR (env[0], "BAZ=QUX");
+		TEST_FREE (removed);
 
 		TEST_EQ_P (env[1], NULL);
 
@@ -921,6 +937,8 @@ test_remove (void)
 			TEST_ALLOC_PARENT (env[1], env);
 			TEST_ALLOC_SIZE (env[1], 8);
 			TEST_EQ_STR (env[1], "BAZ=QUX");
+			removed = env[1];
+			TEST_FREE_TAG (removed);
 
 			TEST_EQ_P (env[2], NULL);
 		}
@@ -954,6 +972,7 @@ test_remove (void)
 		TEST_EQ_STR (env[0], "FOO=BAR");
 
 		TEST_EQ_P (env[1], NULL);
+		TEST_FREE (removed);
 
 		nih_free (env);
 	}
@@ -991,6 +1010,9 @@ test_remove (void)
 			/* Should have been expanded */
 			TEST_EQ_STR (env[1], "UPSTART_TEST_VARIABLE=foo");
 
+			removed = env[1];
+			TEST_FREE_TAG (removed);
+
 			TEST_EQ_P (env[2], NULL);
 		}
 
@@ -1023,6 +1045,7 @@ test_remove (void)
 		TEST_EQ_STR (env[0], "FOO=BAR");
 
 		TEST_EQ_P (env[1], NULL);
+		TEST_FREE (removed);
 
 		nih_free (env);
 	}

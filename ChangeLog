@@ -1,3 +1,11 @@
+2014-07-16  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/environ.c: environ_remove():
+	  - Ensure removed entry is deref'd (LP: #1222705).
+	  - Avoid recreating array.
+	* init/tests/test_environ.c: test_remove(): Add checks to ensure
+	  removed entry freed as expected.
+
 2014-07-11  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.13
