@@ -700,17 +700,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 1);
-
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-
-			TEST_NE_P (env[0], NULL);
-			TEST_EQ_STR (env[0], "FOO=BAR");
-
-			TEST_EQ_P (env[1], NULL);
-
 			nih_free (env);
 			continue;
 		}
@@ -746,17 +735,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 1);
-
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-
-			TEST_NE_P (env[0], NULL);
-			TEST_EQ_STR (env[0], "FOO=BAR");
-
-			TEST_EQ_P (env[1], NULL);
-
 			nih_free (env);
 			continue;
 		}
@@ -806,18 +784,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 2);
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-			TEST_EQ_STR (env[0], "FOO=BAR");
-
-			TEST_ALLOC_PARENT (env[1], env);
-			TEST_ALLOC_SIZE (env[1], 8);
-			TEST_EQ_STR (env[1], "BAZ=QUX");
-
-			TEST_EQ_P (env[2], NULL);
-
 			nih_free (env);
 			continue;
 		}
@@ -880,18 +846,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 2);
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-			TEST_EQ_STR (env[0], "UPSTART_TEST_VARIABLE=foo");
-
-			TEST_ALLOC_PARENT (env[1], env);
-			TEST_ALLOC_SIZE (env[1], 8);
-			TEST_EQ_STR (env[1], "BAZ=QUX");
-
-			TEST_EQ_P (env[2], NULL);
-
 			nih_free (env);
 			continue;
 		}
@@ -948,18 +902,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 2);
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-			TEST_EQ_STR (env[0], "FOO=BAR");
-
-			TEST_ALLOC_PARENT (env[1], env);
-			TEST_ALLOC_SIZE (env[1], 8);
-			TEST_EQ_STR (env[1], "BAZ=QUX");
-
-			TEST_EQ_P (env[2], NULL);
-
 			nih_free (env);
 			continue;
 		}
@@ -1021,18 +963,6 @@ test_remove (void)
 
 		if (test_alloc_failed) {
 			TEST_EQ_P (ret, NULL);
-
-			TEST_EQ (len, 2);
-			TEST_ALLOC_PARENT (env[0], env);
-			TEST_ALLOC_SIZE (env[0], 8);
-			TEST_EQ_STR (env[0], "FOO=BAR");
-
-			TEST_ALLOC_PARENT (env[1], env);
-			TEST_ALLOC_SIZE (env[1], 8);
-			TEST_EQ_STR (env[1], "UPSTART_TEST_VARIABLE=foo");
-
-			TEST_EQ_P (env[2], NULL);
-
 			nih_free (env);
 			continue;
 		}
