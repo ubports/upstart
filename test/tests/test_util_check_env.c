@@ -190,7 +190,8 @@ test_checks (void)
 	}
 out_skip:
 	disconnect_cgmanager();
-	nih_warn ("Skipping CGManager tests, CGManager not properly configured");
+	if (ret)
+		nih_warn ("Skipping CGManager tests, CGManager not properly configured");
 #endif /* ENABLE_CGROUPS */
 
 }
