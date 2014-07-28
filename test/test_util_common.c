@@ -1468,21 +1468,31 @@ setup_cgroup_sandbox(void)
 		*p = '\0';
 		if (cgmanager_create_sync(NULL, cgroup_manager, line, cg,
 					&e) != 0) {
-			nih_error("%s: failed to create cgroup %s:%s",
-				__func__, line, cg);
+			NihError *nerr;
+			nerr = nih_error_get();
+			nih_error("%s: failed to create cgroup %s:%s: %s",
+				__func__, line, cg, nerr->message);
+			nih_free(nerr);
 			goto out;
 		}
 		if (e == 1)
 			nih_warn("%s: boggle: cgroup %s:%s already existed",
 					__func__, line, cg);
 		if (cgmanager_remove_on_empty_sync(NULL, cgroup_manager, line,
-					cg) != 0)
-			nih_warn("%s: failed to mark %s:%s remove-on-empty",
-				__func__, line, cg);
+					cg) != 0) {
+			NihError *nerr;
+			nerr = nih_error_get();
+			nih_warn("%s: failed to mark %s:%s remove-on-empty: %s",
+				__func__, line, cg, nerr->message);
+			nih_free(nerr);
+		}
 		if (cgmanager_move_pid_sync(NULL, cgroup_manager, line, cg,
 					mypid) != 0) {
-			nih_error("%s: failed to move myself to cgroup %s:%s",
-				__func__, line, cg);
+			NihError *nerr;
+			nerr = nih_error_get();
+			nih_error("%s: failed to move myself to cgroup %s:%s: %s",
+				__func__, line, cg, nerr->message);
+			nih_free(nerr);
 			goto out;
 		}
 	}
