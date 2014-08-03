@@ -20,7 +20,7 @@ Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
-Breaks: libc6 (<< 2.12.1-0ubuntu12), friendly-recovery (<< 0.2.13)
+Breaks: libc6 (<< 2.12.1-0ubuntu12), friendly-recovery (<< 0.2.13), initramfs-tools (<< 0.103ubuntu8)
 Multi-Arch: foreign
 Description: event-based init daemon - sysv compat
  upstart is a replacement for the /sbin/init daemon which handles
