@@ -1,17 +1,6 @@
-debian/conf/*.conf etc/init/
-etc/init/*.conf
-etc/dbus-1/system.d/Upstart.conf
-bin/init-checkconf usr/bin/
-bin/initctl2dot usr/bin/
-sbin/*
-debian/upstart-job lib/init/
-debian/apparmor-profile-load lib/init/
-debian/migrate-inittab.pl usr/lib/upstart/
-debian/running-in-container bin/
-usr/share/upstart/sessions/*
-debian/user-conf/*.conf usr/share/upstart/sessions/
-debian/xsession.d/* etc/X11/Xsession.d/
-debian/upstart-xsessions etc/
-usr/share/man/man5/*
-usr/share/man/man7/*
-usr/share/man/man8/*
+/sbin/halt
+/sbin/poweroff
+/sbin/reboot
+/sbin/runlevel
+/sbin/shutdown
+/sbin/telinit

@@ -1,3 +1,9 @@
+upstart (1.13.1-0ubuntu3) UNRELEASED; urgency=medium
+
+  * Split upstart package into upstart & upstart-core.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Sun, 03 Aug 2014 18:28:09 +0100
+
 upstart (1.13.1-0ubuntu2) utopic; urgency=medium
 
   * Cherry-pick cgmanager text fix from upstream.

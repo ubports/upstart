@@ -15,17 +15,33 @@ XS-Testsuite: autopkgtest
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
+Depends: upstart-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
 Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services
 Conflicts: upstart-job, sysvinit, upstart-compat-sysv, startup-tasks, system-services, lxcguest
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
 Breaks: libc6 (<< 2.12.1-0ubuntu12), friendly-recovery (<< 0.2.13)
 Multi-Arch: foreign
-Description: event-based init daemon
+Description: event-based init daemon - sysv compat
  upstart is a replacement for the /sbin/init daemon which handles
  starting of tasks and services during boot, stopping them during
  shutdown and supervising them while the system is running.
+ .
+ This package provides sysv compatible binaries.
+
+Package: upstart-core
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, initscripts, libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
+Suggests: python3, graphviz, bash-completion, upstart-monitor
+Replaces: upstart (<= 1.13.1-0ubuntu2)
+Breaks: upstart (<= 1.13.1-0ubuntu2)
+Multi-Arch: foreign
+Description: event-based init daemon - core components
+ upstart is a replacement for the /sbin/init daemon which handles
+ starting of tasks and services during boot, stopping them during
+ shutdown and supervising them while the system is running.
+ . 
+ This package provides all core upstart components.
 
 Package: upstart-monitor
 Architecture: all
