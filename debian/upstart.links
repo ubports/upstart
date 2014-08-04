@@ -1,1 +1,2 @@
 sbin/upstart sbin/init
+lib/sysvinit/telinit sbin/telinit

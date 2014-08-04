@@ -3,4 +3,3 @@
 /sbin/reboot
 /sbin/runlevel
 /sbin/shutdown
-/sbin/telinit
