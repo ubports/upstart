@@ -38,9 +38,9 @@ endif
 
 override_dh_fixperms:
 	dh_fixperms
-	chmod 755 debian/upstart-core/lib/init/upstart-job
-	chmod 755 debian/upstart-core/lib/init/apparmor-profile-load
-	chmod 755 debian/upstart-core/usr/lib/upstart/migrate-inittab.pl
+	chmod 755 debian/upstart-bin/lib/init/upstart-job
+	chmod 755 debian/upstart-bin/lib/init/apparmor-profile-load
+	chmod 755 debian/upstart-bin/usr/lib/upstart/migrate-inittab.pl
 
 override_dh_auto_install:
 	dh_auto_install -- pkgconfigdir=\$${libdir}/pkgconfig
@@ -49,9 +49,9 @@ override_dh_auto_install:
 # will be added used by the upstart-dconf-bridge.install file.
 override_dh_install:
 	dh_install
-	install -m 644 debian/upstart-core.apport \
-		debian/upstart-core/usr/share/apport/package-hooks/upstart.py
-	rm debian/upstart-core/usr/share/upstart/sessions/upstart-dconf-bridge.conf
+	install -m 644 debian/upstart-bin.apport \
+		debian/upstart-bin/usr/share/apport/package-hooks/upstart.py
+	rm debian/upstart-bin/usr/share/upstart/sessions/upstart-dconf-bridge.conf
 	rm debian/upstart/etc/init/upstart-event-bridge.conf
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
@@ -62,9 +62,9 @@ override_dh_install:
 # .manpages file.
 override_dh_installman:
 	dh_installman
-	rm debian/upstart-core/usr/share/man/man8/upstart-monitor.8*
-	rm debian/upstart-core/usr/share/man/man8/upstart-dconf-bridge.8*
-	rm debian/upstart-core/usr/share/man/man7/dconf-event.7*
+	rm debian/upstart-bin/usr/share/man/man8/upstart-monitor.8*
+	rm debian/upstart-bin/usr/share/man/man8/upstart-dconf-bridge.8*
+	rm debian/upstart-bin/usr/share/man/man7/dconf-event.7*
 
 override_dh_installcron:
-	dh_installcron -p upstart-core --name upstart
+	dh_installcron -p upstart-bin --name upstart
