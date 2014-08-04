@@ -1,2 +1,4 @@
 sbin/upstart-dconf-bridge
 usr/share/upstart/sessions/upstart-dconf-bridge.conf
+usr/share/man/man8/upstart-dconf-bridge.8
+usr/share/man/man7/dconf-event.7
