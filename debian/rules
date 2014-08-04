@@ -50,7 +50,7 @@ override_dh_auto_install:
 override_dh_install:
 	dh_install --list-missing
 	install -m 644 debian/upstart-bin.apport \
-		debian/upstart-bin/usr/share/apport/package-hooks/upstart.py
+		debian/upstart-bin/usr/share/apport/package-hooks/source_upstart.py
 	rm debian/upstart-bin/usr/share/upstart/sessions/upstart-dconf-bridge.conf
 	rm debian/upstart/etc/init/upstart-event-bridge.conf
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
