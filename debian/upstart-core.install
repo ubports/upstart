@@ -1,6 +1,3 @@
-debian/conf/*.conf etc/init/
-etc/init/*.conf
-etc/dbus-1/system.d/Upstart.conf
 bin/init-checkconf usr/bin/
 bin/initctl2dot usr/bin/
 sbin/initctl

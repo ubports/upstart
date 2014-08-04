@@ -1,3 +1,6 @@
+debian/conf/*.conf etc/init/
+etc/init/*.conf
+etc/dbus-1/system.d/Upstart.conf
 /sbin/halt
 /sbin/poweroff
 /sbin/reboot
