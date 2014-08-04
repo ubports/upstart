@@ -9,6 +9,6 @@ if [ -n "$UPSTART" ]; then
             ;;
     esac
 
-    STARTUP="init --user"
+    STARTUP="upstart --user"
     unset UPSTART
 fi
