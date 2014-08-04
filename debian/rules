@@ -52,8 +52,8 @@ override_dh_install:
 	install -m 644 debian/upstart-core.apport \
 		debian/upstart-core/usr/share/apport/package-hooks/upstart.py
 	rm debian/upstart-core/usr/share/upstart/sessions/upstart-dconf-bridge.conf
-	rm debian/upstart-core/etc/init/upstart-event-bridge.conf
-	rm debian/upstart-core/etc/init/upstart-dbus-bridge.conf
+	rm debian/upstart/etc/init/upstart-event-bridge.conf
+	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 # Remove the following man pages from the upstart package; they will be
 # added to the upstart-monitor and upstart-dconf-bridge packages via
