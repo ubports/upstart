@@ -65,3 +65,6 @@ override_dh_installman:
 	rm debian/upstart-core/usr/share/man/man8/upstart-monitor.8*
 	rm debian/upstart-core/usr/share/man/man8/upstart-dconf-bridge.8*
 	rm debian/upstart-core/usr/share/man/man7/dconf-event.7*
+
+override_dh_installcron:
+	dh_installcron -p upstart-core --name upstart
