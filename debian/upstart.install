@@ -1,17 +1,33 @@
 debian/conf/*.conf etc/init/
 etc/init/*.conf
 etc/dbus-1/system.d/Upstart.conf
-bin/init-checkconf usr/bin/
-bin/initctl2dot usr/bin/
-sbin/*
+sbin/halt
+sbin/poweroff
+sbin/reboot
+sbin/runlevel
+sbin/shutdown
+sbin/upstart-local-bridge
+sbin/upstart-socket-bridge
+sbin/upstart-udev-bridge
 debian/upstart-job lib/init/
 debian/apparmor-profile-load lib/init/
 debian/migrate-inittab.pl usr/lib/upstart/
-debian/running-in-container bin/
-usr/share/upstart/sessions/*
-debian/user-conf/*.conf usr/share/upstart/sessions/
-debian/xsession.d/* etc/X11/Xsession.d/
-debian/upstart-xsessions etc/
-usr/share/man/man5/*
-usr/share/man/man7/*
-usr/share/man/man8/*
+usr/share/man/man7/control-alt-delete.7
+usr/share/man/man7/keyboard-request.7
+usr/share/man/man7/runlevel.7
+usr/share/man/man7/socket-event.7
+usr/share/man/man7/power-status-changed.7
+usr/share/man/man8/shutdown.8
+usr/share/man/man8/upstart-local-bridge.8
+usr/share/man/man8/upstart-udev-bridge.8
+usr/share/man/man8/runlevel.8
+usr/share/man/man8/reboot.8
+usr/share/man/man8/upstart-socket-bridge.8
+usr/share/man/man8/telinit.8
+usr/share/man/man5/inittab.5
+usr/share/man/man7/net-device-added.7
+usr/share/man/man7/drm-device-added.7
+usr/share/man/man7/graphics-device-added.7
+usr/share/man/man7/net-device-removed.7
+usr/share/man/man8/poweroff.8
+usr/share/man/man8/halt.8

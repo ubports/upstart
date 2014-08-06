@@ -1,0 +1,40 @@
+bin/init-checkconf usr/bin/
+bin/initctl2dot usr/bin/
+sbin/initctl
+sbin/telinit lib/sysvinit/
+sbin/reload
+sbin/restart
+sbin/start
+sbin/status
+sbin/stop
+sbin/upstart
+sbin/upstart-dbus-bridge
+sbin/upstart-event-bridge
+sbin/upstart-file-bridge
+debian/running-in-container bin/
+usr/share/upstart/sessions/*
+debian/user-conf/*.conf usr/share/upstart/sessions/
+debian/xsession.d/* etc/X11/Xsession.d/
+debian/upstart-xsessions etc/
+usr/share/man/man7/upstart.7
+usr/share/man/man7/starting.7
+usr/share/man/man7/stopping.7
+usr/share/man/man7/dbus-event.7
+usr/share/man/man7/session-end.7
+usr/share/man/man7/file-event.7
+usr/share/man/man7/startup.7
+usr/share/man/man7/started.7
+usr/share/man/man7/stopped.7
+usr/share/man/man8/upstart-event-bridge.8
+usr/share/man/man8/init-checkconf.8
+usr/share/man/man8/upstart.8
+usr/share/man/man8/upstart-file-bridge.8
+usr/share/man/man8/upstart-dbus-bridge.8
+usr/share/man/man8/initctl2dot.8
+usr/share/man/man8/initctl.8
+usr/share/man/man5/upstart.5
+usr/share/man/man8/start.8
+usr/share/man/man8/restart.8
+usr/share/man/man8/status.8
+usr/share/man/man8/stop.8
+usr/share/man/man8/reload.8

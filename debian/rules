@@ -19,7 +19,8 @@ export DEB_BUILD_MAINT_OPTIONS DEB_LDFLAGS_MAINT_APPEND DEB_CFLAGS_MAINT_APPEND
 
 override_dh_auto_configure:
 	dh_auto_configure -- --exec-prefix= --enable-selinux \
-		--disable-silent-rules --disable-abi-check
+		--disable-silent-rules --disable-abi-check \
+		--program-transform-name="s/^init$$/upstart/"
 
 override_dh_auto_build:
 	dh_auto_build --parallel
@@ -47,21 +48,12 @@ override_dh_auto_install:
 # Remove the appropriate dconf files from the upstart package - they
 # will be added used by the upstart-dconf-bridge.install file.
 override_dh_install:
-	dh_install
-	install -m 644 debian/upstart.apport \
-		debian/upstart/usr/share/apport/package-hooks/upstart.py
-	rm debian/upstart/sbin/upstart-dconf-bridge
-	rm debian/upstart/usr/share/upstart/sessions/upstart-dconf-bridge.conf
+	dh_install --list-missing
+	install -m 644 debian/upstart-bin.apport \
+		debian/upstart-bin/usr/share/apport/package-hooks/source_upstart.py
+	rm debian/upstart-bin/usr/share/upstart/sessions/upstart-dconf-bridge.conf
 	rm debian/upstart/etc/init/upstart-event-bridge.conf
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
-# Remove the following man pages from the upstart package; they will be
-# added to the upstart-monitor and upstart-dconf-bridge packages via
-# their .manpages files, but removing the files here is simpler than
-# specifying every other section 8 manpage in the upstart packages
-# .manpages file.
-override_dh_installman:
-	dh_installman
-	rm debian/upstart/usr/share/man/man8/upstart-monitor.8*
-	rm debian/upstart/usr/share/man/man8/upstart-dconf-bridge.8*
-	rm debian/upstart/usr/share/man/man7/dconf-event.7*
+override_dh_installcron:
+	dh_installcron -p upstart-bin --name upstart
