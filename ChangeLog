@@ -1,3 +1,8 @@
+2014-08-14  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/control.c: Disallow modifying system jobs via SetEnv,
+	  UnsetEnv or ResetEnv calls (LP: #1356824).
+
 2014-07-16  James Hunt  <james.hunt@ubuntu.com>
 
 	* NEWS: Release 1.13.1
