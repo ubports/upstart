@@ -1,3 +1,10 @@
+2014-08-21  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/telinit.c: restart_upstart():
+	  - Revert to synchronous behaviour coupled with unavoidable
+	    poll to ensure telinit only returns once a re-exec has
+	    completed (LP: #901038).
+
 2014-08-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c: Disallow modifying system jobs via SetEnv,
