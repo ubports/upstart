@@ -1,4 +1,4 @@
-upstart (1.13.1-0ubuntu4) UNRELEASED; urgency=medium
+upstart (1.13.1-0ubuntu4) utopic; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Only run if upstart is actually
     active.
