@@ -1,3 +1,24 @@
+2014-08-29  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/cgroup.c:
+	  - Removed nih_debug() and nih_warn() calls since, although
+	    useful, this output pollutes job logs when running in debug mode.
+	  - cgroup_clear(): New function to request cgroups be removed.
+	  - cgroup_create(): Don't mark cgroups 'remove-on-empty' since Upstart
+	    can race with cgmanager.
+	* init/job.c: job_last_process(): New helper function.
+	* init/job_process.c:
+	  - job_process_spawn_with_fd(): Request that the
+	    cgroup manager destroy all job cgroups after upstart has created
+	    required cgroups for last job process which avoids the
+	    'remove-on-empty' race (LP: #1357252).
+	  - job_process_error_handler(): Added handling for new
+	    JOB_PROCESS_ERROR_CGROUP_CLEAR error.
+	* init/job_process.h: JobProcessErrorType: Added new
+	  JOB_PROCESS_ERROR_CGROUP_CLEAR error.
+	* init/tests/test_job.c: test_job_last_process(): New test for
+	  job_last_process().
+
 2014-08-14  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/control.c: Disallow modifying system jobs via SetEnv,
