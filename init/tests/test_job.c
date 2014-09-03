@@ -7790,6 +7790,159 @@ static NihOption options[] = {
 	NIH_OPTION_LAST
 };
 
+void
+test_job_last_process (void)
+{
+	ConfFile    *file;
+	ConfSource  *source;
+	JobClass    *class;
+	Job         *job;
+	int          i;
+	int          ret;
+
+	TEST_FUNCTION ("job_last_process");
+
+	nih_error_init ();
+	conf_init ();
+	job_class_init ();
+
+	TEST_HASH_EMPTY (job_classes);
+
+	source = conf_source_new (NULL, "/tmp", CONF_JOB_DIR);
+	TEST_NE_P (source, NULL);
+
+	file = conf_file_new (source, "/tmp/test");
+	TEST_NE_P (file, NULL);
+
+	class = file->job = job_class_new (NULL, "test", NULL);
+	TEST_NE_P (class, NULL);
+
+	job = job_new (class, "");
+	TEST_NE_P (job, NULL);
+
+	TEST_HASH_EMPTY (job_classes);
+	TEST_TRUE (job_class_consider (class));
+	TEST_HASH_NOT_EMPTY (job_classes);
+
+	/*******************************************************************/
+	TEST_FEATURE ("no job processes");
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		TEST_FALSE (ret);
+	}
+
+	/*******************************************************************/
+	TEST_FEATURE ("first job process");
+
+	class->process[PROCESS_MAIN] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_MAIN], NULL);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		if (i == PROCESS_MAIN) {
+			TEST_TRUE (ret);
+		} else {
+			TEST_FALSE (ret);
+		}
+	}
+
+	nih_free (class->process[PROCESS_MAIN]);
+	class->process[PROCESS_MAIN] = NULL;
+
+	/*******************************************************************/
+	TEST_FEATURE ("last job process");
+
+	class->process[PROCESS_SECURITY] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_SECURITY], NULL);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		if (i == PROCESS_SECURITY) {
+			TEST_TRUE (ret);
+		} else {
+			TEST_FALSE (ret);
+		}
+	}
+
+	nih_free (class->process[PROCESS_SECURITY]);
+	class->process[PROCESS_SECURITY] = NULL;
+
+	/*******************************************************************/
+	TEST_FEATURE ("PROCESS_PRE_STOP job process");
+
+	class->process[PROCESS_PRE_STOP] = process_new (class);
+	TEST_NE_P (class->process[PROCESS_PRE_STOP], NULL);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		if (i == PROCESS_PRE_STOP) {
+			TEST_TRUE (ret);
+		} else {
+			TEST_FALSE (ret);
+		}
+	}
+
+	nih_free (class->process[PROCESS_PRE_STOP]);
+	class->process[PROCESS_PRE_STOP] = NULL;
+
+	/*******************************************************************/
+	TEST_FEATURE ("all job processes set");
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		class->process[i] = process_new (class);
+		TEST_NE_P (class->process[i], NULL);
+	}
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		if (i == PROCESS_SECURITY) {
+			TEST_TRUE (ret);
+		} else {
+			TEST_FALSE (ret);
+		}
+	}
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		nih_free (class->process[i]);
+		class->process[i] = NULL;
+	}
+
+	/*******************************************************************/
+	TEST_FEATURE ("all job processes set except PROCESS_SECURITY");
+
+	for (i = 0; i < PROCESS_SECURITY; i++) {
+		class->process[i] = process_new (class);
+		TEST_NE_P (class->process[i], NULL);
+	}
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		ret = job_last_process (job, i);
+		if (i == PROCESS_POST_STOP) {
+			TEST_TRUE (ret);
+		} else {
+			TEST_FALSE (ret);
+		}
+	}
+
+	for (i = 0; i < PROCESS_SECURITY; i++) {
+		nih_free (class->process[i]);
+		class->process[i] = NULL;
+	}
+
+	/***********************************************************/
+	/* clean up */
+
+	nih_free (conf_sources);
+	nih_free (job_classes);
+
+	conf_sources = NULL;
+	job_classes = NULL;
+
+	conf_init ();
+	job_class_init ();
+}
+
 
 int
 main (int   argc,
@@ -7841,6 +7994,7 @@ main (int   argc,
 	test_deserialise_ptrace ();
 
 	test_job_find ();
+	test_job_last_process ();
 
 	return 0;
 }

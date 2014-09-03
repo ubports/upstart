@@ -890,6 +890,16 @@ job_process_spawn_with_fd (Job          *job,
 				job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_SETUP, 0);
 			}
 
+			/* If spawning the last process for the job,
+			 * arrange for the cgroup manager to destroy
+			 * all job cgroups relating to this job once all
+			 * job processes have completed.
+			 */
+			if (job_last_process (job, process)) {
+				if (! cgroup_clear (&job->class->cgroups)) {
+					job_process_error_abort (fds[1], JOB_PROCESS_ERROR_CGROUP_CLEAR, 0);
+				}
+			}
 		}
 #endif /* ENABLE_CGROUPS */
 
@@ -1246,6 +1256,11 @@ job_process_error_handler (const char *buf, size_t len)
 	case JOB_PROCESS_ERROR_CGROUP_ENTER:
 		err->error.message = NIH_MUST (nih_sprintf (
 				  err, _("unable to enter cgroup: %s"),
+				  strerror (err->errnum)));
+		break;
+	case JOB_PROCESS_ERROR_CGROUP_CLEAR:
+		err->error.message = NIH_MUST (nih_sprintf (
+				  err, _("unable to mark cgroups for removal: %s"),
 				  strerror (err->errnum)));
 		break;
 
@@ -1805,7 +1820,6 @@ job_process_terminated (Job         *job,
 	default:
 		nih_assert_not_reached ();
 	}
-
 
 	/* Cancel any timer trying to kill the job, since it's just
 	 * died.  We could do this inside the main process block above, but
