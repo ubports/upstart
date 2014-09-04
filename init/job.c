@@ -2683,3 +2683,33 @@ job_child_error_handler (Job *job, ProcessType process)
 		nih_assert_not_reached ();
 	}
 }
+
+#ifdef ENABLE_CGROUPS
+/**
+ * job_last_process:
+ *
+ * @job: job,
+ * @process: process.
+ *
+ * Returns: TRUE if the last defined process for @job is @process,
+ *  else FALSE.
+ **/
+int
+job_last_process (const Job *job, ProcessType process)
+{
+	ProcessType  i;
+	ProcessType  last = PROCESS_INVALID;
+
+	nih_assert (job);
+	nih_assert (process >= PROCESS_MAIN);
+	nih_assert (process < PROCESS_LAST);
+
+	for (i = 0; i < PROCESS_LAST; i++) {
+		if (job->class->process[i])
+			last = i;
+	}
+
+	return last == process ? TRUE : FALSE;
+}
+#endif /* ENABLE_CGROUPS */
+
