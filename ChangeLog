@@ -1,3 +1,7 @@
+2014-09-04  James Hunt  <james.hunt@ubuntu.com>
+
+	* NEWS: Release 1.13.2
+
 2014-08-29  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/cgroup.c:
