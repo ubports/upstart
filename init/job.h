@@ -300,6 +300,13 @@ void job_child_error_handler (Job *job, ProcessType process);
 int job_needs_cgroups (const Job *job)
 	__attribute__ ((warn_unused_result));
 
+#ifdef ENABLE_CGROUPS
+
+int job_last_process (const Job *job, ProcessType process)
+	__attribute__ ((warn_unused_result));
+
+#endif /* ENABLE_CGROUPS */
+
 NIH_END_EXTERN
 
 #endif /* INIT_JOB_H */

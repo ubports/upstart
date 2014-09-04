@@ -172,6 +172,8 @@ int cgroup_manager_connect (void)
 int cgroup_manager_available (void)
 	__attribute__ ((warn_unused_result));
 
+int cgroup_clear (NihList *cgroups);
+
 int cgroup_setup (NihList *cgroups, char * const *env,
 		uid_t uid, gid_t gid)
 	__attribute__ ((warn_unused_result));

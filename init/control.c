@@ -1359,16 +1359,18 @@ control_set_env_list (void            *data,
 		return -1;
 	}
 
+	if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
 		/* this can be a null value */
 		instance = job_details[1];
-	} else if (getpid () == 1) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissible to modify PID 1 job environment"));
-		return -1;
 	}
 
 	/* Verify that job name is valid */
@@ -1509,16 +1511,18 @@ control_unset_env_list (void            *data,
 		return -1;
 	}
 
+	if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
 		/* this can be a null value */
 		instance = job_details[1];
-	} else if (getpid () == 1) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissible to modify PID 1 job environment"));
-		return -1;
 	}
 
 	/* Verify that job name is valid */
@@ -1817,16 +1821,18 @@ control_reset_env (void           *data,
 		return -1;
 	}
 
+	if (getpid () == 1) {
+		nih_dbus_error_raise_printf (
+			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
+			_("Not permissible to modify PID 1 job environment"));
+		return -1;
+	}
+
 	if (job_details[0]) {
 		job_name = job_details[0];
 
 		/* this can be a null value */
 		instance = job_details[1];
-	} else if (getpid () == 1) {
-		nih_dbus_error_raise_printf (
-			DBUS_INTERFACE_UPSTART ".Error.PermissionDenied",
-			_("Not permissible to modify PID 1 job environment"));
-		return -1;
 	}
 
 	/* Verify that job name is valid */

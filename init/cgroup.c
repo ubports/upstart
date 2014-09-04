@@ -302,6 +302,57 @@ error:
 }
 
 /**
+ * cgroup_clear:
+ *
+ * @cgroups: list of CGroup objects,
+ *
+ * Remove all cgroups associated with this job.
+ *
+ * Should be called by the _last_ job process to avoid racing with the
+ * cgroup manager which may remove an empty cgroup before the latest job
+ * process (which needs the cgroup) has been spawned.
+ *
+ * Returns: TRUE on success, FALSE on raised error.
+ **/
+int
+cgroup_clear (NihList *cgroups)
+{
+	nih_assert (cgroups);
+	nih_assert (cgroup_manager);
+
+	if (! cgroup_support_enabled ())
+		return TRUE;
+
+	if (NIH_LIST_EMPTY (cgroups))
+		return TRUE;
+
+	NIH_LIST_FOREACH (cgroups, iter) {
+		CGroup *cgroup = (CGroup *)iter;
+
+		NIH_LIST_FOREACH (&cgroup->names, iter2) {
+			CGroupName   *cgname = (CGroupName *)iter2;
+			char         *cgpath;
+			int           ret;
+
+			cgpath = cgname->expanded ? cgname->expanded : cgname->name;
+
+			/* Get the cgroup manager to delete the cgroup once no more job
+			 * processes remain in it.
+			 */
+			ret = cgmanager_remove_on_empty_sync (NULL,
+					cgroup_manager,
+					cgroup->controller,
+					cgpath);
+
+			if (ret < 0) 
+				return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+/**
  * cgroup_setup:
  *
  * @cgroups: list of CGroup objects,
@@ -316,7 +367,10 @@ error:
  * Returns: TRUE on success, FALSE on raised error.
  **/
 int
-cgroup_setup (NihList *cgroups, char * const *env, uid_t uid, gid_t gid)
+cgroup_setup (NihList       *cgroups,
+	      char * const  *env,
+	      uid_t          uid,
+	      gid_t          gid)
 {
 	const char       *upstart_job = NULL;
 	const char       *upstart_instance = NULL;
@@ -1004,8 +1058,6 @@ cgroup_manager_connect (void)
 	/* Drop initial reference now the proxy holds one */
 	dbus_connection_unref (connection);
 
-	nih_debug ("Connected to cgroup manager");
-
 	return 0;
 }
 
@@ -1020,8 +1072,6 @@ cgroup_manager_disconnected (DBusConnection *connection)
 {
 	nih_assert (connection);
 	nih_assert (cgroup_manager_address);
-
-	nih_warn (_("Disconnected from cgroup manager"));
 
 	cgroup_manager = NULL;
 	nih_free (cgroup_manager_address);
@@ -1075,15 +1125,11 @@ cgroup_create (const char *controller, const char *path)
 						   UPSTART_CGROUP_ROOT,
 						   pid);
 
-
 		if (ret < 0)
 			return FALSE;
-
-		nih_debug ("Moved pid %d to root of '%s' controller cgroup",
-			   pid, controller);
 	}
 
-	/* Ask cgmanager to create the cgroup */
+	/* Ask the cgroup manager to create the cgroup */
 	ret = cgmanager_create_sync (NULL,
 			cgroup_manager,
 			controller,
@@ -1092,40 +1138,6 @@ cgroup_create (const char *controller, const char *path)
 
 	if (ret < 0)
 		return FALSE;
-
-	nih_debug ("%s '%s' controller cgroup '%s'",
-			! existed ? "Created" : "Using existing",
-			controller, path);
-
-	/* Get the cgroup manager to delete the cgroup once no more job
-	 * processes remain in it. Never mind if auto-deletion occurs between
-	 * a jobs processes since the group will be recreated anyway by
-	 * cgroup_create().
-	 *
-	 * This may seem incorrect since if we create the group,
-	 * then mark it to be auto-removed when empty, surely
-	 * it will be immediately deleted? However, the way this works
-	 * is that the group will be deleted once it has _become_ empty
-	 * (having at some time *not* been empty).
-	 *
-	 * The logic of using auto-delete is slightly inefficient
-	 * in terms of cgmanager usage, but is hugely beneficial to
-	 * Upstart since it avoids having to store details of which
-	 * groups were created by jobs and also avoids the complexity of
-	 * the child (which is responsible for creating the cgroups)
-	 * pass back these details asynchronously to the parent to avoid
-	 * it blocking.
-	 */
-	ret = cgmanager_remove_on_empty_sync (NULL,
-			cgroup_manager,
-			controller,
-			path);
-
-	if (ret < 0)
-		return FALSE;
-
-	nih_debug ("Set remove on empty for '%s' controller cgroup '%s'",
-			controller, path);
 
 	return TRUE;
 }
@@ -1161,9 +1173,6 @@ cgroup_enter (const char *controller, const char *path, pid_t pid)
 
 	if (ret < 0)
 		return FALSE;
-
-	nih_debug ("Moved pid %d to '%s' controller cgroup '%s'",
-			pid, controller, path);
 
 	return TRUE;
 }
@@ -1371,9 +1380,6 @@ cgroup_settings_apply (const char  *controller,
 			return FALSE;
 	}
 
-	nih_debug ("Applied cgroup settings to '%s' controller cgroup '%s'",
-			controller, path);
-
 	return TRUE;
 }
 
@@ -1454,9 +1460,6 @@ cgroup_chown (const char  *controller,
 
 	if (ret < 0)
 		return FALSE;
-
-	nih_debug ("Changed ownership of '%s' controller cgroup '%s'",
-			controller, path);
 
 	return TRUE;
 }

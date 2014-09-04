@@ -1,3 +1,9 @@
+upstart (1.13.2-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 04 Sep 2014 12:27:53 +0100
+
 upstart (1.13.1-0ubuntu4) utopic; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Only run if upstart is actually

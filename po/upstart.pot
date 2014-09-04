@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: upstart 1.13.1\n"
+"Project-Id-Version: upstart 1.13.2\n"
 "Report-Msgid-Bugs-To: new@bugs.launchpad.net\n"
-"POT-Creation-Date: 2014-07-16 17:24+0100\n"
+"POT-Creation-Date: 2014-09-04 11:55+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -135,61 +135,61 @@ msgstr ""
 msgid "Restarting"
 msgstr ""
 
-#: init/control.c:1358 init/control.c:1508 init/control.c:1816
+#: init/control.c:1358 init/control.c:1510 init/control.c:1820
 msgid "You do not have permission to modify job environment"
 msgstr ""
 
-#: init/control.c:1370 init/control.c:1520 init/control.c:1828
+#: init/control.c:1365 init/control.c:1517 init/control.c:1827
 msgid "Not permissible to modify PID 1 job environment"
 msgstr ""
 
-#: init/control.c:1377 init/control.c:1527 init/control.c:1664
-#: init/control.c:1760 init/control.c:1835
+#: init/control.c:1379 init/control.c:1531 init/control.c:1668
+#: init/control.c:1764 init/control.c:1841
 msgid "Job may not be empty string"
 msgstr ""
 
-#: init/control.c:1388
+#: init/control.c:1390
 msgid "Ignoring set env request from chroot session"
 msgstr ""
 
-#: init/control.c:1400 init/control.c:1462 init/control.c:1548
-#: init/control.c:1598 init/control.c:1650
+#: init/control.c:1402 init/control.c:1464 init/control.c:1552
+#: init/control.c:1602 init/control.c:1654
 msgid "Variable may not be empty string"
 msgstr ""
 
-#: init/control.c:1538
+#: init/control.c:1542
 msgid "Ignoring unset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1568 init/control.c:1708
+#: init/control.c:1572 init/control.c:1712
 msgid "No such variable"
 msgstr ""
 
-#: init/control.c:1644 init/control.c:1746
+#: init/control.c:1648 init/control.c:1750
 msgid "You do not have permission to query job environment"
 msgstr ""
 
-#: init/control.c:1675
+#: init/control.c:1679
 msgid "Ignoring get env request from chroot session"
 msgstr ""
 
-#: init/control.c:1846
+#: init/control.c:1852
 msgid "Ignoring reset env request from chroot session"
 msgstr ""
 
-#: init/control.c:1979
+#: init/control.c:1985
 msgid "unable to create session file"
 msgstr ""
 
-#: init/control.c:1986
+#: init/control.c:1992
 msgid "unable to write session file"
 msgstr ""
 
-#: init/control.c:2035
+#: init/control.c:2041
 msgid "You do not have permission to end session"
 msgstr ""
 
-#: init/control.c:2043
+#: init/control.c:2049
 msgid "Ignoring session end request from chroot session"
 msgstr ""
 
@@ -441,7 +441,7 @@ msgstr ""
 msgid "Failed to obtain %s instance: %s"
 msgstr ""
 
-#: init/job_process.c:318 init/job_process.c:2458
+#: init/job_process.c:318 init/job_process.c:2472
 msgid "Temporary process spawn error"
 msgstr ""
 
@@ -472,249 +472,254 @@ msgstr ""
 msgid "Failed to open system console: %s"
 msgstr ""
 
-#: init/job_process.c:1060
+#: init/job_process.c:1070
 #, c-format
 msgid "unable to move script fd: %s"
 msgstr ""
 
-#: init/job_process.c:1065
+#: init/job_process.c:1075
 #, c-format
 msgid "unable to open console: %s"
 msgstr ""
 
-#: init/job_process.c:1120
+#: init/job_process.c:1130
 #, c-format
 msgid "unable to set \"%s\" resource limit: %s"
 msgstr ""
 
-#: init/job_process.c:1125
+#: init/job_process.c:1135
 #, c-format
 msgid "unable to set priority: %s"
 msgstr ""
 
-#: init/job_process.c:1130
+#: init/job_process.c:1140
 #, c-format
 msgid "unable to set oom adjustment: %s"
 msgstr ""
 
-#: init/job_process.c:1135
+#: init/job_process.c:1145
 #, c-format
 msgid "unable to change root directory: %s"
 msgstr ""
 
-#: init/job_process.c:1140
+#: init/job_process.c:1150
 #, c-format
 msgid "unable to change working directory: %s"
 msgstr ""
 
-#: init/job_process.c:1145
+#: init/job_process.c:1155
 #, c-format
 msgid "unable to set trace: %s"
 msgstr ""
 
-#: init/job_process.c:1150
+#: init/job_process.c:1160
 #, c-format
 msgid "unable to execute: %s"
 msgstr ""
 
-#: init/job_process.c:1155
+#: init/job_process.c:1165
 #, c-format
 msgid "unable to getpwnam: %s"
 msgstr ""
 
-#: init/job_process.c:1160
+#: init/job_process.c:1170
 #, c-format
 msgid "unable to getgrnam: %s"
 msgstr ""
 
-#: init/job_process.c:1165
+#: init/job_process.c:1175
 #, c-format
 msgid "unable to getpwuid: %s"
 msgstr ""
 
-#: init/job_process.c:1170
+#: init/job_process.c:1180
 #, c-format
 msgid "unable to getgrgid: %s"
 msgstr ""
 
-#: init/job_process.c:1175
+#: init/job_process.c:1185
 msgid "unable to find setuid user"
 msgstr ""
 
-#: init/job_process.c:1179
+#: init/job_process.c:1189
 msgid "unable to find setgid group"
-msgstr ""
-
-#: init/job_process.c:1183
-#, c-format
-msgid "unable to setuid: %s"
-msgstr ""
-
-#: init/job_process.c:1188
-#, c-format
-msgid "unable to setgid: %s"
 msgstr ""
 
 #: init/job_process.c:1193
 #, c-format
-msgid "unable to chown: %s"
+msgid "unable to setuid: %s"
 msgstr ""
 
 #: init/job_process.c:1198
 #, c-format
-msgid "unable to unlockpt: %s"
+msgid "unable to setgid: %s"
 msgstr ""
 
 #: init/job_process.c:1203
 #, c-format
-msgid "unable to granpt: %s"
+msgid "unable to chown: %s"
 msgstr ""
 
 #: init/job_process.c:1208
 #, c-format
-msgid "unable to get ptsname: %s"
+msgid "unable to unlockpt: %s"
 msgstr ""
 
 #: init/job_process.c:1213
 #, c-format
-msgid "unable to open pty slave: %s"
+msgid "unable to granpt: %s"
 msgstr ""
 
 #: init/job_process.c:1218
 #, c-format
-msgid "unable to modify signal handler: %s"
+msgid "unable to get ptsname: %s"
 msgstr ""
 
 #: init/job_process.c:1223
 #, c-format
-msgid "unable to allocate memory: %s"
+msgid "unable to open pty slave: %s"
 msgstr ""
 
 #: init/job_process.c:1228
 #, c-format
-msgid "unable to initgroups: %s"
+msgid "unable to modify signal handler: %s"
 msgstr ""
 
 #: init/job_process.c:1233
 #, c-format
-msgid "unable to switch security profile: %s"
+msgid "unable to allocate memory: %s"
 msgstr ""
 
 #: init/job_process.c:1238
 #, c-format
-msgid "unable to connect to CGManager: %s"
+msgid "unable to initgroups: %s"
 msgstr ""
 
 #: init/job_process.c:1243
 #, c-format
-msgid "unable to setup cgroup: %s"
+msgid "unable to switch security profile: %s"
 msgstr ""
 
 #: init/job_process.c:1248
 #, c-format
+msgid "unable to connect to CGManager: %s"
+msgstr ""
+
+#: init/job_process.c:1253
+#, c-format
+msgid "unable to setup cgroup: %s"
+msgstr ""
+
+#: init/job_process.c:1258
+#, c-format
 msgid "unable to enter cgroup: %s"
 msgstr ""
 
-#: init/job_process.c:1279 init/job_process.c:1422
+#: init/job_process.c:1263
+#, c-format
+msgid "unable to mark cgroups for removal: %s"
+msgstr ""
+
+#: init/job_process.c:1294 init/job_process.c:1437
 #, c-format
 msgid "Sending %s signal to %s %s process (%d)"
 msgstr ""
 
-#: init/job_process.c:1288 init/job_process.c:1431
+#: init/job_process.c:1303 init/job_process.c:1446
 #, c-format
 msgid "Failed to send %s signal to %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:1492
+#: init/job_process.c:1507
 #, c-format
 msgid "%s %s process (%d) terminated with status %d"
 msgstr ""
 
-#: init/job_process.c:1497
+#: init/job_process.c:1512
 #, c-format
 msgid "%s %s process (%d) exited normally"
 msgstr ""
 
-#: init/job_process.c:1512
+#: init/job_process.c:1527
 #, c-format
 msgid "%s %s process (%d) killed by %s signal"
 msgstr ""
 
-#: init/job_process.c:1516
+#: init/job_process.c:1531
 #, c-format
 msgid "%s %s process (%d) killed by signal %d"
 msgstr ""
 
-#: init/job_process.c:1530
+#: init/job_process.c:1545
 #, c-format
 msgid "%s %s process (%d) stopped by %s signal"
 msgstr ""
 
-#: init/job_process.c:1534
+#: init/job_process.c:1549
 #, c-format
 msgid "%s %s process (%d) stopped by signal %d"
 msgstr ""
 
-#: init/job_process.c:1548
+#: init/job_process.c:1563
 #, c-format
 msgid "%s %s process (%d) continued by %s signal"
 msgstr ""
 
-#: init/job_process.c:1552
+#: init/job_process.c:1567
 #, c-format
 msgid "%s %s process (%d) continued by signal %d"
 msgstr ""
 
-#: init/job_process.c:1719
+#: init/job_process.c:1734
 #, c-format
 msgid "%s respawning too fast, stopped"
 msgstr ""
 
-#: init/job_process.c:1725
+#: init/job_process.c:1740
 #, c-format
 msgid "%s %s process ended, respawning"
 msgstr ""
 
-#: init/job_process.c:1836
+#: init/job_process.c:1850
 msgid "Failed to add log to unflushed queue"
 msgstr ""
 
-#: init/job_process.c:2013
+#: init/job_process.c:2027
 #, c-format
 msgid "Failed to set ptrace options for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2026 init/job_process.c:2222
+#: init/job_process.c:2040 init/job_process.c:2236
 #, c-format
 msgid "Failed to continue traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2066 init/job_process.c:2158 init/job_process.c:2213
+#: init/job_process.c:2080 init/job_process.c:2172 init/job_process.c:2227
 #, c-format
 msgid "Failed to detach traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2106
+#: init/job_process.c:2120
 #, c-format
 msgid "Failed to deliver signal to traced %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2142
+#: init/job_process.c:2156
 #, c-format
 msgid "Failed to obtain child process id for %s %s process (%d): %s"
 msgstr ""
 
-#: init/job_process.c:2149
+#: init/job_process.c:2163
 #, c-format
 msgid "%s %s process (%d) became new process (%d)"
 msgstr ""
 
-#: init/job_process.c:2208
+#: init/job_process.c:2222
 #, c-format
 msgid "%s %s process (%d) executable changed"
 msgstr ""
 
-#: init/job_process.c:2468
+#: init/job_process.c:2482
 #, c-format
 msgid "Failed to spawn %s %s process: %s"
 msgstr ""
