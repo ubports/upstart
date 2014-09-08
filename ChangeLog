@@ -1,3 +1,8 @@
+2014-09-08  James Hunt  <james.hunt@ubuntu.com>
+
+	* util/telinit.c: Remove UPSTART_TELINIT_U_NO_WAIT check as it
+	  shouldn't realistically be needed.
+
 2014-08-21  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/telinit.c: restart_upstart():

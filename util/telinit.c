@@ -199,14 +199,6 @@ restart_upstart (void)
 	 */
 	ret = upstart_restart_sync (NULL, upstart);
 
-	if (getenv ("UPSTART_TELINIT_U_NO_WAIT")) {
-		/* Get-out-of-jail-free card - should never be required, but
-		 * paranoia never hurt anyone and we strive to provide
-		 * backwards-compatibility where possible.
-		 */
-		return ret;
-	}
-
 	if (ret < 0) {
 		err = nih_error_get ();
 		nih_free (err);
