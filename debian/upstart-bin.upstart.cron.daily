@@ -6,6 +6,6 @@
 # Note that system-level Upstart logs are handled separately using a
 # logrotate script.
 
-/sbin/initctl version 2>/dev/null || exit 0
+/sbin/initctl version >/dev/null 2>&1 || exit 0
 
 /sbin/initctl emit rotate-logs
