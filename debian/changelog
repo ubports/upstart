@@ -1,4 +1,4 @@
-upstart (1.13.2-0ubuntu2) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu2) utopic; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Redirect stdout to /dev/null as
     well, to avoid a daily cron mail with the upstart version.
