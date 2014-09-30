@@ -1,3 +1,9 @@
+upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
+
+  * debian/user-conf/logrotate.conf: Handle corrupt status files.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 11 Sep 2014 11:37:14 +0100
+
 upstart (1.13.2-0ubuntu2) utopic; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Redirect stdout to /dev/null as
