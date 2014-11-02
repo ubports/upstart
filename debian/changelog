@@ -1,6 +1,11 @@
 upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
 
+  [ James Hunt ]
   * debian/user-conf/logrotate.conf: Handle corrupt status files.
+
+  [ Dmitry Shachnev ]
+  * debian/upstart-xsessions: Update for new GNOME Flashback session
+    names (LP: #1383382).
 
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 11 Sep 2014 11:37:14 +0100
 
