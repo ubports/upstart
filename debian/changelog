@@ -2,6 +2,10 @@ upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
 
   [ James Hunt ]
   * debian/user-conf/logrotate.conf: Handle corrupt status files.
+  * init/tests/test_conf_preload.sh.in: Use build-generated libtool to
+    avoid breaking test_conf_preload.sh when the packaged binary moves
+    between packages.
+  * init/Makefile.am: Pass top_builddir to test_conf_preload.sh.in.
 
   [ Dmitry Shachnev ]
   * debian/upstart-xsessions: Update for new GNOME Flashback session
