@@ -1,4 +1,4 @@
-upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu3) vivid; urgency=medium
 
   [ James Hunt ]
   * debian/user-conf/logrotate.conf: Handle corrupt status files.
@@ -16,7 +16,7 @@ upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
     install e. g. avahi-daemon and systemd-sysv in one go under upstart (as in
     systemd's autopkgtest), avahi-daemon will fail.
 
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 11 Sep 2014 11:37:14 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 19 Nov 2014 14:48:48 +0100
 
 upstart (1.13.2-0ubuntu2) utopic; urgency=medium
 
