@@ -12,6 +12,7 @@ sbin/upstart-dbus-bridge
 sbin/upstart-event-bridge
 sbin/upstart-file-bridge
 debian/running-in-container bin/
+debian/apparmor-profile-load lib/init/
 usr/share/upstart/sessions/*
 debian/user-conf/*.conf usr/share/upstart/sessions/
 debian/xsession.d/* etc/X11/Xsession.d/

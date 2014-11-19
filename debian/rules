@@ -39,7 +39,7 @@ endif
 override_dh_fixperms:
 	dh_fixperms
 	chmod 755 debian/upstart/lib/init/upstart-job
-	chmod 755 debian/upstart/lib/init/apparmor-profile-load
+	chmod 755 debian/upstart-bin/lib/init/apparmor-profile-load
 	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
 
 override_dh_auto_install:

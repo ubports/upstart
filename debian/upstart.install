@@ -10,7 +10,6 @@ sbin/upstart-local-bridge
 sbin/upstart-socket-bridge
 sbin/upstart-udev-bridge
 debian/upstart-job lib/init/
-debian/apparmor-profile-load lib/init/
 debian/migrate-inittab.pl usr/lib/upstart/
 usr/share/man/man7/control-alt-delete.7
 usr/share/man/man7/keyboard-request.7

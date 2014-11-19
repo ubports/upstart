@@ -7,6 +7,11 @@ upstart (1.13.2-0ubuntu3) UNRELEASED; urgency=medium
   * debian/upstart-xsessions: Update for new GNOME Flashback session
     names (LP: #1383382).
 
+  [ Martin Pitt ]
+  * Move apparmor-profile-load to upstart-bin. Otherwise, if you try to
+    install e. g. avahi-daemon and systemd-sysv in one go under upstart (as in
+    systemd's autopkgtest), avahi-daemon will fail.
+
  -- James Hunt <james.hunt@ubuntu.com>  Thu, 11 Sep 2014 11:37:14 +0100
 
 upstart (1.13.2-0ubuntu2) utopic; urgency=medium
