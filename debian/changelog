@@ -1,8 +1,8 @@
-upstart (1.13.2-0ubuntu4) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu4) vivid; urgency=medium
 
   * Fix Breaks/Replaces: operator. *brown paperbag*
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 20 Nov 2014 07:57:28 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 20 Nov 2014 07:57:50 +0100
 
 upstart (1.13.2-0ubuntu3) vivid; urgency=medium
 
