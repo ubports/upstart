@@ -1,7 +1,7 @@
 # Start the user session
 if [ -n "$UPSTART" ]; then
     case "$BASESESSION" in
-        gnome-session*)
+        gnome-session*|gnome-flashback*)
             export SESSIONTYPE=gnome-session
             ;;
         lxsession*)
