@@ -48,21 +48,6 @@
 
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
-#include "com.ubuntu.Upstart.Job.h"
-
-/**
- * Job:
- *
- * @entry: list header,
- * @path: D-Bus path for a job.
- *
- * Representation of an Upstart Job.
- *
- **/
-typedef struct job {
-	NihList entry;
-	char *path;
-} Job;
 
 /**
  * Socket:
@@ -100,10 +85,6 @@ typedef struct client_connection {
 	struct ucred   ucred;
 } ClientConnection;
 
-static void upstart_job_added    (void *data, NihDBusMessage *message,
-				  const char *job);
-static void upstart_job_removed  (void *data, NihDBusMessage *message,
-				  const char *job);
 static void upstart_connect      (void);
 static void upstart_disconnected (DBusConnection *connection);
 
@@ -132,13 +113,6 @@ static void cleanup (void);
  * in the foreground.
  **/
 static int daemonise = FALSE;
-
-/**
- * jobs:
- *
- * Jobs that we're monitoring.
- **/
-static NihHash *jobs = NULL;
 
 /**
  * upstart:
@@ -273,9 +247,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Allocate jobs hash table */
-	jobs = NIH_MUST (nih_hash_string_new (NULL, 0));
-
 	sock = create_socket (NULL);
 	if (! sock) {
 		nih_fatal ("%s %s",
@@ -326,100 +297,11 @@ main (int   argc,
 	return ret;
 }
 
-static void
-upstart_job_added (void            *data,
-		   NihDBusMessage  *message,
-		   const char      *job_class_path)
-{
-	nih_local NihDBusProxy *job_class = NULL;
-	nih_local char ***start_on = NULL;
-	nih_local char ***stop_on = NULL;
-	Job *job;
-
-	nih_assert (job_class_path != NULL);
-
-	/* Obtain a proxy to the job */
-	job_class = nih_dbus_proxy_new (NULL, upstart->connection,
-					upstart->name, job_class_path,
-					NULL, NULL);
-	if (! job_class) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not create proxy for job %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	job_class->auto_start = FALSE;
-
-	/* Obtain the start_on and stop_on properties of the job */
-	if (job_class_get_start_on_sync (NULL, job_class, &start_on) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not obtain job start condition %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	if (job_class_get_stop_on_sync (NULL, job_class, &stop_on) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not obtain job stop condition %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	/* Free any existing record for the job (should never happen,
-	 * but worth being safe).
-	 */
-	job = (Job *)nih_hash_lookup (jobs, job_class_path);
-	if (job)
-		nih_free (job);
-
-	/* Create new record for the job */
-	job = NIH_MUST (nih_new (NULL, Job));
-	job->path = NIH_MUST (nih_strdup (job, job_class_path));
-
-	nih_list_init (&job->entry);
-
-	nih_debug ("Job got added %s", job_class_path);
-
-	nih_alloc_set_destructor (job, nih_list_destroy);
-
-	/* Add all jobs */
-	nih_hash_add (jobs, &job->entry);
-}
-
-static void
-upstart_job_removed (void            *data,
-		     NihDBusMessage  *message,
-		     const char      *job_path)
-{
-	Job *job;
-
-	nih_assert (job_path != NULL);
-
-	job = (Job *)nih_hash_lookup (jobs, job_path);
-	if (job) {
-		nih_debug ("Job went away %s", job_path);
-		nih_free (job);
-	}
-}
 
 static void
 upstart_connect (void)
 {
 	DBusConnection    *connection;
-	char            **job_class_paths;
 
 	/* Initialise the connection to Upstart */
 	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_UPSTART, upstart_disconnected));
@@ -449,49 +331,6 @@ upstart_connect (void)
 	}
 
 	nih_debug ("Connected to Upstart");
-
-	/* Connect signals to be notified when jobs come and go */
-	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobAdded",
-				      (NihDBusSignalHandler)upstart_job_added, NULL)) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not create JobAdded signal connection"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobRemoved",
-				      (NihDBusSignalHandler)upstart_job_removed, NULL)) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not create JobRemoved signal connection"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	/* Request a list of all current jobs */
-	if (upstart_get_all_jobs_sync (NULL, upstart, &job_class_paths) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not obtain job list"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	for (char **job_class_path = job_class_paths;
-	     job_class_path && *job_class_path; job_class_path++)
-		upstart_job_added (NULL, NULL, *job_class_path);
-
-	nih_free (job_class_paths);
 }
 
 static void
