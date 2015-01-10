@@ -30,6 +30,7 @@
 #include <nih/macros.h>
 #include <nih/alloc.h>
 #include <nih/string.h>
+#include <nih/hash.h>
 #include <nih/io.h>
 #include <nih/option.h>
 #include <nih/main.h>
@@ -42,15 +43,25 @@
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
 #include "org.freedesktop.systemd1.h"
+#include "org.freedesktop.systemd1.job.h"
 
 /* Defines for constants */
+#define SYSTEMD_EVENT "systemd"
 #define DBUS_PATH_SYSTEMD "/org/freedesktop/systemd1"
 #define DBUS_SERVICE_SYSTEMD "org.freedesktop.systemd1"
+
+/* Structure we use for tracking systemd jobs */
+typedef struct systemd_job {
+	NihList entry;
+	char *path;
+	char *job_type;
+} SystemdJob;
 
 /* Prototypes for static functions */
 static void dbus_disconnected (DBusConnection *connection);
 static void upstart_forward_event    (void *data, NihDBusMessage *message,
 				  const char *path);
+static void emit_event (const char *unit, const char *job_type);
 static void emit_event_error     (void *data, NihDBusMessage *message);
 
 
@@ -58,6 +69,11 @@ static void systemd_job_new (void *data, NihDBusMessage *message, uint32_t id, c
 
 static void systemd_job_remove (void *data, NihDBusMessage *message, uint32_t id, const char *job, const char *unit, const char *result);
 
+static SystemdJob *job_new (const char *path, const uint32_t id, const char *unit, const char *job_type)
+	__attribute__ ((warn_unused_result));
+
+static int *job_destroy (SystemdJob *job)
+	__attribute__ ((warn_unused_result));
 
 /**
  * daemonise:
@@ -66,6 +82,13 @@ static void systemd_job_remove (void *data, NihDBusMessage *message, uint32_t id
  * in the foreground.
  **/
 static int daemonise = FALSE;
+
+/**
+ * systemd_jobs:
+ *
+ * Hash of systemd jobs that we're monitoring.
+ **/
+static NihHash *systemd_jobs = NULL;
 
 /**
  * systemd:
@@ -80,6 +103,13 @@ static NihDBusProxy *systemd = NULL;
  * Proxy to user Upstart daemon instance.
  **/
 static NihDBusProxy *user_upstart = NULL;
+
+/**
+ * systemd_connection:
+ *
+ * System DBus connection.
+ **/
+static DBusConnection *system_connection = NULL;
 
 /**
  * options:
@@ -99,7 +129,6 @@ main (int   argc,
       char *argv[])
 {
 	char **              args;
-	DBusConnection *     system_connection;
 	DBusConnection *     user_connection;
 	int                  ret;
 	char *               pidfile_path = NULL;
@@ -107,7 +136,6 @@ main (int   argc,
 	char *               user_session_addr = NULL;
 	nih_local char **    user_session_path = NULL;
 	char *               path_element = NULL;
-
 
 	nih_main_init (argv[0]);
 
@@ -127,7 +155,38 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Initialise the connection to system Upstart */
+	/* Allocate jobs hash table */
+	systemd_jobs = NIH_MUST (nih_hash_string_new (NULL, 0));
+
+	/* Initialise the connection to user session Upstart */
+	user_connection = NIH_SHOULD (nih_dbus_connect (user_session_addr, dbus_disconnected));
+
+	if (! user_connection) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not connect to the user session Upstart"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	user_upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, user_connection,
+						  NULL, DBUS_PATH_UPSTART,
+						  NULL, NULL));
+	if (! user_upstart) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not create Upstart proxy"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	/* Initialise the connection to system systemd */
 	system_connection = NIH_SHOULD (nih_dbus_bus (DBUS_BUS_SYSTEM, dbus_disconnected));
 
 	if (! system_connection) {
@@ -155,17 +214,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	if (! systemd_subscribe_sync (NULL, systemd)) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not subscribe as a client"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}		
-
 	if (! nih_dbus_proxy_connect (systemd, &systemd_org_freedesktop_systemd1_Manager, "JobNew",
 				      (NihDBusSignalHandler)systemd_job_new, NULL)) {
 		NihError *err;
@@ -190,28 +238,11 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Initialise the connection to user session Upstart */
-	user_connection = NIH_SHOULD (nih_dbus_connect (user_session_addr, dbus_disconnected));
-
-	if (! user_connection) {
+	if (systemd_subscribe_sync (NULL, systemd)) {
 		NihError *err;
 
 		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not connect to the user session Upstart"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	user_upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, user_connection,
-						  NULL, DBUS_PATH_UPSTART,
-						  NULL, NULL));
-	if (! user_upstart) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not create Upstart proxy"),
+		nih_fatal ("%s: %s", _("Could not subscribe as a client"),
 			   err->message);
 		nih_free (err);
 
@@ -332,6 +363,37 @@ upstart_forward_event (void *          data,
 }
 
 static void
+emit_event (const char *unit,
+	    const char *job_type)
+{
+	DBusPendingCall *pending_call;
+	nih_local char **env = NULL;
+	nih_local char *var = NULL;
+	size_t env_len = 0;
+	
+	env = NIH_MUST (nih_str_array_new (NULL));
+	
+	var = NIH_MUST (nih_sprintf (NULL, "UNIT=%s", unit));
+	NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	
+	var = NIH_MUST (nih_sprintf (NULL, "JOBTYPE=%s", job_type));
+	NIH_MUST (nih_str_array_addp (&env, NULL, &env_len, var));
+	
+	pending_call = NIH_SHOULD (upstart_emit_event
+				   (user_upstart, SYSTEMD_EVENT, env, FALSE,
+				    NULL, emit_event_error, NULL,
+				    NIH_DBUS_TIMEOUT_NEVER));
+	
+	if (! pending_call) {
+		NihError *err;
+		
+		err = nih_error_get ();
+		nih_warn ("%s", err->message);
+		nih_free (err);
+	}
+}
+
+static void
 emit_event_error (void *          data,
 		  NihDBusMessage *message)
 {
@@ -345,11 +407,101 @@ emit_event_error (void *          data,
 static void
 systemd_job_new (void *data, NihDBusMessage *message, uint32_t id, const char *job, const char *unit)
 {
+	nih_local NihDBusProxy *job_proxy = NULL;
+	nih_local char *job_type = NULL;
 
+	// get job proxy
+	job_proxy = NIH_SHOULD (nih_dbus_proxy_new (NULL, system_connection,
+						  DBUS_SERVICE_SYSTEMD, job,
+						  NULL, NULL));
+	if (! job_proxy) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Could not get job_proxy"),
+			   err->message);
+		nih_free (err);
+		goto notype;
+	}
+
+	if (systemd_job_get_job_type_sync (NULL, job_proxy, &job_type) < 0) {
+		NihError *err;
+		err = nih_error_get ();
+		nih_error ("%s: %s", _("Could not get JobType"),
+			   err->message);
+		nih_free (err);
+		goto notype;
+	}
+
+	// create our job object in the jobs hash
+	NIH_SHOULD (job_new (job, id, unit, job_type));
+	return;
+
+notype:
+	// create our job object in the jobs hash
+	NIH_SHOULD (job_new (job, id, unit, "unknown"));
+	return;
 }
 
 static void
 systemd_job_remove (void *data, NihDBusMessage *message, uint32_t id, const char *job, const char *unit, const char *result)
 {
 
+	nih_local SystemdJob *systemd_job = NULL;
+
+	// pop from hashtable
+	systemd_job = (SystemdJob *)nih_hash_lookup (systemd_jobs, job);
+
+	if (!systemd_job)
+		return;
+
+	// if done, emit event
+	if (! strcmp("done", result)) {
+		emit_event (unit, systemd_job->job_type);
+	}
+}
+
+/**
+ * job_new:
+ *
+ * @id: Systemd Job ID
+ * @unit: Name of the associated unit
+ * @job_type: Job type
+ *
+ * Create a new Job object representing an inflight systemd job.
+ *
+ * Returns: job, or NULL on insufficient memory.
+ **/
+static SystemdJob *
+job_new (const char *path, const uint32_t id, const char *unit, const char *job_type)
+{
+	SystemdJob *job = NULL;
+
+	nih_assert (id);
+	nih_assert (unit);
+
+	job = nih_new (NULL, SystemdJob);
+	if (! job)
+		return NULL;
+
+	nih_list_init (&job->entry);
+
+	nih_alloc_set_destructor (job, nih_list_destroy);
+
+	job->path = nih_strdup (job, path);
+	if (! job->path)
+		goto error;
+
+	job->job_type = nih_strdup (job, job_type);
+	if (! job->job_type)
+		goto error;
+
+	if (! nih_hash_add_unique (systemd_jobs, &job->entry))
+		goto error;
+
+	return job;
+
+error:
+	nih_free (job);
+	return NULL;
 }
