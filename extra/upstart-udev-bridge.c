@@ -69,6 +69,15 @@ static int daemonise = FALSE;
 static NihDBusProxy *upstart = NULL;
 
 /**
+ * user:
+ *
+ * If TRUE, run in User Session mode connecting to the Session Init
+ * rather than PID 1. In this mode, certain relative paths are also
+ * expanded.
+ **/
+static int user = FALSE;
+
+/**
  * no_strip_udev_data:
  *
  * If TRUE, do not modify any udev message data (old behaviour).
@@ -86,6 +95,8 @@ static NihOption options[] = {
 	  NULL, NULL, &daemonise, NULL },
 	{ 0, "no-strip", N_("Do not strip non-printable bytes from udev message data"),
 	  NULL, NULL, &no_strip_udev_data, NULL },
+	{ 0, "user", N_("Connect to user session"),
+	  NULL, NULL, &user, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -97,6 +108,7 @@ main (int   argc,
 {
 	char **              args;
 	DBusConnection *     connection;
+	char                *user_session_addr = NULL;
 	struct udev *        udev;
 	struct udev_monitor *udev_monitor;
 	int                  ret;
@@ -113,8 +125,19 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	if (user) {
+		user_session_addr = getenv ("UPSTART_SESSION");
+		if (! user_session_addr) {
+			nih_fatal (_("UPSTART_SESSION isn't set in environment"));
+			exit (EXIT_FAILURE);
+		}
+	}
+
 	/* Initialise the connection to Upstart */
-	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_UPSTART, upstart_disconnected));
+	connection = NIH_SHOULD (nih_dbus_connect (user
+				? user_session_addr
+				: DBUS_ADDRESS_UPSTART,
+				upstart_disconnected));
 	if (! connection) {
 		NihError *err;
 
