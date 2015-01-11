@@ -34,7 +34,6 @@ sbin_PROGRAMS = \
 
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
-	conf/upstart-event-bridge.conf \
 	conf/upstart-file-bridge.conf \
 	conf/upstart-dbus-bridge.conf
 
