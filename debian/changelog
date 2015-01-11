@@ -1,3 +1,12 @@
+upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
+
+  * debian/upstart-bin.upstart.cron.daily: Emit ":sys:rotate-logs" event
+    direct into session init, by-passing system upstart & session
+    event-bridge. This way session logs will be rotated, even upstart is
+    not system init.
+
+ -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sun, 11 Jan 2015 01:15:34 +0000
+
 upstart (1.13.2-0ubuntu5) vivid; urgency=medium
 
   * debian/xsession.d/99upstart: Add support for GNOME Flashback

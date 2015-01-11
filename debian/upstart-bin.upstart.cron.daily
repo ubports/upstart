@@ -1,11 +1,18 @@
 #!/bin/sh
-# Emit an Upstart system event, that will propagate to the Session Inits
-# via the upstart-event-bridge(8), requesting that the Session Inits
-# rotate their logs.
+
+# For each Upstart Session Init, emit ":sys:rotate-logs" events, requesting
+# that the# session Inits rotate their logs. There is no user-daily
+# cron.
+#
+# Doing it this way does not rely on System Upstart, nor
+# upstart-event-bridge(8) running in the Session Init.
 #
 # Note that system-level Upstart logs are handled separately using a
 # logrotate script.
 
-/sbin/initctl version >/dev/null 2>&1 || exit 0
+[ -x /sbin/initctl ] || exit 0
 
-/sbin/initctl emit rotate-logs
+for session in /run/user/*/upstart/sessions/*
+do
+    env $(cat $session) /sbin/initctl emit :sys:rotate-logs >/dev/null 2>&1 || true
+done
