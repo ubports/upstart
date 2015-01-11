@@ -48,7 +48,7 @@ Package: upstart-monitor
 Architecture: all
 Section: utils
 Priority: optional
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.7), python3-dbus
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart-bin (>= 1.7), python3-dbus
 Recommends: python3-gi
 Description: event monitor for upstart
  This package contains a utility that may be run both as a
@@ -60,7 +60,7 @@ Package: upstart-dconf-bridge
 Architecture: any
 Section: utils
 Priority: optional
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart (>= 1.10)
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python3:Depends}, upstart-bin (>= 1.10)
 Description: DConf bridge for upstart
  This package contains a bridge that allows upstart jobs to react when
  DConf/gsettings keys are changed.

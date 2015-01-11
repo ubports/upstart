@@ -4,6 +4,8 @@ upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
     direct into session init, by-passing system upstart & session
     event-bridge. This way session logs will be rotated, even upstart is
     not system init.
+  * debian/control: make upstart-monitor & upstart-dconf-bridge be
+    installable with just session init, upstart-bin.
 
  -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sun, 11 Jan 2015 01:15:34 +0000
 
