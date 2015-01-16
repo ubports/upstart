@@ -160,27 +160,73 @@ upstart_open (const void *parent)
 int
 restart_upstart (void)
 {
-	nih_local NihDBusProxy *upstart = NULL;
-	DBusPendingCall        *ret;
+	nih_local NihDBusProxy  *upstart = NULL;
+	NihError                *err;
+	int                      ret;
 
 	upstart = upstart_open (NULL);
 	if (! upstart)
 		return -1;
 
-	/* Fire and forget:
+	/* Ask Upstart to restart itself.
 	 *
-	 * Ask Upstart to restart itself using the async interface to
-	 * avoid the client-side complaining if and when it detects that
-	 * Upstart has severed all connections to perform the re-exec.
+	 * Since it is not possible to serialise a D-Bus connection,
+	 * Upstart is forced to sever all D-Bus client connections,
+	 * including this one.
+	 *
+	 * Further, since the user expects telinit to block _until the
+	 * re-exec has finished and Upstart is accepting connections
+	 * once again_, the only solution is to wait for the forced
+	 * disconnect, then poll until it is possible to create a new
+	 * connection.
+	 *
+	 * Note that we don't (can't) care about the return code since
+	 * it's not reliable:
+	 *
+	 * - either the re-exec request completed and D-Bus returned zero
+	 *   before Upstart started the re-exec.
+	 *
+	 * - or the re-exec request completed but upstart started the
+	 *   re-exec (severing all D-Bus connections) before D-Bus got a
+	 *   chance to finish cleanly meaning we receive a return of -1.
+	 *
+	 * We cannot know exactly what happened so have to allow for
+	 * both scenarios. Note the implicit assumption that the re-exec
+	 * request itself was accepted. If this assumption is incorrect
+	 * (should not be possible), the worst case scenario is that
+	 * upstart does not re-exec and then we quickly drop out of the
+	 * reconnect block since it never went offline.
 	 */
-	ret = upstart_restart (upstart, NULL, NULL, NULL, 0);
-	dbus_connection_flush(upstart->connection);
+	ret = upstart_restart_sync (NULL, upstart);
 
-	/* We don't care about the return code, but we have to keep
-	 * the compiler happy.
+	if (ret < 0) {
+		err = nih_error_get ();
+		nih_free (err);
+	}
+
+	nih_free (upstart);
+
+	nih_debug ("Waiting for upstart to finish re-exec");
+
+	/* We believe Upstart is now in the process of
+	 * re-exec'ing so attempt forever to reconnect.
+	 *
+	 * This sounds dangerous but there is no other option,
+	 * and a connection must be possible unless the system
+	 * is completely broken.
 	 */
-	if (ret != (DBusPendingCall *)TRUE)
-		return 0;
+	while (TRUE) {
+
+		upstart = upstart_open (NULL);
+		if (upstart)
+			break;
+
+		err = nih_error_get ();
+		nih_free (err);
+
+		/* Avoid DoS'ing the system whilst we wait */
+		usleep (100000);
+	}
 
 	return 0;
 }

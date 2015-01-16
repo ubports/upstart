@@ -22,10 +22,14 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
@@ -45,24 +49,17 @@
 
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_proxy.h>
+#include <nih-dbus/dbus_object.h>
 
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
-#include "com.ubuntu.Upstart.Job.h"
+#include "org.freedesktop.systemd1.h"
+#include "control_com.ubuntu.Upstart.h"
 
-/**
- * Job:
- *
- * @entry: list header,
- * @path: D-Bus path for a job.
- *
- * Representation of an Upstart Job.
- *
- **/
-typedef struct job {
-	NihList entry;
-	char *path;
-} Job;
+#define DBUS_ADDRESS_SYSTEMD "unix:path=/run/systemd/private"
+#define DBUS_PATH_SYSTEMD "/org/freedesktop/systemd1"
+#define DBUS_SERVICE_SYSTEMD "org.freedesktop.systemd1"
+#define DBUS_ADDRESS_LOCAL "unix:abstract=/com/ubuntu/upstart/local/bridge"
 
 /**
  * Socket:
@@ -100,12 +97,14 @@ typedef struct client_connection {
 	struct ucred   ucred;
 } ClientConnection;
 
-static void upstart_job_added    (void *data, NihDBusMessage *message,
-				  const char *job);
-static void upstart_job_removed  (void *data, NihDBusMessage *message,
-				  const char *job);
 static void upstart_connect      (void);
-static void upstart_disconnected (DBusConnection *connection);
+static void systemd_connect      (void);
+static int  systemd_booted       (void);
+static int  control_server_open  (void);
+static int  control_server_connect (DBusServer *server,
+				    DBusConnection *conn);
+static void control_disconnected   (DBusConnection *conn);
+static void init_disconnected (DBusConnection *connection);
 
 static Socket *create_socket (void *parent);
 
@@ -121,6 +120,8 @@ static void emit_event_error (void *data, NihDBusMessage *message);
 
 static void emit_event (ClientConnection *client, const char *pair, size_t len);
 
+static void process_event (ClientConnection *client, const char *pair, size_t len);
+
 static void signal_handler (void *data, NihSignal *signal);
 
 static void cleanup (void);
@@ -134,13 +135,6 @@ static void cleanup (void);
 static int daemonise = FALSE;
 
 /**
- * jobs:
- *
- * Jobs that we're monitoring.
- **/
-static NihHash *jobs = NULL;
-
-/**
  * upstart:
  *
  * Proxy to Upstart daemon.
@@ -148,9 +142,32 @@ static NihHash *jobs = NULL;
 static NihDBusProxy *upstart = NULL;
 
 /**
+ * systemd:
+ *
+ * Proxy to systemd daemon.
+ **/
+static NihDBusProxy *systemd = NULL;
+
+/**
+ * control_server
+ * 
+ * D-Bus server listening for new direct connections.
+ **/
+DBusServer *control_server = NULL;
+
+/**
+ * control_conns:
+ *
+ * Open control connections, including the connection to a D-Bus
+ * bus and any private client connections.
+ **/
+NihList *control_conns = NULL;
+
+/**
  * event_name:
  *
- * Name of event this bridge emits.
+ * upstart: Name of event this bridge emits.
+ * systmed: Name of target this generator creates.
  **/
 static char *event_name = NULL;
 
@@ -202,7 +219,7 @@ static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
 
-	{ 0, "event", N_("specify name of event to emit on receipt of name=value pair"),
+	{ 0, "event", N_("specify name of event to emit / target to generate on receipt of name=value pair"),
 		NULL, "EVENT", &event_name, NULL },
 
 	{ 0, "any-user", N_("allow any user to connect"),
@@ -258,7 +275,7 @@ main (int   argc,
 
 	nih_main_init (argv[0]);
 
-	nih_option_set_synopsis (_("Local socket Upstart Bridge"));
+	nih_option_set_synopsis (_("Local socket Upstart Bridge & systemd generator"));
 	nih_option_set_help (
 		_("By default, this bridge does not detach from the "
 		  "console and remains in the foreground.  Use the --daemon "
@@ -273,9 +290,6 @@ main (int   argc,
 		exit (1);
 	}
 
-	/* Allocate jobs hash table */
-	jobs = NIH_MUST (nih_hash_string_new (NULL, 0));
-
 	sock = create_socket (NULL);
 	if (! sock) {
 		nih_fatal ("%s %s",
@@ -286,7 +300,26 @@ main (int   argc,
 
 	nih_debug ("Connected to socket '%s' on fd %d", socket_name, sock->sock);
 
-	upstart_connect ();
+	if (systemd_booted() == TRUE) {
+		systemd_connect ();
+	} else {
+		upstart_connect ();
+	}
+
+	control_conns = NIH_MUST (nih_list_new (NULL));
+
+        while ((ret = control_server_open ()) < 0) {
+		NihError *err;
+
+                err = nih_error_get ();
+                if (err->number != ENOMEM) {
+                        nih_warn ("%s: %s", _("Unable to listen for private"
+					      "connections"), err->message);
+                        nih_free (err);
+			break;
+                }
+                nih_free (err);
+        }
 
 	/* Become daemon */
 	if (daemonise) {
@@ -326,103 +359,14 @@ main (int   argc,
 	return ret;
 }
 
-static void
-upstart_job_added (void            *data,
-		   NihDBusMessage  *message,
-		   const char      *job_class_path)
-{
-	nih_local NihDBusProxy *job_class = NULL;
-	nih_local char ***start_on = NULL;
-	nih_local char ***stop_on = NULL;
-	Job *job;
-
-	nih_assert (job_class_path != NULL);
-
-	/* Obtain a proxy to the job */
-	job_class = nih_dbus_proxy_new (NULL, upstart->connection,
-					upstart->name, job_class_path,
-					NULL, NULL);
-	if (! job_class) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not create proxy for job %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	job_class->auto_start = FALSE;
-
-	/* Obtain the start_on and stop_on properties of the job */
-	if (job_class_get_start_on_sync (NULL, job_class, &start_on) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not obtain job start condition %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	if (job_class_get_stop_on_sync (NULL, job_class, &stop_on) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_error ("Could not obtain job stop condition %s: %s",
-			   job_class_path, err->message);
-		nih_free (err);
-
-		return;
-	}
-
-	/* Free any existing record for the job (should never happen,
-	 * but worth being safe).
-	 */
-	job = (Job *)nih_hash_lookup (jobs, job_class_path);
-	if (job)
-		nih_free (job);
-
-	/* Create new record for the job */
-	job = NIH_MUST (nih_new (NULL, Job));
-	job->path = NIH_MUST (nih_strdup (job, job_class_path));
-
-	nih_list_init (&job->entry);
-
-	nih_debug ("Job got added %s", job_class_path);
-
-	nih_alloc_set_destructor (job, nih_list_destroy);
-
-	/* Add all jobs */
-	nih_hash_add (jobs, &job->entry);
-}
-
-static void
-upstart_job_removed (void            *data,
-		     NihDBusMessage  *message,
-		     const char      *job_path)
-{
-	Job *job;
-
-	nih_assert (job_path != NULL);
-
-	job = (Job *)nih_hash_lookup (jobs, job_path);
-	if (job) {
-		nih_debug ("Job went away %s", job_path);
-		nih_free (job);
-	}
-}
 
 static void
 upstart_connect (void)
 {
 	DBusConnection    *connection;
-	char            **job_class_paths;
 
 	/* Initialise the connection to Upstart */
-	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_UPSTART, upstart_disconnected));
+	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_UPSTART, init_disconnected));
 	if (! connection) {
 		NihError *err;
 
@@ -449,56 +393,166 @@ upstart_connect (void)
 	}
 
 	nih_debug ("Connected to Upstart");
-
-	/* Connect signals to be notified when jobs come and go */
-	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobAdded",
-				      (NihDBusSignalHandler)upstart_job_added, NULL)) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not create JobAdded signal connection"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	if (! nih_dbus_proxy_connect (upstart, &upstart_com_ubuntu_Upstart0_6, "JobRemoved",
-				      (NihDBusSignalHandler)upstart_job_removed, NULL)) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not create JobRemoved signal connection"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	/* Request a list of all current jobs */
-	if (upstart_get_all_jobs_sync (NULL, upstart, &job_class_paths) < 0) {
-		NihError *err;
-
-		err = nih_error_get ();
-		nih_fatal ("%s: %s", _("Could not obtain job list"),
-			   err->message);
-		nih_free (err);
-
-		exit (1);
-	}
-
-	for (char **job_class_path = job_class_paths;
-	     job_class_path && *job_class_path; job_class_path++)
-		upstart_job_added (NULL, NULL, *job_class_path);
-
-	nih_free (job_class_paths);
 }
 
 static void
-upstart_disconnected (DBusConnection *connection)
+systemd_connect (void)
 {
-	nih_fatal (_("Disconnected from Upstart"));
+	DBusConnection    *connection;
+
+	/* Initialise the connection to systemd */
+	/* /run/systemd/private is supposedly "private" end-point
+	 * which systemctl & libsystemd use */
+	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_SYSTEMD, init_disconnected));
+	if (! connection) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not connect to systemd"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	systemd = NIH_SHOULD (nih_dbus_proxy_new (NULL, connection,
+						  NULL, DBUS_PATH_SYSTEMD,
+						  NULL, NULL));
+	if (! systemd) {
+		NihError *err;
+
+		err = nih_error_get ();
+		nih_fatal ("%s: %s", _("Could not create systemd proxy"),
+			   err->message);
+		nih_free (err);
+
+		exit (1);
+	}
+
+	FILE *fp = NULL;
+	nih_local char *template_name = NULL;
+	
+	template_name = NIH_MUST (nih_sprintf (NULL, "/run/systemd/system/%s@.target", event_name));
+
+	fp = NIH_SHOULD (fopen(template_name, "we"));
+	if (!fp) {
+		nih_fatal ("%s %s", _("Failed to create target template"),
+			  strerror (errno));
+		exit (1);
+	}
+	fprintf (fp,
+		"# Automatically generated by %s\n\n"
+		"[Unit]\n"
+		"Description=Local bridge key value pairs\n"
+		"Documentation=man:%s\n",
+		program_name, program_name);
+	fflush (fp);
+	if (ferror (fp)) {
+		nih_fatal ("%s %s", _("Failed to write target template"),
+			   strerror (errno));
+		exit (1);
+	}
+	fclose (fp);
+
+	nih_debug ("Connected to systemd");
+}
+
+static int
+systemd_booted (void)
+{
+	struct stat st;
+
+	if (lstat ("/run/systemd/system/", &st) == 0) {
+		if (S_ISDIR(st.st_mode)) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static void
+init_disconnected (DBusConnection *connection)
+{
+	nih_fatal (_("Disconnected from init"));
 	nih_main_loop_exit (1);
+}
+
+/**
+ * control_server_open:
+ *
+ * Open a listening D-Bus server and store it in the control_server global.
+ * New connections are permitted from the root user, and handled
+ * automatically in the main loop.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+
+int
+control_server_open (void)
+{
+	nih_assert (control_server == NULL);
+
+	control_server = nih_dbus_server (DBUS_ADDRESS_LOCAL,
+				  control_server_connect,
+				  control_disconnected);
+	if (! control_server)
+		return -1;
+
+	nih_debug("D-Bus server started at address: %s", DBUS_ADDRESS_LOCAL);
+
+	return 0;
+}
+
+/**
+ * control_server_connect:
+ *
+ * Called when a new client connects to our server and is used to register
+ * objects on the new connection.
+ *
+ * Returns: always TRUE.
+ **/
+static int
+control_server_connect (DBusServer     *server,
+			DBusConnection *conn)
+{
+	nih_assert (server != NULL);
+	nih_assert (server == control_server);
+	nih_assert (conn != NULL);
+	NihListEntry *entry = NULL;
+
+	/* Register objects on the connection. */
+	NIH_MUST (nih_dbus_object_new (NULL, conn, DBUS_PATH_UPSTART,
+				       control_interfaces, NULL));
+
+
+	entry = NIH_MUST (nih_list_entry_new (NULL));
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
+	nih_debug("Connection from private client");
+
+	return TRUE;
+}
+
+/**
+ * control_disconnected:
+ *
+ * This function is called when the connection to the D-Bus system bus,
+ * or a client connection to our D-Bus server, is dropped and our reference
+ * is about to be list.  We clear the connection from our current list
+ * and drop the control_bus global if relevant.
+ **/
+static void
+control_disconnected (DBusConnection *conn)
+{
+	nih_assert (conn != NULL);
+        /* Remove from the connections list */
+        NIH_LIST_FOREACH_SAFE (control_conns, iter) {
+                NihListEntry *entry = (NihListEntry *)iter;
+
+                if (entry->data == conn)
+                        nih_free (entry);
+        }
 }
 
 /**
@@ -645,7 +699,7 @@ socket_reader (ClientConnection  *client,
 		if (used_len < min_len)
 			continue;
 
-		emit_event (client, pair, used_len);
+		process_event (client, pair, used_len);
 	}
 
 	/* Consume the entire length */
@@ -724,6 +778,8 @@ create_socket (void *parent)
 	/* Handle abstract names */
 	if (sock->sun_addr.sun_path[0] == '@')
 		sock->sun_addr.sun_path[0] = '\0';
+	else
+		(void) unlink(sock->sun_addr.sun_path);
 
 	sock->sock = socket (sock->addr.sa_family, SOCK_STREAM, 0);
 	if (sock->sock < 0) {
@@ -830,17 +886,102 @@ emit_event (ClientConnection  *client,
 	/* Add the name=value pair */
 	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, pair, len));
 
-	pending_call = upstart_emit_event (upstart,
-			event_name, env, FALSE,
-			NULL, emit_event_error, NULL,
-			NIH_DBUS_TIMEOUT_NEVER);
+	if (upstart) {
+		pending_call = upstart_emit_event (upstart,
+						   event_name, env, FALSE,
+						   NULL, emit_event_error, NULL,
+						   NIH_DBUS_TIMEOUT_NEVER);
+		
+		if (! pending_call) {
+			NihError *err;
+			err = nih_error_get ();
+			nih_warn ("%s", err->message);
+			nih_free (err);
+		}
+		
+		dbus_pending_call_unref (pending_call);
+	}
 
-	if (! pending_call) {
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+							    event_name, env));
+	}
+
+}
+
+static void
+systemd_launch_instance (ClientConnection  *client,
+	    const char        *pair,
+	    size_t             len)
+{
+	nih_local char     *safe_pair = NULL;
+	nih_local char    **key_value = NULL;
+	nih_local char     *group_name = NULL;
+	nih_local char     *unit_name = NULL;
+	nih_local char     *job_name = NULL;
+
+	nih_assert  (client);
+	nih_assert  (pair);
+	nih_assert  (len);
+
+	/* Why is pair not null-terminated?! */
+	safe_pair = NIH_MUST (nih_strndup (NULL, pair, len));
+
+	/* Get key val from the key=val pair */
+	key_value = NIH_MUST (nih_str_split (NULL, safe_pair, "=", TRUE));
+
+	/* Construct systemd event@key=*.target group name */
+	group_name = NIH_MUST (nih_sprintf (NULL, "%s@%s=*.target",
+					    event_name, key_value[0]));
+
+	/* Construct systemd event@key=value.target unit name */
+	unit_name = NIH_MUST (nih_sprintf (NULL, "%s@%s\\x3d%s.target",
+					   event_name, key_value[0],
+					   key_value[1]));
+
+	/* Stop group */
+	int pid = -1;
+	siginfo_t info;
+	do {
+		pid = fork ();
+	} while (pid < 0);
+	
+	if (pid) {
+		info.si_code = 0;
+		info.si_status = 0;
+		if (waitid (P_PID, pid, &info, WEXITED)) {
+			nih_fatal ("%s %s", _("Failed to wait for systemctl"),
+				   strerror (errno));
+		}
+                if (info.si_code != CLD_EXITED || info.si_status) {
+                        nih_fatal ("Bad systemctl exit code %i and status %i\n", info.si_code, info.si_status);
+                }
+	} else {
+		/* Create and submit stop state transition, do not wait to complete */
+		execlp ("systemctl", "systemctl", "--no-block", "stop", group_name, (char *)NULL);
+	}
+			       
+	/* Create and submit start state transition, do not wait to complete */
+	if (systemd_start_unit_sync (NULL, systemd, unit_name, "replace", &job_name)) {
 		NihError *err;
 		err = nih_error_get ();
 		nih_warn ("%s", err->message);
 		nih_free (err);
 	}
+}
 
-	dbus_pending_call_unref (pending_call);
+
+static void
+process_event (ClientConnection  *client,
+	    const char        *pair,
+	    size_t             len)
+{
+	emit_event (client, pair, len);
+
+	if (systemd) {
+		systemd_launch_instance (client, pair, len);
+	}
 }

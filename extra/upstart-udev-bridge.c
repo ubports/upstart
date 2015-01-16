@@ -69,6 +69,15 @@ static int daemonise = FALSE;
 static NihDBusProxy *upstart = NULL;
 
 /**
+ * user:
+ *
+ * If TRUE, run in User Session mode connecting to the Session Init
+ * rather than PID 1. In this mode, certain relative paths are also
+ * expanded.
+ **/
+static int user = FALSE;
+
+/**
  * no_strip_udev_data:
  *
  * If TRUE, do not modify any udev message data (old behaviour).
@@ -86,6 +95,8 @@ static NihOption options[] = {
 	  NULL, NULL, &daemonise, NULL },
 	{ 0, "no-strip", N_("Do not strip non-printable bytes from udev message data"),
 	  NULL, NULL, &no_strip_udev_data, NULL },
+	{ 0, "user", N_("Connect to user session"),
+	  NULL, NULL, &user, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -97,6 +108,11 @@ main (int   argc,
 {
 	char **              args;
 	DBusConnection *     connection;
+	char *               pidfile_path = NULL;
+	char *               pidfile = NULL;
+	char                *user_session_addr = NULL;
+	nih_local char **    user_session_path = NULL;
+	char *               path_element = NULL;
 	struct udev *        udev;
 	struct udev_monitor *udev_monitor;
 	int                  ret;
@@ -113,8 +129,19 @@ main (int   argc,
 	if (! args)
 		exit (1);
 
+	if (user) {
+		user_session_addr = getenv ("UPSTART_SESSION");
+		if (! user_session_addr) {
+			nih_fatal (_("UPSTART_SESSION isn't set in environment"));
+			exit (EXIT_FAILURE);
+		}
+	}
+
 	/* Initialise the connection to Upstart */
-	connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_UPSTART, upstart_disconnected));
+	connection = NIH_SHOULD (nih_dbus_connect (user
+				? user_session_addr
+				: DBUS_ADDRESS_UPSTART,
+				upstart_disconnected));
 	if (! connection) {
 		NihError *err;
 
@@ -153,6 +180,35 @@ main (int   argc,
 
 	/* Become daemon */
 	if (daemonise) {
+		/* Deal with the pidfile location when becoming a daemon.
+		 * We need to be able to run one bridge per upstart daemon.
+		 * Store the PID file in XDG_RUNTIME_DIR or HOME and include the pid of
+		 * the Upstart instance (last part of the DBus path) in the filename.
+		 */
+
+		if (user) {
+			/* Extract PID from UPSTART_SESSION */
+			user_session_path = nih_str_split (NULL, user_session_addr, "/", TRUE);
+			
+			for (int i = 0; user_session_path && user_session_path[i]; i++)
+				path_element = user_session_path[i];
+
+			if (! path_element) {
+				nih_fatal (_("Invalid value for UPSTART_SESSION"));
+				exit (1);
+			}
+
+			pidfile_path = getenv ("XDG_RUNTIME_DIR");
+			if (!pidfile_path)
+				pidfile_path = getenv ("HOME");
+
+			if (pidfile_path) {
+				NIH_MUST (nih_strcat_sprintf (&pidfile, NULL, "%s/%s.%s.pid",
+							      pidfile_path, program_invocation_short_name, path_element));
+				nih_main_set_pidfile (pidfile);
+			}
+		}
+
 		if (nih_main_daemonise () < 0) {
 			NihError *err;
 
@@ -163,10 +219,12 @@ main (int   argc,
 
 			exit (1);
 		}
-
-		/* Send all logging output to syslog */
-		openlog (program_name, LOG_PID, LOG_DAEMON);
-		nih_log_set_logger (nih_logger_syslog);
+		
+		if (!user) {
+			/* Send all logging output to syslog for system bridge */
+			openlog (program_name, LOG_PID, LOG_DAEMON);
+			nih_log_set_logger (nih_logger_syslog);
+		}
 	}
 
 	/* Handle TERM and INT signals gracefully */

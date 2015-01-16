@@ -42,6 +42,7 @@
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
 
+#define DBUS_ADDRESS_LOCAL "unix:abstract=/com/ubuntu/upstart/local/bridge"
 
 /* Prototypes for static functions */
 static void upstart_disconnected (DBusConnection *connection);
@@ -58,6 +59,14 @@ static void emit_event_error     (void *data, NihDBusMessage *message);
  * in the foreground.
  **/
 static int daemonise = FALSE;
+
+/**
+ * local:
+ *
+ * Set to TRUE if we should connect to upstart-local-bridge instead of
+ * the system init.
+ **/
+static int local = FALSE;
 
 /**
  * system_upstart:
@@ -81,6 +90,8 @@ static NihDBusProxy *user_upstart = NULL;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
+	{ 0, "local", N_("Connect to local bridge, instead of system upstart"),
+	  NULL, NULL, &local, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -120,8 +131,11 @@ main (int   argc,
 	}
 
 	/* Initialise the connection to system Upstart */
-	system_connection = NIH_SHOULD (nih_dbus_bus (DBUS_BUS_SYSTEM, upstart_disconnected));
-
+	if (local) {
+		system_connection = NIH_SHOULD (nih_dbus_connect (DBUS_ADDRESS_LOCAL, upstart_disconnected));
+	} else {
+		system_connection = NIH_SHOULD (nih_dbus_bus (DBUS_BUS_SYSTEM, upstart_disconnected));
+	}
 	if (! system_connection) {
 		NihError *err;
 
@@ -134,7 +148,7 @@ main (int   argc,
 	}
 
 	system_upstart = NIH_SHOULD (nih_dbus_proxy_new (NULL, system_connection,
-						  DBUS_SERVICE_UPSTART, DBUS_PATH_UPSTART,
+						  NULL, DBUS_PATH_UPSTART,
 						  NULL, NULL));
 	if (! system_upstart) {
 		NihError *err;
@@ -293,7 +307,11 @@ upstart_forward_event (void *          data,
 	nih_assert (event_name != NULL);
 
 	/* Build the new event name */
-	NIH_MUST (nih_strcat_sprintf (&new_event_name, NULL, ":sys:%s", event_name));
+	if (local) {
+		new_event_name = NIH_MUST (nih_strdup (NULL, event_name));
+	} else {
+		new_event_name = NIH_MUST (nih_sprintf (NULL, ":sys:%s", event_name));
+	}
 
 	/* Re-transmit the event */
 	pending_call = upstart_emit_event (user_upstart,

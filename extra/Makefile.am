@@ -23,6 +23,7 @@ dist_sessions_DATA = \
 	conf-session/upstart-event-bridge.conf \
 	conf-session/upstart-file-bridge.conf \
 	conf-session/re-exec.conf \
+	conf-session/upstart-udev-bridge.conf \
 	conf-session/upstart-dbus-session-bridge.conf \
 	conf-session/upstart-dbus-system-bridge.conf
 
@@ -33,7 +34,6 @@ sbin_PROGRAMS = \
 
 dist_init_DATA = \
 	conf/upstart-socket-bridge.conf \
-	conf/upstart-event-bridge.conf \
 	conf/upstart-file-bridge.conf \
 	conf/upstart-dbus-bridge.conf
 
@@ -106,8 +106,9 @@ sbin_PROGRAMS += \
 upstart_local_bridge_SOURCES = \
 	upstart-local-bridge.c
 nodist_upstart_local_bridge_SOURCES = \
+	$(org_freedesktop_systemd1_OUTPUTS) \
 	$(com_ubuntu_Upstart_OUTPUTS) \
-	$(com_ubuntu_Upstart_Job_OUTPUTS)
+	$(control_com_ubuntu_Upstart_OUTPUTS)
 upstart_local_bridge_LDADD = \
 	$(LTLIBINTL) \
 	$(NIH_LIBS) \
@@ -224,15 +225,50 @@ $(com_ubuntu_Upstart_Job_OUTPUTS): $(com_ubuntu_Upstart_Job_XML)
 		--output=$@ $<
 
 
+org_freedesktop_systemd1_OUTPUTS = \
+	org.freedesktop.systemd1.c \
+	org.freedesktop.systemd1.h
+
+org_freedesktop_systemd1_XML = \
+	org.freedesktop.systemd1.xml
+
+$(org_freedesktop_systemd1_OUTPUTS): $(org_freedesktop_systemd1_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=proxy --prefix=systemd \
+		--default-interface=org.freedesktop.systemd1.Manager \
+		--output=$@ $<
+
+# Server for upstart-local-bridge
+control_com_ubuntu_Upstart_OUTPUTS = \
+	control_com.ubuntu.Upstart.c \
+	control_com.ubuntu.Upstart.h
+
+control_com_ubuntu_Upstart_XML = \
+	com.ubuntu.Upstart.xml
+
+$(control_com_ubuntu_Upstart_OUTPUTS): $(control_com_ubuntu_Upstart_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=object --prefix=control \
+		--default-interface=com.ubuntu.Upstart0_6 \
+		--output=$@ $<
+
+
+
 # These have to be built sources because we can't compile object files
 # without the header file existing first
 BUILT_SOURCES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
-	$(com_ubuntu_Upstart_Job_OUTPUTS)
+	$(control_com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(org_freedesktop_systemd1_OUTPUTS)
 
 CLEANFILES = \
 	$(com_ubuntu_Upstart_OUTPUTS) \
-	$(com_ubuntu_Upstart_Job_OUTPUTS)
+	$(control_com_ubuntu_Upstart_OUTPUTS) \
+	$(com_ubuntu_Upstart_Job_OUTPUTS) \
+	$(org_freedesktop_systemd1_OUTPUTS)
 
 
 clean-local:

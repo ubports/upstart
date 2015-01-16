@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+     org.freedesktop.systemd1- interface definition for systemd manager object
+
+     Public Domain
+
+     Generated file using gdbus introspect call against systemd1 instance
+  -->
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+ <interface name="org.freedesktop.systemd1.Manager">
+  <method name="StartUnit">
+   <arg name="name" type="s" direction="in"/>
+   <arg name="mode" type="s" direction="in"/>
+   <arg name="job" type="o" direction="out"/>
+  </method>
+ </interface>
+</node>

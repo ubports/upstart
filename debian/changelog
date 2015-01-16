@@ -1,11 +1,17 @@
 upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
 
-  * debian/upstart-bin.upstart.cron.daily: Emit ":sys:rotate-logs" event
-    direct into session init, by-passing system upstart & session
+  * debian/upstart-bin.upstart.cron.daily: Emit "rotate-logs" event direct
+    into session init, by-passing system upstart & session
     event-bridge. This way session logs will be rotated, even upstart is
     not system init.
   * debian/control: make upstart-monitor & upstart-dconf-bridge be
     installable with just session init, upstart-bin.
+  * extra/upstart-local-bridge: implement systemd pid1 logic.
+  * extra/upstart-event-bridge: make it re-emit upstart-local-bridge
+    events direct.
+  * util/telinit: Revert to synchronous behaviour coupled with unavoidable
+    poll to ensure telinit only returns once a re-exec has completed (LP:
+    #901038).
 
  -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sun, 11 Jan 2015 01:15:34 +0000
 
