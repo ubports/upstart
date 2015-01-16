@@ -25,6 +25,8 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -808,9 +810,8 @@ systemd_launch_instance (ClientConnection  *client,
 	key_value = NIH_MUST (nih_str_split (NULL, safe_pair, "=", TRUE));
 
 	/* Construct systemd event@key=*.target group name */
-	group_name = NIH_MUST (nih_sprintf (NULL, "%s@%s\\x3d%s.target",
-					   event_name, key_value[0],
-					    "*"));
+	group_name = NIH_MUST (nih_sprintf (NULL, "%s@%s=*.target",
+					    event_name, key_value[0]));
 
 	/* Construct systemd event@key=value.target unit name */
 	unit_name = NIH_MUST (nih_sprintf (NULL, "%s@%s\\x3d%s.target",
@@ -818,19 +819,28 @@ systemd_launch_instance (ClientConnection  *client,
 					   key_value[1]));
 
 	/* Stop group */
-	if (systemd_stop_unit_sync (NULL, systemd, group_name, "replace", &job_name)) {
-		NihError *err;
-		err = nih_error_get ();
-		nih_warn ("%s", err->message);
-		nih_free (err);
+	int pid = -1;
+	siginfo_t info;
+	do {
+		pid = fork ();
+	} while (pid < 0);
+	
+	if (pid) {
+		info.si_code = 0;
+		info.si_status = 0;
+		if (waitid (P_PID, pid, &info, WEXITED)) {
+			nih_fatal ("%s %s", _("Failed to wait for systemctl"),
+				   strerror (errno));
+		}
+                if (info.si_code != CLD_EXITED || info.si_status) {
+                        nih_fatal ("Bad systemctl exit code %i and status %i\n", info.si_code, info.si_status);
+                }
+	} else {
+		/* Create and submit stop state transition, do not wait to complete */
+		execlp ("systemctl", "systemctl", "--nowait", "stop", group_name, (char *)NULL);
 	}
-
-	if (job_name) {
-		nih_free (job_name);
-		job_name = NULL;
-	}
-
-	/* Start unit */
+			       
+	/* Create and submit start state transition, do not wait to complete */
 	if (systemd_start_unit_sync (NULL, systemd, unit_name, "replace", &job_name)) {
 		NihError *err;
 		err = nih_error_get ();

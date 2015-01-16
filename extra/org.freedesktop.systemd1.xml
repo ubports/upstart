@@ -15,11 +15,6 @@
    <arg name="mode" type="s" direction="in"/>
    <arg name="job" type="o" direction="out"/>
   </method>
-  <method name="StopUnit">
-   <arg name="name" type="s" direction="in"/>
-   <arg name="mode" type="s" direction="in"/>
-   <arg name="job" type="o" direction="out"/>
-  </method>
   <method name="GetJob">
    <arg name="id" type="u" direction="in"/>
    <arg name="job" type="o" direction="out"/>
