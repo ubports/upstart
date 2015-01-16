@@ -120,6 +120,7 @@ sbin_PROGRAMS += \
 upstart_local_bridge_SOURCES = \
 	upstart-local-bridge.c
 nodist_upstart_local_bridge_SOURCES = \
+	$(org_freedesktop_systemd1_OUTPUTS) \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS)
 upstart_local_bridge_LDADD = \
