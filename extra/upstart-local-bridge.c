@@ -49,15 +49,17 @@
 
 #include <nih-dbus/dbus_connection.h>
 #include <nih-dbus/dbus_proxy.h>
+#include <nih-dbus/dbus_object.h>
 
 #include "dbus/upstart.h"
 #include "com.ubuntu.Upstart.h"
 #include "org.freedesktop.systemd1.h"
+#include "control_com.ubuntu.Upstart.h"
 
 #define DBUS_ADDRESS_SYSTEMD "unix:path=/run/systemd/private"
 #define DBUS_PATH_SYSTEMD "/org/freedesktop/systemd1"
 #define DBUS_SERVICE_SYSTEMD "org.freedesktop.systemd1"
-
+#define DBUS_ADDRESS_LOCAL "unix:abstract=/com/ubuntu/upstart/local/bridge"
 
 /**
  * Socket:
@@ -98,6 +100,10 @@ typedef struct client_connection {
 static void upstart_connect      (void);
 static void systemd_connect      (void);
 static int  systemd_booted       (void);
+static int  control_server_open  (void);
+static int  control_server_connect (DBusServer *server,
+				    DBusConnection *conn);
+static void control_disconnected   (DBusConnection *conn);
 static void init_disconnected (DBusConnection *connection);
 
 static Socket *create_socket (void *parent);
@@ -141,6 +147,21 @@ static NihDBusProxy *upstart = NULL;
  * Proxy to systemd daemon.
  **/
 static NihDBusProxy *systemd = NULL;
+
+/**
+ * control_server
+ * 
+ * D-Bus server listening for new direct connections.
+ **/
+DBusServer *control_server = NULL;
+
+/**
+ * control_conns:
+ *
+ * Open control connections, including the connection to a D-Bus
+ * bus and any private client connections.
+ **/
+NihList *control_conns = NULL;
 
 /**
  * event_name:
@@ -279,11 +300,26 @@ main (int   argc,
 
 	nih_debug ("Connected to socket '%s' on fd %d", socket_name, sock->sock);
 
-	if (systemd_booted) {
+	if (systemd_booted() == TRUE) {
 		systemd_connect ();
 	} else {
 		upstart_connect ();
 	}
+
+	control_conns = NIH_MUST (nih_list_new (NULL));
+
+        while ((ret = control_server_open ()) < 0) {
+		NihError *err;
+
+                err = nih_error_get ();
+                if (err->number != ENOMEM) {
+                        nih_warn ("%s: %s", _("Unable to listen for private"
+					      "connections"), err->message);
+                        nih_free (err);
+			break;
+                }
+                nih_free (err);
+        }
 
 	/* Become daemon */
 	if (daemonise) {
@@ -426,7 +462,7 @@ systemd_booted (void)
 {
 	struct stat st;
 
-	if (lstat ("/run/systemd/systemd/", &st) == 0) {
+	if (lstat ("/run/systemd/system/", &st) == 0) {
 		if (S_ISDIR(st.st_mode)) {
 			return TRUE;
 		}
@@ -440,6 +476,79 @@ init_disconnected (DBusConnection *connection)
 {
 	nih_fatal (_("Disconnected from init"));
 	nih_main_loop_exit (1);
+}
+
+/**
+ * control_server_open:
+ *
+ * Open a listening D-Bus server and store it in the control_server global.
+ * New connections are permitted from the root user, and handled
+ * automatically in the main loop.
+ *
+ * Returns: zero on success, negative value on raised error.
+ **/
+
+int
+control_server_open (void)
+{
+	nih_assert (control_server == NULL);
+
+	control_server = nih_dbus_server (DBUS_ADDRESS_LOCAL,
+				  control_server_connect,
+				  control_disconnected);
+	if (! control_server)
+		return -1;
+
+	nih_debug("D-Bus server started at address: %s", DBUS_ADDRESS_LOCAL);
+
+	return 0;
+}
+
+/**
+ * control_server_connect:
+ *
+ * Called when a new client connects to our server and is used to register
+ * objects on the new connection.
+ *
+ * Returns: always TRUE.
+ **/
+static int
+control_server_connect (DBusServer     *server,
+			DBusConnection *conn)
+{
+	nih_assert (server != NULL);
+	nih_assert (server == control_server);
+	nih_assert (conn != NULL);
+
+	/* Register objects on the connection. */
+	NIH_MUST (nih_dbus_object_new (NULL, conn, DBUS_PATH_UPSTART,
+				       control_interfaces, NULL));
+
+
+	nih_debug("Connection from private client");
+
+	return TRUE;
+}
+
+/**
+ * control_disconnected:
+ *
+ * This function is called when the connection to the D-Bus system bus,
+ * or a client connection to our D-Bus server, is dropped and our reference
+ * is about to be list.  We clear the connection from our current list
+ * and drop the control_bus global if relevant.
+ **/
+static void
+control_disconnected (DBusConnection *conn)
+{
+	nih_assert (conn != NULL);
+        /* Remove from the connections list */
+        NIH_LIST_FOREACH_SAFE (control_conns, iter) {
+                NihListEntry *entry = (NihListEntry *)iter;
+
+                if (entry->data == conn)
+                        nih_free (entry);
+        }
 }
 
 /**
@@ -773,19 +882,30 @@ emit_event (ClientConnection  *client,
 	/* Add the name=value pair */
 	NIH_MUST (nih_str_array_addn (&env, NULL, NULL, pair, len));
 
-	pending_call = upstart_emit_event (upstart,
-			event_name, env, FALSE,
-			NULL, emit_event_error, NULL,
-			NIH_DBUS_TIMEOUT_NEVER);
-
-	if (! pending_call) {
-		NihError *err;
-		err = nih_error_get ();
-		nih_warn ("%s", err->message);
-		nih_free (err);
+	if (upstart) {
+		pending_call = upstart_emit_event (upstart,
+						   event_name, env, FALSE,
+						   NULL, emit_event_error, NULL,
+						   NIH_DBUS_TIMEOUT_NEVER);
+		
+		if (! pending_call) {
+			NihError *err;
+			err = nih_error_get ();
+			nih_warn ("%s", err->message);
+			nih_free (err);
+		}
+		
+		dbus_pending_call_unref (pending_call);
 	}
 
-	dbus_pending_call_unref (pending_call);
+	NIH_LIST_FOREACH (control_conns, iter) {
+		NihListEntry   *entry = (NihListEntry *)iter;
+		DBusConnection *conn = (DBusConnection *)entry->data;
+
+		NIH_ZERO (control_emit_event_emitted (conn, DBUS_PATH_UPSTART,
+							    event_name, env));
+	}
+
 }
 
 static void
@@ -855,9 +975,8 @@ process_event (ClientConnection  *client,
 	    const char        *pair,
 	    size_t             len)
 {
-	if (upstart) {
-		emit_event (client, pair, len);
-	}
+	emit_event (client, pair, len);
+
 	if (systemd) {
 		systemd_launch_instance (client, pair, len);
 	}
