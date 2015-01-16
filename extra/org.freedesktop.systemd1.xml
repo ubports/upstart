@@ -15,25 +15,5 @@
    <arg name="mode" type="s" direction="in"/>
    <arg name="job" type="o" direction="out"/>
   </method>
-  <method name="GetJob">
-   <arg name="id" type="u" direction="in"/>
-   <arg name="job" type="o" direction="out"/>
-  </method>
-  <method name="ListJobs">
-   <arg name="jobs" type="a(usssoo)" direction="out"/>
-  </method>
-  <method name="Subscribe"/>
-  <method name="Unsubscribe"/>
-  <signal name="JobNew">
-   <arg name="id" type="u"/>
-   <arg name="job" type="o"/>
-   <arg name="unit" type="s"/>
-  </signal>
-  <signal name="JobRemoved">
-   <arg name="id" type="u"/>
-   <arg name="job" type="o"/>
-   <arg name="unit" type="s"/>
-   <arg name="result" type="s"/>
-  </signal>
  </interface>
 </node>
