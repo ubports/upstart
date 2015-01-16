@@ -307,7 +307,11 @@ upstart_forward_event (void *          data,
 	nih_assert (event_name != NULL);
 
 	/* Build the new event name */
-	NIH_MUST (nih_strcat_sprintf (&new_event_name, NULL, ":sys:%s", event_name));
+	if (local) {
+		new_event_name = NIH_MUST (nih_strdup (NULL, event_name));
+	} else {
+		new_event_name = NIH_MUST (nih_sprintf (NULL, ":sys:%s", event_name));
+	}
 
 	/* Re-transmit the event */
 	pending_call = upstart_emit_event (user_upstart,

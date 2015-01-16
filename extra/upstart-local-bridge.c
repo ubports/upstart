@@ -519,12 +519,16 @@ control_server_connect (DBusServer     *server,
 	nih_assert (server != NULL);
 	nih_assert (server == control_server);
 	nih_assert (conn != NULL);
+	NihListEntry *entry = NULL;
 
 	/* Register objects on the connection. */
 	NIH_MUST (nih_dbus_object_new (NULL, conn, DBUS_PATH_UPSTART,
 				       control_interfaces, NULL));
 
 
+	entry = NIH_MUST (nih_list_entry_new (NULL));
+	entry->data = conn;
+	nih_list_add (control_conns, &entry->entry);
 	nih_debug("Connection from private client");
 
 	return TRUE;
