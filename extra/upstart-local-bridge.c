@@ -837,7 +837,7 @@ systemd_launch_instance (ClientConnection  *client,
                 }
 	} else {
 		/* Create and submit stop state transition, do not wait to complete */
-		execlp ("systemctl", "systemctl", "--nowait", "stop", group_name, (char *)NULL);
+		execlp ("systemctl", "systemctl", "--no-block", "stop", group_name, (char *)NULL);
 	}
 			       
 	/* Create and submit start state transition, do not wait to complete */
