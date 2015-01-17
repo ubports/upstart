@@ -26,6 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <nih/macros.h>
 #include <nih/alloc.h>
@@ -45,6 +48,7 @@
 #define DBUS_ADDRESS_LOCAL "unix:abstract=/com/ubuntu/upstart/local/bridge"
 
 /* Prototypes for static functions */
+static int  systemd_booted       (void);
 static void upstart_disconnected (DBusConnection *connection);
 static void upstart_forward_event    (void *data, NihDBusMessage *message,
 				  const char *path);
@@ -90,8 +94,6 @@ static NihDBusProxy *user_upstart = NULL;
 static NihOption options[] = {
 	{ 0, "daemon", N_("Detach and run in the background"),
 	  NULL, NULL, &daemonise, NULL },
-	{ 0, "local", N_("Connect to local bridge, instead of system upstart"),
-	  NULL, NULL, &local, NULL },
 
 	NIH_OPTION_LAST
 };
@@ -129,6 +131,8 @@ main (int   argc,
 		nih_fatal (_("UPSTART_SESSION isn't set in environment"));
 		exit (1);
 	}
+
+	local = systemd_booted ();
 
 	/* Initialise the connection to system Upstart */
 	if (local) {
@@ -271,6 +275,20 @@ main (int   argc,
 	}
 
 	return ret;
+}
+
+static int
+systemd_booted (void)
+{
+	struct stat st;
+
+	if (lstat ("/run/systemd/system/", &st) == 0) {
+		if (S_ISDIR(st.st_mode)) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 static void
