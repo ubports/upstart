@@ -1,4 +1,4 @@
-upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu6) vivid; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Emit "rotate-logs" event direct
     into session init, by-passing system upstart & session
@@ -14,7 +14,7 @@ upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
     #901038).
   * move udev & local bridges to upstart-bin package.
 
- -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sun, 11 Jan 2015 01:15:34 +0000
+ -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sat, 17 Jan 2015 01:59:42 +0000
 
 upstart (1.13.2-0ubuntu5) vivid; urgency=medium
 
