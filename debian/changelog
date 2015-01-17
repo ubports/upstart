@@ -12,6 +12,7 @@ upstart (1.13.2-0ubuntu6) UNRELEASED; urgency=medium
   * util/telinit: Revert to synchronous behaviour coupled with unavoidable
     poll to ensure telinit only returns once a re-exec has completed (LP:
     #901038).
+  * move udev & local bridges to upstart-bin package.
 
  -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sun, 11 Jan 2015 01:15:34 +0000
 

@@ -11,6 +11,8 @@ sbin/upstart
 sbin/upstart-dbus-bridge
 sbin/upstart-event-bridge
 sbin/upstart-file-bridge
+sbin/upstart-local-bridge
+sbin/upstart-udev-bridge
 debian/running-in-container bin/
 debian/apparmor-profile-load lib/init/
 usr/share/upstart/sessions/*
@@ -31,6 +33,8 @@ usr/share/man/man8/init-checkconf.8
 usr/share/man/man8/upstart.8
 usr/share/man/man8/upstart-file-bridge.8
 usr/share/man/man8/upstart-dbus-bridge.8
+usr/share/man/man8/upstart-local-bridge.8
+usr/share/man/man8/upstart-udev-bridge.8
 usr/share/man/man8/initctl2dot.8
 usr/share/man/man8/initctl.8
 usr/share/man/man5/upstart.5

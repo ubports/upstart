@@ -33,8 +33,8 @@ Package: upstart-bin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, initscripts, libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
 Suggests: python3, graphviz, bash-completion, upstart-monitor
-Replaces: upstart (<< 1.13.2-0ubuntu3)
-Breaks: upstart (<< 1.13.2-0ubuntu3)
+Replaces: upstart (<< 1.13.2-0ubuntu6)
+Breaks: upstart (<< 1.13.2-0ubuntu6)
 Multi-Arch: foreign
 Description: event-based init daemon - essential binaries
  upstart is a replacement for the /sbin/init daemon which handles
