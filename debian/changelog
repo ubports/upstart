@@ -1,8 +1,8 @@
-upstart (1.13.2-0ubuntu7) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu7) vivid; urgency=medium
 
   * Correct upstart-udev-bridge session job start/stop on conditions.
 
- -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Sat, 17 Jan 2015 15:38:35 +0000
+ -- Dimitri John Ledkov <dimitri.j.ledkov@linux.intel.com>  Tue, 20 Jan 2015 10:54:54 +0000
 
 upstart (1.13.2-0ubuntu6) vivid; urgency=medium
 
