@@ -1,3 +1,11 @@
+upstart (1.13.2-0ubuntu9) UNRELEASED; urgency=medium
+
+  * debian/upstart-bin.upstart.cron.daily: Ensure the session uid matches that
+    of the session file itself to stop a user forcing the logrotation of
+    another users logs.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 26 Feb 2015 13:58:32 +0000
+
 upstart (1.13.2-0ubuntu8) vivid; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily:

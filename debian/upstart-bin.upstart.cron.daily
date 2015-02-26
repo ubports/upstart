@@ -16,10 +16,19 @@ do
     [ -f "$file" ] || continue
     [ -h "$file" ] && continue
 
+    file_uid=$(stat -c %u "$file")
+    [ -n "$file_uid" ] || continue
+
     session=$(grep \
 	    "^UPSTART_SESSION=unix:abstract=/com/ubuntu/upstart-session/[0-9][0-9]*/[0-9][0-9]*$" \
 	    "$file" 2>/dev/null || true)
-    [ -z "$session" ] && continue
+    [ -n "$session" ] || continue
+
+    session_uid=$(echo "$session" | cut -d\/ -f5)
+    [ -n "$session_uid" ] || continue
+
+    # Don't allow a user to spoof logrotation for another user.
+    [ "$file_uid" = "$session_uid" ] || continue
 
     env -i "$session" /sbin/initctl emit rotate-logs >/dev/null 2>&1 || true
 done
