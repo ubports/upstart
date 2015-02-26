@@ -1,10 +1,10 @@
-upstart (1.13.2-0ubuntu8) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu8) vivid; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily:
     - [SECURITY FIX]: Only consider valid session files to avoid possible
       privilege escalation. Thanks to halfdog for reporting (LP: #1425685).
 
- -- James Hunt <james.hunt@ubuntu.com>  Thu, 26 Feb 2015 09:59:50 +0000
+ -- James Hunt <james.hunt@ubuntu.com>  Thu, 26 Feb 2015 12:34:30 +0000
 
 upstart (1.13.2-0ubuntu7) vivid; urgency=medium
 
