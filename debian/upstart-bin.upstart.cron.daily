@@ -13,6 +13,9 @@
 
 for file in /run/user/*/upstart/sessions/*.session
 do
+    [ -f "$file" ] || continue
+    [ -h "$file" ] && continue
+
     session=$(grep \
 	    "^UPSTART_SESSION=unix:abstract=/com/ubuntu/upstart-session/[0-9][0-9]*/[0-9][0-9]*$" \
 	    "$file" 2>/dev/null || true)
