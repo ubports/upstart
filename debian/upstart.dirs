@@ -1,1 +1,2 @@
+usr/share/apport/package-hooks
 var/log/upstart

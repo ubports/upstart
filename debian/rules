@@ -39,7 +39,7 @@ endif
 override_dh_fixperms:
 	dh_fixperms
 	chmod 755 debian/upstart/lib/init/upstart-job
-	chmod 755 debian/upstart-bin/lib/init/apparmor-profile-load
+	chmod 755 debian/upstart/lib/init/apparmor-profile-load
 	chmod 755 debian/upstart/usr/lib/upstart/migrate-inittab.pl
 
 override_dh_auto_install:
@@ -49,10 +49,10 @@ override_dh_auto_install:
 # will be added used by the upstart-dconf-bridge.install file.
 override_dh_install:
 	dh_install --list-missing
-	install -m 644 debian/upstart-bin.apport \
-		debian/upstart-bin/usr/share/apport/package-hooks/source_upstart.py
-	rm debian/upstart-bin/usr/share/upstart/sessions/upstart-dconf-bridge.conf
+	install -m 644 debian/upstart.apport \
+		debian/upstart/usr/share/apport/package-hooks/source_upstart.py
+	rm debian/upstart/usr/share/upstart/sessions/upstart-dconf-bridge.conf
 	rm debian/upstart/etc/init/upstart-dbus-bridge.conf
 
 override_dh_installcron:
-	dh_installcron -p upstart-bin --name upstart
+	dh_installcron -p upstart --name upstart

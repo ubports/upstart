@@ -1,3 +1,17 @@
+upstart (1.13.2-0ubuntu10) UNRELEASED; urgency=medium
+
+  * Add upstart-sysv to mirror systemd-sysv behavior if upstart is chosen
+    as the default init daemon: (LP: #1422681)
+    - this fixes upstart not starting only with upstart-bin binary due to
+      missing jobs.
+    - upstart now contains upstart-bin binaries.
+    - upstart-bin is a transitional package. Can be deleted in vivid+1.
+    - removed some deprecated transition path for both debian and ubuntu.
+    - ensure grub is updated when upstart-sysv is installed.
+    - always get alternatives init and right default grub entries.
+
+ -- Didier Roche <didrocks@ubuntu.com>  Mon, 23 Mar 2015 09:51:12 +0100
+
 upstart (1.13.2-0ubuntu9) vivid; urgency=medium
 
   * debian/upstart-bin.upstart.cron.daily: Ensure the session uid matches that

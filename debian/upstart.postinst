@@ -1,12 +1,6 @@
 #!/bin/sh -e
 
-if dpkg --compare-versions "$2" lt-nl 0.6.0; then
-	# We're upgrading from a version of Upstart that doesn't use
-	# D-Bus for its IPC.  We have to tell it to re-exec into one
-	# that does.  It'll lose all state, but we didn't keep much
-	# in those days.
-	telinit u
-elif ! ischroot; then
+if ! ischroot; then
 	# Do not honour re-exec when requested from within a
 	# chroot since:
 	#
@@ -62,6 +56,12 @@ elif ! ischroot; then
 		# here because we lose state.
 		touch /var/run/init.upgraded || :
 	fi
+fi
+
+# update grub on first install, so that the alternative init system boot
+# entries get updated
+if [ "$1" = configure ] && [ -z "$2" ] && [ -e /boot/grub/grub.cfg ] && which update-grub >/dev/null 2>&1; then
+    update-grub || true
 fi
 
 #DEBHELPER#
