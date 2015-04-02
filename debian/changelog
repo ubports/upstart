@@ -1,4 +1,4 @@
-upstart (1.13.2-0ubuntu10) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu10) vivid; urgency=medium
 
   * Add upstart-sysv to mirror systemd-sysv behavior if upstart is chosen
     as the default init daemon: (LP: #1422681)
