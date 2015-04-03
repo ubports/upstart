@@ -1,3 +1,11 @@
+upstart (1.13.2-0ubuntu11) vivid; urgency=medium
+
+  * Remove /lib/init/apparmor-profile-load, as it is being moved to the
+    init-system-helpers package.  Add new dependency on init-system-helpers
+    to transition all current systems. (LP: #1432683)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 02 Apr 2015 11:21:23 -0500
+
 upstart (1.13.2-0ubuntu10) vivid; urgency=medium
 
   * Add upstart-sysv to mirror systemd-sysv behavior if upstart is chosen
