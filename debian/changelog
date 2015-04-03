@@ -1,3 +1,11 @@
+upstart (1.13.2-0ubuntu12) vivid; urgency=medium
+
+  * debian/xsession.d/99upstart:
+    Don't assume that /sbin is in $PATH when calling upstart
+    (LP: #1435492).
+
+ -- Gunnar Hjalmarsson <gunnarhj@ubuntu.com>  Fri, 03 Apr 2015 14:48:00 +0100
+
 upstart (1.13.2-0ubuntu11) vivid; urgency=medium
 
   * Remove /lib/init/apparmor-profile-load, as it is being moved to the
