@@ -2,7 +2,6 @@ bin/init-checkconf usr/bin/
 bin/initctl2dot usr/bin/
 debian/conf/*.conf etc/init/
 debian/migrate-inittab.pl usr/lib/upstart/
-debian/running-in-container bin/
 debian/upstart-job lib/init/
 debian/upstart-xsessions etc/
 debian/user-conf/*.conf usr/share/upstart/sessions/

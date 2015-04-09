@@ -1,3 +1,10 @@
+upstart (1.13.2-0ubuntu13) vivid; urgency=medium
+
+  * remove running-in-container - it is moved to init-system-helpers and
+    made to work also with systemd.  (LP: #1442228)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 09 Apr 2015 18:40:12 -0500
+
 upstart (1.13.2-0ubuntu12) vivid; urgency=medium
 
   * debian/xsession.d/99upstart:
