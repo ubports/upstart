@@ -1,3 +1,9 @@
+upstart (1.13.2-0ubuntu14) UNRELEASED; urgency=medium
+
+  * Cherry-pick upstream fix for LP: #1447756.
+
+ -- James Hunt <james.hunt@ubuntu.com>  Fri, 24 Apr 2015 13:59:00 +0100
+
 upstart (1.13.2-0ubuntu13) vivid; urgency=medium
 
   * remove running-in-container - it is moved to init-system-helpers and

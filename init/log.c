@@ -42,7 +42,7 @@ static void log_flush       (Log *log);
  *
  * TRUE if log_clear_unflushed() has been called successfully.
  **/
-static int log_flushed = 0;
+int log_flushed = 0;
 
 /**
  * log_unflushed_files:
@@ -758,23 +758,23 @@ log_handle_unflushed (void *parent, Log *log)
 
 	log_unflushed_init ();
 
-	/* re-parent */
-	nih_ref (log, log_unflushed_files);
-	nih_unref (log, parent);
-
-	elem = nih_list_entry_new (log);
+	elem = nih_list_entry_new (log_unflushed_files);
 	if (! elem) {
 		/* If memory is low, we discard the unflushed
 		 * data buffer too.
 		 */
-		nih_unref (log, log_unflushed_files);
+		nih_unref (log, parent);
 		return -1;
 	}
+
+	/* re-parent */
+	nih_ref (log, elem);
+	nih_unref (log, parent);
 
 	/* Indicate separation from parent */
 	log->detached = 1;
 
-	elem->data = log;    
+	elem->data = log;
 	nih_list_add_after (log_unflushed_files, &elem->entry);
 
 	return 0;
@@ -799,6 +799,8 @@ log_clear_unflushed (void)
 
 		elem = (NihListEntry *)iter;
 		log = elem->data;
+
+		nih_assert (log);
 
 		/* To be added to this list, log should have been
 		 * detached from its parent job.
@@ -833,7 +835,7 @@ log_clear_unflushed (void)
 			return -1;
 
 		/* This will handle any remaining unflushed log data */
-		nih_free (log);
+		nih_free (elem);
 	}
 
 	log_flushed = 1;
