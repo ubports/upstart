@@ -34,6 +34,8 @@
 #include "job.h"
 #include "test_util_common.h"
 
+extern int log_flushed;
+
 /*
  * To help with understanding the TEST_ALLOC_FAIL peculiarities
  * below...
@@ -1130,6 +1132,7 @@ void
 test_log_destroy (void)
 {
 	Log  *log;
+	Log  *tmp_log;
 	int   ret;
 	int   flags;
 	char  str[] = "hello, world!";
@@ -1138,6 +1141,8 @@ test_log_destroy (void)
 	int   found_fd;
 	char  filename[1024];
 	int   fd;
+	NihListEntry *entry;
+	struct stat  statbuf;
 
 	TEST_FUNCTION ("log_destroy");
 
@@ -1207,7 +1212,87 @@ test_log_destroy (void)
 	TEST_FREE (log->unflushed);
 
 	/************************************************************/
+	TEST_FEATURE ("ensure unflushed data moved to unflushed list with uid 0");
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	TEST_FILENAME (filename);
+
+	/* Make file inaccessible to ensure data cannot be written
+	 * and will thus be added to the unflushed buffer.
+	 */
+	fd = open (filename, O_CREAT | O_EXCL, 0);
+	TEST_NE (fd, -1);
+	close (fd);
+
+	log = log_new (NULL, filename, pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	ret = write (pty_slave, str, strlen (str));
+	TEST_GT (ret, 0);
+
+	TEST_WATCH_UPDATE ();
+	close (pty_slave);
+	TEST_NE_P (log->unflushed, NULL);
+	TEST_EQ (log->unflushed->len, strlen(str));
+	TEST_EQ_STR (log->unflushed->buf, str);
+	TEST_FREE_TAG (log);
+
+	/* reset */
+	log_flushed = 0;
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+	ret = log_handle_unflushed (NULL, log);
+
+	TEST_EQ (ret, 0);
+	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	entry = (NihListEntry *)log_unflushed_files->next;
+	TEST_NE_P (entry, NULL);
+	TEST_FREE_TAG (entry);
+	TEST_ALLOC_PARENT (entry, log_unflushed_files);
+
+	tmp_log = entry->data;
+	TEST_EQ_P (tmp_log, log);
+	TEST_ALLOC_PARENT (log, entry);
+
+	/* make file accessible again */
+	assert0 (chmod (filename, 0755));
+
+	ret = log_clear_unflushed ();
+	assert0 (ret);
+
+	TEST_FREE (entry);
+	TEST_FREE (log);
+
+	assert0 (stat (filename, &statbuf));
+	TEST_EQ (statbuf.st_size, strlen (str));
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	/* full reset */
+	log_flushed = 0;
+	nih_free (log_unflushed_files);
+	log_unflushed_files = NULL;
+	log_unflushed_init ();
+
+	nih_free (nih_io_watches);
+	nih_io_watches = NULL;
+	nih_io_init ();
+
+	assert0 (unlink (filename));
+
+	/************************************************************/
 	TEST_FEATURE ("ensure watch freed when log destroyed");
+
+	/* Make file inaccessible to ensure data cannot be written
+	 * and will thus be added to the unflushed buffer.
+	 */
+	fd = open (filename, O_CREAT | O_EXCL, 0);
+	TEST_NE (fd, -1);
+	close (fd);
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
 
