@@ -1,3 +1,18 @@
+2015-04-24  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - Make log_flushed public to allow tests to test
+	    log_handle_unflushed() properly.
+	  - log_handle_unflushed():
+	    - Make log a child of the list entry and the latter a child of the
+	      unflushed list.
+	  - log_clear_unflushed():
+	    - Ensure the list entry is freed along with the log to avoid an
+	      invalid entry remaining in the list (LP: #1447756).
+	* init/tests/test_log.c:
+	  - test_log_destroy(): Added new test:
+	    - "ensure unflushed data moved to unflushed list with uid 0"
+
 2014-09-08  James Hunt  <james.hunt@ubuntu.com>
 
 	* util/telinit.c: Remove UPSTART_TELINIT_U_NO_WAIT check as it
