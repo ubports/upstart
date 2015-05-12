@@ -1,3 +1,21 @@
+2015-05-12  James Hunt  <james.hunt@ubuntu.com>
+
+	* init/log.c:
+	  - log_clear_unflushed(): Handle logs on the unflushed list which
+	    get flushed automatically by their corresponding NihIo before
+	    a request to clear the unflushed list is made. This scenario
+	    is triggered when a job which has spawned processes exits, but
+	    where the spawned processes continue to run and then produce
+	    output before the request to clear the unflushed list is made
+	    (at the time the log partition becomes writable) but after the
+	    log partition becomes writable (LP: #1447756).
+	* init/tests/test_log.c:
+	  - test_log_new(): Added new test:
+	    "ensure logger unflushed list ignores already flushed data".
+	  - test_log_destroy(): Improved test
+	     "ensure unflushed data moved to unflushed list with uid 0" by giving 
+	    the log a parent and checking parent handling behaviour.
+
 2015-04-24  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:
