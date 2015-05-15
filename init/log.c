@@ -802,6 +802,48 @@ log_clear_unflushed (void)
 
 		nih_assert (log);
 
+		if (! log->unflushed->len) {
+			/* The job that originally owned this log has
+			 * exited, but it spawned one or more other
+			 * processes which still live on. If those
+			 * processes produce output, the NihIo will get
+			 * called automatically to flush the data.
+			 * However, that happens asynchronously to
+			 * clearing the unflushed list.
+			 *
+			 * Hence, if no unflushed data remains, remove
+			 * the entry from the list.
+			 *
+			 * Note that doing so frees the log and stops
+			 * any further output being logged from the
+			 * out-of-job process(es). This isn't ideal
+			 * however:
+			 *
+			 * - Better this than having the Log objects remain indefinitely.
+			 *
+			 * - The problem is ultimately caused by a rogue
+			 *   job which should be fixed (see the warning
+			 *   that is produced for such jobs in
+			 *   log_read_watch()).
+			 *
+			 * - Even if the Log was retained, it would not
+			 *   be flushed unless multiple calls to this
+			 *   function are made (which is not going to
+			 *   occur by default).
+			 *
+			 * Note that it is necessary to set the io to
+			 * NULL since it has already been freed by
+			 * nih_io_closed(), but the io is not set to
+			 * NULL. If we don't do this, when log_destroy()
+			 * is called, it will attempt to dereference the 
+			 * already freed log->io.
+			 */
+			log->io = NULL;
+			nih_free (elem);
+
+			continue;
+		}
+
 		/* To be added to this list, log should have been
 		 * detached from its parent job.
 		 */

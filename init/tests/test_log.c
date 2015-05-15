@@ -654,6 +654,94 @@ test_log_new (void)
 	TEST_FREE (log);
 
 	/************************************************************/
+	TEST_FEATURE ("ensure logger unflushed list ignores already flushed data");
+
+	/* Reset */
+	log_flushed = 0;
+
+	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
+
+	TEST_GT (sprintf (filename, "%s/test.log", dirname), 0);
+
+	TEST_NE (log_unflushed_files, NULL);
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_EQ (stat (dirname, &statbuf), 0);
+
+	/* Save */
+	old_perms = statbuf.st_mode;
+
+	/* Make file inaccessible */
+	TEST_EQ (chmod (dirname, 0x0), 0);
+
+	log = log_new (NULL, filename, pty_master, 0);
+	TEST_NE_P (log, NULL);
+
+	/* Write data to simulate a job process, but _DON'T_ close the
+	 * fd (to simulate the job spawning another process which olds
+	 * the fd open).
+	 */
+	ret = write (pty_slave, str, strlen (str));
+	TEST_GT (ret, 0);
+	ret = write (pty_slave, "\n", 1);
+	TEST_EQ (ret, 1);
+
+	assert0 (log->unflushed->len);
+	TEST_EQ_P (log->unflushed->buf, NULL);
+
+	TEST_NE_P (log->io, NULL);
+
+	TEST_WATCH_UPDATE ();
+
+	/* nih_io_closed() should not have been called */
+	TEST_NE_P (log->io, NULL);
+
+	TEST_EQ_STR (log->unflushed->buf, "hello, world!\r\n");
+
+	/* +2 for '\r\n' */
+	TEST_EQ (log->unflushed->len, 2 + strlen (str));
+
+	/* Ensure no log file written */
+	TEST_LT (stat (filename, &statbuf), 0);
+
+	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_FREE_TAG (log);
+
+	/* Force the usual code path for early boot on a normal system
+	 * when a job produces output before the disks are writable.
+	 */
+	log->open_errno = EROFS;
+
+	TEST_EQ (log_handle_unflushed (NULL, log), 0);
+
+	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	/* Restore access */
+	TEST_EQ (chmod (dirname, old_perms), 0);
+
+	TEST_NE_P (log->io, NULL);
+
+	/* Simulate the data having already been flushed to disk
+	 * and nih_io_closed() having been called.
+	 */
+	log->io = NULL;
+	log->unflushed->len = 0;
+	log->unflushed->buf = NULL;
+	log->remote_closed = 1;
+
+	ret = log_clear_unflushed ();
+	TEST_EQ (ret, 0);
+
+	TEST_FREE (log);
+
+	/* Ensure no log file written */
+	TEST_LT (stat (filename, &statbuf), 0);
+
+	/* Tidy up */
+	close (pty_slave);
+	
+	/************************************************************/
 	TEST_FEATURE ("ensure logger flushes when destroyed with uid 0");
 
 	TEST_EQ (openpty (&pty_master, &pty_slave, NULL, NULL, NULL), 0);
@@ -1143,6 +1231,7 @@ test_log_destroy (void)
 	int   fd;
 	NihListEntry *entry;
 	struct stat  statbuf;
+	char  *p;
 
 	TEST_FUNCTION ("log_destroy");
 
@@ -1227,8 +1316,13 @@ test_log_destroy (void)
 	TEST_NE (fd, -1);
 	close (fd);
 
-	log = log_new (NULL, filename, pty_master, 0);
+	p = nih_strdup (NULL, "hello");
+	TEST_NE_P (p, NULL);
+
+	log = log_new (p, filename, pty_master, 0);
 	TEST_NE_P (log, NULL);
+
+	TEST_ALLOC_PARENT (log, p);
 
 	ret = write (pty_slave, str, strlen (str));
 	TEST_GT (ret, 0);
@@ -1244,15 +1338,25 @@ test_log_destroy (void)
 	log_flushed = 0;
 
 	TEST_TRUE (NIH_LIST_EMPTY (log_unflushed_files));
-	ret = log_handle_unflushed (NULL, log);
-
+	ret = log_handle_unflushed (p, log);
 	TEST_EQ (ret, 0);
+
 	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
+
+	TEST_ALLOC_NOT_PARENT (log, p);
 
 	entry = (NihListEntry *)log_unflushed_files->next;
 	TEST_NE_P (entry, NULL);
 	TEST_FREE_TAG (entry);
 	TEST_ALLOC_PARENT (entry, log_unflushed_files);
+
+	/* Free the original parent object and ensure it doesn't free
+	 * the log.
+	 */
+	nih_free (p);
+
+	TEST_FALSE (NIH_LIST_EMPTY (log_unflushed_files));
+	TEST_NOT_FREE (log);
 
 	tmp_log = entry->data;
 	TEST_EQ_P (tmp_log, log);
