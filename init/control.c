@@ -1427,27 +1427,41 @@ control_set_env_list (void            *data,
 				nih_return_no_memory_error (-1);
 			}
 			if (job_name == NULL && user_mode && control_bus ) {
-				ControlDbusUpdateActivationEnvironmentVarsElement **dbus_vars = NULL;				
+				ControlDbusUpdateActivationEnvironmentVarsElement **dbus_vars = NULL;
 				NihDBusProxy *dbus_proxy = NULL;
 				char ** split_vars = NULL;
 				dbus_vars = NIH_MUST (nih_alloc (NULL, sizeof (ControlDbusUpdateActivationEnvironmentVarsElement *) * 2));
-				dbus_vars[0] = NIH_MUST (nih_new (dbus_vars, ControlDbusUpdateActivationEnvironmentVarsElement));				
+				dbus_vars[0] = NIH_MUST (nih_new (dbus_vars, ControlDbusUpdateActivationEnvironmentVarsElement));
 				dbus_vars[1] = NULL;
 				split_vars = NIH_MUST (nih_str_split (dbus_vars[0], envvar, "=", FALSE));
-			        dbus_vars[0]->item0 = *split_vars;
-				dbus_vars[0]->item1 = *(split_vars+1);
+				if (*split_vars && *split_vars[0]) {
+					dbus_vars[0]->item0 = *split_vars;
+				} else {
+					dbus_vars[0]->item0 = nih_strdup (dbus_vars[0], "");
+				}
+				if (*(split_vars+1) && *(split_vars+1)[0]) {
+					dbus_vars[0]->item1 = *(split_vars+1);
+				} else {
+					dbus_vars[0]->item1 = nih_strdup (dbus_vars[0], "");
+				}
 
 				dbus_proxy = NIH_SHOULD (nih_dbus_proxy_new (dbus_vars, control_bus, "org.freedesktop.DBus", "/", NULL, NULL));
 				if (! dbus_proxy) {
 					nih_warn (_("Failed to get dbus_proxy"));
 				} else {
 					if (control_dbus_update_activation_environment_sync (dbus_vars, dbus_proxy, dbus_vars) != 0) {
+						NihDBusError *dbus_err;
+						dbus_err = (NihDBusError *)nih_error_get ();
+						nih_error ("%s", dbus_err->message);
+						nih_free (dbus_err);
+						nih_warn ("dbus_vars[0] item0: %s", dbus_vars[0]->item0);
+						nih_warn ("dbus_vars[0] item1: %s", dbus_vars[0]->item1);
 						nih_warn (_("Failed to update DBus activation environment"));
 					}
 				}
 				nih_free(dbus_vars);
 			}
-		}		
+		}
 	}
 
 	return 0;
