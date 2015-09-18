@@ -1,8 +1,8 @@
-upstart (1.13.2-0ubuntu15) UNRELEASED; urgency=medium
+upstart (1.13.2-0ubuntu15) wily; urgency=medium
 
   * Move from libjson0-dev to libjson-c-dev. (LP: #1384886)
 
- -- Robert Ancell <robert.ancell@ubuntu.com>  Fri, 18 Sep 2015 06:26:39 +0200
+ -- Robert Ancell <robert.ancell@ubuntu.com>  Fri, 18 Sep 2015 06:29:15 +0200
 
 upstart (1.13.2-0ubuntu14) wily; urgency=medium
 
