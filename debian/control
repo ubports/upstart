@@ -5,7 +5,7 @@ Maintainer: James Hunt <james.hunt@ubuntu.com>
 XSBC-Orig-Maintainer: Steve Langasek <vorlon@debian.org>
 Uploaders: Scott James Remnant <scott@netsplit.com>, James Hunt <james.hunt@ubuntu.com>
 Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson0-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3:any, automake (>= 1.12), libdconf-dev, libselinux1-dev [linux-any], libcgmanager-dev [linux-any]
+Build-Depends: debhelper (>= 9), pkg-config (>= 0.22), libnih-dev (>= 1.0.3), libnih-dbus-dev (>= 1.0.3), nih-dbus-tool (>= 1.0.3), libdbus-1-dev (>= 1.2.16), libexpat1-dev (>= 2.0.0), libudev-dev (>= 151-5), libjson-c-dev (>= 0.10), dbus, bash-completion, dh-autoreconf, autopoint, python3:any, automake (>= 1.12), libdconf-dev, libselinux1-dev [linux-any], libcgmanager-dev [linux-any]
 X-Python3-Version: >= 3.2
 Vcs-Bzr: lp:ubuntu/upstart
 XS-Debian-Vcs-Bzr: nosmart+http://bzr.debian.org/bzr/collab-maint/upstart/trunk/
@@ -15,7 +15,7 @@ XS-Testsuite: autopkgtest
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, init-system-helpers (>= 1.22ubuntu6), initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), libjson0 (>= 0.10-1.1ubuntu1), debianutils (>= 4)
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, init-system-helpers (>= 1.22ubuntu6), initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), debianutils (>= 4)
 Suggests: python3, graphviz, bash-completion, upstart-monitor
 Replaces: upstart-job, sysvinit, startup-tasks, system-services, upstart-bin (<< 1.13.2-0ubuntu10~)
 Conflicts: upstart-job, sysvinit, startup-tasks, system-services, lxcguest
