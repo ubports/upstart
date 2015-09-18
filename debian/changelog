@@ -1,8 +1,17 @@
-upstart (1.13.2-0ubuntu15) wily; urgency=medium
+upstart (1.13.2-0ubuntu16) wily; urgency=medium
 
   * Move from libjson0-dev to libjson-c-dev. (LP: #1384886)
 
  -- Robert Ancell <robert.ancell@ubuntu.com>  Fri, 18 Sep 2015 06:29:15 +0200
+
+upstart (1.13.2-0ubuntu15) wily; urgency=medium
+
+  * debian/user-conf/xsession-init.conf:
+    - Make xsession-init a task that exits immediately, rather than
+      a long-living process that waits for all consumers of its signal
+      to exit.
+
+ -- Michael Terry <mterry@ubuntu.com>  Thu, 17 Sep 2015 18:12:30 -0400
 
 upstart (1.13.2-0ubuntu14) wily; urgency=medium
 
