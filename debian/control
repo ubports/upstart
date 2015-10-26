@@ -15,12 +15,12 @@ XS-Testsuite: autopkgtest
 
 Package: upstart
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, init-system-helpers (>= 1.22ubuntu6), initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), debianutils (>= 4)
+Depends: ${shlibs:Depends}, ${misc:Depends}, sysvinit-utils, initscripts, mountall, ifupdown (>= 0.6.10ubuntu5), debianutils (>= 4)
 Suggests: python3, graphviz, bash-completion, upstart-monitor
-Replaces: upstart-job, sysvinit, startup-tasks, system-services, upstart-bin (<< 1.13.2-0ubuntu10~)
+Replaces: upstart-job, sysvinit, startup-tasks, system-services, upstart-bin (<< 1.13.2-0ubuntu10~), init-system-helpers (<< 1.24ubuntu1)
 Conflicts: upstart-job, sysvinit, startup-tasks, system-services, lxcguest
 Provides: upstart-job, upstart-compat-sysv, startup-tasks, system-services
-Breaks: libc6 (<< 2.12.1-0ubuntu12), friendly-recovery (<< 0.2.13), initramfs-tools (<< 0.103ubuntu8), upstart-bin (<< 1.13.2-0ubuntu10~)
+Breaks: libc6 (<< 2.12.1-0ubuntu12), friendly-recovery (<< 0.2.13), initramfs-tools (<< 0.103ubuntu8), upstart-bin (<< 1.13.2-0ubuntu10~), init-system-helpers (<< 1.24ubuntu1)
 Multi-Arch: foreign
 Description: event-based init daemon - essential binaries
  upstart is a replacement for the /sbin/init daemon which handles

@@ -1,3 +1,10 @@
+upstart (1.13.2-0ubuntu17) xenial; urgency=medium
+
+  * Put back /lib/init/apparmor-profile-load shim, as some upstart jobs still
+    use that instead of /lib/apparmor/profile-load. (LP: #1432683)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 26 Oct 2015 08:59:04 +0100
+
 upstart (1.13.2-0ubuntu16) wily; urgency=medium
 
   * Move from libjson0-dev to libjson-c-dev. (LP: #1384886)

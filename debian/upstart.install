@@ -1,5 +1,6 @@
 bin/init-checkconf usr/bin/
 bin/initctl2dot usr/bin/
+debian/apparmor-profile-load lib/init/
 debian/conf/*.conf etc/init/
 debian/migrate-inittab.pl usr/lib/upstart/
 debian/upstart-job lib/init/
