@@ -1,3 +1,10 @@
+upstart (1.13.2-0ubuntu18) xenial; urgency=medium
+
+  * apparmor-profile-load: don't fail if apparmor is not installed.
+    (LP: #1521931)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 03 Dec 2015 20:52:54 -0600
+
 upstart (1.13.2-0ubuntu17) xenial; urgency=medium
 
   * Put back /lib/init/apparmor-profile-load shim, as some upstart jobs still
