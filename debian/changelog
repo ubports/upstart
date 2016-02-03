@@ -1,3 +1,11 @@
+upstart (1.13.2-0ubuntu19) xenial; urgency=medium
+
+  * Set bzr vcs to lp:~ubuntu-core-dev/upstart/ubuntu
+  * Do not start upstart event bridge, when pid1 is systemd LP: #1447099
+  * In init-checkconf, use /sbin/upstart path
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Wed, 03 Feb 2016 14:04:04 +0000
+
 upstart (1.13.2-0ubuntu18) xenial; urgency=medium
 
   * apparmor-profile-load: don't fail if apparmor is not installed.

@@ -29,7 +29,7 @@
 script_name=${0##*/}
 confdir=$(mktemp -d /tmp/${script_name}.XXXXXXXXXX)
 xdg_runtime_dir=$(mktemp -d /tmp/${script_name}.XXXXXXXXXX)
-upstart_path=/sbin/init
+upstart_path=/sbin/upstart
 initctl_path=/sbin/initctl
 debug_enabled=n
 file_valid=n
