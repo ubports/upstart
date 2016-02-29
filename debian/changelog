@@ -1,3 +1,12 @@
+upstart (1.13.2-0ubuntu20) UNRELEASED; urgency=medium
+
+  * Drop versioned Breaks: to init-system-helpers introduced in
+    1.13.2-0ubuntu17. It can lead to dependency loops on upgrades. The
+    Replaces: suffices to tell dpkg about changing the ownership of
+    apparmor-profile-load. (LP: #1541914)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Feb 2016 10:46:15 +0100
+
 upstart (1.13.2-0ubuntu19) xenial; urgency=medium
 
   * Set bzr vcs to lp:~ubuntu-core-dev/upstart/ubuntu
