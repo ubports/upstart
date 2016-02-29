@@ -2,6 +2,10 @@ upstart (1.13.2-0ubuntu21) UNRELEASED; urgency=medium
 
   * init/tests/test_job_process.c: Relax assertion about output format of
     "dd", as it changed recently. Fixes test failure and FTBFS.
+  * init/tests/test_job_process.c: Disable "exited with signal" check in "with
+    single-line script that is killed" test, as this is racy: it is possible
+    that a short lived process exits faster than we manage to kill it. This
+    will enable us to un-ignore autopkgtests again.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Feb 2016 15:56:09 +0100
 
