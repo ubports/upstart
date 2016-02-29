@@ -1,3 +1,10 @@
+upstart (1.13.2-0ubuntu21) UNRELEASED; urgency=medium
+
+  * init/tests/test_job_process.c: Relax assertion about output format of
+    "dd", as it changed recently. Fixes test failure and FTBFS.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Feb 2016 15:56:09 +0100
+
 upstart (1.13.2-0ubuntu20) xenial; urgency=medium
 
   * Drop versioned Breaks: to init-system-helpers introduced in

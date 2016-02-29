@@ -2626,7 +2626,7 @@ test_start (void)
 	CHECK_FILE_EQ (output, "0+0 records in\r\n", TRUE);
 	CHECK_FILE_EQ (output, "0+0 records out\r\n", TRUE);
 
-	TEST_FILE_MATCH (output, "0 bytes (0 B) copied,*\r\n");
+	TEST_FILE_MATCH (output, "0 bytes* copied,*\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
@@ -3060,7 +3060,7 @@ test_start (void)
 	TEST_EQ_STR (p, "7+0 records in\r\n");
 
 	CHECK_FILE_EQ (output, "7+0 records out\r\n", TRUE);
-	TEST_FILE_MATCH (output, "7 bytes (7 B) copied,*\r\n");
+	TEST_FILE_MATCH (output, "7 bytes* copied,*\r\n");
 	TEST_FILE_END (output);
 	fclose (output);
 
