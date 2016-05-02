@@ -1,3 +1,10 @@
+2016-05-02  Steve Langasek  <steve.langasek@ubuntu.com>
+
+	* init/tests/test_job_process.c: Adjust the script-oriented logging
+	  tests to use read from a fifo instead of sleep 999, for clearer
+	  process handling; and fix the descriptions of a couple of tests to
+	  match what they're actually doing.
+
 2015-05-12  James Hunt  <james.hunt@ubuntu.com>
 
 	* init/log.c:
