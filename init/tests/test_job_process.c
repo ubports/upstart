@@ -494,6 +494,7 @@ test_start (void)
 	FILE            *output;
 	struct stat      statbuf;
 	char             filename[PATH_MAX], buf[80];
+	char             fifoname[PATH_MAX];
 	char             function[PATH_MAX];
 	int              status;
 	siginfo_t        info;
@@ -1729,6 +1730,13 @@ test_start (void)
 	TEST_FEATURE ("with single-line script that is killed");
 	TEST_HASH_EMPTY (job_classes);
 
+	/* Create a fifo that we can use to read from in our scripts,
+	 * so we have a sensible way to block in shell without spawning
+	 * a separate process.
+	 */
+	TEST_GT (sprintf (fifoname, "%s/pipe", dirname), 0);
+	TEST_EQ (mknod (fifoname, S_IFIFO|S_IRUSR|S_IWUSR, 0), 0);
+
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
 
@@ -1738,7 +1746,7 @@ test_start (void)
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 			class->process[PROCESS_MAIN],
-			"%s hello world;sleep 999", TEST_CMD_ECHO);
+			"%s hello world;read <%s", TEST_CMD_ECHO, fifoname);
 	class->process[PROCESS_MAIN]->script = TRUE;
 
 	job = job_new (class, "");
@@ -1807,6 +1815,7 @@ test_start (void)
 	fclose (output);
 
 	TEST_EQ (unlink (filename), 0);
+	TEST_EQ (unlink (fifoname), 0);
 	nih_free (class);
 
 	/************************************************************/
@@ -1913,6 +1922,13 @@ test_start (void)
 	TEST_FEATURE ("with multi-line script that is killed");
 	TEST_HASH_EMPTY (job_classes);
 
+	/* Create a fifo that we can use to read from in our scripts,
+	 * so we have a sensible way to block in shell without spawning
+	 * a separate process.
+	 */
+	TEST_GT (sprintf (fifoname, "%s/pipe", dirname), 0);
+	TEST_EQ (mknod (fifoname, S_IFIFO|S_IRUSR|S_IWUSR, 0), 0);
+
 	/* Note we can't use TEST_ALLOC_FAIL() for this test since on
 	 * the ENOMEM loop all we could do is discard the error and
 	 * continue since job_process_start() calls job_process_spawn()
@@ -1932,7 +1948,7 @@ test_start (void)
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 			class->process[PROCESS_MAIN],
-			"%s hello world\nsleep 999", TEST_CMD_ECHO);
+			"%s hello world\nread <%s", TEST_CMD_ECHO, fifoname);
 	class->process[PROCESS_MAIN]->script = TRUE;
 
 	job = job_new (class, "");
@@ -1982,11 +1998,19 @@ test_start (void)
 	fclose (output);
 
 	TEST_EQ (unlink (filename), 0);
+	TEST_EQ (unlink (fifoname), 0);
 	nih_free (class);
 
 	/************************************************************/
 	TEST_FEATURE ("with single-line script that writes 1 byte and is killed");
 	TEST_HASH_EMPTY (job_classes);
+
+	/* Create a fifo that we can use to read from in our scripts,
+	 * so we have a sensible way to block in shell without spawning
+	 * a separate process.
+	 */
+	TEST_GT (sprintf (fifoname, "%s/pipe", dirname), 0);
+	TEST_EQ (mknod (fifoname, S_IFIFO|S_IRUSR|S_IWUSR, 0), 0);
 
 	class = job_class_new (NULL, "test", NULL);
 	TEST_NE_P (class, NULL);
@@ -1997,7 +2021,7 @@ test_start (void)
 	class->process[PROCESS_MAIN] = process_new (class);
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 			class->process[PROCESS_MAIN],
-			"%s -ne X;sleep 999", TEST_CMD_ECHO);
+			"%s -ne X; read <%s", TEST_CMD_ECHO, fifoname);
 	class->process[PROCESS_MAIN]->script = TRUE;
 
 	job = job_new (class, "");
@@ -2043,6 +2067,7 @@ test_start (void)
 	fclose (output);
 
 	TEST_EQ (unlink (filename), 0);
+	TEST_EQ (unlink (fifoname), 0);
 	nih_free (class);
 
 	/************************************************************/
@@ -2055,7 +2080,7 @@ test_start (void)
 	 */
 
 	/************************************************************/
-	TEST_FEATURE ("with multi-line script that writes 1 byte and is killed");
+	TEST_FEATURE ("with multi-line script that writes 1 byte");
 	TEST_HASH_EMPTY (job_classes);
 
 	class = job_class_new (NULL, "multiline", NULL);
@@ -2588,7 +2613,7 @@ test_start (void)
 	class->process[PROCESS_MAIN]->command = nih_sprintf (
 			class->process[PROCESS_MAIN],
 			"%s if=/dev/zero of=/dev/null bs=1 count=0", TEST_CMD_DD);
-	class->process[PROCESS_MAIN]->script = TRUE;
+	class->process[PROCESS_MAIN]->script = FALSE;
 
 	job = job_new (class, "");
 	job->goal = JOB_START;
