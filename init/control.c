@@ -1445,7 +1445,9 @@ control_set_env_list (void            *data,
 					dbus_vars[0]->item1 = nih_strdup (dbus_vars[0], "");
 				}
 
-				dbus_proxy = NIH_SHOULD (nih_dbus_proxy_new (dbus_vars, control_bus, "org.freedesktop.DBus", "/", NULL, NULL));
+				dbus_proxy = NIH_SHOULD (nih_dbus_proxy_new (dbus_vars, control_bus,
+					"org.freedesktop.DBus", "/org/freedesktop/DBus", NULL, NULL));
+
 				if (! dbus_proxy) {
 					nih_warn (_("Failed to get dbus_proxy"));
 				} else {
