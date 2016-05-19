@@ -1,3 +1,10 @@
+upstart (1.13.2-0ubuntu21.1) xenial; urgency=medium
+
+  * Cherry-pick upstream fixes to publish global session variable changes
+    to the dbus environment. LP: #1433013.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Thu, 19 May 2016 12:04:29 +0100
+
 upstart (1.13.2-0ubuntu21) xenial; urgency=medium
 
   * init/tests/test_job_process.c: Relax assertion about output format of

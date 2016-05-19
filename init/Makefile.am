@@ -65,6 +65,7 @@ init_SOURCES = \
 	errors.h \
 	apparmor.c apparmor.h
 nodist_init_SOURCES = \
+	$(org_freedesktop_DBus_OUTPUTS) \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
@@ -127,14 +128,30 @@ $(com_ubuntu_Upstart_Instance_OUTPUTS): $(com_ubuntu_Upstart_Instance_XML)
 		--default-interface=com.ubuntu.Upstart0_6.Instance \
 		--output=$@ $<
 
+org_freedesktop_DBus_OUTPUTS = \
+	org.freedesktop.DBus.c \
+	org.freedesktop.DBus.h
+
+org_freedesktop_DBus_XML = \
+	../dbus/org.freedesktop.DBus.xml
+
+$(org_freedesktop_DBus_OUTPUTS): $(org_freedesktop_DBus_XML)
+	$(AM_V_GEN)$(NIH_DBUS_TOOL) \
+		--package=$(PACKAGE) \
+		--mode=proxy --prefix=control_dbus \
+		--default-interface=org.freedesktop.DBus \
+		--output=$@ $<
+
 # These have to be built sources because we can't compile object files
 # without the header file existing first
 BUILT_SOURCES = \
+	$(org_freedesktop_DBus_OUTPUTS) \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
 
 CLEANFILES = \
+	$(org_freedesktop_DBus_OUTPUTS) \
 	$(com_ubuntu_Upstart_OUTPUTS) \
 	$(com_ubuntu_Upstart_Job_OUTPUTS) \
 	$(com_ubuntu_Upstart_Instance_OUTPUTS)
@@ -234,6 +251,7 @@ test_process_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -252,6 +270,7 @@ test_job_class_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -269,6 +288,7 @@ test_job_process_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -287,6 +307,7 @@ test_job_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -305,6 +326,7 @@ test_log_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -323,6 +345,7 @@ test_state_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -341,6 +364,7 @@ test_event_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -358,6 +382,7 @@ test_event_operator_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -376,6 +401,7 @@ test_blocked_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -393,6 +419,7 @@ test_parse_job_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -411,6 +438,7 @@ test_parse_conf_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -433,6 +461,7 @@ test_conf_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -451,6 +480,7 @@ test_conf_static_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -482,6 +512,7 @@ test_cgroup_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o cgroup.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
@@ -498,6 +529,7 @@ test_control_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(NIH_LIBS) \
@@ -515,6 +547,7 @@ test_main_LDADD = \
 	job_class.o job_process.o job.o event.o event_operator.o blocked.o \
 	parse_job.o parse_conf.o conf.o control.o quiesce.o \
 	session.o log.o state.o xdg.o apparmor.o \
+	org.freedesktop.DBus.o \
 	com.ubuntu.Upstart.o \
 	com.ubuntu.Upstart.Job.o com.ubuntu.Upstart.Instance.o \
 	$(top_builddir)/test/libtest_util_common.a \
