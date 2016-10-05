@@ -936,15 +936,16 @@ escape_string (const char *f)
 		"ABCDEFGHIJKLMNOPQRSTUVWXYX" \
 		":_."
 	for (; *f; f++) {
-		if (*f == '/')
+		if (*f == '/') {
 			*(t++) = '-';
-		else if (!strchr(VALID_CHARS, *f)) {
+		} else if (!strchr(VALID_CHARS, *f)) {
 			*(t++) = '\\';
 			*(t++) = 'x';
 			*(t++) = hexchar(*f >> 4);
 			*(t++) = hexchar(*f);
-		} else
+		} else {
 			*(t++) = *f;
+		}
 	}
 
 	*t = '\0';
