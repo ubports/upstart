@@ -912,6 +912,47 @@ emit_event (ClientConnection  *client,
 
 }
 
+static char
+hexchar (char c)
+{
+	static const char table[16] = "0123456789abcdef";
+
+	return table[c & 0xf];
+}
+
+static char*
+escape_string (const char *f)
+{
+	char *r = NULL;
+	char *t = NULL;
+
+	nih_assert (f);
+
+	r = t = NIH_MUST (nih_alloc (NULL, strlen(f) * 4 + 1));
+
+#define VALID_CHARS \
+		"0123456789" \
+		"abcdefghijklmnopqrstuvwxyz" \
+		"ABCDEFGHIJKLMNOPQRSTUVWXYX" \
+		":_."
+	for (; *f; f++) {
+		if (*f == '/') {
+			*(t++) = '-';
+		} else if (!strchr(VALID_CHARS, *f)) {
+			*(t++) = '\\';
+			*(t++) = 'x';
+			*(t++) = hexchar(*f >> 4);
+			*(t++) = hexchar(*f);
+		} else {
+			*(t++) = *f;
+		}
+	}
+
+	*t = '\0';
+
+	return r;
+}
+
 static void
 systemd_launch_instance (ClientConnection  *client,
 	    const char        *pair,
@@ -919,6 +960,8 @@ systemd_launch_instance (ClientConnection  *client,
 {
 	nih_local char     *safe_pair = NULL;
 	nih_local char    **key_value = NULL;
+	nih_local char     *escaped_key = NULL;
+	nih_local char     *escaped_value = NULL;
 	nih_local char     *group_name = NULL;
 	nih_local char     *unit_name = NULL;
 	nih_local char     *job_name = NULL;
@@ -933,14 +976,18 @@ systemd_launch_instance (ClientConnection  *client,
 	/* Get key val from the key=val pair */
 	key_value = NIH_MUST (nih_str_split (NULL, safe_pair, "=", TRUE));
 
+	/* Escape key/value for systemd */
+	escaped_key = NIH_MUST (escape_string (key_value[0]));
+	escaped_value = NIH_MUST (escape_string (key_value[1] ? key_value[1] : "(null)"));
+
 	/* Construct systemd event@key=*.target group name */
-	group_name = NIH_MUST (nih_sprintf (NULL, "%s@%s=*.target",
-					    event_name, key_value[0]));
+	group_name = NIH_MUST (nih_sprintf (NULL, "%s@%s\\x3d*.target",
+					    event_name, escaped_key));
 
 	/* Construct systemd event@key=value.target unit name */
 	unit_name = NIH_MUST (nih_sprintf (NULL, "%s@%s\\x3d%s.target",
-					   event_name, key_value[0],
-					   key_value[1]));
+					   event_name, escaped_key,
+					   escaped_value));
 
 	/* Stop group */
 	int pid = -1;
