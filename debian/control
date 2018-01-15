@@ -92,7 +92,7 @@ Description: Upstart Client Library
 Package: libupstart-dev
 Priority: optional
 Section: libdevel
-Architecture: amd64 arm64 armhf i386 powerpc ppc64el
+Architecture: any
 Multi-Arch: same
 Depends: libupstart1 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: Upstart Client Library (development files)
