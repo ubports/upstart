@@ -1,3 +1,9 @@
+upstart (1.13.20ubuntu21.3+ubports) xenial; urgency=medium
+
+  * Imported to UBports
+
+ -- UBports auto importer <infra@ubports.com>  Mon, 15 Jan 2018 14:13:18 +0100
+
 upstart (1.13.2-0ubuntu21.2) xenial; urgency=medium
 
   [ Vicamo Yang ]
