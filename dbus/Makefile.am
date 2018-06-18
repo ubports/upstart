@@ -7,7 +7,6 @@ dist_dbus1system_DATA = \
 
 EXTRA_DIST = \
 	upstart.h \
-	org.freedesktop.DBus.xml \
 	com.ubuntu.Upstart.xml \
 	com.ubuntu.Upstart.Job.xml \
 	com.ubuntu.Upstart.Instance.xml
